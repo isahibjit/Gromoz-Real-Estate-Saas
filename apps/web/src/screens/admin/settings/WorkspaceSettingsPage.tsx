@@ -35,6 +35,11 @@ import {
   Select,
 } from "ui";
 import { api } from "../../../common/api";
+import {
+  LoginPageCmsModal,
+  LoginPageCmsData,
+  defaultLoginPageCms,
+} from "./LoginPageCmsModal";
 
 const COUNTRY_OPTIONS = [
   { value: "India", label: "India" },
@@ -159,6 +164,8 @@ export function WorkspaceSettingsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [settings, setSettings] = useState<any>(null);
+  const [loginCms, setLoginCms] = useState<LoginPageCmsData | null>(null);
+  const [isLoginCmsModalOpen, setIsLoginCmsModalOpen] = useState(false);
 
   // Form states
   const [form, setForm] = useState({
@@ -237,6 +244,10 @@ export function WorkspaceSettingsPage() {
       const d = res.data;
       setSettings(d);
 
+      if (d.loginCms) {
+        setLoginCms(d.loginCms);
+      }
+
       if (d.profile) {
         setForm({
           companyName: d.profile.companyName || "",
@@ -310,6 +321,7 @@ export function WorkspaceSettingsPage() {
     try {
       await api.patch("/organizations/workspace-settings", {
         ...form,
+        loginCms: loginCms,
         localization: localizationForm,
         financial: financialForm,
         preferences: preferencesForm,
@@ -321,6 +333,32 @@ export function WorkspaceSettingsPage() {
       fetchSettings();
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Failed to update workspace profile");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveLoginCms = async (updatedCms: LoginPageCmsData) => {
+    setSaving(true);
+    try {
+      await api.patch("/organizations/workspace-settings", {
+        ...form,
+        loginCms: updatedCms,
+        localization: localizationForm,
+        financial: financialForm,
+        preferences: preferencesForm,
+        security: securityForm,
+        integrations: integrationsForm,
+      });
+
+      setLoginCms(updatedCms);
+      localStorage.setItem("truroot_login_cms", JSON.stringify(updatedCms));
+      window.dispatchEvent(new Event("storage"));
+      toast.success("Login page CMS customized and published!");
+      setIsLoginCmsModalOpen(false);
+      fetchSettings();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to save Login CMS settings");
     } finally {
       setSaving(false);
     }
@@ -358,6 +396,7 @@ export function WorkspaceSettingsPage() {
 
   const tabs = [
     { id: "profile", label: "Workspace Profile & Domains" },
+    { id: "login-cms", label: "Login Page CMS" },
     { id: "localization", label: "Localization" },
     { id: "financial", label: "Business & Financial" },
     { id: "preferences", label: "Preferences" },
@@ -670,6 +709,232 @@ export function WorkspaceSettingsPage() {
               </div>
             </div>
           </Card>
+
+          {/* Card 3: Login Screen Visual CMS & Support Center */}
+          <Card className="border border-primary/20 bg-gradient-to-br from-card via-card to-primary/5 shadow-sm rounded-xl p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                  <Sparkles className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-foreground">Login Page Visual CMS & Support Center</h3>
+                    <Badge variant="primary" className="text-[10px]">
+                      Live Multi-Tenant
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Customize login headlines, support hotline number, hero features, security badges & logo.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setIsLoginCmsModalOpen(true)}
+                  className="gap-1.5 font-bold shadow-xs text-xs"
+                >
+                  <Edit3 className="h-3.5 w-3.5" />
+                  Customize Login Page (CMS)
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  className="gap-1.5 text-xs font-semibold"
+                >
+                  <a href="/login" target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Preview Live
+                  </a>
+                </Button>
+              </div>
+            </div>
+
+            {/* CMS Summary Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 rounded-lg bg-card border border-border space-y-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Login Headline & Tagline
+                </span>
+                <p className="text-xs font-bold text-foreground line-clamp-1">
+                  {loginCms?.heroHeadlinePrefix || "Welcome to"}{" "}
+                  <span className="text-primary">{loginCms?.heroHeadlineHighlight || form.companyName || "Trueroot Realty CRM"}</span>
+                </p>
+                <p className="text-[11px] text-muted-foreground line-clamp-2">
+                  {loginCms?.heroTagline || "Streamline your leads, follow-ups, site visits and sales - all in one place."}
+                </p>
+              </div>
+
+              <div className="p-4 rounded-lg bg-card border border-border space-y-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Support Center Box
+                </span>
+                <div className="space-y-1 text-xs">
+                  <p className="font-bold text-foreground flex items-center gap-1.5">
+                    <span className="text-primary">📞</span>
+                    {loginCms?.supportPhone || form.primaryPhone || "+91 98765 43210"}
+                  </p>
+                  <p className="font-semibold text-muted-foreground flex items-center gap-1.5 text-[11px]">
+                    <span className="text-primary">✉️</span>
+                    {loginCms?.supportEmail || form.primaryEmail || "support@truerootrealty.com"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-lg bg-card border border-border space-y-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Feature Badges & App Link
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {(loginCms?.features || [
+                    { title: "Manage Leads" },
+                    { title: "Track Activities" },
+                    { title: "Close More Deals" },
+                    { title: "Boost Productivity" },
+                  ]).slice(0, 4).map((f, i) => (
+                    <span key={i} className="text-[10px] font-bold px-2 py-0.5 rounded bg-muted text-foreground border border-border">
+                      {f.title}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground pt-1">
+                  Android App Download:{" "}
+                  <strong className={loginCms?.showDownloadApp ?? true ? "text-emerald-600 font-semibold" : "text-muted-foreground"}>
+                    {loginCms?.showDownloadApp ?? true ? "Enabled" : "Hidden"}
+                  </strong>
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Tab: Dedicated Login Page CMS */}
+      {activeTab === "login-cms" && (
+        <div className="space-y-6">
+          <Card className="border border-border bg-card shadow-sm rounded-xl p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                    <Sparkles className="h-4 w-4" />
+                  </div>
+                  <h2 className="text-base font-bold text-foreground">
+                    White-Label Login Page CMS Customizer
+                  </h2>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Craft your custom branded welcome portal, support hotline numbers, security guarantees, and mobile app download actions.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="primary"
+                  onClick={() => setIsLoginCmsModalOpen(true)}
+                  className="gap-2 font-bold shadow-xs text-xs"
+                >
+                  <Edit3 className="h-4 w-4" />
+                  Launch Visual CMS Editor
+                </Button>
+                <Button
+                  variant="outline"
+                  asChild
+                  className="gap-2 text-xs font-semibold"
+                >
+                  <a href="/login" target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Open Public Login Page
+                  </a>
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Overview */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Current Configuration
+                </h4>
+
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-lg border border-border bg-muted/20 space-y-1">
+                    <span className="text-[11px] font-bold text-muted-foreground">Hero Headline</span>
+                    <p className="text-sm font-extrabold text-foreground">
+                      {loginCms?.heroHeadlinePrefix || "Welcome to"}{" "}
+                      <span className="text-primary">{loginCms?.heroHeadlineHighlight || form.companyName || "Trueroot Realty CRM"}</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {loginCms?.heroTagline || "Streamline your leads, follow-ups, site visits and sales - all in one place."}
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-lg border border-border bg-muted/20 space-y-1">
+                    <span className="text-[11px] font-bold text-muted-foreground">Support Center & Contact</span>
+                    <div className="flex items-center gap-4 text-xs font-bold text-foreground pt-1">
+                      <span>📞 {loginCms?.supportPhone || form.primaryPhone || "+91 98765 43210"}</span>
+                      <span>✉️ {loginCms?.supportEmail || form.primaryEmail || "support@truerootrealty.com"}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 rounded-lg border border-border bg-muted/20 space-y-1">
+                    <span className="text-[11px] font-bold text-muted-foreground">Security Trust Badge</span>
+                    <p className="text-xs font-bold text-foreground">
+                      🛡️ {loginCms?.trustBadgeTitle || "Secure. Reliable. Always with You."}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {loginCms?.trustBadgeDescription || "Your data is protected with enterprise grade security."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Live Preview Box */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Live Snapshot Preview
+                </h4>
+                <div className="rounded-xl border border-border bg-slate-950 p-4 text-white overflow-hidden relative shadow-lg">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                    <span className="text-xs font-black tracking-wider text-amber-400 uppercase">
+                      {form.companyName || "BRAND PREVIEW"}
+                    </span>
+                    <span className="text-[10px] bg-primary/20 text-blue-300 font-bold px-2 py-0.5 rounded">
+                      Live Modal
+                    </span>
+                  </div>
+
+                  <div className="py-4 space-y-2">
+                    <h5 className="text-base font-extrabold text-white leading-tight">
+                      {loginCms?.heroHeadlinePrefix || "Welcome to"}{" "}
+                      <span className="text-amber-400">
+                        {loginCms?.heroHeadlineHighlight || form.companyName || "Trueroot Realty CRM"}
+                      </span>
+                    </h5>
+                    <p className="text-[11px] text-slate-300 line-clamp-2">
+                      {loginCms?.heroTagline || "Streamline your leads, follow-ups, site visits and sales - all in one place."}
+                    </p>
+                  </div>
+
+                  <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
+                    <span>Need Help? {loginCms?.supportPhone || form.primaryPhone || "+91 98765 43210"}</span>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={() => setIsLoginCmsModalOpen(true)}
+                      className="text-[11px] h-7 px-2.5 font-bold"
+                    >
+                      Edit in CMS Modal
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
         </div>
       )}
 
@@ -892,6 +1157,18 @@ export function WorkspaceSettingsPage() {
           </div>
         </Card>
       )}
+
+      {/* Login Page Visual CMS Modal */}
+      <LoginPageCmsModal
+        isOpen={isLoginCmsModalOpen}
+        onClose={() => setIsLoginCmsModalOpen(false)}
+        initialData={loginCms || undefined}
+        onSave={handleSaveLoginCms}
+        orgName={form.companyName || "Trueroot Realty CRM"}
+        orgLogo={form.logoUrl || ""}
+        orgPhone={form.primaryPhone || "+91 98765 43210"}
+        orgEmail={form.primaryEmail || "support@truerootrealty.com"}
+      />
     </div>
   );
 }

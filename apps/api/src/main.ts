@@ -41,7 +41,7 @@ async function bootstrap() {
       callback(null, reqOrigin || '*');
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
     allowedHeaders: [
       'Content-Type',
       'Authorization',
@@ -49,7 +49,17 @@ async function bootstrap() {
       'x-api-key',
       'Accept',
       'X-Requested-With',
+      'x-organization-id',
+      'X-Organization-Id',
+      'x-organization-slug',
+      'X-Organization-Slug',
+      'x-tenant-id',
+      'X-Tenant-Id',
+      'Cache-Control',
+      'Pragma',
+      'Origin',
     ],
+    exposedHeaders: ['Content-Disposition', 'x-organization-id', 'X-Organization-Id'],
   });
 
   const config = new DocumentBuilder()

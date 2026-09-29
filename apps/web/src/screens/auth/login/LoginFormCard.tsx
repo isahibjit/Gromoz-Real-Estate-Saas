@@ -24,6 +24,7 @@ import { OtpVerificationCard } from "../forgot-password/OtpVerificationCard";
 import { AuthCard } from "./AuthCard";
 import { defaultAuthSupport } from "./AuthLayout";
 import { SupportBox } from "./SupportBox";
+import { useLoginPageCms } from "./useLoginPageCms";
 
 function FieldIcon({
   children,
@@ -50,6 +51,7 @@ function isAuthTokens(data: LoginResponse): data is AuthTokens {
 }
 
 export function LoginFormCard() {
+  const cms = useLoginPageCms();
   const loginMutation = useLoginMutation();
   const requestOtpMutation = useRequestLoginOtpMutation();
   const verifyOtpMutation = useVerifyLoginOtpMutation();
@@ -192,10 +194,10 @@ export function LoginFormCard() {
             </span>
             <div>
               <h2 className="text-[1.55rem] font-extrabold leading-tight tracking-[-0.03em] text-secondary sm:text-[1.8rem] 2xl:text-[2rem]">
-                Login to Your Account
+                {cms.cardTitle || "Login to Your Account"}
               </h2>
               <p className="mt-1.5 text-sm font-semibold text-muted-foreground 2xl:text-base">
-                Welcome back! Please login to continue.
+                {cms.cardSubtitle || "Welcome back! Please login to continue."}
               </p>
             </div>
           </div>
@@ -327,19 +329,25 @@ export function LoginFormCard() {
             ) : null}
           </Button>
 
-          <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-xs font-bold leading-5 text-secondary">
-            Enter your password first. If two-factor authentication is enabled
-            for your role or employee profile, we will send an SMS OTP before
-            signing you in.
-          </div>
+          {cms.passwordHint ? (
+            <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-xs font-bold leading-5 text-secondary">
+              {cms.passwordHint}
+            </div>
+          ) : null}
 
-          <Button asChild variant="outline" className="w-full">
-            <Link to="/download-app">Download Android app</Link>
-          </Button>
+          {cms.showDownloadApp ? (
+            <Button asChild variant="outline" className="w-full">
+              <a href={cms.downloadAppUrl || "/download-app"} target="_blank" rel="noopener noreferrer">
+                {cms.downloadAppLabel || "Download Android app"}
+              </a>
+            </Button>
+          ) : null}
 
           <SupportBox
-            phone={defaultAuthSupport.phone}
-            email={defaultAuthSupport.email}
+            title={cms.supportTitle}
+            subtitle={cms.supportSubtitle}
+            phone={cms.supportPhone || defaultAuthSupport.phone}
+            email={cms.supportEmail || defaultAuthSupport.email}
           />
         </form>
       </CardContent>

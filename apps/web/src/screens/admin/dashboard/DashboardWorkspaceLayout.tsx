@@ -37,7 +37,7 @@ function DashboardWorkspaceLayoutContent({ children }: { children?: ReactNode })
   };
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <div className="flex h-screen overflow-hidden bg-slate-50 font-sans w-full">
       <DashboardSidebar
         managed
         collapsed={collapsed}
@@ -51,9 +51,13 @@ function DashboardWorkspaceLayoutContent({ children }: { children?: ReactNode })
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1">
+      <div
+        className={`flex flex-1 flex-col overflow-hidden transition-all duration-300 min-w-0 w-full ${
+          collapsed ? "lg:pl-[80px]" : "lg:pl-[295px]"
+        }`}
+      >
         {isSuperAdminImpersonating && (
-          <div className="bg-amber-600 text-white px-4 py-2 text-xs font-medium flex items-center justify-between shadow-sm">
+          <div className="bg-amber-600 text-white px-4 py-2 text-xs font-medium flex items-center justify-between shadow-sm flex-shrink-0 z-40">
             <div className="flex items-center gap-2">
               <span className="bg-amber-800 text-white text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded">
                 SuperAdmin Mode
@@ -86,7 +90,11 @@ function DashboardWorkspaceLayoutContent({ children }: { children?: ReactNode })
         >
           {header.headerContent}
         </DashboardHeader>
-        {children ?? <Outlet />}
+        <main className="flex-1 overflow-y-auto bg-[#F3F5F7] w-full">
+          <div className="w-full p-6 lg:p-8 space-y-6 font-sans">
+            {children ?? <Outlet />}
+          </div>
+        </main>
         <TodayFollowUpsFab />
       </div>
     </div>

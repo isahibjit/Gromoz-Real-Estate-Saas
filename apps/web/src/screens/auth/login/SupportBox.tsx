@@ -1,11 +1,18 @@
 import { Headphones, Mail, Phone } from "lucide-react";
 
 interface SupportBoxProps {
-  phone: string;
-  email: string;
+  title?: string;
+  subtitle?: string;
+  phone?: string;
+  email?: string;
 }
 
-export function SupportBox({ phone, email }: SupportBoxProps) {
+export function SupportBox({
+  title = "Need help?",
+  subtitle = "Contact our support team",
+  phone = "+91 98765 43210",
+  email = "support@truerootrealty.com",
+}: SupportBoxProps) {
   const phoneHref = `tel:${phone.replace(/[^\d+]/g, "")}`;
 
   return (
@@ -21,28 +28,32 @@ export function SupportBox({ phone, email }: SupportBoxProps) {
           </span>
           <div>
             <h3 className="text-sm font-extrabold text-secondary 2xl:text-base">
-              Need help?
+              {title}
             </h3>
             <p className="mt-1 text-xs font-semibold text-muted-foreground 2xl:text-sm">
-              Contact our support team
+              {subtitle}
             </p>
           </div>
         </div>
         <div className="space-y-2 text-xs font-extrabold text-secondary 2xl:text-sm">
-          <a
-            href={phoneHref}
-            className="flex items-center gap-3 hover:text-primary"
-          >
-            <Phone aria-hidden="true" className="size-4" />
-            {phone}
-          </a>
-          <a
-            href={`mailto:${email}`}
-            className="flex items-center gap-3 hover:text-primary"
-          >
-            <Mail aria-hidden="true" className="size-4" />
-            {email}
-          </a>
+          {phone && (
+            <a
+              href={phoneHref}
+              className="flex items-center gap-3 hover:text-primary transition-colors"
+            >
+              <Phone aria-hidden="true" className="size-4 text-primary" />
+              {phone}
+            </a>
+          )}
+          {email && (
+            <a
+              href={`mailto:${email}`}
+              className="flex items-center gap-3 hover:text-primary transition-colors"
+            >
+              <Mail aria-hidden="true" className="size-4 text-slate-500" />
+              {email}
+            </a>
+          )}
         </div>
       </div>
     </div>

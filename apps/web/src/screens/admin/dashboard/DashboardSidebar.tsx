@@ -2,38 +2,337 @@ import React, {
   memo,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
 } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
+  Activity,
+  Award,
+  BarChart3,
+  Bell,
+  Bot,
+  Building2,
+  Calendar,
+  CalendarCheck,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  ClipboardCopy,
+  Clock,
+  Compass,
+  CreditCard,
+  DollarSign,
+  FileText,
+  Filter,
+  Gift,
+  Globe,
+  Home,
+  Layers,
+  LayoutDashboard,
   Lock,
   LogOut,
+  MapPin,
   Menu,
   Monitor,
+  PhoneCall,
+  PieChart,
+  Plug,
+  Plus,
+  PlusCircle,
+  Radio,
+  RotateCcw,
+  Send,
+  Settings,
+  Share2,
   Shield,
+  ShieldAlert,
+  ShieldCheck,
+  Sliders,
+  SlidersHorizontal,
+  Smartphone,
+  Sparkles,
+  Tag,
+  Target,
+  TrendingUp,
   User,
+  UserCheck,
+  UserPlus,
+  Users,
   X,
+  Zap,
 } from "lucide-react";
 import { Button, cn } from "ui";
 import { getUserRoleLabel } from "../../../common/roleLabels";
-
 import trurootLogo from "../../../assets/truroot-logo.png";
-import type { SidebarItem, SidebarChildItem } from "./dashboardData";
 import { useAppSelector } from "../../../store";
-import { useDashboardLayoutContext } from "./DashboardLayoutContext";
-import { filterSidebarItems } from "../../../common/access/access";
-import {
-  getActiveNavigation,
-  getNavigationForUser,
-} from "../../../common/navigation/navigationRegistry";
 import { useLogoutMutation } from "../../../common/mutations/useAuthMutations";
+import { recordRecentSearch } from "../../../components/navigation/HeaderSearchBar";
 
-const SIDEBAR_EXPANDED_STORAGE_KEY = "truroot.sidebar.expanded-items";
+export interface NavItem {
+  label: string;
+  icon: React.ElementType;
+  to: string;
+  badge?: string;
+  permission?: string;
+}
+
+export interface NavCategory {
+  title: string;
+  items: NavItem[];
+}
+
+const defaultNavCategories: NavCategory[] = [
+  {
+    title: "Main",
+    items: [
+      {
+        label: "Dashboard",
+        icon: LayoutDashboard,
+        to: "/admin/dashboard",
+      },
+    ],
+  },
+  {
+    title: "Sales & Pipeline",
+    items: [
+      {
+        label: "All Leads Pipeline",
+        icon: UserPlus,
+        to: "/leads/all",
+        badge: "1,250 Leads",
+      },
+      {
+        label: "Lead Pipeline",
+        icon: TrendingUp,
+        to: "/leads/pipeline",
+        badge: "₹18.4 Cr",
+      },
+      {
+        label: "Follow-Up Leads",
+        icon: RotateCcw,
+        to: "/leads/follow-up",
+        badge: "Today",
+      },
+      {
+        label: "Duplicate Leads",
+        icon: Users,
+        to: "/leads/duplicates",
+      },
+      {
+        label: "Inactive Leads",
+        icon: UserCheck,
+        to: "/leads/inactive",
+      },
+      {
+        label: "Auto-Assignment",
+        icon: SlidersHorizontal,
+        to: "/leads/assignment/masters",
+      },
+    ],
+  },
+  {
+    title: "Projects & Inventory",
+    items: [
+      {
+        label: "Projects & Inventory",
+        icon: Building2,
+        to: "/projects",
+        badge: "24 Active",
+      },
+      {
+        label: "Project Masters",
+        icon: Layers,
+        to: "/projects/masters",
+      },
+    ],
+  },
+  {
+    title: "Site Visits & Field Force",
+    items: [
+      {
+        label: "Site Visits Manager",
+        icon: MapPin,
+        to: "/site-visits",
+        badge: "18 Today",
+      },
+      {
+        label: "Live GPS Tracking",
+        icon: Radio,
+        to: "/site-visits/tracking",
+        badge: "Live",
+      },
+    ],
+  },
+  {
+    title: "Bookings & Revenue",
+    items: [
+      {
+        label: "Bookings & Deals",
+        icon: CreditCard,
+        to: "/bookings",
+        badge: "₹14.2 Cr",
+      },
+      {
+        label: "Brokerage & Payouts",
+        icon: DollarSign,
+        to: "/bookings/brokerage-report",
+      },
+      {
+        label: "My Commissions",
+        icon: Award,
+        to: "/commissions",
+      },
+    ],
+  },
+  {
+    title: "Lead Sources & Automation",
+    items: [
+      {
+        label: "All Lead Sources",
+        icon: Compass,
+        to: "/leads/sources",
+        badge: "18 Active",
+      },
+      {
+        label: "Portal Integrations",
+        icon: Plug,
+        to: "/leads/import/magicbricks",
+        badge: "Connectors",
+      },
+      {
+        label: "Import CSV Leads",
+        icon: PlusCircle,
+        to: "/leads/import/csv",
+      },
+      {
+        label: "Conversion Funnel",
+        icon: Filter,
+        to: "/leads/conversion",
+        badge: "Funnel",
+      },
+      {
+        label: "Source Analytics",
+        icon: BarChart3,
+        to: "/leads/source-analytics",
+      },
+    ],
+  },
+  {
+    title: "HR & Team Management",
+    items: [
+      {
+        label: "Employee Workspace",
+        icon: Users,
+        to: "/hr",
+      },
+      {
+        label: "Employee Tasks",
+        icon: CalendarCheck,
+        to: "/tasks",
+      },
+      {
+        label: "Attendance & Shifts",
+        icon: Clock,
+        to: "/attendance",
+      },
+    ],
+  },
+  {
+    title: "Reports & Performance",
+    items: [
+      {
+        label: "Calling Performance",
+        icon: TrendingUp,
+        to: "/admin/performance/calling",
+        badge: "Calling",
+      },
+      {
+        label: "Lead Performance",
+        icon: Zap,
+        to: "/admin/performance/leads",
+        badge: "ROI",
+      },
+      {
+        label: "Audit Logs",
+        icon: ShieldAlert,
+        to: "/leads/audit-log",
+      },
+    ],
+  },
+  {
+    title: "Workspace & Settings",
+    items: [
+      {
+        label: "Workspace Settings",
+        icon: Settings,
+        to: "/admin/settings",
+        badge: "Admin",
+      },
+      {
+        label: "Login Page CMS",
+        icon: Sparkles,
+        to: "/admin/settings?tab=login-cms",
+        badge: "CMS",
+      },
+      {
+        label: "Access Control",
+        icon: ShieldCheck,
+        to: "/admin/access-control",
+      },
+      {
+        label: "Mobile App Download",
+        icon: Smartphone,
+        to: "/download-app",
+      },
+    ],
+  },
+];
+
+const superAdminNavCategories: NavCategory[] = [
+  {
+    title: "Platform Administration",
+    items: [
+      {
+        label: "SuperAdmin Dashboard",
+        icon: LayoutDashboard,
+        to: "/superadmin",
+      },
+      {
+        label: "Tenant Organizations",
+        icon: Building2,
+        to: "/superadmin/tenants",
+        badge: "SaaS",
+      },
+      {
+        label: "Billing & Subscriptions",
+        icon: CreditCard,
+        to: "/billing",
+      },
+      {
+        label: "Platform Audit Logs",
+        icon: ShieldAlert,
+        to: "/superadmin/audit",
+      },
+    ],
+  },
+  {
+    title: "Workspace Inspection",
+    items: [
+      {
+        label: "Workspace Dashboard",
+        icon: Monitor,
+        to: "/admin/dashboard",
+      },
+      {
+        label: "Workspace Settings",
+        icon: Settings,
+        to: "/admin/settings",
+      },
+    ],
+  },
+];
 
 interface DashboardSidebarProps {
   collapsed: boolean;
@@ -42,7 +341,7 @@ interface DashboardSidebarProps {
   activeChild?: string;
   activeItemId?: string;
   activeChildId?: string;
-  items?: SidebarItem[];
+  items?: any[];
   footerContent?: ReactNode;
   onCollapse: () => void;
   onMobileClose: () => void;
@@ -65,18 +364,9 @@ export const MobileMenuButton = ({ onClick }: { onClick: () => void }) => (
 function DashboardSidebarComponent({
   collapsed,
   mobileOpen,
-  activeItem = "Dashboard",
-  activeChild,
-  activeItemId,
-  activeChildId,
-  items: customItems,
-  footerContent,
   onCollapse,
   onMobileClose,
-  managed = false,
 }: DashboardSidebarProps) {
-  const layout = useDashboardLayoutContext();
-  const setLayoutSidebar = layout?.setSidebar;
   const user = useAppSelector((state) => state.auth.user);
   const location = useLocation();
   const navigate = useNavigate();
@@ -163,98 +453,26 @@ function DashboardSidebarComponent({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useLayoutEffect(() => {
-    if (!setLayoutSidebar || managed) return undefined;
-    const sidebarConfig = {
-      activeItem,
-      activeChild,
-      sidebarItems: customItems,
-      sidebarFooter: footerContent,
-    };
-    setLayoutSidebar(sidebarConfig);
-    return () =>
-      setLayoutSidebar((current) => (current === sidebarConfig ? {} : current));
-  }, [
-    activeChild,
-    activeItem,
-    customItems,
-    footerContent,
-    managed,
-    setLayoutSidebar,
-  ]);
-
-  const derivedItems = getNavigationForUser(user);
-  const items = customItems
-    ? filterSidebarItems(customItems, user)
-    : derivedItems;
-  const routeActive = getActiveNavigation(location.pathname, items);
-  const resolvedActiveItemId = activeItemId ?? routeActive.activeItemId;
-  const resolvedActiveChildId = activeChildId ?? routeActive.activeChildId;
-  const resolvedActiveItem = activeItem ?? routeActive.activeItem;
-  const resolvedActiveChild = activeChild ?? routeActive.activeChild;
-
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") {
-      return new Set(resolvedActiveItemId ? [resolvedActiveItemId] : []);
-    }
-    try {
-      const raw = window.localStorage.getItem(SIDEBAR_EXPANDED_STORAGE_KEY);
-      const stored = raw ? (JSON.parse(raw) as string[]) : [];
-      const next = new Set(stored);
-      if (resolvedActiveItemId) next.add(resolvedActiveItemId);
-      return next;
-    } catch {
-      return new Set(resolvedActiveItemId ? [resolvedActiveItemId] : []);
-    }
-  });
-
-  useLayoutEffect(() => {
-    if (!resolvedActiveItemId) return;
-    setExpandedItems((current) => {
-      if (current.has(resolvedActiveItemId)) return current;
-      const next = new Set(current);
-      next.add(resolvedActiveItemId);
-      return next;
-    });
-  }, [resolvedActiveItemId]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(
-      SIDEBAR_EXPANDED_STORAGE_KEY,
-      JSON.stringify(Array.from(expandedItems)),
-    );
-  }, [expandedItems]);
-
-  if (layout && !managed) {
-    return null;
-  }
-
-  const toggleExpandedItem = (item: SidebarItem) => {
-    if (!item.children?.length && !item.expandable) {
-      return;
-    }
-
-    const itemId = item.id ?? item.label;
-    setExpandedItems((current) => {
-      const next = new Set(current);
-      if (next.has(itemId)) {
-        next.delete(itemId);
-      } else {
-        next.add(itemId);
-      }
-      return next;
-    });
-  };
-
   const handleLogout = () => {
     logoutMutation.mutate();
   };
+
+  const isSuperAdminOnly =
+    user?.role === "SUPER_ADMIN" &&
+    !localStorage.getItem("active_organization_id");
+  const categories = isSuperAdminOnly ? superAdminNavCategories : defaultNavCategories;
 
   const showBigLogo = !collapsed || isHovered;
   const hasCustomLogo = Boolean(branding.logoUrl && branding.logoUrl.trim() !== "");
   const hasCollapsedLogo = Boolean(branding.collapsedLogoUrl && branding.collapsedLogoUrl.trim() !== "");
   const canRenderCustomLogoInSidebar = (hasCustomLogo || hasCollapsedLogo) && branding.showLogoInSidebar;
+
+  const isItemActive = (to: string) => {
+    if (to === "/admin/dashboard" || to === "/superadmin") {
+      return location.pathname === to;
+    }
+    return location.pathname === to || location.pathname.startsWith(to + "/");
+  };
 
   return (
     <>
@@ -270,20 +488,17 @@ function DashboardSidebarComponent({
       {/* Refined Enterprise White Theme Sidebar */}
       <aside
         aria-label="Main navigation"
-        className={cn(
-          "fixed top-0 bottom-0 left-0 z-50 flex flex-col border-r border-slate-200 bg-white text-slate-700 shadow-xs transition-all duration-300 ease-in-out overflow-x-hidden lg:sticky lg:top-0 lg:z-20 lg:h-screen lg:translate-x-0",
-          mobileOpen ? "translate-x-0" : "-translate-x-full",
-          showBigLogo ? "w-[295px]" : "w-[80px]",
-        )}
+        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col border-r border-slate-200 bg-white text-slate-700 shadow-xs transition-all duration-300 ease-in-out overflow-x-hidden ${
+          showBigLogo ? "w-[295px] shadow-xl" : "w-[80px]"
+        }`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
         {/* Brand Header */}
         <div
-          className={cn(
-            "flex h-20 flex-none items-center border-b border-slate-100 transition-all duration-300",
-            showBigLogo ? "justify-between px-4" : "justify-center px-2",
-          )}
+          className={`flex h-20 flex-none items-center border-b border-slate-100 transition-all duration-300 ${
+            showBigLogo ? "justify-between px-4" : "justify-center px-2"
+          }`}
           style={{
             backgroundColor: branding.sidebarHeaderBg || "transparent",
           }}
@@ -291,7 +506,7 @@ function DashboardSidebarComponent({
           {showBigLogo ? (
             <>
               <Link
-                to={user?.role === "SUPER_ADMIN" ? "/superadmin" : "/admin/dashboard"}
+                to={isSuperAdminOnly ? "/superadmin" : "/admin/dashboard"}
                 className={cn(
                   "flex items-center w-full max-w-[220px]",
                   branding.sidebarLogoAlign === "center"
@@ -347,9 +562,12 @@ function DashboardSidebarComponent({
               </Link>
               <button
                 type="button"
-                onClick={onCollapse}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCollapse();
+                }}
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition duration-200 hidden lg:flex cursor-pointer"
-                title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+                title={collapsed ? "Expand permanently" : "Collapse Sidebar"}
               >
                 <ChevronLeft className={cn("h-5 w-5 transition-transform", collapsed && "rotate-180")} />
               </button>
@@ -365,7 +583,10 @@ function DashboardSidebarComponent({
           ) : (
             <button
               type="button"
-              onClick={onCollapse}
+              onClick={(e) => {
+                e.stopPropagation();
+                onCollapse();
+              }}
               className="flex items-center justify-center p-1 rounded-lg hover:bg-slate-100 transition duration-200 cursor-pointer"
               title="Expand Sidebar"
             >
@@ -408,62 +629,72 @@ function DashboardSidebarComponent({
           )}
         </div>
 
-        {/* Navigation Items */}
+        {/* Navigation Items Categorized */}
         <nav
           className={cn(
-            "flex-1 min-h-0 space-y-1.5 overflow-y-auto overflow-x-hidden px-2.5 py-4",
+            "flex-1 min-h-0 space-y-3 overflow-y-auto overflow-x-hidden px-2.5 py-4",
             showBigLogo
               ? "scrollbar-thin scrollbar-thumb-slate-200"
               : "scrollbar-none",
           )}
         >
-          {items.map((item) => {
-            const Icon = item.icon;
-            const itemId = item.id ?? item.label;
-            const active =
-              itemId === resolvedActiveItemId ||
-              item.label === resolvedActiveItem;
-            const expanded =
-              expandedItems.has(itemId) && item.children && showBigLogo;
+          {categories.map((cat, idx) => (
+            <div key={idx} className="space-y-0.5">
+              {showBigLogo && (
+                <p className="px-3 text-[11px] font-medium text-slate-400 pt-2 pb-1">
+                  {cat.title}
+                </p>
+              )}
+              {cat.items.map((item) => {
+                const Icon = item.icon;
+                const active = isItemActive(item.to);
 
-            const hasChildren = Boolean(item.children && item.children.length > 0);
-
-            if (hasChildren && item.children) {
-              return (
-                <div key={itemId} className="space-y-0.5">
-                  <button
-                    type="button"
-                    onClick={() => toggleExpandedItem(item)}
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => {
+                      onMobileClose();
+                      recordRecentSearch({
+                        label: item.label,
+                        category: cat.title,
+                        to: item.to,
+                        badge: item.badge,
+                      });
+                    }}
                     title={!showBigLogo ? item.label : undefined}
-                    className={cn(
-                      "group relative flex w-full items-center rounded-sm py-2 text-[13px] font-medium transition-all duration-150 cursor-pointer",
+                    className={`group relative flex items-center rounded-sm py-2 text-[13px] font-medium transition-all duration-150 ${
                       showBigLogo
                         ? "px-3 gap-3 justify-start"
-                        : "w-11 mx-auto justify-center px-0",
+                        : "w-11 mx-auto justify-center px-0"
+                    } ${
                       active
-                        ? "bg-[#0D1F3D] text-white shadow-xs font-semibold"
-                        : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900",
-                    )}
+                        ? "bg-[#0D1F3D] text-white shadow-xs font-semibold" /* Active State */
+                        : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900" /* Default & Hover State */
+                    }`}
                   >
                     <Icon
-                      className={cn(
-                        "h-4.5 w-4.5 shrink-0 transition-colors",
+                      className={`h-4 w-4 shrink-0 transition-colors ${
                         active
                           ? "text-white"
-                          : "text-slate-400 group-hover:text-slate-700",
-                      )}
+                          : "text-slate-500 group-hover:text-slate-700"
+                      }`}
                     />
 
                     {showBigLogo && (
                       <div className="flex flex-1 items-center justify-between min-w-0 gap-2">
-                        <span className="truncate min-w-0 font-medium">{item.label}</span>
-                        <ChevronRight
-                          className={cn(
-                            "h-4 w-4 shrink-0 text-slate-400 transition-transform",
-                            expanded && "rotate-90 text-slate-600",
-                            active && "text-white",
-                          )}
-                        />
+                        <span className="truncate min-w-0">{item.label}</span>
+                        {item.badge && (
+                          <span
+                            className={`shrink-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-extrabold transition-colors ${
+                              active
+                                ? "bg-[#E20613] text-white border border-[#E20613]"
+                                : "bg-red-50 text-[#E20613] border border-red-200/60"
+                            }`}
+                          >
+                            {item.badge}
+                          </span>
+                        )}
                       </div>
                     )}
 
@@ -473,102 +704,11 @@ function DashboardSidebarComponent({
                         <span>{item.label}</span>
                       </div>
                     )}
-                  </button>
-
-                  {expanded && (
-                    <div className="ml-7 space-y-1 border-l border-slate-200 pl-3 py-1">
-                      {item.children.map((child: SidebarChildItem) => {
-                        const childId = child.id ?? child.label;
-                        const childActive =
-                          childId === resolvedActiveChildId ||
-                          child.label === resolvedActiveChild;
-
-                        return (
-                          <NavLink
-                            key={childId}
-                            to={child.to}
-                            onClick={onMobileClose}
-                            className={cn(
-                              "flex items-center justify-between rounded-sm px-2.5 py-1.5 text-xs font-medium transition-colors",
-                              childActive
-                                ? "bg-[#0D1F3D] text-white font-semibold shadow-xs"
-                                : "text-slate-500 hover:bg-slate-100/80 hover:text-slate-900",
-                            )}
-                          >
-                            <span className="truncate">{child.label}</span>
-                            {child.badge && (
-                              <span
-                                className={cn(
-                                  "ml-auto shrink-0 rounded-sm px-1.5 py-0.2 text-[10px] font-extrabold",
-                                  childActive
-                                    ? "bg-[#E20613] text-white"
-                                    : "bg-red-50 text-[#E20613] border border-red-200/60",
-                                )}
-                              >
-                                {child.badge}
-                              </span>
-                            )}
-                          </NavLink>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            }
-
-            return (
-              <NavLink
-                key={itemId}
-                to={item.to || "#"}
-                onClick={onMobileClose}
-                title={!showBigLogo ? item.label : undefined}
-                className={cn(
-                  "group relative flex items-center rounded-sm py-2 text-[13px] font-medium transition-all duration-150",
-                  showBigLogo
-                    ? "px-3 gap-3 justify-start"
-                    : "w-11 mx-auto justify-center px-0",
-                  active
-                    ? "bg-[#0D1F3D] text-white shadow-xs font-semibold"
-                    : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900",
-                )}
-              >
-                <Icon
-                  className={cn(
-                    "h-4.5 w-4.5 shrink-0 transition-colors",
-                    active
-                      ? "text-white"
-                      : "text-slate-400 group-hover:text-slate-700",
-                  )}
-                />
-
-                {showBigLogo && (
-                  <div className="flex flex-1 items-center justify-between min-w-0 gap-2">
-                    <span className="truncate min-w-0 font-medium">{item.label}</span>
-                    {item.badge && (
-                      <span
-                        className={cn(
-                          "shrink-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-extrabold transition-colors",
-                          active
-                            ? "bg-[#E20613] text-white border border-[#E20613]"
-                            : "bg-red-50 text-[#E20613] border border-red-200/60",
-                        )}
-                      >
-                        {item.badge}
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Tooltip on Collapsed Hover */}
-                {!showBigLogo && (
-                  <div className="pointer-events-none absolute left-full ml-3 z-50 whitespace-nowrap rounded-sm bg-slate-900 px-2.5 py-1 text-xs font-medium text-white shadow-xl opacity-0 transition-opacity group-hover:opacity-100 flex items-center gap-1.5">
-                    <span>{item.label}</span>
-                  </div>
-                )}
-              </NavLink>
-            );
-          })}
+                  </NavLink>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         {/* User Footer Profile Card in Sidebar */}

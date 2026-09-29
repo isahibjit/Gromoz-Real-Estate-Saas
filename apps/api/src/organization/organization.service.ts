@@ -55,6 +55,7 @@ export class UpdateWorkspaceSettingsDto {
   preferences?: any;
   security?: any;
   integrations?: any;
+  loginCms?: any;
 }
 
 @Injectable()
@@ -235,6 +236,33 @@ export class OrganizationService {
         enableMetaLeadsSync: true,
         enableIndiamartSync: true,
       },
+      loginCms: customSettings.loginCms || {
+        heroHeadlinePrefix: "Welcome to",
+        heroHeadlineHighlight: org.name || "Trueroot Realty CRM",
+        heroTagline: "Streamline your leads, follow-ups, site visits and sales - all in one place.",
+        heroLogoUrl: org.logoUrl || "",
+        heroBgImageUrl: "",
+        features: [
+          { title: "Manage Leads" },
+          { title: "Track Activities" },
+          { title: "Close More Deals" },
+          { title: "Boost Productivity" },
+        ],
+        trustBadgeTitle: "Secure. Reliable. Always with You.",
+        trustBadgeDescription: "Your data is protected with enterprise grade security.",
+        cardTitle: "Login to Your Account",
+        cardSubtitle: "Welcome back! Please login to continue.",
+        passwordHint: "Enter your password first. If two-factor authentication is enabled for your role or employee profile, we will send an SMS OTP before signing you in.",
+        downloadAppLabel: "Download Android app",
+        downloadAppUrl: "/download-app",
+        showDownloadApp: true,
+        supportTitle: "Need help?",
+        supportSubtitle: "Contact our support team",
+        supportPhone: org.primaryPhone || "+91 98765 43210",
+        supportEmail: org.primaryEmail || "support@truerootrealty.com",
+        termsUrl: "/terms",
+        privacyUrl: "/privacy-policy",
+      },
     };
   }
 
@@ -288,6 +316,7 @@ export class OrganizationService {
       ...(dto.preferences && { preferences: dto.preferences }),
       ...(dto.security && { security: dto.security }),
       ...(dto.integrations && { integrations: dto.integrations }),
+      ...(dto.loginCms && { loginCms: dto.loginCms }),
     };
 
     const updatedOrg = await this.prisma.organization.update({
@@ -397,6 +426,7 @@ export class OrganizationService {
         brandingSecondaryColor: true,
         status: true,
         showLogoInLogin: true,
+        workspaceSettingsJson: true,
       },
     });
 
@@ -416,6 +446,7 @@ export class OrganizationService {
             brandingSecondaryColor: true,
             status: true,
             showLogoInLogin: true,
+            workspaceSettingsJson: true,
           },
         });
       }
@@ -425,9 +456,21 @@ export class OrganizationService {
       return { found: false };
     }
 
+    const orgSettings = (org.workspaceSettingsJson as any) || {};
+
     return {
       found: true,
-      organization: org,
+      organization: {
+        id: org.id,
+        name: org.name,
+        slug: org.slug,
+        logoUrl: org.logoUrl,
+        brandingPrimaryColor: org.brandingPrimaryColor,
+        brandingSecondaryColor: org.brandingSecondaryColor,
+        status: org.status,
+        showLogoInLogin: org.showLogoInLogin,
+        loginCms: orgSettings.loginCms || null,
+      },
     };
   }
 

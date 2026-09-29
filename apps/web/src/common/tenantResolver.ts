@@ -9,7 +9,10 @@ export interface ResolvedTenant {
   brandingSecondaryColor?: string | null;
   status: string;
   showLogoInLogin?: boolean;
+  loginCms?: any;
 }
+
+export const resolveTenantFromHostname = resolveTenantFromHost;
 
 export async function resolveTenantFromHost(): Promise<ResolvedTenant | null> {
   if (typeof window === "undefined") return null;

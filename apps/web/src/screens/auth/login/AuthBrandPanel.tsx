@@ -6,47 +6,55 @@ import {
   UsersRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { LoginPageCmsData } from "../settings/LoginPageCmsModal";
 
-const featureCards: Array<{ title: string; icon: LucideIcon }> = [
-  { title: "Manage Leads", icon: ChartNoAxesCombined },
-  { title: "Track Activities", icon: UsersRound },
-  { title: "Close More Deals", icon: Building2 },
-  { title: "Boost Productivity", icon: BarChart3 },
-];
+const defaultIcons = [ChartNoAxesCombined, UsersRound, Building2, BarChart3];
 
 interface AuthBrandPanelProps {
   logoSrc: string;
-  heroImageSrc: string;
+  heroImageSrc?: string;
+  cms?: LoginPageCmsData;
 }
 
-export function AuthBrandPanel({ logoSrc }: AuthBrandPanelProps) {
+export function AuthBrandPanel({ logoSrc, cms }: AuthBrandPanelProps) {
+  const headlinePrefix = cms?.heroHeadlinePrefix ?? "Welcome to";
+  const headlineHighlight = cms?.heroHeadlineHighlight ?? "Trueroot Realty CRM";
+  const tagline = cms?.heroTagline ?? "Streamline your leads, follow-ups, site visits and sales - all in one place.";
+  const features = cms?.features ?? [
+    { title: "Manage Leads" },
+    { title: "Track Activities" },
+    { title: "Close More Deals" },
+    { title: "Boost Productivity" },
+  ];
+  const trustTitle = cms?.trustBadgeTitle ?? "Secure. Reliable. Always with You.";
+  const trustDesc = cms?.trustBadgeDescription ?? "Your data is protected with enterprise grade security.";
+
   return (
     <aside className="relative flex min-h-[520px] flex-col overflow-hidden px-6 pb-7 pt-6 sm:px-9 lg:min-h-screen lg:px-10 xl:px-12 2xl:px-16">
       <div className="relative z-10 flex flex-1 flex-col">
         <img
           src={logoSrc}
-          alt="Truroot Realty CRM"
-          className="h-auto w-[190px] sm:w-[235px] lg:w-[245px] 2xl:w-[285px]"
+          alt="Brand Logo"
+          className="h-auto w-[190px] sm:w-[235px] lg:w-[245px] 2xl:w-[285px] max-h-[70px] object-contain object-left"
         />
 
         <div className="mt-10 max-w-[600px] sm:mt-12 lg:mt-16 2xl:mt-20">
           <h1 className="text-[2.05rem] font-extrabold leading-[1.08] tracking-[-0.04em] text-secondary sm:text-[2.45rem] xl:text-[2.75rem] 2xl:text-[3.2rem]">
-            Welcome to
-            <span className="mt-2 block text-primary">Trueroot Realty CRM</span>
+            {headlinePrefix}
+            <span className="mt-2 block text-primary">{headlineHighlight}</span>
           </h1>
           <div className="mt-5 h-0.5 w-16 rounded-full bg-primary 2xl:mt-7 2xl:w-20" />
           <p className="mt-5 max-w-[500px] text-base font-semibold leading-7 text-secondary sm:text-lg sm:leading-8 2xl:mt-7 2xl:text-xl 2xl:leading-9">
-            Streamline your leads, follow-ups, site visits and sales - all in
-            one place.
+            {tagline}
           </p>
         </div>
 
         <div className="mt-7 grid max-w-[540px] grid-cols-2 gap-3 sm:grid-cols-4 2xl:mt-8 2xl:max-w-[620px] 2xl:gap-4">
-          {featureCards.map((feature) => (
+          {features.slice(0, 4).map((feature, idx) => (
             <AuthFeatureCard
-              key={feature.title}
+              key={idx}
               title={feature.title}
-              icon={feature.icon}
+              icon={defaultIcons[idx % defaultIcons.length]}
             />
           ))}
         </div>
@@ -63,10 +71,10 @@ export function AuthBrandPanel({ logoSrc }: AuthBrandPanelProps) {
               </span>
               <div>
                 <h2 className="text-sm font-extrabold 2xl:text-base">
-                  Secure. Reliable. Always with You.
+                  {trustTitle}
                 </h2>
                 <p className="mt-2 text-xs font-semibold leading-5 text-white/88 2xl:text-sm 2xl:leading-6">
-                  Your data is protected with enterprise grade security.
+                  {trustDesc}
                 </p>
               </div>
             </div>
@@ -85,7 +93,7 @@ function AuthFeatureCard({
   icon: LucideIcon;
 }) {
   return (
-    <div className="flex min-h-[86px] flex-col hover:scale-110 transition-all duration-200 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-3 text-center 2xl:min-h-[104px] 2xl:gap-3 2xl:py-4">
+    <div className="flex min-h-[86px] flex-col hover:scale-105 transition-all duration-200 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-3 text-center 2xl:min-h-[104px] 2xl:gap-3 2xl:py-4 shadow-2xs">
       <Icon
         aria-hidden="true"
         className="size-6 text-blue-700 2xl:size-8"
