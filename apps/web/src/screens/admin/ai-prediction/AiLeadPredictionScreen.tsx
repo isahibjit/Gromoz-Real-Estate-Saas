@@ -883,7 +883,7 @@ export function AiLeadPredictionScreen() {
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
         />
-        <main className="flex-1 space-y-6 p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 space-y-5">
           <PageHeader />
           <StatsRow />
           <div className="grid gap-6 xl:grid-cols-[1fr_320px] items-start">

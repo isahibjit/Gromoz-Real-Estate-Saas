@@ -382,7 +382,7 @@ export function NotificationSettingsScreen() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6 p-6 md:p-8 max-w-[1440px] mx-auto animate-pulse">
+      <div className="space-y-5 animate-pulse">
         <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
           <div className="space-y-2">
             <div className="h-7 w-72 rounded-md bg-slate-200/80" />
@@ -420,7 +420,7 @@ export function NotificationSettingsScreen() {
   }
 
   return (
-    <div className="relative space-y-8 p-6 font-sans text-secondary antialiased pb-24">
+    <div className="relative space-y-6 font-sans text-secondary antialiased pb-20">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

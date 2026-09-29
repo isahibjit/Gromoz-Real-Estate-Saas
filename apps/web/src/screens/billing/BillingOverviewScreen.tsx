@@ -100,7 +100,7 @@ export function BillingOverviewScreen() {
 
   if (isLoading) {
     return (
-      <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-6 animate-pulse">
+      <div className="w-full space-y-5 animate-pulse">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-4">
           <div className="space-y-2">
             <div className="h-7 w-60 bg-muted/80 rounded-md" />
@@ -125,7 +125,7 @@ export function BillingOverviewScreen() {
   const upgradeCost = additionalSeats * (data?.pricePerSeatMonth || 500);
 
   return (
-    <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-8">
+    <div className="w-full space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
