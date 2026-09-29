@@ -62,8 +62,10 @@ module.exports = {
         sm: "6px",
       },
       boxShadow: {
+        xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
         card: "0 1px 2px rgb(15 37 68 / 0.04), 0 4px 14px rgb(15 37 68 / 0.05)",
         dropdown: "0 8px 24px rgb(15 37 68 / 0.12)",
+        "auth-card": "0 10px 30px -10px rgba(0,0,0,0.1)",
       },
       backgroundImage: {
         "auth-page":
