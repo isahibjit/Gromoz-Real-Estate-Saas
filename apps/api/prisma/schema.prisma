@@ -84,6 +84,8 @@ model Organization {
   leaveRequests           LeaveRequest[]
   payrollRecords          PayrollRecord[]
   auditLogs               AuditLog[]
+  portalIntegrations      PortalIntegration[]
+  housingIntegrations     HousingIntegration[]
 
   createdAt               DateTime                @default(now())
   updatedAt               DateTime                @updatedAt
@@ -1317,12 +1319,14 @@ model LeadImportRow {
 }
 
 model PortalIntegration {
-  id                 String    @id @default(uuid())
-  provider           String    @unique
+  id                 String        @id @default(uuid())
+  organizationId     String?
+  organization       Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider           String
   displayName        String
-  status             String    @default("Draft")
-  isActive           Boolean   @default(true)
-  webhookKeyId       String    @unique
+  status             String        @default("Draft")
+  isActive           Boolean       @default(true)
+  webhookKeyId       String        @unique
   fieldMapping       Json?
   settings           Json?
   credentials        Json?
@@ -1330,13 +1334,15 @@ model PortalIntegration {
   lastTestedAt       DateTime?
   lastTestStatus     String?
   lastLeadReceivedAt DateTime?
-  totalLeadsReceived Int       @default(0)
+  totalLeadsReceived Int           @default(0)
   createdById        String?
   updatedById        String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
+  @@unique([organizationId, provider])
   @@index([provider, isActive])
+  @@index([organizationId, isActive])
 }
 
 model IntegrationRoutingRule {
@@ -1498,15 +1504,20 @@ model EmailLog {
 }
 
 model HousingIntegration {
-  id                    String    @id @default(uuid())
-  webhookKeyId          String    @unique
+  id                    String        @id @default(uuid())
+  organizationId        String?
+  organization          Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  webhookKeyId          String        @unique
   apiKey                String?
-  isActive              Boolean   @default(true)
+  isActive              Boolean       @default(true)
   fieldMapping          Json?
   lastWebhookReceivedAt DateTime?
   createdById           String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  @@unique([organizationId])
+  @@index([organizationId, isActive])
 }
 
 model NotificationSetting {

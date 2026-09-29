@@ -24,6 +24,7 @@ import { PermissionGuard } from '../access/permission.guard';
 import { CrmService } from './crm.service';
 
 const userFrom = (req: any) => req.user ?? {};
+const orgIdFrom = (req: any) => req.tenant?.organizationId || req.user?.organizationId || req.headers['x-organization-id'] || req.headers['x-tenant-id'];
 const leadReadRoles = [
   'SUPER_ADMIN',
   'ADMIN',
@@ -1113,26 +1114,26 @@ export class MagicBricksIntegrationsController {
 
   @Get()
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
-  getConfig() {
-    return this.crm.getMagicBricksIntegration();
+  getConfig(@Req() req: any) {
+    return this.crm.getMagicBricksIntegration(userFrom(req).sub, orgIdFrom(req));
   }
 
   @Patch()
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
   saveConfig(@Body() body: Record<string, any>, @Req() req: any) {
-    return this.crm.saveMagicBricksIntegration(body, userFrom(req).sub);
+    return this.crm.saveMagicBricksIntegration(body, userFrom(req).sub, orgIdFrom(req));
   }
 
   @Post('generate-api-key')
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
   regenerateApiKey(@Req() req: any) {
-    return this.crm.regenerateMagicBricksApiKey(userFrom(req).sub);
+    return this.crm.regenerateMagicBricksApiKey(userFrom(req).sub, orgIdFrom(req));
   }
 
   @Patch('field-mapping')
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
   saveFieldMapping(@Body() body: Record<string, any>, @Req() req: any) {
-    return this.crm.saveMagicBricksFieldMapping(body, userFrom(req).sub);
+    return this.crm.saveMagicBricksFieldMapping(body, userFrom(req).sub, orgIdFrom(req));
   }
 
   @Post('test')
@@ -1141,6 +1142,99 @@ export class MagicBricksIntegrationsController {
     return this.crm.testMagicBricksIntegration(
       body,
       userFrom(req).sub,
+      req.ip,
+      req.headers['user-agent'],
+      orgIdFrom(req),
+    );
+  }
+}
+
+@Controller('integrations/99acres')
+@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@RequirePermission('leads')
+export class Acres99IntegrationsController {
+  constructor(private readonly crm: CrmService) {}
+
+  @Get()
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  getConfig(@Req() req: any) {
+    return this.crm.get99AcresIntegration(userFrom(req).sub, orgIdFrom(req));
+  }
+
+  @Patch()
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  saveConfig(@Body() body: Record<string, any>, @Req() req: any) {
+    return this.crm.save99AcresIntegration(body, userFrom(req).sub, orgIdFrom(req));
+  }
+
+  @Post('generate-api-key')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  regenerateApiKey(@Req() req: any) {
+    return this.crm.regenerate99AcresApiKey(userFrom(req).sub, orgIdFrom(req));
+  }
+
+  @Patch('field-mapping')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  saveFieldMapping(@Body() body: Record<string, any>, @Req() req: any) {
+    return this.crm.save99AcresFieldMapping(body, userFrom(req).sub, orgIdFrom(req));
+  }
+
+  @Post('test')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  test(@Body() body: Record<string, any>, @Req() req: any) {
+    return this.crm.test99AcresIntegration(
+      body,
+      userFrom(req).sub,
+      req.ip,
+      req.headers['user-agent'],
+      orgIdFrom(req),
+    );
+  }
+}
+
+@Controller(['integrations/99acres', 'public/webhooks/99acres'])
+export class Public99AcresWebhookController {
+  constructor(private readonly crm: CrmService) {}
+
+  @Get('leads')
+  ingestGet(@Query() query: Record<string, any>, @Req() req: any) {
+    return this.crm.receive99AcresLead(
+      query,
+      query.ApiKey ?? query.api_key ?? query.apikey,
+      req.ip,
+      req.headers['user-agent'],
+    );
+  }
+
+  @Post('leads')
+  ingest(
+    @Body() body: Record<string, any>,
+    @Headers('x-api-key') apiKey: string | undefined,
+    @Req() req: any,
+  ) {
+    return this.crm.receive99AcresLead(
+      body,
+      apiKey,
+      req.ip,
+      req.headers['user-agent'],
+    );
+  }
+
+  @Post(':keyId')
+  ingestPostByKey(@Param('keyId') keyId: string, @Body() body: any, @Req() req: any) {
+    return this.crm.receive99AcresLead(
+      body,
+      keyId,
+      req.ip,
+      req.headers['user-agent'],
+    );
+  }
+
+  @Get(':keyId')
+  ingestGetByKey(@Param('keyId') keyId: string, @Req() req: any) {
+    return this.crm.receive99AcresLead(
+      req.query,
+      keyId,
       req.ip,
       req.headers['user-agent'],
     );

@@ -524,6 +524,21 @@ const defaultLeadSources = [
 
 const magicBricksProvider = 'magicbricks';
 const magicBricksDisplayName = 'MagicBricks';
+
+const acres99Provider = '99acres';
+const acres99DisplayName = '99Acres';
+
+const default99AcresFieldMapping = {
+  Name: 'leadName',
+  Mobile: 'mobileNumber',
+  Email: 'emailAddress',
+  Budget: 'budgetRange',
+  PropertyType: 'propertyType',
+  Location: 'preferredLocation',
+  Source: 'leadSourceName',
+  Remarks: 'remarks',
+  CreatedDate: 'addedDate',
+};
 const metaProvider = 'meta_lead_ads';
 const metaDisplayName = 'Meta Lead Ads';
 const defaultMagicBricksFieldMapping = {
@@ -2236,6 +2251,24 @@ export class CrmService {
     return nextMapping;
   }
 
+  async resolveTenantOrganizationId(
+    actorUserId?: string,
+    explicitOrgId?: string,
+  ): Promise<string | undefined> {
+    if (explicitOrgId) return explicitOrgId;
+    if (actorUserId) {
+      const membership = await this.db()
+        .organizationMember.findFirst({
+          where: { userId: actorUserId, isActive: true },
+          select: { organizationId: true },
+          orderBy: { createdAt: 'asc' },
+        })
+        .catch(() => null);
+      if (membership?.organizationId) return membership.organizationId;
+    }
+    return undefined;
+  }
+
   private portalIntegrationDelegate() {
     return (this.db() as any).portalIntegration as
       | {
@@ -2251,7 +2284,8 @@ export class CrmService {
     await this.db().$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "PortalIntegration" (
         "id" TEXT PRIMARY KEY,
-        "provider" TEXT NOT NULL UNIQUE,
+        "organizationId" TEXT,
+        "provider" TEXT NOT NULL,
         "displayName" TEXT NOT NULL,
         "status" TEXT NOT NULL DEFAULT 'Draft',
         "isActive" BOOLEAN NOT NULL DEFAULT true,
@@ -2272,6 +2306,7 @@ export class CrmService {
     `);
     await this.db().$executeRawUnsafe(`
       ALTER TABLE "PortalIntegration"
+      ADD COLUMN IF NOT EXISTS "organizationId" TEXT,
       ADD COLUMN IF NOT EXISTS "settings" JSONB,
       ADD COLUMN IF NOT EXISTS "credentials" JSONB
     `);
@@ -2279,24 +2314,66 @@ export class CrmService {
       CREATE INDEX IF NOT EXISTS "PortalIntegration_provider_isActive_idx"
       ON "PortalIntegration" ("provider", "isActive")
     `);
+    await this.db().$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "PortalIntegration_org_provider_idx"
+      ON "PortalIntegration" ("organizationId", "provider")
+    `);
   }
 
-  private async portalIntegrationFindByProvider(provider: string) {
+  private async portalIntegrationFindByProvider(
+    provider: string,
+    organizationId?: string,
+  ) {
     const delegate = this.portalIntegrationDelegate();
     if (delegate) {
       try {
-        return await delegate.findUnique({
-          where: { provider },
-        });
+        if (organizationId) {
+          const found = await delegate.findFirst({
+            where: { provider, organizationId },
+          });
+          if (found) return found;
+        } else {
+          const found = await delegate.findFirst({
+            where: { provider },
+          });
+          if (found) return found;
+        }
       } catch {
-        // Fall back to raw SQL when the Prisma client is stale and the generated
-        // delegate shape exists but its query operations do not.
+        // Fall back to raw SQL when the Prisma client is stale
+      }
+    }
+    await this.ensurePortalIntegrationTable();
+    if (organizationId) {
+      const rows = (await this.db().$queryRawUnsafe(
+        `SELECT * FROM "PortalIntegration" WHERE "provider" = $1 AND "organizationId" = $2 LIMIT 1`,
+        provider,
+        organizationId,
+      )) as Body[];
+      if (rows[0]) return rows[0];
+    }
+    const rows = (await this.db().$queryRawUnsafe(
+      `SELECT * FROM "PortalIntegration" WHERE "provider" = $1 LIMIT 1`,
+      provider,
+    )) as Body[];
+    return rows[0] ?? null;
+  }
+
+  private async portalIntegrationFindByWebhookKeyId(webhookKeyId: string) {
+    const delegate = this.portalIntegrationDelegate();
+    if (delegate) {
+      try {
+        const found = await delegate.findFirst({
+          where: { webhookKeyId },
+        });
+        if (found) return found;
+      } catch {
+        // Fall back to raw SQL
       }
     }
     await this.ensurePortalIntegrationTable();
     const rows = (await this.db().$queryRawUnsafe(
-      `SELECT * FROM "PortalIntegration" WHERE "provider" = $1 LIMIT 1`,
-      provider,
+      `SELECT * FROM "PortalIntegration" WHERE "webhookKeyId" = $1 LIMIT 1`,
+      webhookKeyId,
     )) as Body[];
     return rows[0] ?? null;
   }
@@ -2307,7 +2384,7 @@ export class CrmService {
       try {
         return await delegate.create({ data });
       } catch {
-        // Fall back to raw SQL when the runtime client has not been regenerated yet.
+        // Fall back to raw SQL
       }
     }
     await this.ensurePortalIntegrationTable();
@@ -2315,6 +2392,7 @@ export class CrmService {
       `
         INSERT INTO "PortalIntegration" (
           "id",
+          "organizationId",
           "provider",
           "displayName",
           "status",
@@ -2334,11 +2412,12 @@ export class CrmService {
           "updatedAt"
         )
         VALUES (
-          $1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb, $10, $11, $12, $13, $14, $15, $16, $17, $18
+          $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10::jsonb, $11, $12, $13, $14, $15, $16, $17, $18, $19
         )
         RETURNING *
       `,
       data.id,
+      data.organizationId ?? null,
       data.provider,
       data.displayName,
       data.status,
@@ -2369,7 +2448,7 @@ export class CrmService {
           data,
         });
       } catch {
-        // Fall back to raw SQL when the runtime client has not been regenerated yet.
+        // Fall back to raw SQL
       }
     }
     await this.ensurePortalIntegrationTable();
@@ -2385,6 +2464,10 @@ export class CrmService {
     const next: Body = {
       ...existing,
       ...data,
+      organizationId:
+        data.organizationId === undefined
+          ? existing.organizationId
+          : data.organizationId,
       fieldMapping:
         data.fieldMapping === undefined
           ? existing.fieldMapping
@@ -2408,27 +2491,29 @@ export class CrmService {
       `
         UPDATE "PortalIntegration"
         SET
-          "provider" = $2,
-          "displayName" = $3,
-          "status" = $4,
-          "isActive" = $5,
-          "webhookKeyId" = $6,
-          "fieldMapping" = $7::jsonb,
-          "settings" = $8::jsonb,
-          "credentials" = $9::jsonb,
-          "notes" = $10,
-          "lastTestedAt" = $11,
-          "lastTestStatus" = $12,
-          "lastLeadReceivedAt" = $13,
-          "totalLeadsReceived" = $14,
-          "createdById" = $15,
-          "updatedById" = $16,
-          "createdAt" = $17,
-          "updatedAt" = $18
+          "organizationId" = $2,
+          "provider" = $3,
+          "displayName" = $4,
+          "status" = $5,
+          "isActive" = $6,
+          "webhookKeyId" = $7,
+          "fieldMapping" = $8::jsonb,
+          "settings" = $9::jsonb,
+          "credentials" = $10::jsonb,
+          "notes" = $11,
+          "lastTestedAt" = $12,
+          "lastTestStatus" = $13,
+          "lastLeadReceivedAt" = $14,
+          "totalLeadsReceived" = $15,
+          "createdById" = $16,
+          "updatedById" = $17,
+          "createdAt" = $18,
+          "updatedAt" = $19
         WHERE "id" = $1
         RETURNING *
       `,
       id,
+      next.organizationId ?? null,
       next.provider,
       next.displayName,
       next.status,
@@ -2450,9 +2535,17 @@ export class CrmService {
     return rows[0];
   }
 
-  private async ensureMagicBricksIntegration(actorUserId?: string) {
+  private async ensureMagicBricksIntegration(
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    const orgId = await this.resolveTenantOrganizationId(
+      actorUserId,
+      organizationId,
+    );
     const existing = await this.portalIntegrationFindByProvider(
       magicBricksProvider,
+      orgId,
     );
     if (existing) {
       const existingMapping = this.getMagicBricksFieldMapping(
@@ -2465,12 +2558,14 @@ export class CrmService {
         !existing.webhookKeyId ||
         !existing.fieldMapping ||
         !existing.displayName ||
+        (!existing.organizationId && orgId) ||
         existing.fieldMapping?.CreatedDate === 'remarks';
       if (!needsPatch) return existing;
       return this.portalIntegrationUpdate(existing.id, {
         displayName: existing.displayName || magicBricksDisplayName,
         webhookKeyId: existing.webhookKeyId || randomBytes(12).toString('hex'),
         fieldMapping: existingMapping,
+        organizationId: existing.organizationId || orgId,
         updatedById: actorUserId,
       });
     }
@@ -2478,6 +2573,7 @@ export class CrmService {
     const now = new Date();
     return this.portalIntegrationCreate({
       id: crypto.randomUUID(),
+      organizationId: orgId ?? null,
       provider: magicBricksProvider,
       displayName: magicBricksDisplayName,
       status: 'Draft',
@@ -2531,7 +2627,147 @@ export class CrmService {
     );
   }
 
-  private async getMagicBricksLeadStats() {
+  private coalesceMagicBricksPayload(body: Body) {
+    return {
+      apiKey:
+        body.ApiKey ??
+        body.api_key ??
+        body.apikey ??
+        body.APIKey ??
+        body.Key,
+      firstName:
+        body.FirstName ??
+        body.first_name ??
+        body.name ??
+        body.FullName ??
+        body.fullName,
+      lastName: body.LastName ?? body.last_name,
+      mobile:
+        body.Mobile ??
+        body.mobile ??
+        body.phone ??
+        body.Phone ??
+        body.contactNumber,
+      secondaryNumber:
+        body.SecondaryNumber ?? body.secondary_number ?? body.alternateMobile,
+      createdDate: body.CreatedDate ?? body.created_date ?? body.createdDate,
+      email: body.Email ?? body.email,
+      remark: body.Remark ?? body.remark ?? body.remarks ?? body.Remarks,
+      hasVisitScheduled:
+        body.HasVisitScheduled ?? body.has_visit_scheduled,
+      source: body.Source ?? body.source ?? 'MagicBricks',
+      visitDate: body.VisitDate ?? body.visit_date,
+      projectName:
+        body.ProjectName ?? body.project_name ?? body.projectName ?? body.Project,
+      city: body.City ?? body.city,
+      locality: body.Locality ?? body.locality,
+      budget: body.Budget ?? body.budget,
+      configuration: body.Configuration ?? body.configuration,
+      propertyType: body.PropertyType ?? body.propertyType,
+    };
+  }
+
+  private async normalizeMagicBricksPayload(body: Body, mapping?: unknown) {
+    const payload = this.coalesceMagicBricksPayload(body);
+    const fieldMapping = this.getMagicBricksFieldMapping(mapping);
+    const normalized: Body = {};
+
+    for (const [sourceField, targetField] of Object.entries(fieldMapping)) {
+      if (targetField === 'skip') continue;
+      const rawValue = (payload as any)[sourceField] ?? body[sourceField];
+      if (
+        rawValue === undefined ||
+        rawValue === null ||
+        String(rawValue).trim() === ''
+      ) {
+        continue;
+      }
+      if (!normalized[targetField]) {
+        normalized[targetField] = String(rawValue).trim();
+      }
+    }
+
+    const leadName =
+      normalized.leadName ||
+      [payload.firstName, payload.lastName].filter(Boolean).join(' ') ||
+      payload.firstName ||
+      '';
+
+    const projectName =
+      normalized.preferredProject ??
+      payload.projectName ??
+      undefined;
+
+    const matchedProject = projectName
+      ? await this.db().project.findFirst({
+          where: {
+            OR: [
+              { name: { equals: String(projectName), mode: 'insensitive' } },
+              { name: { contains: String(projectName), mode: 'insensitive' } },
+            ],
+          },
+          select: { id: true, name: true, location: true },
+        }).catch(() => null)
+      : null;
+
+    const [magicBricksSource, newLeadStatus] = await Promise.all([
+      this.getMagicBricksSourceMaster(),
+      this.getDefaultNewLeadStatusMaster(),
+    ]);
+
+    const remarksParts = [
+      normalized.remarks,
+      payload.remark && payload.remark !== normalized.remarks
+        ? String(payload.remark).trim()
+        : undefined,
+      payload.secondaryNumber
+        ? `Secondary number: ${String(payload.secondaryNumber).trim()}`
+        : undefined,
+      payload.createdDate &&
+      String(normalized.addedDate ?? '').trim() !==
+        String(payload.createdDate).trim()
+        ? `MagicBricks created date: ${String(payload.createdDate).trim()}`
+        : undefined,
+      payload.hasVisitScheduled !== undefined
+        ? `Has visit scheduled: ${String(payload.hasVisitScheduled).trim()}`
+        : undefined,
+      payload.visitDate
+        ? `Visit date: ${String(payload.visitDate).trim()}`
+        : undefined,
+      matchedProject
+        ? undefined
+        : projectName
+        ? `Project: ${String(projectName).trim()}`
+        : undefined,
+      payload.city ? `City: ${String(payload.city).trim()}` : undefined,
+    ].filter(Boolean);
+
+    return {
+      payload,
+      fieldMapping,
+      normalizedLead: {
+        leadName: String(leadName).trim(),
+        mobileNumber: String(normalized.mobileNumber ?? payload.mobile ?? '').trim(),
+        emailAddress: String(normalized.emailAddress ?? payload.email ?? '').trim(),
+        preferredProjectId: matchedProject?.id,
+        preferredProjectName:
+          matchedProject?.name ?? (projectName ? String(projectName) : ''),
+        preferredLocation:
+          normalized.preferredLocation ?? matchedProject?.location ?? payload.locality ?? '',
+        leadSourceName: magicBricksSource?.name ?? magicBricksDisplayName,
+        leadSourceId: magicBricksSource?.id,
+        leadStatusId: newLeadStatus?.id,
+        addedDate: normalizeMagicBricksDate(
+          normalized.addedDate ?? payload.createdDate,
+        ),
+        remarks: remarksParts.join(' | '),
+        configuration: normalized.configuration ?? payload.configuration ?? '',
+        propertyType: normalized.propertyType ?? payload.propertyType ?? '',
+      },
+    };
+  }
+
+  private async getMagicBricksLeadStats(organizationId?: string) {
     const magicBricksSource = await this.getMagicBricksSourceMaster();
     const sourceFilters = [
       magicBricksSource?.id,
@@ -2542,25 +2778,30 @@ export class CrmService {
         : undefined,
       'MagicBricks',
       'MAGICBRICKS',
+      'magicbricks',
     ].filter(Boolean);
 
     const monthStart = startOfDay(
       new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     );
 
+    const whereClause: Body = {
+      deletedAt: null,
+      sourceId: { in: sourceFilters },
+    };
+    if (organizationId) {
+      whereClause.organizationId = organizationId;
+    }
+
     const [totalImportedThisMonth, latestLead] = await Promise.all([
       this.db().lead.count({
         where: {
-          deletedAt: null,
-          sourceId: { in: sourceFilters },
+          ...whereClause,
           createdAt: { gte: monthStart },
         },
       }),
       this.db().lead.findFirst({
-        where: {
-          deletedAt: null,
-          sourceId: { in: sourceFilters },
-        },
+        where: whereClause,
         orderBy: { createdAt: 'desc' },
         select: { createdAt: true },
       }),
@@ -2600,7 +2841,7 @@ export class CrmService {
     ).toString()}`;
 
     return {
-      crmName: 'Trueroot Realty CRM',
+      crmName: 'Truroot Realty CRM',
       pushIntegrationType: 'GET',
       apiKey,
       workingEndpointOpenUrl: workingEndpoint,
@@ -2610,143 +2851,32 @@ export class CrmService {
         success: 'Success: Lead Mapped To TRUEROOT-CRM Successfully.',
         failure: 'Failure: Lead already exists',
       },
-      authenticationType: 'Open URL with ApiKey query parameter',
-      clientId: 'Not required',
-      clientKey: 'Not required',
+      authenticationType: 'API Key',
+      clientId: 'Truroot Realty CRM',
+      clientKey: apiKey,
       integrationManual: [
+        'Share the working endpoint open URL with the MagicBricks integration team.',
         'Configure MagicBricks push integration type as GET.',
-        'Use the working endpoint open URL and pass ApiKey plus lead fields as query parameters.',
-        'FirstName and Mobile are required. LastName, Email, SecondaryNumber, Remark, Source, VisitDate and ProjectName are optional.',
-        'The CRM validates the ApiKey, checks duplicates by mobile/email, maps the project by name, and creates the lead as New Lead.',
+        'Pass the ApiKey parameter in query string with your unique key.',
+        'Map your required fields including FirstName, LastName, Mobile, Email, and ProjectName.',
+        'Test the integration using the test lead submission button.',
       ],
     };
   }
 
-  private coalesceMagicBricksPayload(body: Body) {
-    const firstName = String(body.FirstName ?? body.firstName ?? '').trim();
-    const lastName = String(body.LastName ?? body.lastName ?? '').trim();
-    const fullName = [firstName, lastName].filter(Boolean).join(' ');
-    return {
-      ...body,
-      FirstName: fullName || body.FirstName,
-      api_key: body.api_key ?? body.ApiKey ?? body.apikey,
-      name: body.name ?? body.responderName ?? fullName,
-      mobile: body.mobile ?? body.Mobile ?? body.responderPhone,
-      alternateMobile:
-        body.alternateMobile ??
-        body.alternateNumber ??
-        body.SecondaryNumber ??
-        body.secondaryNumber,
-      email: body.email ?? body.Email ?? body.responderEmail,
-      project: body.project ?? body.ProjectName ?? body.projectName ?? body.isd,
-      projectName:
-        body.ProjectName ?? body.projectName ?? body.project ?? body.isd,
-      msg: body.msg ?? body.Remark ?? body.remark ?? body.comments,
-      comments: body.comments ?? body.Remark ?? body.remark ?? body.msg,
-      city: body.city ?? body.City,
-      source: body.source ?? body.Source ?? magicBricksDisplayName,
-      createdDate: body.CreatedDate ?? body.createdDate,
-      hasVisitScheduled: body.HasVisitScheduled ?? body.hasVisitScheduled,
-      visitDate: body.VisitDate ?? body.visitDate,
-    };
-  }
-
-  private async normalizeMagicBricksPayload(body: Body, mapping?: unknown) {
-    const payload = this.coalesceMagicBricksPayload(body);
-    const fieldMapping = this.getMagicBricksFieldMapping(mapping);
-    const normalized: Body = {};
-
-    for (const [sourceField, targetField] of Object.entries(fieldMapping)) {
-      if (targetField === 'skip') continue;
-      const rawValue = payload[sourceField];
-      if (
-        rawValue === undefined ||
-        rawValue === null ||
-        String(rawValue).trim() === ''
-      ) {
-        continue;
-      }
-      if (!normalized[targetField]) {
-        normalized[targetField] = String(rawValue).trim();
-      }
-    }
-
-    const projectName =
-      normalized.preferredProject ??
-      payload.projectName ??
-      payload.project ??
-      undefined;
-    const matchedProject = projectName
-      ? await this.db().project.findFirst({
-          where: {
-            OR: [
-              { name: { equals: String(projectName), mode: 'insensitive' } },
-              { name: { contains: String(projectName), mode: 'insensitive' } },
-            ],
-          },
-          select: { id: true, name: true, location: true },
-        })
-      : null;
-
-    const [magicBricksSource, newLeadStatus] = await Promise.all([
-      this.getMagicBricksSourceMaster(),
-      this.getDefaultNewLeadStatusMaster(),
-    ]);
-    const remarksParts = [
-      normalized.remarks,
-      payload.comments && payload.comments !== normalized.remarks
-        ? String(payload.comments).trim()
-        : undefined,
-      payload.alternateMobile
-        ? `Secondary number: ${String(payload.alternateMobile).trim()}`
-        : undefined,
-      payload.createdDate &&
-      String(normalized.addedDate ?? '').trim() !==
-        String(payload.createdDate).trim()
-        ? `MagicBricks created date: ${String(payload.createdDate).trim()}`
-        : undefined,
-      payload.hasVisitScheduled !== undefined
-        ? `Has visit scheduled: ${String(payload.hasVisitScheduled).trim()}`
-        : undefined,
-      payload.visitDate
-        ? `Visit date: ${String(payload.visitDate).trim()}`
-        : undefined,
-      matchedProject
-        ? undefined
-        : projectName
-        ? `Project: ${String(projectName).trim()}`
-        : undefined,
-      payload.city ? `City: ${String(payload.city).trim()}` : undefined,
-    ].filter(Boolean);
-
-    return {
-      payload,
-      fieldMapping,
-      normalizedLead: {
-        leadName: normalized.leadName ?? '',
-        mobileNumber: normalized.mobileNumber ?? '',
-        emailAddress: normalized.emailAddress ?? '',
-        preferredProjectId: matchedProject?.id,
-        preferredProjectName:
-          matchedProject?.name ?? (projectName ? String(projectName) : ''),
-        preferredLocation:
-          normalized.preferredLocation ?? matchedProject?.location ?? '',
-        leadSourceName: magicBricksSource?.name ?? magicBricksDisplayName,
-        leadSourceId: magicBricksSource?.id,
-        leadStatusId: newLeadStatus?.id,
-        addedDate: normalizeMagicBricksDate(
-          normalized.addedDate ?? payload.createdDate,
-        ),
-        remarks: remarksParts.join(' | '),
-        configuration: normalized.configuration ?? '',
-        propertyType: normalized.propertyType ?? '',
-      },
-    };
-  }
-
-  async getMagicBricksIntegration(actorUserId?: string) {
-    const integration = await this.ensureMagicBricksIntegration(actorUserId);
-    const stats = await this.getMagicBricksLeadStats();
+  async getMagicBricksIntegration(
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    const orgId = await this.resolveTenantOrganizationId(
+      actorUserId,
+      organizationId,
+    );
+    const integration = await this.ensureMagicBricksIntegration(
+      actorUserId,
+      orgId,
+    );
+    const stats = await this.getMagicBricksLeadStats(integration.organizationId);
     const manual = await this.buildMagicBricksManual(integration);
     const apiKey = this.buildMagicBricksApiKey(integration.webhookKeyId);
     const mapping = this.getMagicBricksFieldMapping(integration.fieldMapping);
@@ -2754,6 +2884,7 @@ export class CrmService {
     return {
       data: {
         id: integration.id,
+        organizationId: integration.organizationId,
         provider: magicBricksProvider,
         displayName: magicBricksDisplayName,
         crmName: manual.crmName,
@@ -2780,11 +2911,22 @@ export class CrmService {
     };
   }
 
-  async saveMagicBricksIntegration(body: Body, actorUserId?: string) {
+  async saveMagicBricksIntegration(
+    body: Body,
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
     if (body.isActive !== undefined && typeof body.isActive !== 'boolean') {
       throw new BadRequestException('isActive must be a boolean');
     }
-    const integration = await this.ensureMagicBricksIntegration(actorUserId);
+    const orgId = await this.resolveTenantOrganizationId(
+      actorUserId,
+      organizationId,
+    );
+    const integration = await this.ensureMagicBricksIntegration(
+      actorUserId,
+      orgId,
+    );
     const isPaused = requestedIntegrationPauseState(body, integration);
     const isActive = !isPaused;
     await this.portalIntegrationUpdate(integration.id, {
@@ -2811,11 +2953,21 @@ export class CrmService {
       'PortalIntegration',
       integration.id,
     );
-    return this.getMagicBricksIntegration(actorUserId);
+    return this.getMagicBricksIntegration(actorUserId, orgId);
   }
 
-  async regenerateMagicBricksApiKey(actorUserId?: string) {
-    const integration = await this.ensureMagicBricksIntegration(actorUserId);
+  async regenerateMagicBricksApiKey(
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    const orgId = await this.resolveTenantOrganizationId(
+      actorUserId,
+      organizationId,
+    );
+    const integration = await this.ensureMagicBricksIntegration(
+      actorUserId,
+      orgId,
+    );
     await this.portalIntegrationUpdate(integration.id, {
       webhookKeyId: randomBytes(12).toString('hex'),
       updatedById: actorUserId,
@@ -2828,11 +2980,22 @@ export class CrmService {
       'PortalIntegration',
       integration.id,
     );
-    return this.getMagicBricksIntegration(actorUserId);
+    return this.getMagicBricksIntegration(actorUserId, orgId);
   }
 
-  async saveMagicBricksFieldMapping(body: Body, actorUserId?: string) {
-    const integration = await this.ensureMagicBricksIntegration(actorUserId);
+  async saveMagicBricksFieldMapping(
+    body: Body,
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    const orgId = await this.resolveTenantOrganizationId(
+      actorUserId,
+      organizationId,
+    );
+    const integration = await this.ensureMagicBricksIntegration(
+      actorUserId,
+      orgId,
+    );
     const mapping = this.getMagicBricksFieldMapping(body.fieldMapping);
     const targetValues = Object.values(mapping);
     if (
@@ -2858,7 +3021,7 @@ export class CrmService {
       integration.id,
       { fieldMapping: mapping },
     );
-    return this.getMagicBricksIntegration(actorUserId);
+    return this.getMagicBricksIntegration(actorUserId, orgId);
   }
 
   async testMagicBricksIntegration(
@@ -2866,8 +3029,16 @@ export class CrmService {
     actorUserId?: string,
     ip?: string,
     userAgent?: string,
+    organizationId?: string,
   ) {
-    const integration = await this.ensureMagicBricksIntegration(actorUserId);
+    const orgId = await this.resolveTenantOrganizationId(
+      actorUserId,
+      organizationId,
+    );
+    const integration = await this.ensureMagicBricksIntegration(
+      actorUserId,
+      orgId,
+    );
     const apiKey = this.buildMagicBricksApiKey(integration.webhookKeyId);
     const samplePayload = {
       ApiKey: apiKey,
@@ -2898,16 +3069,22 @@ export class CrmService {
     if (!preview.normalizedLead.mobileNumber)
       errors.push('Mobile number is required');
 
+    const duplicateWhere: Body = {
+      deletedAt: null,
+      OR: [
+        { mobile: preview.normalizedLead.mobileNumber },
+        preview.normalizedLead.emailAddress
+          ? { email: preview.normalizedLead.emailAddress }
+          : undefined,
+      ].filter(Boolean),
+    };
+    if (integration.organizationId) {
+      duplicateWhere.organizationId = integration.organizationId;
+    }
+
     const duplicate = preview.normalizedLead.mobileNumber
       ? await this.db().lead.findFirst({
-          where: {
-            OR: [
-              { mobile: preview.normalizedLead.mobileNumber },
-              preview.normalizedLead.emailAddress
-                ? { email: preview.normalizedLead.emailAddress }
-                : undefined,
-            ].filter(Boolean),
-          },
+          where: duplicateWhere,
           select: { id: true, displayId: true, name: true },
         })
       : null;
@@ -2967,15 +3144,24 @@ export class CrmService {
     ip?: string,
     userAgent?: string,
   ) {
-    const integration = await this.ensureMagicBricksIntegration();
     const apiKey =
       apiKeyFromHeader ?? body.api_key ?? body.ApiKey ?? body.apikey;
     const webhookKeyId = this.verifyMagicBricksApiKey(apiKey);
 
-    if (!webhookKeyId || webhookKeyId !== integration.webhookKeyId) {
+    if (!webhookKeyId) {
       return {
         success: false,
-        message: 'Failure: Invalid API key',
+        message: 'Failure: Invalid API key format or signature',
+      };
+    }
+
+    const integration = await this.portalIntegrationFindByWebhookKeyId(
+      webhookKeyId,
+    );
+    if (!integration) {
+      return {
+        success: false,
+        message: 'Failure: MagicBricks integration not found for this API key',
       };
     }
 
@@ -3008,15 +3194,21 @@ export class CrmService {
       };
     }
 
+    const duplicateWhere: Body = {
+      deletedAt: null,
+      OR: [
+        { mobile: preview.normalizedLead.mobileNumber },
+        preview.normalizedLead.emailAddress
+          ? { email: preview.normalizedLead.emailAddress }
+          : undefined,
+      ].filter(Boolean),
+    };
+    if (integration.organizationId) {
+      duplicateWhere.organizationId = integration.organizationId;
+    }
+
     const duplicate = await this.db().lead.findFirst({
-      where: {
-        OR: [
-          { mobile: preview.normalizedLead.mobileNumber },
-          preview.normalizedLead.emailAddress
-            ? { email: preview.normalizedLead.emailAddress }
-            : undefined,
-        ].filter(Boolean),
-      },
+      where: duplicateWhere,
       select: { id: true, displayId: true },
     });
 
@@ -3040,25 +3232,8 @@ export class CrmService {
       };
     }
 
-    // Payload normalization and duplicate lookup can overlap an admin pause.
-    const currentIntegration = await this.portalIntegrationFindByProvider(
-      magicBricksProvider,
-    );
-    if (
-      !currentIntegration ||
-      isIntegrationPaused(currentIntegration)
-    ) {
-      return {
-        success: false,
-        message: 'Failure: MagicBricks Push API is paused. Lead was not created.',
-        status: 'PAUSED',
-      };
-    }
-    if (webhookKeyId !== currentIntegration.webhookKeyId) {
-      return { success: false, message: 'Failure: Invalid API key' };
-    }
-
     const lead = await this.createLead({
+      organizationId: integration.organizationId ?? undefined,
       name: preview.normalizedLead.leadName,
       mobile: preview.normalizedLead.mobileNumber,
       email: preview.normalizedLead.emailAddress || undefined,
@@ -3081,11 +3256,430 @@ export class CrmService {
       displayId: lead.displayId,
       ip,
       userAgent,
+      organizationId: integration.organizationId,
     });
 
     return {
       success: true,
       message: 'Success: Lead Mapped To TRUEROOT-CRM Successfully.',
+      leadId: lead.id,
+      displayId: lead.displayId,
+    };
+  }
+
+  // --- 99ACRES PORTAL INTEGRATION ---
+  private acres99PublicApiBaseUrl() {
+    return this.magicBricksPublicApiBaseUrl();
+  }
+
+  private acres99WebhookUrl() {
+    return `${this.acres99PublicApiBaseUrl()}/integrations/99acres/leads`;
+  }
+
+  private get99AcresFieldMapping(mapping?: unknown) {
+    if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping)) {
+      return { ...default99AcresFieldMapping };
+    }
+    const nextMapping = { ...default99AcresFieldMapping };
+    for (const [sourceField, targetField] of Object.entries(mapping as Body)) {
+      if (typeof targetField !== 'string' || !targetField.trim()) continue;
+      nextMapping[sourceField] = targetField;
+    }
+    return nextMapping;
+  }
+
+  private async ensure99AcresIntegration(
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    const orgId = await this.resolveTenantOrganizationId(
+      actorUserId,
+      organizationId,
+    );
+    const existing = await this.portalIntegrationFindByProvider(
+      acres99Provider,
+      orgId,
+    );
+    if (existing) {
+      const existingMapping = this.get99AcresFieldMapping(
+        existing.fieldMapping,
+      );
+      const needsPatch =
+        !existing.webhookKeyId ||
+        !existing.fieldMapping ||
+        !existing.displayName ||
+        (!existing.organizationId && orgId);
+      if (!needsPatch) return existing;
+      return this.portalIntegrationUpdate(existing.id, {
+        displayName: existing.displayName || acres99DisplayName,
+        webhookKeyId: existing.webhookKeyId || randomBytes(12).toString('hex'),
+        fieldMapping: existingMapping,
+        organizationId: existing.organizationId || orgId,
+        updatedById: actorUserId,
+      });
+    }
+
+    const now = new Date();
+    return this.portalIntegrationCreate({
+      id: crypto.randomUUID(),
+      organizationId: orgId ?? null,
+      provider: acres99Provider,
+      displayName: acres99DisplayName,
+      status: 'Draft',
+      isActive: true,
+      webhookKeyId: randomBytes(12).toString('hex'),
+      fieldMapping: default99AcresFieldMapping,
+      totalLeadsReceived: 0,
+      createdById: actorUserId,
+      updatedById: actorUserId,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  private async get99AcresSourceMaster() {
+    const sources = await this.ensureMasters('source', defaultLeadSources);
+    return (
+      sources.find(
+        (source: Body) =>
+          String(source.code ?? '').toUpperCase() === '99ACRES' ||
+          String(source.name ?? '').toLowerCase() === '99acres',
+      ) ?? sources[0]
+    );
+  }
+
+  private async get99AcresLeadStats(organizationId?: string) {
+    const acresSource = await this.get99AcresSourceMaster();
+    const sourceFilters = [
+      acresSource?.id,
+      acresSource?.code,
+      acresSource?.name,
+      '99Acres',
+      '99acres',
+      '99ACRES',
+    ].filter(Boolean);
+
+    const monthStart = startOfDay(
+      new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    );
+
+    const whereClause: Body = {
+      deletedAt: null,
+      sourceId: { in: sourceFilters },
+    };
+    if (organizationId) {
+      whereClause.organizationId = organizationId;
+    }
+
+    const [totalImportedThisMonth, latestLead] = await Promise.all([
+      this.db().lead.count({
+        where: {
+          ...whereClause,
+          createdAt: { gte: monthStart },
+        },
+      }),
+      this.db().lead.findFirst({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true },
+      }),
+    ]);
+
+    return {
+      totalImportedThisMonth,
+      lastImportedAt: latestLead?.createdAt ?? null,
+    };
+  }
+
+  async get99AcresIntegration(actorUserId?: string, organizationId?: string) {
+    const orgId = await this.resolveTenantOrganizationId(
+      actorUserId,
+      organizationId,
+    );
+    const integration = await this.ensure99AcresIntegration(
+      actorUserId,
+      orgId,
+    );
+    const stats = await this.get99AcresLeadStats(integration.organizationId);
+    const webhookUrl = `${this.acres99PublicApiBaseUrl()}/public/webhooks/99acres/${integration.webhookKeyId}`;
+    const mapping = this.get99AcresFieldMapping(integration.fieldMapping);
+
+    return {
+      data: {
+        id: integration.id,
+        organizationId: integration.organizationId,
+        provider: acres99Provider,
+        displayName: acres99DisplayName,
+        status: integration.status,
+        isActive: integration.isActive,
+        webhookKeyId: integration.webhookKeyId,
+        webhookUrl,
+        credentials: integration.credentials ?? {},
+        fieldMapping: mapping,
+        stats,
+        lastTestedAt: integration.lastTestedAt,
+        lastTestStatus: integration.lastTestStatus,
+        lastLeadReceivedAt: integration.lastLeadReceivedAt,
+        totalLeadsReceived: integration.totalLeadsReceived,
+        notes: integration.notes ?? '',
+      },
+    };
+  }
+
+  async save99AcresIntegration(
+    body: Body,
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    const orgId = await this.resolveTenantOrganizationId(
+      actorUserId,
+      organizationId,
+    );
+    const integration = await this.ensure99AcresIntegration(
+      actorUserId,
+      orgId,
+    );
+    const isPaused = requestedIntegrationPauseState(body, integration);
+    const isActive = !isPaused;
+    await this.portalIntegrationUpdate(integration.id, {
+      ...(body.isActive !== undefined ||
+      body.isPaused !== undefined ||
+      body.status !== undefined
+        ? { isActive }
+        : {}),
+      credentials:
+        body.credentials !== undefined
+          ? body.credentials
+          : integration.credentials,
+      notes:
+        body.notes === undefined ? integration.notes : String(body.notes ?? ''),
+      status:
+        isPaused
+          ? 'Paused'
+          : body.status
+          ? String(body.status)
+          : integration.status === 'Draft' || integration.status === 'Paused'
+          ? 'Configured'
+          : integration.status,
+      updatedById: actorUserId,
+    });
+    await this.audit(
+      actorUserId,
+      '99ACRES_INTEGRATION_UPDATED',
+      'PortalIntegration',
+      integration.id,
+    );
+    return this.get99AcresIntegration(actorUserId, orgId);
+  }
+
+  async regenerate99AcresApiKey(
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    const orgId = await this.resolveTenantOrganizationId(
+      actorUserId,
+      organizationId,
+    );
+    const integration = await this.ensure99AcresIntegration(
+      actorUserId,
+      orgId,
+    );
+    await this.portalIntegrationUpdate(integration.id, {
+      webhookKeyId: randomBytes(12).toString('hex'),
+      updatedById: actorUserId,
+      status:
+        integration.status === 'Draft' ? 'Configured' : integration.status,
+    });
+    await this.audit(
+      actorUserId,
+      '99ACRES_API_KEY_REGENERATED',
+      'PortalIntegration',
+      integration.id,
+    );
+    return this.get99AcresIntegration(actorUserId, orgId);
+  }
+
+  async save99AcresFieldMapping(
+    body: Body,
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    const orgId = await this.resolveTenantOrganizationId(
+      actorUserId,
+      organizationId,
+    );
+    const integration = await this.ensure99AcresIntegration(
+      actorUserId,
+      orgId,
+    );
+    const mapping = this.get99AcresFieldMapping(body.fieldMapping);
+    await this.portalIntegrationUpdate(integration.id, {
+      fieldMapping: mapping,
+      status:
+        !integration.isActive || integration.status === 'Paused'
+          ? 'Paused'
+          : 'Mapped',
+      updatedById: actorUserId,
+    });
+    await this.audit(
+      actorUserId,
+      '99ACRES_FIELD_MAPPING_UPDATED',
+      'PortalIntegration',
+      integration.id,
+      { fieldMapping: mapping },
+    );
+    return this.get99AcresIntegration(actorUserId, orgId);
+  }
+
+  async test99AcresIntegration(
+    body: Body,
+    actorUserId?: string,
+    ip?: string,
+    userAgent?: string,
+    organizationId?: string,
+  ) {
+    const orgId = await this.resolveTenantOrganizationId(
+      actorUserId,
+      organizationId,
+    );
+    const integration = await this.ensure99AcresIntegration(
+      actorUserId,
+      orgId,
+    );
+    const samplePayload = {
+      name: 'Rahul Sharma',
+      phone: '9876543210',
+      email: 'rahul.sharma@example.com',
+      propertyType: '2 BHK Apartment',
+      budget: '1 - 1.5 Cr',
+      location: 'Andheri, Mumbai',
+      remarks: 'Interested in ready possession properties',
+      ...(body.samplePayload ?? body),
+    };
+
+    const sourceMaster = await this.get99AcresSourceMaster();
+    const lead = await this.createLead({
+      organizationId: integration.organizationId ?? undefined,
+      name: samplePayload.name,
+      mobile: samplePayload.phone,
+      email: samplePayload.email,
+      sourceId: sourceMaster?.id,
+      preferredLocation: samplePayload.location,
+      propertyType: samplePayload.propertyType,
+      remarks: samplePayload.remarks,
+    });
+
+    await this.portalIntegrationUpdate(integration.id, {
+      lastTestedAt: new Date(),
+      lastTestStatus: 'Success',
+      updatedById: actorUserId,
+    });
+
+    return {
+      success: true,
+      message: 'Test 99Acres lead ingested successfully',
+      leadId: lead.id,
+      displayId: lead.displayId,
+    };
+  }
+
+  async receive99AcresLead(
+    body: Body,
+    apiKeyOrKeyId?: string,
+    ip?: string,
+    userAgent?: string,
+  ) {
+    const key =
+      apiKeyOrKeyId ??
+      body.keyId ??
+      body.api_key ??
+      body.ApiKey ??
+      body.webhookKeyId;
+
+    if (!key) {
+      return {
+        success: false,
+        message: 'Failure: Webhook key or API key is required',
+      };
+    }
+
+    const integration = await this.portalIntegrationFindByWebhookKeyId(
+      String(key),
+    );
+    if (!integration) {
+      return {
+        success: false,
+        message: 'Failure: 99Acres integration not found for this key',
+      };
+    }
+
+    if (isIntegrationPaused(integration)) {
+      return {
+        success: false,
+        message: 'Failure: 99Acres integration is paused',
+        status: 'PAUSED',
+      };
+    }
+
+    const payload = body || {};
+    const name = payload.Name || payload.name || payload.FullName || payload.fullName || '99Acres Lead';
+    const mobile = payload.Mobile || payload.mobile || payload.Phone || payload.phone;
+    const email = payload.Email || payload.email;
+
+    if (!mobile && !email) {
+      return {
+        success: false,
+        message: 'Failure: Phone or email is required',
+      };
+    }
+
+    const duplicateWhere: Body = {
+      deletedAt: null,
+      OR: [
+        mobile ? { mobile: String(mobile).trim() } : undefined,
+        email ? { email: String(email).trim() } : undefined,
+      ].filter(Boolean),
+    };
+    if (integration.organizationId) {
+      duplicateWhere.organizationId = integration.organizationId;
+    }
+
+    const duplicate = await this.db().lead.findFirst({
+      where: duplicateWhere,
+      select: { id: true, displayId: true },
+    });
+
+    if (duplicate) {
+      return {
+        success: false,
+        message: 'Failure: Lead already exists',
+        leadId: duplicate.id,
+        displayId: duplicate.displayId,
+      };
+    }
+
+    const sourceMaster = await this.get99AcresSourceMaster();
+    const lead = await this.createLead({
+      organizationId: integration.organizationId ?? undefined,
+      name: String(name).trim(),
+      mobile: mobile ? String(mobile).trim() : undefined,
+      email: email ? String(email).trim() : undefined,
+      sourceId: sourceMaster?.id,
+      preferredLocation: payload.Location || payload.location || payload.City || payload.city,
+      propertyType: payload.PropertyType || payload.propertyType,
+      budgetRange: payload.Budget || payload.budget,
+      remarks: payload.Remarks || payload.remarks || payload.Query || payload.query,
+    });
+
+    await this.portalIntegrationUpdate(integration.id, {
+      lastLeadReceivedAt: new Date(),
+      totalLeadsReceived: { increment: 1 },
+      status: isIntegrationPaused(integration) ? 'Paused' : 'Connected',
+    });
+
+    return {
+      success: true,
+      message: 'Success: 99Acres lead ingested successfully',
       leadId: lead.id,
       displayId: lead.displayId,
     };
@@ -10021,6 +10615,8 @@ export class CrmService {
         effectiveProjId = matchedProject?.id ?? trimmed;
       }
     }
+
+    const effectiveOrgId = body.organizationId ?? (await this.resolveTenantOrganizationId(actorUserId)) ?? undefined;
 
     const createLeadRecord = (displayId: string) =>
       this.db().$transaction(async (tx: Prisma.TransactionClient) => {

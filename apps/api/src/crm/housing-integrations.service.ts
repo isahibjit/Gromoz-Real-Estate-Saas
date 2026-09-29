@@ -46,23 +46,67 @@ export class HousingIntegrationsService {
     return this.prisma as any;
   }
 
-  async ensureHousingIntegration(actorUserId?: string) {
-    let integration = await this.db().housingIntegration.findFirst();
+  private async ensureHousingIntegrationTable() {
+    await this.db().$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "HousingIntegration" (
+        "id" TEXT PRIMARY KEY,
+        "organizationId" TEXT,
+        "webhookKeyId" TEXT NOT NULL UNIQUE,
+        "apiKey" TEXT,
+        "isActive" BOOLEAN NOT NULL DEFAULT true,
+        "fieldMapping" JSONB,
+        "lastWebhookReceivedAt" TIMESTAMP(3),
+        "createdById" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await this.db().$executeRawUnsafe(`
+      ALTER TABLE "HousingIntegration"
+      ADD COLUMN IF NOT EXISTS "organizationId" TEXT
+    `);
+    await this.db().$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "HousingIntegration_org_idx"
+      ON "HousingIntegration" ("organizationId")
+    `);
+  }
+
+  async ensureHousingIntegration(actorUserId?: string, organizationId?: string) {
+    await this.ensureHousingIntegrationTable();
+    const orgId =
+      organizationId ||
+      (await this.crm.resolveTenantOrganizationId(actorUserId));
+
+    let integration = orgId
+      ? await this.db().housingIntegration.findFirst({
+          where: { organizationId: orgId },
+        })
+      : await this.db().housingIntegration.findFirst();
+
     if (!integration) {
       integration = await this.db().housingIntegration.create({
         data: {
+          organizationId: orgId ?? null,
           webhookKeyId: randomBytes(12).toString('hex'),
           isActive: true,
           fieldMapping: defaultHousingFieldMapping,
           createdById: actorUserId,
         },
       });
+    } else if (orgId && !integration.organizationId) {
+      integration = await this.db().housingIntegration.update({
+        where: { id: integration.id },
+        data: { organizationId: orgId },
+      });
     }
     return integration;
   }
 
-  async getHousingIntegration(actorUserId?: string) {
-    const integration = await this.ensureHousingIntegration(actorUserId);
+  async getHousingIntegration(actorUserId?: string, organizationId?: string) {
+    const integration = await this.ensureHousingIntegration(
+      actorUserId,
+      organizationId,
+    );
     const webhookUrl = `https://crmtrueroot.com/api/v1/public/webhooks/housing/${integration.webhookKeyId}`;
 
     const housingSourceMaster = await this.db().leadMasterValue.findFirst({
@@ -81,11 +125,16 @@ export class HousingIntegrationsService {
       'housing',
     ].filter(Boolean);
 
+    const whereClause: any = {
+      deletedAt: null,
+      sourceId: { in: sourceFilters },
+    };
+    if (integration.organizationId) {
+      whereClause.organizationId = integration.organizationId;
+    }
+
     const leadCount = await this.db().lead.count({
-      where: {
-        deletedAt: null,
-        sourceId: { in: sourceFilters },
-      },
+      where: whereClause,
     });
 
     return {
@@ -100,8 +149,12 @@ export class HousingIntegrationsService {
   async saveHousingIntegration(
     body: { isActive?: boolean; apiKey?: string },
     actorUserId?: string,
+    organizationId?: string,
   ) {
-    const integration = await this.ensureHousingIntegration(actorUserId);
+    const integration = await this.ensureHousingIntegration(
+      actorUserId,
+      organizationId,
+    );
     return this.db().housingIntegration.update({
       where: { id: integration.id },
       data: {
@@ -112,8 +165,11 @@ export class HousingIntegrationsService {
     });
   }
 
-  async regenerateWebhookKey(actorUserId?: string) {
-    const integration = await this.ensureHousingIntegration(actorUserId);
+  async regenerateWebhookKey(actorUserId?: string, organizationId?: string) {
+    const integration = await this.ensureHousingIntegration(
+      actorUserId,
+      organizationId,
+    );
     return this.db().housingIntegration.update({
       where: { id: integration.id },
       data: {
@@ -122,8 +178,15 @@ export class HousingIntegrationsService {
     });
   }
 
-  async saveFieldMapping(fieldMapping: any, actorUserId?: string) {
-    const integration = await this.ensureHousingIntegration(actorUserId);
+  async saveFieldMapping(
+    fieldMapping: any,
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    const integration = await this.ensureHousingIntegration(
+      actorUserId,
+      organizationId,
+    );
     return this.db().housingIntegration.update({
       where: { id: integration.id },
       data: {
@@ -133,6 +196,7 @@ export class HousingIntegrationsService {
   }
 
   async ingestWebhook(keyId: string, body: any) {
+    await this.ensureHousingIntegrationTable();
     const integration = await this.db().housingIntegration.findUnique({
       where: { webhookKeyId: keyId },
     });
@@ -212,6 +276,7 @@ export class HousingIntegrationsService {
     }
 
     const createdLead = await this.crm.createLead({
+      organizationId: integration.organizationId ?? undefined,
       name: String(name).trim(),
       phone: phone ? String(phone).trim() : undefined,
       email: email ? String(email).trim() : undefined,
@@ -239,11 +304,19 @@ export class HousingIntegrationsService {
       success: true,
       message: 'Housing.com lead ingested successfully',
       leadId: createdLead.id,
+      organizationId: integration.organizationId,
     };
   }
 
-  async testIntegration(sampleBody?: any, actorUserId?: string) {
-    const integration = await this.ensureHousingIntegration(actorUserId);
+  async testIntegration(
+    sampleBody?: any,
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    const integration = await this.ensureHousingIntegration(
+      actorUserId,
+      organizationId,
+    );
     const result = await this.ingestWebhook(
       integration.webhookKeyId,
       sampleBody || defaultHousingSamplePayload,

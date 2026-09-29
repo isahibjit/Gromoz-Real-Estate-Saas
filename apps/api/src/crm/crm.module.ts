@@ -9,6 +9,7 @@ import { AutoAssignmentWorker } from './auto-assignment.worker';
 import { CrmService } from './crm.service';
 import { FollowUpReminderWorker } from './follow-up-reminder.worker';
 import {
+  Acres99IntegrationsController,
   AutoAssignmentController,
   BookingsController,
   CallLogsController,
@@ -23,6 +24,7 @@ import {
   MetaIntegrationsController,
   NotificationsController,
   PropertyMastersController,
+  Public99AcresWebhookController,
   PublicMagicBricksWebhookController,
   PublicMetaWebhookController,
   PublicWebsiteWebhookController,
@@ -73,9 +75,11 @@ import { MobileLeadsController } from './mobile-leads.controller';
     CallLogsController,
     LeadImportsController,
     MagicBricksIntegrationsController,
+    Acres99IntegrationsController,
     MetaIntegrationsController,
     WebsiteIntegrationsController,
     PublicMagicBricksWebhookController,
+    Public99AcresWebhookController,
     PublicMetaWebhookController,
     PublicWebsiteWebhookController,
     PublicIncomingLeadsWebhookController,
