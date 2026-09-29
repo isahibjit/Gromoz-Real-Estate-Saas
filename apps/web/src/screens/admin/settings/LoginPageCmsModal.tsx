@@ -1,27 +1,26 @@
 import React, { useState } from "react";
 import {
-  Building2,
-  Check,
-  CheckCircle2,
-  ChevronRight,
   Eye,
-  Globe,
   Headphones,
-  Image as ImageIcon,
-  Layers,
-  Lock,
-  Mail,
   Phone,
   RotateCcw,
   Save,
-  ShieldCheck,
   Sparkles,
   Smartphone,
-  Upload,
-  X,
+  CheckCircle2,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { Button, Card, Checkbox, Input } from "ui";
+import {
+  Button,
+  Checkbox,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+} from "ui";
 import trurootLogo from "../../../assets/truroot-logo.png";
 import onboardBuildings from "../../../assets/onboard-buildings.png";
 
@@ -109,8 +108,6 @@ export function LoginPageCmsModal({
   const [activeTab, setActiveTab] = useState<"hero" | "features" | "support" | "card">("hero");
   const [isSaving, setIsSaving] = useState(false);
 
-  if (!isOpen) return null;
-
   const handleFieldChange = (field: keyof LoginPageCmsData, value: any) => {
     setData((prev) => ({ ...prev, [field]: value }));
   };
@@ -138,7 +135,7 @@ export function LoginPageCmsModal({
     setIsSaving(true);
     try {
       await onSave(data);
-      toast.success("Login Page CMS updated and published!");
+      toast.success("Login page CMS customized and published!");
       onClose();
     } catch (err: any) {
       toast.error(err?.message || "Failed to save login page CMS");
@@ -151,140 +148,133 @@ export function LoginPageCmsModal({
   const effectiveBg = data.heroBgImageUrl || onboardBuildings;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto animate-modal-backdrop">
-      <div className="relative flex flex-col w-full max-w-6xl max-h-[92vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-modal-content">
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-5xl md:max-w-6xl w-full h-[88vh] min-h-[620px] max-h-[820px] p-0 overflow-hidden flex flex-col bg-card border-border rounded-xl shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50/80 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="flex items-center justify-center size-9 rounded-lg bg-primary/10 text-primary">
-              <Sparkles className="size-5" />
+        <DialogHeader className="px-6 py-4 border-b border-border bg-muted/30 shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center size-8 rounded-lg bg-primary/10 text-primary">
+              <Sparkles className="size-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900">
-                Login Page Visual CMS & Customizer
-              </h2>
-              <p className="text-xs text-slate-500 font-medium">
-                Customize your workspace's branded login screen, headlines, support hotline, and trust badges.
-              </p>
+              <DialogTitle className="text-base font-bold text-foreground">
+                Login Page Visual CMS Customizer
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                Customize your organization's login portal headlines, support contact details, feature highlights, and trust badges.
+              </DialogDescription>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition cursor-pointer"
-          >
-            <X className="size-5" />
-          </button>
-        </div>
+        </DialogHeader>
 
         {/* Modal Body: Split Editor & Live Mockup */}
         <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 min-h-0 overflow-hidden">
           {/* Left Panel: Form Controls */}
-          <div className="lg:col-span-6 flex flex-col border-r border-slate-200 overflow-y-auto p-5 space-y-5 bg-white">
-            {/* Tabs */}
-            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0">
+          <div className="lg:col-span-6 flex flex-col h-full border-r border-border overflow-y-auto p-5 space-y-4 bg-background">
+            {/* Navigation Tabs */}
+            <div className="flex items-center gap-1 bg-muted p-1 rounded-lg shrink-0">
               <button
                 type="button"
                 onClick={() => setActiveTab("hero")}
-                className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                className={`flex-1 py-1.5 px-2 rounded-md text-xs font-semibold transition cursor-pointer ${
                   activeTab === "hero"
-                    ? "bg-white text-slate-900 shadow-xs"
-                    : "text-slate-500 hover:text-slate-900"
+                    ? "bg-card text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Hero & Brand
+                Hero & Branding
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("features")}
-                className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                className={`flex-1 py-1.5 px-2 rounded-md text-xs font-semibold transition cursor-pointer ${
                   activeTab === "features"
-                    ? "bg-white text-slate-900 shadow-xs"
-                    : "text-slate-500 hover:text-slate-900"
+                    ? "bg-card text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Feature Badges
+                Feature Highlights
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("support")}
-                className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                className={`flex-1 py-1.5 px-2 rounded-md text-xs font-semibold transition cursor-pointer ${
                   activeTab === "support"
-                    ? "bg-white text-slate-900 shadow-xs"
-                    : "text-slate-500 hover:text-slate-900"
+                    ? "bg-card text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Support Team
+                Support Center
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("card")}
-                className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                className={`flex-1 py-1.5 px-2 rounded-md text-xs font-semibold transition cursor-pointer ${
                   activeTab === "card"
-                    ? "bg-white text-slate-900 shadow-xs"
-                    : "text-slate-500 hover:text-slate-900"
+                    ? "bg-card text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Login Form & App
+                Form & App
               </button>
             </div>
 
             {/* Tab 1: Hero & Brand */}
             {activeTab === "hero" && (
-              <div className="space-y-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-700">Headline Prefix</label>
+              <div className="space-y-3.5">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground">Headline Prefix</label>
                   <Input
-                    className="mt-1"
                     value={data.heroHeadlinePrefix}
                     onChange={(e) => handleFieldChange("heroHeadlinePrefix", e.target.value)}
                     placeholder="e.g. Welcome to"
+                    className="text-xs"
                   />
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-700">Headline Company Highlight</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground">Company Name Highlight</label>
                   <Input
-                    className="mt-1 font-bold text-primary"
                     value={data.heroHeadlineHighlight}
                     onChange={(e) => handleFieldChange("heroHeadlineHighlight", e.target.value)}
-                    placeholder="e.g. Skyline Realty CRM"
+                    placeholder="e.g. Skyline Realty Group"
+                    className="text-xs font-semibold text-primary"
                   />
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-700">Hero Subtitle / Tagline</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground">Hero Subtitle & Tagline</label>
                   <textarea
                     rows={2}
-                    className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-medium text-slate-800 shadow-xs focus:ring-1 focus:ring-primary focus:border-primary"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-medium text-foreground shadow-xs focus:ring-1 focus:ring-primary focus:border-primary"
                     value={data.heroTagline}
                     onChange={(e) => handleFieldChange("heroTagline", e.target.value)}
                     placeholder="Describe your workspace value proposition..."
                   />
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-700">Custom Login Logo URL</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground">Custom Login Logo URL</label>
                   <Input
-                    className="mt-1"
                     value={data.heroLogoUrl}
                     onChange={(e) => handleFieldChange("heroLogoUrl", e.target.value)}
                     placeholder="https://yourdomain.com/logo.png (leave blank for workspace logo)"
+                    className="text-xs"
                   />
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-700">Custom Hero Background Image URL</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground">Custom Hero Background Image URL</label>
                   <Input
-                    className="mt-1"
                     value={data.heroBgImageUrl}
                     onChange={(e) => handleFieldChange("heroBgImageUrl", e.target.value)}
                     placeholder="https://images.unsplash.com/... (optional)"
+                    className="text-xs"
                   />
                 </div>
 
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                  <p className="text-xs font-bold text-slate-800">Security Trust Badge (Bottom Left)</p>
+                <div className="p-3 bg-muted/40 border border-border rounded-lg space-y-2">
+                  <span className="text-xs font-semibold text-foreground">Security Trust Badge</span>
                   <Input
                     value={data.trustBadgeTitle}
                     onChange={(e) => handleFieldChange("trustBadgeTitle", e.target.value)}
@@ -304,11 +294,11 @@ export function LoginPageCmsModal({
             {/* Tab 2: Feature Badges */}
             {activeTab === "features" && (
               <div className="space-y-3">
-                <p className="text-xs text-slate-500 font-medium">
+                <p className="text-xs text-muted-foreground">
                   Configure the 4 key feature highlights displayed under your welcome banner.
                 </p>
                 {data.features.map((feat, idx) => (
-                  <div key={idx} className="flex items-center gap-3">
+                  <div key={idx} className="flex items-center gap-2.5">
                     <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary font-bold text-xs">
                       {idx + 1}
                     </span>
@@ -316,7 +306,7 @@ export function LoginPageCmsModal({
                       value={feat.title}
                       onChange={(e) => handleFeatureChange(idx, e.target.value)}
                       placeholder={`Feature ${idx + 1} title`}
-                      className="text-xs font-semibold"
+                      className="text-xs font-semibold flex-1"
                     />
                   </div>
                 ))}
@@ -325,53 +315,53 @@ export function LoginPageCmsModal({
 
             {/* Tab 3: Support Team */}
             {activeTab === "support" && (
-              <div className="space-y-4">
-                <div className="p-3 bg-blue-50/60 border border-blue-100 rounded-xl">
-                  <div className="flex items-center gap-2 text-blue-900 font-bold text-xs">
-                    <Headphones className="size-4" /> Support Box Customization
+              <div className="space-y-3.5">
+                <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg">
+                  <div className="flex items-center gap-2 text-primary font-semibold text-xs">
+                    <Headphones className="size-3.5" /> Support Center Customization
                   </div>
-                  <p className="text-[11px] text-blue-700 mt-1">
-                    This contact box is shown directly below the login form so agents and employees can reach your IT / support team easily.
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    This contact box is shown directly below the login form so agents and employees can reach your IT support team easily.
                   </p>
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-700">Support Box Header Title</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground">Support Header Title</label>
                   <Input
-                    className="mt-1"
                     value={data.supportTitle}
                     onChange={(e) => handleFieldChange("supportTitle", e.target.value)}
                     placeholder="e.g. Need help?"
+                    className="text-xs"
                   />
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-700">Support Box Subtitle</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground">Support Subtitle</label>
                   <Input
-                    className="mt-1"
                     value={data.supportSubtitle}
                     onChange={(e) => handleFieldChange("supportSubtitle", e.target.value)}
                     placeholder="e.g. Contact our support team"
+                    className="text-xs"
                   />
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-700">Support Phone Hotline</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground">Support Phone Hotline</label>
                   <Input
-                    className="mt-1"
                     value={data.supportPhone}
                     onChange={(e) => handleFieldChange("supportPhone", e.target.value)}
                     placeholder="e.g. +91 98765 43210"
+                    className="text-xs"
                   />
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-700">Support Email Address</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground">Support Email Address</label>
                   <Input
-                    className="mt-1"
                     value={data.supportEmail}
                     onChange={(e) => handleFieldChange("supportEmail", e.target.value)}
                     placeholder="e.g. support@truerootrealty.com"
+                    className="text-xs"
                   />
                 </div>
               </div>
@@ -379,47 +369,47 @@ export function LoginPageCmsModal({
 
             {/* Tab 4: Login Form & App */}
             {activeTab === "card" && (
-              <div className="space-y-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-700">Form Header Title</label>
+              <div className="space-y-3.5">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground">Form Header Title</label>
                   <Input
-                    className="mt-1"
                     value={data.cardTitle}
                     onChange={(e) => handleFieldChange("cardTitle", e.target.value)}
                     placeholder="e.g. Login to Your Account"
+                    className="text-xs"
                   />
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-700">Form Subtitle</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground">Form Subtitle</label>
                   <Input
-                    className="mt-1"
                     value={data.cardSubtitle}
                     onChange={(e) => handleFieldChange("cardSubtitle", e.target.value)}
                     placeholder="e.g. Welcome back! Please login to continue."
+                    className="text-xs"
                   />
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-700">Password / 2FA Hint Notice</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground">Password & 2FA Hint Notice</label>
                   <textarea
                     rows={2}
-                    className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-medium text-slate-800 shadow-xs focus:ring-1 focus:ring-primary focus:border-primary"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-medium text-foreground shadow-xs focus:ring-1 focus:ring-primary focus:border-primary"
                     value={data.passwordHint}
                     onChange={(e) => handleFieldChange("passwordHint", e.target.value)}
                   />
                 </div>
 
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                <div className="p-3 bg-muted/40 border border-border rounded-lg space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-800">Show Mobile App Download Button</label>
+                    <label className="text-xs font-semibold text-foreground">Show Mobile App Download Button</label>
                     <Checkbox
                       checked={data.showDownloadApp}
                       onCheckedChange={(checked) => handleFieldChange("showDownloadApp", Boolean(checked))}
                     />
                   </div>
                   {data.showDownloadApp && (
-                    <>
+                    <div className="space-y-2 pt-1">
                       <Input
                         value={data.downloadAppLabel}
                         onChange={(e) => handleFieldChange("downloadAppLabel", e.target.value)}
@@ -432,25 +422,25 @@ export function LoginPageCmsModal({
                         placeholder="App URL or Play Store link"
                         className="text-xs"
                       />
-                    </>
+                    </div>
                   )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-bold text-slate-700">Terms of Use URL</label>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-foreground">Terms of Use URL</label>
                     <Input
-                      className="mt-1 text-xs"
                       value={data.termsUrl}
                       onChange={(e) => handleFieldChange("termsUrl", e.target.value)}
+                      className="text-xs"
                     />
                   </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-700">Privacy Policy URL</label>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-foreground">Privacy Policy URL</label>
                     <Input
-                      className="mt-1 text-xs"
                       value={data.privacyUrl}
                       onChange={(e) => handleFieldChange("privacyUrl", e.target.value)}
+                      className="text-xs"
                     />
                   </div>
                 </div>
@@ -459,35 +449,35 @@ export function LoginPageCmsModal({
           </div>
 
           {/* Right Panel: Live Visual Mockup Preview */}
-          <div className="lg:col-span-6 flex flex-col bg-slate-900 p-4 sm:p-6 overflow-y-auto">
-            <div className="flex items-center justify-between mb-3 text-white">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Eye className="size-3.5" /> Live Preview
+          <div className="lg:col-span-6 flex flex-col bg-slate-900 p-4 sm:p-5 overflow-y-auto">
+            <div className="flex items-center justify-between mb-2.5 text-white">
+              <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <Eye className="size-3.5 text-primary" /> Live snapshot preview
               </span>
-              <span className="text-[11px] text-emerald-400 font-semibold bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-800/40">
-                Real-Time Updates
+              <span className="text-[10px] text-emerald-400 font-medium bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-800/40">
+                Real-time updates
               </span>
             </div>
 
             {/* Scaled Mockup Frame */}
-            <div className="relative flex-1 min-h-[440px] rounded-xl overflow-hidden border border-slate-700 shadow-2xl bg-slate-950 text-slate-800">
+            <div className="relative flex-1 min-h-[420px] rounded-lg overflow-hidden border border-slate-700 shadow-xl bg-slate-950 text-slate-800">
               <img
                 src={effectiveBg}
                 alt="Background preview"
                 className="absolute inset-0 w-full h-full object-cover opacity-80"
               />
-              <div className="absolute inset-0 bg-gradient-to-r from-white/90 via-white/70 to-white/95" />
+              <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/80 to-white/95" />
 
-              <div className="relative z-10 p-5 grid grid-cols-1 md:grid-cols-2 gap-4 h-full items-center">
+              <div className="relative z-10 p-4 grid grid-cols-1 md:grid-cols-2 gap-3.5 h-full items-center">
                 {/* Mockup Left Banner */}
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   <img
                     src={effectiveLogo}
                     alt="Logo"
-                    className="h-8 max-w-[140px] object-contain"
+                    className="h-7 max-w-[130px] object-contain"
                   />
                   <div>
-                    <h3 className="text-sm font-black leading-tight text-slate-900">
+                    <h3 className="text-xs font-bold leading-tight text-slate-900">
                       {data.heroHeadlinePrefix}{" "}
                       <span className="text-primary block">{data.heroHeadlineHighlight}</span>
                     </h3>
@@ -496,18 +486,18 @@ export function LoginPageCmsModal({
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="grid grid-cols-2 gap-1">
                     {data.features.map((feat, idx) => (
                       <div
                         key={idx}
-                        className="bg-white/90 border border-slate-200 rounded px-2 py-1 text-[9px] font-bold text-slate-800 text-center truncate shadow-2xs"
+                        className="bg-white/90 border border-slate-200 rounded px-1.5 py-0.5 text-[8.5px] font-semibold text-slate-800 text-center truncate shadow-2xs"
                       >
                         {feat.title}
                       </div>
                     ))}
                   </div>
 
-                  <div className="bg-slate-900 text-white rounded p-2 text-[9px] space-y-0.5 shadow-sm">
+                  <div className="bg-slate-900 text-white rounded p-2 text-[8.5px] space-y-0.5 shadow-xs">
                     <p className="font-bold text-amber-300">{data.trustBadgeTitle}</p>
                     <p className="text-slate-300 text-[8px] leading-tight line-clamp-2">
                       {data.trustBadgeDescription}
@@ -516,42 +506,42 @@ export function LoginPageCmsModal({
                 </div>
 
                 {/* Mockup Right Login Card */}
-                <div className="bg-white rounded-xl p-3.5 shadow-xl border border-slate-200 space-y-2.5">
+                <div className="bg-white rounded-lg p-3 shadow-lg border border-slate-200 space-y-2">
                   <div>
-                    <h4 className="text-xs font-black text-slate-900">{data.cardTitle}</h4>
+                    <h4 className="text-xs font-bold text-slate-900">{data.cardTitle}</h4>
                     <p className="text-[9px] text-slate-500 font-medium">{data.cardSubtitle}</p>
                   </div>
 
                   <div className="space-y-1.5 pointer-events-none opacity-85">
-                    <div className="h-7 bg-slate-100 rounded border border-slate-200 px-2 flex items-center text-[9px] text-slate-400">
+                    <div className="h-6 bg-slate-100 rounded border border-slate-200 px-2 flex items-center text-[9px] text-slate-400">
                       Enter email or mobile
                     </div>
-                    <div className="h-7 bg-slate-100 rounded border border-slate-200 px-2 flex items-center text-[9px] text-slate-400">
+                    <div className="h-6 bg-slate-100 rounded border border-slate-200 px-2 flex items-center text-[9px] text-slate-400">
                       ••••••••
                     </div>
-                    <div className="h-7 bg-[#0D1F3D] text-white rounded font-bold text-[10px] flex items-center justify-center">
-                      Login →
+                    <div className="h-6 bg-[#0D1F3D] text-white rounded font-semibold text-[9px] flex items-center justify-center">
+                      Login
                     </div>
                   </div>
 
                   {data.showDownloadApp && (
-                    <div className="h-6 border border-slate-200 rounded flex items-center justify-center text-[9px] font-bold text-slate-700 bg-slate-50">
-                      <Smartphone className="size-3 mr-1 text-slate-500" />
+                    <div className="h-5 border border-slate-200 rounded flex items-center justify-center text-[8.5px] font-medium text-slate-700 bg-slate-50">
+                      <Smartphone className="size-2.5 mr-1 text-slate-500" />
                       {data.downloadAppLabel}
                     </div>
                   )}
 
                   {/* Mockup Support Box */}
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-[9px] flex items-center justify-between gap-2">
+                  <div className="rounded border border-slate-200 bg-slate-50 p-1.5 text-[8px] flex items-center justify-between gap-1">
                     <div>
                       <p className="font-bold text-slate-900">{data.supportTitle}</p>
-                      <p className="text-[8px] text-slate-500">{data.supportSubtitle}</p>
+                      <p className="text-[7.5px] text-slate-500">{data.supportSubtitle}</p>
                     </div>
-                    <div className="text-right font-bold text-slate-800 text-[8px]">
-                      <p className="flex items-center justify-end gap-1 text-primary">
-                        <Phone className="size-2.5" /> {data.supportPhone}
+                    <div className="text-right font-semibold text-slate-800 text-[7.5px]">
+                      <p className="flex items-center justify-end gap-0.5 text-primary">
+                        <Phone className="size-2" /> {data.supportPhone}
                       </p>
-                      <p className="text-slate-500 truncate max-w-[100px]">{data.supportEmail}</p>
+                      <p className="text-slate-500 truncate max-w-[90px]">{data.supportEmail}</p>
                     </div>
                   </div>
                 </div>
@@ -561,39 +551,42 @@ export function LoginPageCmsModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-200 bg-slate-50/80 shrink-0">
+        <DialogFooter className="px-6 py-3 border-t border-border bg-muted/20 flex items-center justify-between sm:justify-between shrink-0">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={handleReset}
-            className="text-slate-600 gap-1.5"
+            className="text-muted-foreground hover:text-foreground gap-1.5 text-xs"
           >
-            <RotateCcw className="size-3.5" /> Reset to Default
+            <RotateCcw className="size-3.5" /> Reset to defaults
           </Button>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={onClose}
               disabled={isSaving}
+              className="text-xs"
             >
               Cancel
             </Button>
             <Button
               type="button"
+              variant="primary"
               size="sm"
               onClick={handleSubmit}
               disabled={isSaving}
-              className="gap-1.5 bg-[#0D1F3D] text-white hover:bg-[#0D1F3D]/90 font-bold"
+              className="gap-1.5 font-bold text-xs"
             >
-              {isSaving ? "Saving..." : <><Save className="size-3.5" /> Save Login Page CMS</>}
+              <Save className="size-3.5" />
+              {isSaving ? "Saving..." : "Save and publish"}
             </Button>
           </div>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -100,13 +100,24 @@ export function BillingOverviewScreen() {
 
   if (isLoading) {
     return (
-      <div className="p-8 max-w-6xl mx-auto space-y-6">
-        <div className="h-8 w-48 bg-muted animate-pulse rounded" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="h-36 bg-muted animate-pulse rounded-xl" />
-          <div className="h-36 bg-muted animate-pulse rounded-xl" />
-          <div className="h-36 bg-muted animate-pulse rounded-xl" />
+      <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-6 animate-pulse">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-4">
+          <div className="space-y-2">
+            <div className="h-7 w-60 bg-muted/80 rounded-md" />
+            <div className="h-3.5 w-80 bg-muted/50 rounded" />
+          </div>
+          <div className="h-9 w-36 bg-muted/70 rounded-lg" />
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-36 bg-card border border-border rounded-xl p-5 space-y-3 shadow-xs">
+              <div className="h-4 w-28 bg-muted/60 rounded" />
+              <div className="h-8 w-32 bg-muted/80 rounded-md" />
+              <div className="h-3 w-40 bg-muted/40 rounded" />
+            </div>
+          ))}
+        </div>
+        <div className="h-64 bg-card border border-border rounded-xl p-6 shadow-xs" />
       </div>
     );
   }

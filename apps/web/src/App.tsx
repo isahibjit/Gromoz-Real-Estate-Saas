@@ -196,97 +196,148 @@ const EMPLOYEE_SETTINGS_PATH = "/employee/settings";
 
 function LoadingWorkspace() {
   return (
-    <main className="min-h-screen bg-slate-50 lg:flex">
-      <aside className="hidden min-h-screen w-[280px] shrink-0 border-r border-slate-200 bg-secondary p-5 lg:block">
-        <div className="h-11 w-40 animate-pulse rounded-lg bg-white/20" />
-        <div className="mt-8 space-y-3">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <div
-              key={index}
-              className="flex items-center gap-3 rounded-lg px-2 py-2.5"
-            >
-              <div className="size-9 animate-pulse rounded-lg bg-white/12" />
-              <div className="h-3 flex-1 animate-pulse rounded-full bg-white/12" />
-            </div>
-          ))}
-        </div>
-        <div className="absolute bottom-5 left-5 right-5 hidden lg:block">
-          <div className="h-11 animate-pulse rounded-lg bg-white/12" />
-        </div>
-      </aside>
-
-      <section className="min-w-0 flex-1">
-        <header className="flex h-16 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 sm:px-6">
-          <div className="flex items-center gap-4">
-            <div className="size-9 animate-pulse rounded-lg bg-slate-100 lg:hidden" />
-            <div className="h-4 w-44 animate-pulse rounded-full bg-slate-200" />
+    <main className="min-h-screen bg-slate-50/60 lg:flex animate-pulse">
+      {/* Sidebar Skeleton */}
+      <aside className="hidden min-h-screen w-[280px] shrink-0 flex-col justify-between border-r border-slate-200 bg-white p-4 lg:flex">
+        <div className="space-y-6">
+          {/* Brand Header */}
+          <div className="flex h-12 items-center px-2 border-b border-slate-100 pb-3">
+            <div className="h-8 w-36 bg-slate-200/80 rounded-md" />
           </div>
-          <div className="hidden h-10 w-[420px] max-w-[40vw] animate-pulse rounded-lg bg-slate-100 md:block" />
-          <div className="flex items-center gap-3">
-            <div className="hidden h-10 w-28 animate-pulse rounded-lg bg-primary/20 sm:block" />
-            <div className="size-10 animate-pulse rounded-full bg-slate-100" />
-          </div>
-        </header>
 
-        <div className="space-y-5 p-4 sm:p-6 2xl:px-8">
-          <Card className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h1 className="text-xl font-extrabold text-secondary">
-                  Loading workspace...
-                </h1>
-                <p className="mt-2 text-sm font-medium text-muted-foreground">
-                  Restoring your session and preparing the dashboard.
-                </p>
-              </div>
-              <Loader2 className="size-10 animate-spin text-primary shrink-0" />
-            </div>
-          </Card>
-
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-            {Array.from({ length: 7 }).map((_, index) => (
-              <Card
-                key={index}
-                className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+          {/* Nav Group 1 */}
+          <div className="space-y-1.5">
+            <div className="h-2.5 w-20 bg-slate-200/60 rounded px-2 mb-2" />
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 rounded-lg px-2.5 py-2 bg-slate-50 border border-slate-100/80"
               >
-                <div className="h-9 w-9 animate-pulse rounded-lg bg-slate-100" />
-                <div className="mt-5 h-4 w-24 animate-pulse rounded-full bg-slate-200" />
-                <div className="mt-3 h-7 w-16 animate-pulse rounded-full bg-slate-100" />
-              </Card>
+                <div className="size-4 rounded bg-slate-200/70 shrink-0" />
+                <div className="h-3 w-3/4 rounded bg-slate-200/60" />
+              </div>
             ))}
           </div>
 
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.65fr)]">
-            <Card className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="space-y-4">
-                <div className="h-5 w-44 animate-pulse rounded-full bg-slate-200" />
-                {Array.from({ length: 8 }).map((_, index) => (
+          {/* Nav Group 2 */}
+          <div className="space-y-1.5 pt-2">
+            <div className="h-2.5 w-28 bg-slate-200/60 rounded px-2 mb-2" />
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 rounded-lg px-2.5 py-2 bg-slate-50 border border-slate-100/80"
+              >
+                <div className="size-4 rounded bg-slate-200/70 shrink-0" />
+                <div className="h-3 w-2/3 rounded bg-slate-200/60" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* User Profile Footer */}
+        <div className="flex items-center gap-3 border-t border-slate-100 p-2 pt-4">
+          <div className="size-9 rounded-full bg-slate-200/80 shrink-0" />
+          <div className="flex-1 space-y-1.5">
+            <div className="h-3 w-24 rounded bg-slate-200/70" />
+            <div className="h-2.5 w-16 rounded bg-slate-200/40" />
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <section className="min-w-0 flex-1 flex flex-col">
+        {/* Topbar Header */}
+        <header className="flex h-16 items-center justify-between gap-4 border-b border-slate-200 bg-white px-6">
+          <div className="flex items-center gap-2">
+            <div className="size-8 rounded-lg bg-slate-100 lg:hidden" />
+            <div className="h-4 w-36 rounded bg-slate-200/70" />
+          </div>
+          <div className="hidden h-9 w-96 max-w-md rounded-lg bg-slate-100/90 border border-slate-200/60 md:block" />
+          <div className="flex items-center gap-3">
+            <div className="hidden h-9 w-28 rounded-lg bg-slate-900/10 sm:block" />
+            <div className="size-9 rounded-lg bg-slate-100" />
+            <div className="size-9 rounded-full bg-slate-200/80" />
+          </div>
+        </header>
+
+        {/* Workspace Body */}
+        <div className="flex-1 p-6 md:p-8 space-y-6 max-w-[1440px] w-full mx-auto">
+          {/* Header Title Banner */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+            <div className="space-y-2">
+              <div className="h-3 w-32 bg-slate-200/60 rounded" />
+              <div className="h-7 w-60 bg-slate-200/80 rounded-md" />
+              <div className="h-3.5 w-80 bg-slate-200/50 rounded" />
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-9 w-32 bg-slate-200/70 rounded-lg" />
+              <div className="h-9 w-24 bg-slate-200/50 rounded-lg" />
+            </div>
+          </div>
+
+          {/* 4 KPI Metric Cards */}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={index}
+                className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="h-3.5 w-24 rounded bg-slate-200/60" />
+                  <div className="size-8 rounded-lg bg-slate-100" />
+                </div>
+                <div className="h-7 w-28 rounded bg-slate-200/80" />
+                <div className="h-3 w-20 rounded bg-slate-100" />
+              </div>
+            ))}
+          </div>
+
+          {/* 2-Column Analytics & Activity Feed */}
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.7fr)]">
+            {/* Main Table / Overview Card */}
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs space-y-5">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="h-5 w-44 rounded bg-slate-200/70" />
+                <div className="flex gap-2">
+                  <div className="h-8 w-20 rounded-md bg-slate-100" />
+                  <div className="h-8 w-20 rounded-md bg-slate-100" />
+                </div>
+              </div>
+              <div className="space-y-3">
+                {Array.from({ length: 6 }).map((_, index) => (
                   <div
                     key={index}
-                    className="grid gap-4 border-t border-slate-100 pt-4 sm:grid-cols-[1.2fr_0.8fr_0.6fr_0.4fr]"
+                    className="flex items-center justify-between gap-4 p-3 rounded-lg bg-slate-50/70 border border-slate-100"
                   >
-                    <div className="h-4 animate-pulse rounded-full bg-slate-100" />
-                    <div className="h-4 animate-pulse rounded-full bg-slate-100" />
-                    <div className="h-4 animate-pulse rounded-full bg-slate-100" />
-                    <div className="h-4 animate-pulse rounded-full bg-slate-100" />
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="size-8 rounded-full bg-slate-200/70 shrink-0" />
+                      <div className="space-y-1.5 flex-1">
+                        <div className="h-3.5 w-1/3 rounded bg-slate-200/70" />
+                        <div className="h-2.5 w-1/4 rounded bg-slate-200/40" />
+                      </div>
+                    </div>
+                    <div className="h-6 w-20 rounded-full bg-slate-200/60" />
+                    <div className="h-4 w-16 rounded bg-slate-200/50 hidden sm:block" />
                   </div>
                 ))}
               </div>
-            </Card>
-            <Card className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="h-5 w-36 animate-pulse rounded-full bg-slate-200" />
-              <div className="mt-6 space-y-4">
+            </div>
+
+            {/* Side Activity Card */}
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs space-y-5">
+              <div className="h-5 w-36 rounded bg-slate-200/70 pb-3 border-b border-slate-100" />
+              <div className="space-y-4">
                 {Array.from({ length: 5 }).map((_, index) => (
-                  <div key={index} className="flex items-center gap-3">
-                    <div className="size-10 animate-pulse rounded-full bg-slate-100" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-3 w-3/4 animate-pulse rounded-full bg-slate-100" />
-                      <div className="h-3 w-1/2 animate-pulse rounded-full bg-slate-100" />
+                  <div key={index} className="flex items-start gap-3">
+                    <div className="size-2.5 rounded-full bg-slate-300 mt-1.5 shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3 w-4/5 rounded bg-slate-200/70" />
+                      <div className="h-2.5 w-1/2 rounded bg-slate-200/40" />
                     </div>
                   </div>
                 ))}
               </div>
-            </Card>
+            </div>
           </div>
         </div>
       </section>
@@ -1132,6 +1183,14 @@ export default function App() {
         }
       />
       <Route
+        path="/leads/conversion"
+        element={
+          <AdminRoute>
+            <ConversionAnalyticsScreen />
+          </AdminRoute>
+        }
+      />
+      <Route
         path={LEAD_CONVERSION_ANALYTICS_PATH}
         element={
           <AdminRoute>
@@ -1156,10 +1215,66 @@ export default function App() {
         }
       />
       <Route
+        path="/leads/source-analytics"
+        element={
+          <AdminRoute>
+            <LeadSourceAnalyticsScreen />
+          </AdminRoute>
+        }
+      />
+      <Route
         path={LEAD_SOURCE_ANALYTICS_PATH}
         element={
           <AdminRoute>
             <LeadSourceAnalyticsScreen />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/leads/sources"
+        element={
+          <AdminRoute>
+            <LeadMastersScreen />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path={LEAD_MASTERS_PATH}
+        element={
+          <AdminRoute>
+            <LeadMastersScreen />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/leads/audit-log"
+        element={
+          <AdminRoute>
+            <AuditLogScreen />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path={LEAD_MASTERS_AUDIT_LOG_PATH}
+        element={
+          <AdminRoute>
+            <AuditLogScreen />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/leads/assignment/masters"
+        element={
+          <AdminRoute>
+            <AutoAssignmentMasterScreen />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path={AUTO_ASSIGNMENT_PATH}
+        element={
+          <AdminRoute>
+            <AutoAssignmentMasterScreen />
           </AdminRoute>
         }
       />
@@ -1204,6 +1319,22 @@ export default function App() {
         }
       />
       <Route
+        path="/site-visits"
+        element={
+          <AdminRoute>
+            <SiteVisitsScreen />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/site-visits/tracking"
+        element={
+          <AdminRoute>
+            <SiteVisitsScreen />
+          </AdminRoute>
+        }
+      />
+      <Route
         path={SITE_VISIT_DETAILS_PATH}
         element={
           <AdminRoute>
@@ -1228,6 +1359,22 @@ export default function App() {
         }
       />
       <Route
+        path="/bookings/brokerage-report"
+        element={
+          <AdminRoute>
+            <BrokerageIncentiveReportScreen />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/commissions"
+        element={
+          <AdminRoute>
+            <BrokerageIncentiveReportScreen />
+          </AdminRoute>
+        }
+      />
+      <Route
         path={LEAD_SITE_VISITS_PATH}
         element={
           <AdminRoute>
@@ -1236,26 +1383,18 @@ export default function App() {
         }
       />
       <Route
+        path={EDIT_LEAD_PATH}
+        element={
+          <AdminRoute>
+            <EditLeadScreen />
+          </AdminRoute>
+        }
+      />
+      <Route
         path={LEAD_DETAILS_PATH}
         element={
           <AdminRoute>
             <LeadDetailsScreen />
-          </AdminRoute>
-        }
-      />
-      <Route
-        path={LEAD_MASTERS_PATH}
-        element={
-          <AdminRoute>
-            <LeadMastersScreen />
-          </AdminRoute>
-        }
-      />
-      <Route
-        path={LEAD_MASTERS_AUDIT_LOG_PATH}
-        element={
-          <AdminRoute>
-            <AuditLogScreen />
           </AdminRoute>
         }
       />

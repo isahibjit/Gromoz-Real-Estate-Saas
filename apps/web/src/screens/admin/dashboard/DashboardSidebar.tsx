@@ -2,6 +2,7 @@ import React, {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
@@ -69,6 +70,7 @@ import trurootLogo from "../../../assets/truroot-logo.png";
 import { useAppSelector } from "../../../store";
 import { useLogoutMutation } from "../../../common/mutations/useAuthMutations";
 import { recordRecentSearch } from "../../../components/navigation/HeaderSearchBar";
+import { useDashboardLayoutContext } from "./DashboardLayoutContext";
 
 export interface NavItem {
   label: string;
@@ -355,9 +357,36 @@ export const MobileMenuButton = ({ onClick }: { onClick: () => void }) => (
 function DashboardSidebarComponent({
   collapsed,
   mobileOpen,
+  items,
+  activeItem,
+  activeChild,
+  activeItemId,
+  activeChildId,
+  footerContent,
   onCollapse,
   onMobileClose,
+  managed = false,
 }: DashboardSidebarProps) {
+  const layout = useDashboardLayoutContext();
+  const setLayoutSidebar = layout?.setSidebar;
+
+  useLayoutEffect(() => {
+    if (!setLayoutSidebar || managed) return undefined;
+    const sidebarConfig = {
+      activeItem,
+      activeChild,
+      sidebarItems: items,
+      sidebarFooter: footerContent,
+    };
+    setLayoutSidebar(sidebarConfig);
+    return () =>
+      setLayoutSidebar((current) => (current === sidebarConfig ? {} : current));
+  }, [activeChild, activeItem, footerContent, items, managed, setLayoutSidebar]);
+
+  if (layout && !managed) {
+    return null;
+  }
+
   const user = useAppSelector((state) => state.auth.user);
   const location = useLocation();
   const navigate = useNavigate();
@@ -459,10 +488,39 @@ function DashboardSidebarComponent({
   const canRenderCustomLogoInSidebar = (hasCustomLogo || hasCollapsedLogo) && branding.showLogoInSidebar;
 
   const isItemActive = (to: string) => {
-    if (to === "/admin/dashboard" || to === "/superadmin") {
-      return location.pathname === to;
+    const currentPath = location.pathname;
+    const [itemPath, itemQuery] = to.split("?");
+
+    // Query-specific matches like /admin/settings?tab=login-cms
+    if (itemQuery) {
+      return currentPath === itemPath && location.search.includes(itemQuery);
     }
-    return location.pathname === to || location.pathname.startsWith(to + "/");
+
+    // Exact path match
+    if (currentPath === itemPath) {
+      if (location.search && to === "/admin/settings" && location.search.includes("tab=login-cms")) {
+        return false;
+      }
+      return true;
+    }
+
+    // If another sidebar item has an exact match for the current path, don't highlight the prefix parent
+    // E.g. When on /projects/masters, don't highlight /projects
+    const allItems = categories.flatMap((c) => c.items);
+    const hasMoreSpecificExactMatch = allItems.some((item) => {
+      const [otherPath] = item.to.split("?");
+      return otherPath !== itemPath && currentPath === otherPath;
+    });
+
+    if (hasMoreSpecificExactMatch) {
+      return false;
+    }
+
+    // Sub-route hierarchy check (e.g. /projects/proj-123 under /projects)
+    if (to === "/admin/dashboard" || to === "/superadmin") {
+      return false;
+    }
+    return currentPath.startsWith(itemPath + "/");
   };
 
   return (

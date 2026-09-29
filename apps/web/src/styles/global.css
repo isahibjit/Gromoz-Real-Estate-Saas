@@ -410,3 +410,16 @@
     transform: translate(-50%, -46%) scale(0.94);
   }
 }
+
+/* Workspace layout child normalization to prevent double padding, inner viewport canvases, and scrollbar clipping */
+main.overflow-y-auto > div > .min-h-screen {
+  min-height: auto !important;
+  background-color: transparent !important;
+}
+main.overflow-y-auto > div > .min-h-screen > .min-w-0.flex-1 {
+  width: 100% !important;
+}
+main.overflow-y-auto > div > .min-h-screen > .min-w-0.flex-1 > main {
+  padding: 0 !important;
+}
+

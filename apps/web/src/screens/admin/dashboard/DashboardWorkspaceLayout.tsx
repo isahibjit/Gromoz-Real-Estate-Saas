@@ -91,7 +91,7 @@ function DashboardWorkspaceLayoutContent({ children }: { children?: ReactNode })
           {header.headerContent}
         </DashboardHeader>
         <main className="flex-1 overflow-y-auto bg-[#F3F5F7] w-full">
-          <div className="w-full p-6 lg:p-8 space-y-6 font-sans">
+          <div className="w-full p-4 sm:p-5 lg:p-6 space-y-5 font-sans max-w-[1600px] mx-auto">
             {children ?? <Outlet />}
           </div>
         </main>

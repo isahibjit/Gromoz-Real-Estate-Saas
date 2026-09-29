@@ -382,16 +382,19 @@ export function NotificationSettingsScreen() {
 
   if (isLoading) {
     return (
-      <div className="space-y-8 p-6 font-sans text-secondary antialiased">
-        <div className="flex items-center justify-between">
-          <div className="h-10 w-72 animate-pulse rounded-xl bg-slate-200" />
-          <div className="h-10 w-32 animate-pulse rounded-xl bg-slate-200" />
+      <div className="space-y-6 p-6 md:p-8 max-w-[1440px] mx-auto animate-pulse">
+        <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
+          <div className="space-y-2">
+            <div className="h-7 w-72 rounded-md bg-slate-200/80" />
+            <div className="h-3.5 w-80 rounded bg-slate-200/50" />
+          </div>
+          <div className="h-9 w-32 rounded-lg bg-slate-200/70" />
         </div>
         <div className="grid gap-6 md:grid-cols-2">
-          <div className="h-44 animate-pulse rounded-2xl bg-slate-200" />
-          <div className="h-44 animate-pulse rounded-2xl bg-slate-200" />
+          <div className="h-44 rounded-xl border border-slate-200 bg-white p-5 shadow-xs" />
+          <div className="h-44 rounded-xl border border-slate-200 bg-white p-5 shadow-xs" />
         </div>
-        <div className="h-96 animate-pulse rounded-2xl bg-slate-200" />
+        <div className="h-96 rounded-xl border border-slate-200 bg-white p-6 shadow-xs" />
       </div>
     );
   }

@@ -456,15 +456,87 @@ export function WorkspaceSettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="p-8 max-w-6xl mx-auto space-y-6">
-        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
-        <div className="h-96 bg-muted animate-pulse rounded-xl" />
+      <div className="p-6 md:p-8 w-full max-w-[1440px] mx-auto space-y-6 animate-pulse">
+        {/* Header Skeleton */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/80 pb-4">
+          <div className="space-y-2">
+            <div className="h-3 w-40 bg-muted/70 rounded" />
+            <div className="h-7 w-64 bg-muted/80 rounded-md" />
+            <div className="h-3.5 w-96 max-w-full bg-muted/50 rounded" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-9 w-44 bg-muted/70 rounded-lg" />
+            <div className="h-9 w-24 bg-muted/50 rounded-lg" />
+          </div>
+        </div>
+
+        {/* Tab Strip Skeleton */}
+        <div className="flex items-center gap-6 border-b border-border pb-3 overflow-x-auto">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="h-4 w-28 bg-muted/60 rounded shrink-0" />
+          ))}
+        </div>
+
+        {/* Card 1 Skeleton: Domains */}
+        <div className="p-6 rounded-xl border border-border bg-card space-y-5 shadow-xs">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-border/60">
+            <div className="size-4 bg-muted/70 rounded" />
+            <div className="space-y-1">
+              <div className="h-4 w-48 bg-muted/70 rounded" />
+              <div className="h-3 w-72 bg-muted/40 rounded" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="h-32 rounded-lg bg-muted/20 border border-border p-4 space-y-3">
+              <div className="h-3.5 w-32 bg-muted/50 rounded" />
+              <div className="h-10 bg-muted/40 rounded-md" />
+              <div className="h-3 w-44 bg-muted/30 rounded" />
+            </div>
+            <div className="h-32 rounded-lg bg-muted/20 border border-border p-4 space-y-3">
+              <div className="h-3.5 w-36 bg-muted/50 rounded" />
+              <div className="h-10 bg-muted/40 rounded-md" />
+              <div className="h-3 w-48 bg-muted/30 rounded" />
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2 Skeleton: Branding & Company Info */}
+        <div className="p-6 rounded-xl border border-border bg-card space-y-5 shadow-xs">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-border/60">
+            <div className="size-4 bg-muted/70 rounded" />
+            <div className="space-y-1">
+              <div className="h-4 w-56 bg-muted/70 rounded" />
+              <div className="h-3 w-80 bg-muted/40 rounded" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+            <div className="md:col-span-5 space-y-4">
+              <div className="h-44 rounded-lg bg-muted/20 border border-border p-4 space-y-3">
+                <div className="h-3.5 w-36 bg-muted/50 rounded" />
+                <div className="h-20 bg-muted/30 rounded-md" />
+                <div className="h-8 bg-muted/40 rounded-md" />
+              </div>
+              <div className="h-36 rounded-lg bg-muted/20 border border-border p-4 space-y-3">
+                <div className="h-3.5 w-40 bg-muted/50 rounded" />
+                <div className="h-16 bg-muted/30 rounded-md" />
+              </div>
+            </div>
+            <div className="md:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="space-y-1.5">
+                  <div className="h-3.5 w-24 bg-muted/60 rounded" />
+                  <div className="h-9 bg-muted/40 rounded-md" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-6 text-foreground">
+    <div className="p-6 md:p-8 w-full max-w-[1440px] mx-auto space-y-6 text-foreground">
       <input
         type="file"
         ref={fileInputRef}
@@ -640,7 +712,7 @@ export function WorkspaceSettingsPage() {
                 <div className="p-4 border border-border rounded-lg bg-muted/20 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-foreground">Expanded Sidebar Logo</span>
-                    <span className="text-[10px] font-semibold text-muted-foreground">Recommended: 220×55px PNG/SVG</span>
+                    <span className="text-[10px] font-semibold text-muted-foreground">Recommended: 220×55px (PNG/SVG)</span>
                   </div>
 
                   <div className="flex h-20 w-full items-center justify-center rounded-md bg-card border border-border p-2 shadow-xs overflow-hidden">
@@ -658,9 +730,9 @@ export function WorkspaceSettingsPage() {
                     ) : (
                       <div className="text-center">
                         <p className="font-bold text-foreground text-xs">
-                          {form.companyName || "WORKSPACE LOGO"}
+                          {form.companyName || "Workspace logo"}
                         </p>
-                        <p className="text-[9px] font-semibold text-muted-foreground">DEFAULT TRUROOT LOGO</p>
+                        <p className="text-[9px] font-semibold text-muted-foreground">Default logo</p>
                       </div>
                     )}
                   </div>
@@ -840,7 +912,7 @@ export function WorkspaceSettingsPage() {
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-bold text-foreground">Login Page Visual CMS & Support Center</h3>
                     <Badge variant="primary" className="text-[10px]">
-                      Live Multi-Tenant
+                      Live multi-tenant
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -876,8 +948,8 @@ export function WorkspaceSettingsPage() {
             {/* CMS Summary Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-4 rounded-lg bg-card border border-border space-y-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Login Headline & Tagline
+                <span className="text-[11px] font-semibold text-muted-foreground">
+                  Login headline & tagline
                 </span>
                 <p className="text-xs font-bold text-foreground line-clamp-1">
                   {loginCms?.heroHeadlinePrefix || "Welcome to"}{" "}
@@ -889,8 +961,8 @@ export function WorkspaceSettingsPage() {
               </div>
 
               <div className="p-4 rounded-lg bg-card border border-border space-y-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Support Center Box
+                <span className="text-[11px] font-semibold text-muted-foreground">
+                  Support center & hotline
                 </span>
                 <div className="space-y-1 text-xs">
                   <p className="font-bold text-foreground flex items-center gap-1.5">
@@ -905,8 +977,8 @@ export function WorkspaceSettingsPage() {
               </div>
 
               <div className="p-4 rounded-lg bg-card border border-border space-y-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Feature Badges & App Link
+                <span className="text-[11px] font-semibold text-muted-foreground">
+                  Feature badges & mobile app
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {(loginCms?.features || [
@@ -976,13 +1048,13 @@ export function WorkspaceSettingsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Left Overview */}
               <div className="space-y-4">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Current Configuration
+                <h4 className="text-xs font-bold text-muted-foreground">
+                  Current configuration
                 </h4>
 
                 <div className="space-y-3">
                   <div className="p-3.5 rounded-lg border border-border bg-muted/20 space-y-1">
-                    <span className="text-[11px] font-bold text-muted-foreground">Hero Headline</span>
+                    <span className="text-[11px] font-semibold text-muted-foreground">Hero headline</span>
                     <p className="text-sm font-extrabold text-foreground">
                       {loginCms?.heroHeadlinePrefix || "Welcome to"}{" "}
                       <span className="text-primary">{loginCms?.heroHeadlineHighlight || form.companyName || "Trueroot Realty CRM"}</span>
@@ -993,7 +1065,7 @@ export function WorkspaceSettingsPage() {
                   </div>
 
                   <div className="p-3.5 rounded-lg border border-border bg-muted/20 space-y-1">
-                    <span className="text-[11px] font-bold text-muted-foreground">Support Center & Contact</span>
+                    <span className="text-[11px] font-semibold text-muted-foreground">Support center & contact</span>
                     <div className="flex items-center gap-4 text-xs font-bold text-foreground pt-1">
                       <span>📞 {loginCms?.supportPhone || form.primaryPhone || "+91 98765 43210"}</span>
                       <span>✉️ {loginCms?.supportEmail || form.primaryEmail || "support@truerootrealty.com"}</span>
@@ -1001,7 +1073,7 @@ export function WorkspaceSettingsPage() {
                   </div>
 
                   <div className="p-3.5 rounded-lg border border-border bg-muted/20 space-y-1">
-                    <span className="text-[11px] font-bold text-muted-foreground">Security Trust Badge</span>
+                    <span className="text-[11px] font-semibold text-muted-foreground">Security trust badge</span>
                     <p className="text-xs font-bold text-foreground">
                       🛡️ {loginCms?.trustBadgeTitle || "Secure. Reliable. Always with You."}
                     </p>
@@ -1014,16 +1086,16 @@ export function WorkspaceSettingsPage() {
 
               {/* Right Live Preview Box */}
               <div className="space-y-4">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Live Snapshot Preview
+                <h4 className="text-xs font-bold text-muted-foreground">
+                  Live snapshot preview
                 </h4>
                 <div className="rounded-xl border border-border bg-slate-950 p-4 text-white overflow-hidden relative shadow-lg">
                   <div className="flex items-center justify-between pb-3 border-b border-white/10">
-                    <span className="text-xs font-black tracking-wider text-amber-400 uppercase">
-                      {form.companyName || "BRAND PREVIEW"}
+                    <span className="text-xs font-bold text-amber-400">
+                      {form.companyName || "Brand preview"}
                     </span>
                     <span className="text-[10px] bg-primary/20 text-blue-300 font-bold px-2 py-0.5 rounded">
-                      Live Modal
+                      Live modal
                     </span>
                   </div>
 
@@ -1040,7 +1112,7 @@ export function WorkspaceSettingsPage() {
                   </div>
 
                   <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
-                    <span>Need Help? {loginCms?.supportPhone || form.primaryPhone || "+91 98765 43210"}</span>
+                    <span>Need help? {loginCms?.supportPhone || form.primaryPhone || "+91 98765 43210"}</span>
                     <Button
                       size="sm"
                       variant="primary"
