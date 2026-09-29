@@ -187,13 +187,13 @@ const defaultNavCategories: NavCategory[] = [
       {
         label: "Portal Integrations",
         icon: Plug,
-        to: "/leads/import/connect/magicbricks",
+        to: "/leads/import",
         badge: "Connectors",
       },
       {
         label: "Import CSV Leads",
         icon: PlusCircle,
-        to: "/leads/import",
+        to: "/leads/import?method=excel-csv",
       },
       {
         label: "Conversion Funnel",
@@ -472,6 +472,7 @@ function DashboardSidebarComponent({
   const isItemActive = (to: string) => {
     const currentPath = location.pathname;
     const [itemPath, itemQuery] = to.split("?");
+    const allItems = categories.flatMap((category) => category.items);
 
     // Query-specific matches like /admin/settings?tab=login-cms
     if (itemQuery) {
@@ -480,7 +481,15 @@ function DashboardSidebarComponent({
 
     // Exact path match
     if (currentPath === itemPath) {
-      if (location.search && to === "/admin/settings" && location.search.includes("tab=login-cms")) {
+      const hasQuerySpecificExactMatch = allItems.some((item) => {
+        const [otherPath, otherQuery] = item.to.split("?");
+        return (
+          otherPath === itemPath &&
+          Boolean(otherQuery) &&
+          location.search.includes(otherQuery)
+        );
+      });
+      if (hasQuerySpecificExactMatch) {
         return false;
       }
       return true;
@@ -488,7 +497,6 @@ function DashboardSidebarComponent({
 
     // If another sidebar item has an exact match for the current path, don't highlight the prefix parent
     // E.g. When on /projects/masters, don't highlight /projects
-    const allItems = categories.flatMap((c) => c.items);
     const hasMoreSpecificExactMatch = allItems.some((item) => {
       const [otherPath] = item.to.split("?");
       return otherPath !== itemPath && currentPath === otherPath;

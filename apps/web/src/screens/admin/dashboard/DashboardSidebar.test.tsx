@@ -11,7 +11,7 @@ jest.mock("../../../common/services/auth.api", () => ({
   logout: jest.fn(),
 }));
 
-function renderSidebar() {
+function renderSidebar(initialPath = "/") {
   const store = makeStore();
   store.dispatch(
     setCredentials({
@@ -29,6 +29,7 @@ function renderSidebar() {
     <QueryClientProvider client={new QueryClient()}>
       <Provider store={store}>
         <MemoryRouter
+          initialEntries={[initialPath]}
           future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
         >
           <DashboardSidebar
@@ -48,11 +49,11 @@ test("uses canonical routes and omits source analytics", () => {
 
   expect(screen.getByRole("link", { name: /Portal Integrations/ })).toHaveAttribute(
     "href",
-    "/leads/import/connect/magicbricks",
+    "/leads/import",
   );
   expect(screen.getByRole("link", { name: "Import CSV Leads" })).toHaveAttribute(
     "href",
-    "/leads/import",
+    "/leads/import?method=excel-csv",
   );
   expect(screen.getByRole("link", { name: /Conversion Funnel/ })).toHaveAttribute(
     "href",
@@ -69,4 +70,15 @@ test("uses canonical routes and omits source analytics", () => {
   expect(
     screen.queryByRole("link", { name: "Source Analytics" }),
   ).not.toBeInTheDocument();
+});
+
+test("highlights only the selected import method", () => {
+  renderSidebar("/leads/import?method=excel-csv");
+
+  expect(
+    screen.getByRole("link", { name: /Portal Integrations/ }),
+  ).not.toHaveClass("bg-[#0D1F3D]");
+  expect(screen.getByRole("link", { name: "Import CSV Leads" })).toHaveClass(
+    "bg-[#0D1F3D]",
+  );
 });
