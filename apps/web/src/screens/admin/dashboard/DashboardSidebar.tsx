@@ -209,7 +209,7 @@ const defaultNavCategories: NavCategory[] = [
       {
         label: "Employee Workspace",
         icon: Users,
-        to: "/hr",
+        to: "/admin/employees",
       },
       {
         label: "Employee Tasks",
@@ -226,12 +226,6 @@ const defaultNavCategories: NavCategory[] = [
   {
     title: "Reports & Performance",
     items: [
-      {
-        label: "Calling Performance",
-        icon: TrendingUp,
-        to: "/admin/performance/calling",
-        badge: "Calling",
-      },
       {
         label: "Lead Performance",
         icon: Zap,

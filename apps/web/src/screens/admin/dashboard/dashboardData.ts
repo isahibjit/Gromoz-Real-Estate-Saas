@@ -160,7 +160,6 @@ export const sidebarItems: SidebarItem[] = [
       { label: "Tasks", to: "/admin/tasks", moduleKey: "tasks", pageKey: "page.tasks" },
       { label: "Performance", to: "/admin/performance", moduleKey: "performance", pageKey: "page.performance" },
       { label: "Lead Performance", to: "/admin/performance/leads", moduleKey: "performance", pageKey: "page.performance" },
-      { label: "Calling Performance", to: "/admin/performance/calling", moduleKey: "performance", pageKey: "page.performance" },
       { label: "Access Control", to: "/admin/access-control", moduleKey: "access_control", pageKey: "page.access_control" },
     ],
   },

@@ -756,6 +756,10 @@ export default function App() {
         <Route key={path} path={path} element={<AdminRoute><HrWorkspaceScreen /></AdminRoute>} />
       ))}
       <Route
+        path="/hr"
+        element={<Navigate to={ADMIN_EMPLOYEES_PATH} replace />}
+      />
+      <Route
         path="/attendance"
         element={<Navigate to={ADMIN_ATTENDANCE_PATH} replace />}
       />

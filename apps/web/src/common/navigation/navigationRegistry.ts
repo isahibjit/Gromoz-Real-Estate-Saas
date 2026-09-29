@@ -407,7 +407,6 @@ export const navigationRegistry: NavigationItem[] = [
       { id: "employees.tasks", label: "Tasks", to: "/admin/tasks", moduleKey: "tasks", pageKey: "page.tasks", matchPaths: ["/admin/tasks"] },
       { id: "employees.performance", label: "Performance", to: "/admin/performance", moduleKey: "performance", pageKey: "page.performance" },
       { id: "employees.lead_performance", label: "Lead Performance", to: "/admin/performance/leads", moduleKey: "performance", pageKey: "page.performance" },
-      { id: "employees.calling_performance", label: "Calling Performance", to: "/admin/performance/calling", moduleKey: "performance", pageKey: "page.performance" },
       { id: "employees.access_control", label: "Access Control", to: "/admin/access-control", moduleKey: "access_control", pageKey: "page.access_control" },
     ],
   }),

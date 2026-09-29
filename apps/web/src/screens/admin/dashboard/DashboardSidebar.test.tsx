@@ -59,6 +59,10 @@ test("uses canonical routes and omits source analytics", () => {
     "href",
     "/leads/conversion-analytics",
   );
+  expect(screen.getByRole("link", { name: "Employee Workspace" })).toHaveAttribute(
+    "href",
+    "/admin/employees",
+  );
   expect(screen.getByRole("link", { name: "Employee Tasks" })).toHaveAttribute(
     "href",
     "/admin/tasks",
