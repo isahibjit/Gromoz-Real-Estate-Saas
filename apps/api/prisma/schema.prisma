@@ -30,6 +30,7 @@ model Organization {
   name                    String
   slug                    String                  @unique
   logoUrl                 String?
+  collapsedLogoUrl        String?
   status                  OrganizationStatus      @default(SETUP_PENDING)
   planTier                PlanTier                @default(STARTER)
 
@@ -38,6 +39,31 @@ model Organization {
   pricePerSeatMonth       Float                   @default(500.0)
   setupFeeAmount          Float                   @default(9999.0)
   setupFeePaid            Boolean                 @default(false)
+
+  // Custom Domain & White-labeling
+  customDomain            String?                 @unique
+  customDomainVerified    Boolean                 @default(false)
+  customDomainSslStatus   String                  @default("PENDING") // PENDING, ACTIVE, FAILED
+  customDomainTxtRecord   String?
+
+  // Workspace Profile & Branding Settings
+  industry                String?
+  website                 String?
+  primaryEmail            String?
+  primaryPhone            String?
+  brandingPrimaryColor    String                  @default("#0D1F3D")
+  brandingSecondaryColor  String                  @default("#E20613")
+  sidebarLogoHeight       Int                     @default(42)
+  showLogoInSidebar       Boolean                 @default(true)
+  showLogoInLogin         Boolean                 @default(true)
+  addressLine1            String?
+  city                    String?
+  state                   String?
+  country                 String?                 @default("India")
+  pincode                 String?
+
+  // Extended Workspace Settings (Localization, Financial, Preferences, Security, Integrations)
+  workspaceSettingsJson   Json?
 
   // Razorpay references
   razorpayCustomerId      String?

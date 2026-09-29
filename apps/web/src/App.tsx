@@ -6,6 +6,7 @@ import { LoginScreen } from "./screens/auth/login/login";
 import { RegisterOrganizationScreen } from "./screens/auth/register/RegisterOrganizationScreen";
 import { BillingOverviewScreen } from "./screens/billing/BillingOverviewScreen";
 import { SuperAdminDashboard } from "./screens/superadmin/SuperAdminDashboard";
+import { WorkspaceSettingsPage } from "./screens/admin/settings/WorkspaceSettingsPage";
 import { DownloadAppScreen } from "./screens/public/DownloadAppScreen";
 import { MobileAppScreen } from "./screens/admin/settings/MobileAppScreen";
 import { useRefreshSession } from "./common/queries/useRefreshSession";
@@ -179,6 +180,7 @@ const ADMIN_CALLING_PERFORMANCE_PATH = "/admin/performance/calling";
 const ADMIN_LEAD_PERFORMANCE_PATH = "/admin/performance/leads";
 const ADMIN_ACCESS_CONTROL_PATH = "/admin/access-control";
 const ADMIN_SETTINGS_PATH = "/admin/settings";
+const ADMIN_WORKSPACE_SETTINGS_PATH = "/admin/settings/workspace";
 const EMPLOYEE_PROFILE_PATH = "/employee/me";
 const EMPLOYEE_ATTENDANCE_PATH = "/employee/attendance";
 const EMPLOYEE_LEAVES_PATH = "/employee/leaves";
@@ -636,6 +638,14 @@ export default function App() {
         element={
           <AdminRoute>
             <AccessControlScreen />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path={ADMIN_WORKSPACE_SETTINGS_PATH}
+        element={
+          <AdminRoute>
+            <WorkspaceSettingsPage />
           </AdminRoute>
         }
       />
