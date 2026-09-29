@@ -40,6 +40,7 @@ import {
   LoginPageCmsData,
   defaultLoginPageCms,
 } from "./LoginPageCmsModal";
+import { ImageCropModal } from "../../hr/components/ImageCropModal";
 
 const COUNTRY_OPTIONS = [
   { value: "India", label: "India" },
@@ -167,6 +168,8 @@ export function WorkspaceSettingsPage() {
   const [settings, setSettings] = useState<any>(null);
   const [loginCms, setLoginCms] = useState<LoginPageCmsData | null>(null);
   const [isLoginCmsModalOpen, setIsLoginCmsModalOpen] = useState(false);
+  const [pendingCropImage, setPendingCropImage] = useState<string | null>(null);
+  const [pendingCropTarget, setPendingCropTarget] = useState<"main" | "collapsed">("main");
 
   // Form states
   const [form, setForm] = useState({
@@ -304,19 +307,8 @@ export function WorkspaceSettingsPage() {
       }
       const reader = new FileReader();
       reader.onload = () => {
-        const dataUrl = reader.result as string;
-        handleFieldChange("logoUrl", dataUrl);
-        const activeOrgId = localStorage.getItem("active_organization_id") || "default";
-        const brandingPayload = {
-          logoUrl: dataUrl,
-          collapsedLogoUrl: form.collapsedLogoUrl,
-          showLogoInSidebar: form.showLogoInSidebar,
-          sidebarLogoHeight: form.sidebarLogoHeight,
-        };
-        localStorage.setItem(`visiblo_workspace_branding_${activeOrgId}`, JSON.stringify(brandingPayload));
-        localStorage.setItem("truroot_workspace_branding", JSON.stringify(brandingPayload));
-        window.dispatchEvent(new Event("workspace_branding_updated"));
-        toast.success("Logo uploaded! Click 'Save Workspace Changes' to persist.");
+        setPendingCropTarget("main");
+        setPendingCropImage(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
@@ -331,22 +323,51 @@ export function WorkspaceSettingsPage() {
       }
       const reader = new FileReader();
       reader.onload = () => {
-        const dataUrl = reader.result as string;
-        handleFieldChange("collapsedLogoUrl", dataUrl);
-        const activeOrgId = localStorage.getItem("active_organization_id") || "default";
-        const brandingPayload = {
-          logoUrl: form.logoUrl,
-          collapsedLogoUrl: dataUrl,
-          showLogoInSidebar: form.showLogoInSidebar,
-          sidebarLogoHeight: form.sidebarLogoHeight,
-        };
-        localStorage.setItem(`visiblo_workspace_branding_${activeOrgId}`, JSON.stringify(brandingPayload));
-        localStorage.setItem("truroot_workspace_branding", JSON.stringify(brandingPayload));
-        window.dispatchEvent(new Event("workspace_branding_updated"));
-        toast.success("Compact sidebar icon uploaded! Click 'Save Workspace Changes' to persist.");
+        setPendingCropTarget("collapsed");
+        setPendingCropImage(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleCropComplete = (croppedDataUrl: string) => {
+    const activeOrgId = localStorage.getItem("active_organization_id") || "default";
+
+    if (pendingCropTarget === "main") {
+      handleFieldChange("logoUrl", croppedDataUrl);
+      const brandingPayload = {
+        logoUrl: croppedDataUrl,
+        collapsedLogoUrl: form.collapsedLogoUrl,
+        showLogoInSidebar: form.showLogoInSidebar,
+        sidebarLogoHeight: form.sidebarLogoHeight,
+      };
+      localStorage.setItem(`visiblo_workspace_branding_${activeOrgId}`, JSON.stringify(brandingPayload));
+      localStorage.setItem("truroot_workspace_branding", JSON.stringify(brandingPayload));
+      window.dispatchEvent(new Event("workspace_branding_updated"));
+      toast.success("Main logo adjusted and applied! Click 'Save Workspace Changes' to persist.");
+    } else {
+      handleFieldChange("collapsedLogoUrl", croppedDataUrl);
+      const brandingPayload = {
+        logoUrl: form.logoUrl,
+        collapsedLogoUrl: croppedDataUrl,
+        showLogoInSidebar: form.showLogoInSidebar,
+        sidebarLogoHeight: form.sidebarLogoHeight,
+      };
+      localStorage.setItem(`visiblo_workspace_branding_${activeOrgId}`, JSON.stringify(brandingPayload));
+      localStorage.setItem("truroot_workspace_branding", JSON.stringify(brandingPayload));
+      window.dispatchEvent(new Event("workspace_branding_updated"));
+      toast.success("Collapsed sidebar icon adjusted and applied! Click 'Save Workspace Changes' to persist.");
+    }
+
+    setPendingCropImage(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (collapsedFileInputRef.current) collapsedFileInputRef.current.value = "";
+  };
+
+  const handleCropCancel = () => {
+    setPendingCropImage(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (collapsedFileInputRef.current) collapsedFileInputRef.current.value = "";
   };
 
   const handleSaveProfile = async () => {
@@ -1359,6 +1380,16 @@ export function WorkspaceSettingsPage() {
         orgLogo={form.logoUrl || ""}
         orgPhone={form.primaryPhone || "+91 98765 43210"}
         orgEmail={form.primaryEmail || "support@truerootrealty.com"}
+      />
+
+      {/* Brand Logo & Icon Crop Modal */}
+      <ImageCropModal
+        isOpen={pendingCropImage !== null}
+        imageSrc={pendingCropImage || ""}
+        onClose={handleCropCancel}
+        onCropComplete={handleCropComplete}
+        cropShape="rect"
+        aspect={pendingCropTarget === "main" ? 4 : 1}
       />
     </div>
   );

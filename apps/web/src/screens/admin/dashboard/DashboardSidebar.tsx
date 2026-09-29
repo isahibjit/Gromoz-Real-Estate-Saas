@@ -1,3 +1,42 @@
+import {
+  Award,
+  BarChart3,
+  Building2,
+  CalendarCheck,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Compass,
+  CreditCard,
+  Database,
+  DollarSign,
+  Filter,
+  Layers,
+  LayoutDashboard,
+  LogOut,
+  MapPin,
+  Menu,
+  Plug,
+  PlusCircle,
+  Radio,
+  RotateCcw,
+  Settings,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  SlidersHorizontal,
+  Smartphone,
+  Sparkles,
+  Target,
+  Trash2,
+  TrendingUp,
+  User,
+  UserCheck,
+  UserPlus,
+  Users,
+  X,
+  Zap,
+} from "lucide-react";
 import React, {
   memo,
   useCallback,
@@ -8,68 +47,12 @@ import React, {
   type ReactNode,
 } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import {
-  Activity,
-  Award,
-  BarChart3,
-  Bell,
-  Bot,
-  Building2,
-  Calendar,
-  CalendarCheck,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  ClipboardCopy,
-  Clock,
-  Compass,
-  CreditCard,
-  DollarSign,
-  FileText,
-  Filter,
-  Gift,
-  Globe,
-  Home,
-  Layers,
-  LayoutDashboard,
-  Lock,
-  LogOut,
-  MapPin,
-  Menu,
-  Monitor,
-  PhoneCall,
-  PieChart,
-  Plug,
-  Plus,
-  PlusCircle,
-  Radio,
-  RotateCcw,
-  Send,
-  Settings,
-  Share2,
-  Shield,
-  ShieldAlert,
-  ShieldCheck,
-  Sliders,
-  SlidersHorizontal,
-  Smartphone,
-  Sparkles,
-  Tag,
-  Target,
-  TrendingUp,
-  User,
-  UserCheck,
-  UserPlus,
-  Users,
-  X,
-  Zap,
-} from "lucide-react";
 import { Button, cn } from "ui";
-import { getUserRoleLabel } from "../../../common/roleLabels";
 import trurootLogo from "../../../assets/truroot-logo.png";
-import { useAppSelector } from "../../../store";
 import { useLogoutMutation } from "../../../common/mutations/useAuthMutations";
+import { getUserRoleLabel } from "../../../common/roleLabels";
 import { recordRecentSearch } from "../../../components/navigation/HeaderSearchBar";
+import { useAppSelector } from "../../../store";
 import { useDashboardLayoutContext } from "./DashboardLayoutContext";
 
 export interface NavItem {
@@ -118,19 +101,35 @@ const defaultNavCategories: NavCategory[] = [
         badge: "Today",
       },
       {
-        label: "Duplicate Leads",
-        icon: Users,
-        to: "/leads/duplicates",
-      },
-      {
         label: "Inactive Leads",
         icon: UserCheck,
         to: "/leads/inactive",
       },
       {
-        label: "Auto-Assignment",
-        icon: SlidersHorizontal,
+        label: "Deleted Leads",
+        icon: Trash2,
+        to: "/leads/deleted",
+      },
+    ],
+  },
+  {
+    title: "Masters",
+    items: [
+      {
+        label: "Lead Masters",
+        icon: Database,
+        to: "/leads/masters",
+        badge: "Masters",
+      },
+      {
+        label: "Auto-Assignment Master",
+        icon: Target,
         to: "/leads/assignment/masters",
+      },
+      {
+        label: "Project Masters",
+        icon: Layers,
+        to: "/projects/masters",
       },
     ],
   },
@@ -142,11 +141,6 @@ const defaultNavCategories: NavCategory[] = [
         icon: Building2,
         to: "/projects",
         badge: "24 Active",
-      },
-      {
-        label: "Project Masters",
-        icon: Layers,
-        to: "/projects/masters",
       },
     ],
   },
@@ -191,12 +185,6 @@ const defaultNavCategories: NavCategory[] = [
   {
     title: "Lead Sources & Automation",
     items: [
-      {
-        label: "All Lead Sources",
-        icon: Compass,
-        to: "/leads/sources",
-        badge: "18 Active",
-      },
       {
         label: "Portal Integrations",
         icon: Plug,
