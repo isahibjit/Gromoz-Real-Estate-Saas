@@ -1,0 +1,1933 @@
+{
+  "info": {
+    "_postman_id": "3b98f3b1-7bb8-40ce-a7e8-1f7b9e77f002",
+    "name": "Truroot CRM API",
+    "description": "Complete Truroot CRM API collection grouped by module. Run Auth > Login first, then use collection variables such as leadId, employeeId, projectId, and statusId for detail/update requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.request.headers.upsert({ key: 'Accept', value: 'application/json' });"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5002"
+    }
+  ],
+  "item": [
+    {
+      "name": "System",
+      "description": "Public health and readiness endpoints.",
+      "item": [
+        {
+          "name": "Root Health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "description": "Root API health response.",
+            "url": "{{baseUrl}}/"
+          }
+        },
+        {
+          "name": "Hello",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "description": "Simple hello/debug endpoint.",
+            "url": "{{baseUrl}}/hello"
+          }
+        },
+        {
+          "name": "Health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "description": "Aggregated health endpoint.",
+            "url": "{{baseUrl}}/health"
+          }
+        },
+        {
+          "name": "Liveness",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "description": "Liveness probe.",
+            "url": "{{baseUrl}}/health/live"
+          }
+        },
+        {
+          "name": "Readiness",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "description": "Readiness probe. Returns 503 if dependencies are unavailable.",
+            "url": "{{baseUrl}}/health/ready"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "description": "Authentication endpoints. Login stores tokens into the active Postman environment when returned in JSON.",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (json.accessToken) pm.environment.set('accessToken', json.accessToken);",
+                  "if (json.refreshToken) pm.environment.set('refreshToken', json.refreshToken);",
+                  "if (json.user && json.user.id) pm.environment.set('employeeId', json.user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "description": "Logs in and sets httpOnly cookies. Collection also stores token fields when present in response.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        {
+          "name": "Refresh",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "description": "Refreshes auth cookies using refreshToken cookie.",
+            "url": "{{baseUrl}}/auth/refresh"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "description": "Logs out and clears auth cookies.",
+            "url": "{{baseUrl}}/auth/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "description": "Admin, employee dashboards, performance analytics, and ranking endpoints.",
+      "item": [
+        {
+          "name": "Admin Dashboard",
+          "request": {
+            "method": "GET",
+            "description": "Admin dashboard data for selected date range.",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/admin?dateFrom=2026-07-01&dateTo=2026-07-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "admin"],
+              "query": [
+                { "key": "dateFrom", "value": "2026-07-01" },
+                { "key": "dateTo", "value": "2026-07-31" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin Performance",
+          "request": {
+            "method": "GET",
+            "description": "Admin employee performance dashboard with KPI, user rows, and activity timeline.",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/admin/performance?dateFrom=2026-07-01&dateTo=2026-07-31&role=all&teamId=all&userId=all&activityType=all&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "admin", "performance"],
+              "query": [
+                { "key": "dateFrom", "value": "2026-07-01" },
+                { "key": "dateTo", "value": "2026-07-31" },
+                { "key": "role", "value": "all" },
+                { "key": "teamId", "value": "all" },
+                { "key": "userId", "value": "all" },
+                { "key": "activityType", "value": "all" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Rankings",
+          "request": {
+            "method": "GET",
+            "description": "User-wise and team-wise performance rankings based on scored lead status changes.",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/rankings?range=monthly&mode=both&teamId=all&userId=all",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "rankings"],
+              "query": [
+                { "key": "range", "value": "monthly", "description": "monthly | quarterly | half_yearly | yearly | custom" },
+                { "key": "mode", "value": "both", "description": "users | teams | both" },
+                { "key": "teamId", "value": "all" },
+                { "key": "userId", "value": "all" },
+                { "key": "dateFrom", "value": "2026-07-01", "disabled": true },
+                { "key": "dateTo", "value": "2026-07-31", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pre Sales Dashboard",
+          "request": {
+            "method": "GET",
+            "description": "Dashboard for logged-in Pre Sales user.",
+            "url": "{{baseUrl}}/dashboard/telecaller"
+          }
+        },
+        {
+          "name": "Field Executive Dashboard",
+          "request": {
+            "method": "GET",
+            "description": "Dashboard for logged-in field executive.",
+            "url": "{{baseUrl}}/dashboard/field-executive"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Access Control",
+      "description": "RBAC module catalog, role templates, and user access overrides.",
+      "item": [
+        {
+          "name": "List Modules",
+          "request": {
+            "method": "GET",
+            "description": "Lists all available permission modules.",
+            "url": "{{baseUrl}}/access/modules"
+          }
+        },
+        {
+          "name": "List Templates",
+          "request": {
+            "method": "GET",
+            "description": "Lists role access templates.",
+            "url": "{{baseUrl}}/access/templates"
+          }
+        },
+        {
+          "name": "Update Role Template",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Updates permissions for a role template. Role path example: ADMIN, HR, TELECALLER, SALES_AGENT.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permissions\": [\n    {\n      \"moduleKey\": \"leads\",\n      \"canView\": true,\n      \"canCreate\": true,\n      \"canUpdate\": true,\n      \"canDelete\": false\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/access/templates/TELECALLER"
+          }
+        },
+        {
+          "name": "Get User Access",
+          "request": {
+            "method": "GET",
+            "description": "Gets a user's effective access and overrides.",
+            "url": "{{baseUrl}}/access/users/{{employeeId}}"
+          }
+        },
+        {
+          "name": "Update User Access",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Sets custom module access for one employee.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permissions\": [\n    {\n      \"moduleKey\": \"projects\",\n      \"canView\": true,\n      \"canCreate\": false,\n      \"canUpdate\": false,\n      \"canDelete\": false\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/access/users/{{employeeId}}"
+          }
+        },
+        {
+          "name": "Reset User Access",
+          "request": {
+            "method": "DELETE",
+            "description": "Deletes user access overrides and restores role default access.",
+            "url": "{{baseUrl}}/access/users/{{employeeId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Employees And Teams",
+      "description": "Employee directory, employee profiles, teams, and team membership.",
+      "item": [
+        {
+          "name": "List Employees",
+          "request": {
+            "method": "GET",
+            "description": "Lists employees with optional search, role, team, status, and pagination.",
+            "url": {
+              "raw": "{{baseUrl}}/employees?search=&role=all&teamId=all&status=Active&page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees"],
+              "query": [
+                { "key": "search", "value": "" },
+                { "key": "role", "value": "all" },
+                { "key": "teamId", "value": "all" },
+                { "key": "status", "value": "Active" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Current Employee",
+          "request": {
+            "method": "GET",
+            "description": "Gets logged-in employee profile.",
+            "url": "{{baseUrl}}/employees/me"
+          }
+        },
+        {
+          "name": "Get Employee",
+          "request": {
+            "method": "GET",
+            "description": "Gets employee profile by user ID.",
+            "url": "{{baseUrl}}/employees/{{employeeId}}"
+          }
+        },
+        {
+          "name": "Create Employee",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Creates employee with role, team, shift, salary, and optional permissions.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Pre Sales Test\",\n  \"email\": \"telecaller@example.com\",\n  \"phone\": \"9876543210\",\n  \"role\": \"TELECALLER\",\n  \"designation\": \"Pre Sales\",\n  \"teamId\": \"{{teamId}}\",\n  \"shiftId\": \"{{shiftId}}\",\n  \"monthlyBasic\": 30000,\n  \"monthlyAllowances\": 5000,\n  \"monthlyDeductions\": 0,\n  \"joiningDate\": \"2026-07-01\",\n  \"password\": \"Password@123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/employees"
+          }
+        },
+        {
+          "name": "Update Employee",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Updates employee fields such as role, designation, team, shift, salary, and image.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Pre Sales Test\",\n  \"phone\": \"9876543210\",\n  \"designation\": \"Senior Pre Sales Executive\",\n  \"teamId\": \"{{teamId}}\",\n  \"shiftId\": \"{{shiftId}}\",\n  \"monthlyBasic\": 35000\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/employees/{{employeeId}}"
+          }
+        },
+        {
+          "name": "List Teams",
+          "request": {
+            "method": "GET",
+            "description": "Lists teams visible to the actor.",
+            "url": "{{baseUrl}}/teams"
+          }
+        },
+        {
+          "name": "Get Team",
+          "request": {
+            "method": "GET",
+            "description": "Gets team details.",
+            "url": "{{baseUrl}}/teams/{{teamId}}"
+          }
+        },
+        {
+          "name": "Create Team",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Creates a team.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sales Alpha\",\n  \"code\": \"ALPHA\",\n  \"leaderUserId\": \"{{employeeId}}\",\n  \"description\": \"Primary sales team\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/teams"
+          }
+        },
+        {
+          "name": "Update Team",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Updates team metadata.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sales Alpha\",\n  \"leaderUserId\": \"{{employeeId}}\",\n  \"description\": \"Updated team description\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/teams/{{teamId}}"
+          }
+        },
+        {
+          "name": "Add Team Member",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Adds an employee to a team.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memberUserId\": \"{{employeeId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/teams/{{teamId}}/members"
+          }
+        },
+        {
+          "name": "Remove Team Member",
+          "request": {
+            "method": "DELETE",
+            "description": "Removes employee from a team.",
+            "url": "{{baseUrl}}/teams/{{teamId}}/members/{{employeeId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attendance Shifts Holidays Leaves",
+      "description": "Attendance punch flow, shift templates, holiday calendar, and leave requests.",
+      "item": [
+        {
+          "name": "List Attendance",
+          "request": {
+            "method": "GET",
+            "description": "Lists attendance rows. Supports generated absent/holiday/leave rows.",
+            "url": {
+              "raw": "{{baseUrl}}/attendance?employeeId={{employeeId}}&dateFrom=2026-07-01&dateTo=2026-07-31&page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["attendance"],
+              "query": [
+                { "key": "employeeId", "value": "{{employeeId}}" },
+                { "key": "dateFrom", "value": "2026-07-01" },
+                { "key": "dateTo", "value": "2026-07-31" },
+                { "key": "status", "value": "Present", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Today Attendance",
+          "request": {
+            "method": "GET",
+            "description": "Gets today's punch status for logged-in employee.",
+            "url": "{{baseUrl}}/attendance/today"
+          }
+        },
+        {
+          "name": "Attendance Report PDF",
+          "request": {
+            "method": "GET",
+            "description": "Downloads monthly attendance PDF. Use Postman's Send and Download.",
+            "url": {
+              "raw": "{{baseUrl}}/attendance/report.pdf?employeeId={{employeeId}}&month=7&year=2026",
+              "host": ["{{baseUrl}}"],
+              "path": ["attendance", "report.pdf"],
+              "query": [
+                { "key": "employeeId", "value": "{{employeeId}}" },
+                { "key": "month", "value": "7" },
+                { "key": "year", "value": "2026" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Punch In",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Punches in with required selfie image reference.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"checkInImageUrl\": \"https://example.com/selfie.jpg\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/attendance/punch-in"
+          }
+        },
+        {
+          "name": "Punch Out",
+          "request": {
+            "method": "POST",
+            "description": "Punches out for today.",
+            "url": "{{baseUrl}}/attendance/punch-out"
+          }
+        },
+        {
+          "name": "Correct Attendance",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Manual correction for an attendance record.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Present\",\n  \"checkInAt\": \"2026-07-22T09:35:00.000Z\",\n  \"checkOutAt\": \"2026-07-22T18:30:00.000Z\",\n  \"reason\": \"Manual correction approved by HR\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/attendance/{{attendanceId}}/correct"
+          }
+        },
+        {
+          "name": "List Shifts",
+          "request": {
+            "method": "GET",
+            "description": "Lists shift templates.",
+            "url": "{{baseUrl}}/shifts"
+          }
+        },
+        {
+          "name": "Create Shift",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Creates a shift template with working days and late rules.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Telecalling shift\",\n  \"startTimeMinutes\": 600,\n  \"endTimeMinutes\": 1140,\n  \"lateGraceMinutes\": 10,\n  \"lateThresholdCount\": 3,\n  \"latePenaltyStatus\": \"Half Day\",\n  \"workingDays\": [1, 2, 3, 4, 5, 6],\n  \"isActive\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/shifts"
+          }
+        },
+        {
+          "name": "Update Shift",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Updates a shift template.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Telecalling shift\",\n  \"lateGraceMinutes\": 15,\n  \"workingDays\": [0, 1, 2, 3, 4, 5]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/shifts/{{shiftId}}"
+          }
+        },
+        {
+          "name": "List Holidays",
+          "request": {
+            "method": "GET",
+            "description": "Lists holidays.",
+            "url": {
+              "raw": "{{baseUrl}}/holidays?year=2026&month=7",
+              "host": ["{{baseUrl}}"],
+              "path": ["holidays"],
+              "query": [
+                { "key": "year", "value": "2026" },
+                { "key": "month", "value": "7" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Holiday",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Creates a holiday.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Independence Day\",\n  \"date\": \"2026-08-15\",\n  \"type\": \"Public Holiday\",\n  \"isActive\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/holidays"
+          }
+        },
+        {
+          "name": "Update Holiday",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Updates a holiday.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Independence Day\",\n  \"isActive\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/holidays/{{holidayId}}"
+          }
+        },
+        {
+          "name": "Delete Holiday",
+          "request": {
+            "method": "DELETE",
+            "description": "Deletes/removes a holiday.",
+            "url": "{{baseUrl}}/holidays/{{holidayId}}"
+          }
+        },
+        {
+          "name": "List Leaves",
+          "request": {
+            "method": "GET",
+            "description": "Lists leave requests.",
+            "url": {
+              "raw": "{{baseUrl}}/leaves?employeeId={{employeeId}}&status=Pending&dateFrom=2026-07-01&dateTo=2026-07-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["leaves"],
+              "query": [
+                { "key": "employeeId", "value": "{{employeeId}}" },
+                { "key": "status", "value": "Pending" },
+                { "key": "dateFrom", "value": "2026-07-01" },
+                { "key": "dateTo", "value": "2026-07-31" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Leave",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Creates leave request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leaveType\": \"Casual Leave\",\n  \"startDate\": \"2026-07-25\",\n  \"endDate\": \"2026-07-26\",\n  \"reason\": \"Personal work\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/leaves"
+          }
+        },
+        {
+          "name": "Cancel Leave",
+          "request": {
+            "method": "PATCH",
+            "description": "Cancels own leave request.",
+            "url": "{{baseUrl}}/leaves/{{leaveId}}/cancel"
+          }
+        },
+        {
+          "name": "Leave Decision",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Admin/HR leave approval or rejection.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Approved\",\n  \"decisionNote\": \"Approved by HR\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/leaves/{{leaveId}}/decision"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payroll Payslips Mail",
+      "description": "Payroll settings, payroll runs, payslips, and mail test.",
+      "item": [
+        {
+          "name": "Get Payroll Settings",
+          "request": {
+            "method": "GET",
+            "description": "Gets payroll settings.",
+            "url": "{{baseUrl}}/payroll/settings"
+          }
+        },
+        {
+          "name": "Update Payroll Settings",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Updates payroll settings.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"salaryDivisorType\": \"WORKING_DAYS\",\n  \"fixedMonthlyDays\": 30,\n  \"lopDeductionEnabled\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/payroll/settings"
+          }
+        },
+        {
+          "name": "List Payroll",
+          "request": {
+            "method": "GET",
+            "description": "Lists payroll runs.",
+            "url": {
+              "raw": "{{baseUrl}}/payroll?month=7&year=2026&status=Draft",
+              "host": ["{{baseUrl}}"],
+              "path": ["payroll"],
+              "query": [
+                { "key": "month", "value": "7" },
+                { "key": "year", "value": "2026" },
+                { "key": "status", "value": "Draft" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Run Payroll",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Creates payroll run for a month/year.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"month\": 7,\n  \"year\": 2026,\n  \"employeeIds\": [\"{{employeeId}}\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/payroll/run"
+          }
+        },
+        {
+          "name": "Finalize Payroll",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Finalizes payroll.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Verified and finalized\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/payroll/{{payrollId}}/finalize"
+          }
+        },
+        {
+          "name": "Mark Payroll Paid",
+          "request": {
+            "method": "PATCH",
+            "description": "Marks payroll as paid.",
+            "url": "{{baseUrl}}/payroll/{{payrollId}}/pay"
+          }
+        },
+        {
+          "name": "List Payslips",
+          "request": {
+            "method": "GET",
+            "description": "Lists payslips visible to actor.",
+            "url": "{{baseUrl}}/payslips"
+          }
+        },
+        {
+          "name": "Get Payslip",
+          "request": {
+            "method": "GET",
+            "description": "Gets payslip details/document.",
+            "url": "{{baseUrl}}/payslips/{{payslipId}}"
+          }
+        },
+        {
+          "name": "Send Test Mail",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Sends a test email through configured mail settings or mock mode.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"hr@example.com\",\n  \"subject\": \"Test mail\",\n  \"message\": \"This is a test email from Truroot CRM.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/mail/test-send"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Leads",
+      "description": "Lead list, lead details, assignment, status, follow-ups, bookings, timeline, notes, and lead-scoped tasks.",
+      "item": [
+        {
+          "name": "List Leads",
+          "request": {
+            "method": "GET",
+            "description": "Lists active leads. Deleted leads are excluded.",
+            "url": {
+              "raw": "{{baseUrl}}/leads?search=Arjun&page=1&limit=10&source=MagicBricks&status=Interested&leadType=Hot&configuration=2%20BHK&project=Palm%20Springs&dateFrom=2026-07-01&dateTo=2026-07-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["leads"],
+              "query": [
+                { "key": "search", "value": "Arjun" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "source", "value": "MagicBricks" },
+                { "key": "status", "value": "Interested" },
+                { "key": "leadType", "value": "Hot" },
+                { "key": "configuration", "value": "2 BHK" },
+                { "key": "project", "value": "Palm Springs" },
+                { "key": "dateFrom", "value": "2026-07-01" },
+                { "key": "dateTo", "value": "2026-07-31" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Deleted Leads",
+          "request": {
+            "method": "GET",
+            "description": "Lists soft-deleted leads.",
+            "url": {
+              "raw": "{{baseUrl}}/leads/deleted?search=&page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["leads", "deleted"],
+              "query": [
+                { "key": "search", "value": "" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Lead",
+          "request": {
+            "method": "GET",
+            "description": "Gets one lead with details, requirement, assignment, score, and related data.",
+            "url": "{{baseUrl}}/leads/{{leadId}}"
+          }
+        },
+        {
+          "name": "Create Lead",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Creates a lead with requirement details and optional assignments.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Arjun Mehta\",\n  \"email\": \"arjun@example.com\",\n  \"mobileCountryCode\": \"+91\",\n  \"mobile\": \"9876543210\",\n  \"sourceId\": \"{{sourceId}}\",\n  \"statusId\": \"{{statusId}}\",\n  \"temperatureId\": \"{{leadTypeId}}\",\n  \"telecallerId\": \"{{telecallerId}}\",\n  \"fieldExecutiveId\": \"{{fieldExecutiveId}}\",\n  \"remarks\": \"Looking for ready possession.\",\n  \"requirement\": {\n    \"propertyType\": \"Apartment\",\n    \"configuration\": \"2 BHK\",\n    \"budgetRange\": \"75 Lakh - 1 Cr\",\n    \"preferredLocation\": \"Malad, Mumbai\",\n    \"preferredProjectId\": \"{{projectId}}\",\n    \"possessionTimeline\": \"Ready To Move\",\n    \"carpetAreaRange\": \"650 - 800 sq ft\",\n    \"zone\": \"Western Line\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/leads"
+          }
+        },
+        {
+          "name": "Update Lead",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Updates lead fields, status/type/source, assignments, and requirement values.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"statusId\": \"{{statusId}}\",\n  \"temperatureId\": \"{{leadTypeId}}\",\n  \"sourceId\": \"{{sourceId}}\",\n  \"remarks\": \"Updated latest remark.\",\n  \"requirement\": {\n    \"configuration\": \"3 BHK\",\n    \"budgetRange\": \"1 Cr - 1.5 Cr\",\n    \"preferredLocation\": \"Goregaon (E), Mumbai\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/leads/{{leadId}}"
+          }
+        },
+        {
+          "name": "Delete Lead",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Soft-deletes a lead.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deleteReason\": \"Duplicate enquiry\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/leads/{{leadId}}"
+          }
+        },
+        {
+          "name": "Restore Lead",
+          "request": {
+            "method": "PATCH",
+            "description": "Restores a soft-deleted lead.",
+            "url": "{{baseUrl}}/leads/{{deletedLeadId}}/restore"
+          }
+        },
+        {
+          "name": "Assign Lead",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Assigns one lead to responsible users.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"telecallerId\": \"{{telecallerId}}\",\n  \"fieldExecutiveId\": \"{{fieldExecutiveId}}\",\n  \"managerId\": \"{{managerId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/leads/{{leadId}}/assign"
+          }
+        },
+        {
+          "name": "Bulk Assign Leads",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Bulk assignment or duplicate assignment flow.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leadIds\": [\"{{leadId}}\"],\n  \"telecallerId\": \"{{telecallerId}}\",\n  \"fieldExecutiveId\": \"{{fieldExecutiveId}}\",\n  \"duplicate\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/leads/bulk-assign"
+          }
+        },
+        {
+          "name": "Bulk Update Source",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Bulk updates source for selected leads.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leadIds\": [\"{{leadId}}\"],\n  \"sourceId\": \"{{sourceId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/leads/bulk/source"
+          }
+        },
+        {
+          "name": "Move Lead In Pipeline",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Moves a lead to another pipeline stage/status.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stageId\": \"{{stageId}}\",\n  \"statusId\": \"{{statusId}}\",\n  \"remark\": \"Moved after follow-up\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/leads/{{leadId}}/pipeline-move"
+          }
+        },
+        {
+          "name": "Lead Pipeline",
+          "request": {
+            "method": "GET",
+            "description": "Gets pipeline stages and grouped leads.",
+            "url": {
+              "raw": "{{baseUrl}}/leads/pipeline?search=&teamId=all",
+              "host": ["{{baseUrl}}"],
+              "path": ["leads", "pipeline"],
+              "query": [
+                { "key": "search", "value": "" },
+                { "key": "teamId", "value": "all" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Follow Ups",
+          "request": {
+            "method": "GET",
+            "description": "Lists follow-up leads. Use due=today for today's pending follow-ups.",
+            "url": {
+              "raw": "{{baseUrl}}/leads/follow-ups?page=1&limit=10&due=today&status=Scheduled",
+              "host": ["{{baseUrl}}"],
+              "path": ["leads", "follow-ups"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "due", "value": "today" },
+                { "key": "status", "value": "Scheduled" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "My Follow Ups",
+          "request": {
+            "method": "GET",
+            "description": "Lists follow-ups assigned to logged-in Pre Sales user or field executive.",
+            "url": "{{baseUrl}}/leads/my-follow-ups"
+          }
+        },
+        {
+          "name": "Field Executive Follow Ups",
+          "request": {
+            "method": "GET",
+            "description": "Lists field executive follow-ups.",
+            "url": "{{baseUrl}}/leads/field-executive/follow-ups"
+          }
+        },
+        {
+          "name": "Create Follow Up",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Creates a follow-up/reminder. Type defaults to Call where omitted by current UI.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignedToId\": \"{{employeeId}}\",\n  \"scheduledAt\": \"2026-07-24T11:00:00.000Z\",\n  \"status\": \"Scheduled\",\n  \"setReminder\": true,\n  \"remarks\": \"Call and confirm site visit availability.\",\n  \"notes\": \"Call and confirm site visit availability.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/leads/{{leadId}}/follow-ups"
+          }
+        },
+        {
+          "name": "Update Follow Up",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Updates follow-up timing, status, completion, and remarks.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scheduledAt\": \"2026-07-25T10:00:00.000Z\",\n  \"status\": \"Completed\",\n  \"completedAt\": \"2026-07-25T10:15:00.000Z\",\n  \"remarks\": \"Connected and confirmed next step.\",\n  \"notes\": \"Connected and confirmed next step.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/leads/{{leadId}}/follow-ups/{{followUpId}}"
+          }
+        },
+        {
+          "name": "List Lead Bookings",
+          "request": {
+            "method": "GET",
+            "description": "Lists bookings for one lead.",
+            "url": "{{baseUrl}}/leads/{{leadId}}/bookings"
+          }
+        },
+        {
+          "name": "Create Lead Booking",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Creates booking for one lead.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"{{projectId}}\",\n  \"unitId\": \"{{unitId}}\",\n  \"bookingAmount\": 500000,\n  \"bookingDate\": \"2026-07-22\",\n  \"paymentMode\": \"Bank Transfer\",\n  \"remarks\": \"Token received.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/leads/{{leadId}}/bookings"
+          }
+        },
+        {
+          "name": "Update Lead Booking",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Updates one lead booking.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Confirmed\",\n  \"remarks\": \"Booking confirmed.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/leads/{{leadId}}/bookings/{{bookingId}}"
+          }
+        },
+        {
+          "name": "Lead Timeline",
+          "request": {
+            "method": "GET",
+            "description": "Gets lead activity timeline.",
+            "url": "{{baseUrl}}/leads/{{leadId}}/timeline"
+          }
+        },
+        {
+          "name": "Create Lead Task",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Creates task with lead context.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Collect documents\",\n  \"description\": \"Collect PAN and Aadhaar copies.\",\n  \"assignedToId\": \"{{employeeId}}\",\n  \"dueAt\": \"2026-07-25T10:00:00.000Z\",\n  \"priority\": \"High\",\n  \"status\": \"Pending\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/leads/{{leadId}}/tasks"
+          }
+        },
+        {
+          "name": "Update Lead Task",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Updates a lead-scoped task.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Completed\",\n  \"completedAt\": \"2026-07-25T12:00:00.000Z\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/leads/{{leadId}}/tasks/{{taskId}}"
+          }
+        },
+        {
+          "name": "Create Lead Note",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Adds a remark/note to a lead and syncs latest lead remark.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Client asked for ready-to-move inventory.\",\n  \"remarks\": \"Client asked for ready-to-move inventory.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/leads/{{leadId}}/notes"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Contact Leads",
+      "description": "Contact lead capture, interest, conversion, archive, and unarchive.",
+      "item": [
+        {
+          "name": "List Contact Leads",
+          "request": {
+            "method": "GET",
+            "description": "Lists contact leads.",
+            "url": {
+              "raw": "{{baseUrl}}/contact-leads?search=&page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["contact-leads"],
+              "query": [
+                { "key": "search", "value": "" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Contact Lead",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Creates a contact lead.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"Rohan Sharma\",\n  \"mobile\": \"9876500000\",\n  \"email\": \"rohan@example.com\",\n  \"source\": \"Website\",\n  \"projectName\": \"Palm Springs\",\n  \"note\": \"Asked for pricing.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/contact-leads"
+          }
+        },
+        {
+          "name": "Update Contact Lead",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Updates a contact lead.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"Rohan Sharma\",\n  \"note\": \"Updated contact lead note.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/contact-leads/{{contactLeadId}}"
+          }
+        },
+        {
+          "name": "Mark Contact Lead Interested",
+          "request": {
+            "method": "PATCH",
+            "description": "Marks contact lead as interested.",
+            "url": "{{baseUrl}}/contact-leads/{{contactLeadId}}/interest"
+          }
+        },
+        {
+          "name": "Unarchive Contact Lead",
+          "request": {
+            "method": "PATCH",
+            "description": "Restores archived contact lead.",
+            "url": "{{baseUrl}}/contact-leads/{{contactLeadId}}/unarchive"
+          }
+        },
+        {
+          "name": "Convert Contact Lead",
+          "request": {
+            "method": "POST",
+            "description": "Converts contact lead into a full CRM lead.",
+            "url": "{{baseUrl}}/contact-leads/{{contactLeadId}}/convert"
+          }
+        },
+        {
+          "name": "Archive Contact Lead",
+          "request": {
+            "method": "DELETE",
+            "description": "Archives contact lead.",
+            "url": "{{baseUrl}}/contact-leads/{{contactLeadId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Lead Masters And Columns",
+      "description": "Master records for sources, statuses, lead type, requirement values, WhatsApp templates, and lead table columns.",
+      "item": [
+        {
+          "name": "List Master Values",
+          "request": {
+            "method": "GET",
+            "description": "Lists master values for category. Important categories: source, status, temperature, priority, property_type, project_configuration, project_location, project_zone, possession_timeline, lead_budget_range, carpet_area_range, project_whatsapp_template.",
+            "url": {
+              "raw": "{{baseUrl}}/lead-masters/{{masterCategory}}?activeOnly=true&search=",
+              "host": ["{{baseUrl}}"],
+              "path": ["lead-masters", "{{masterCategory}}"],
+              "query": [
+                { "key": "activeOnly", "value": "true" },
+                { "key": "search", "value": "" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Master Value",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Creates a master value. Use manualScore for lead scoring. Use triggerAction on status values.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"MagicBricks\",\n  \"label\": \"MagicBricks\",\n  \"manualScore\": 10,\n  \"isActive\": true,\n  \"triggerAction\": \"NONE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/lead-masters/{{masterCategory}}"
+          }
+        },
+        {
+          "name": "Create Project WhatsApp Template",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Creates a project WhatsApp share template. Template body is stored in description.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Default WhatsApp Template\",\n  \"label\": \"Default WhatsApp Template\",\n  \"description\": \"Greetings from {{developer}}\\n\\n{{projectName}}\\n{{location}}\\n\\nConfigurations:\\n{{configurations}}\\n\\nAmenities:\\n{{amenities}}\\n\\nProject Images:\\n{{imageLinks}}\\n\\nThanks and Regards\\n{{senderName}}\\n{{senderPhone}}\",\n  \"isActive\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/lead-masters/project_whatsapp_template"
+          }
+        },
+        {
+          "name": "Update Master Value",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Updates a master value.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Value\",\n  \"manualScore\": 25,\n  \"isActive\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/lead-masters/{{masterCategory}}/{{masterValueId}}"
+          }
+        },
+        {
+          "name": "Delete Master Value",
+          "request": {
+            "method": "DELETE",
+            "description": "Deletes/deactivates a master value according to backend behavior.",
+            "url": "{{baseUrl}}/lead-masters/{{masterCategory}}/{{masterValueId}}"
+          }
+        },
+        {
+          "name": "Get Lead List Columns",
+          "request": {
+            "method": "GET",
+            "description": "Gets lead table column visibility preferences.",
+            "url": "{{baseUrl}}/lead-list-columns"
+          }
+        },
+        {
+          "name": "Update Lead List Columns",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Updates visible columns on lead table.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"visibleColumns\": [\"addedDate\", \"source\", \"name\", \"number\", \"projectName\", \"leadStatus\", \"leadType\", \"followUpDate\", \"remark\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/lead-list-columns"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auto Assignment",
+      "description": "Lead auto-assignment rules and auto-assignment event history.",
+      "item": [
+        {
+          "name": "List Auto Assignment Rules",
+          "request": {
+            "method": "GET",
+            "description": "Lists configured auto-assignment rules.",
+            "url": "{{baseUrl}}/auto-assignment/rules"
+          }
+        },
+        {
+          "name": "Create Auto Assignment Rule",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Creates an auto-assignment rule with routing sequence, fallback users, and criteria.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Default auto assignment\",\n  \"isActive\": true,\n  \"rotationMinutes\": 2,\n  \"fallbackUserIds\": [\"{{telecallerId}}\", \"{{fieldExecutiveId}}\"],\n  \"transferSequence\": [\"{{telecallerId}}\", \"{{fieldExecutiveId}}\"],\n  \"criteria\": {\n    \"sourceIds\": [\"{{sourceId}}\"],\n    \"statusIds\": [\"{{statusId}}\"]\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auto-assignment/rules"
+          }
+        },
+        {
+          "name": "Update Auto Assignment Rule",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Updates an auto-assignment rule.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated auto assignment\",\n  \"isActive\": true,\n  \"rotationMinutes\": 5\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auto-assignment/rules/{{autoAssignmentRuleId}}"
+          }
+        },
+        {
+          "name": "Delete Auto Assignment Rule",
+          "request": {
+            "method": "DELETE",
+            "description": "Deletes an auto-assignment rule.",
+            "url": "{{baseUrl}}/auto-assignment/rules/{{autoAssignmentRuleId}}"
+          }
+        },
+        {
+          "name": "List Auto Assignment Events",
+          "request": {
+            "method": "GET",
+            "description": "Lists auto-assignment events/audit history.",
+            "url": {
+              "raw": "{{baseUrl}}/auto-assignment/events?page=1&limit=20&ruleId={{autoAssignmentRuleId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["auto-assignment", "events"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "ruleId", "value": "{{autoAssignmentRuleId}}" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects Units Site Visits Bookings",
+      "description": "Project catalog, inventory units, site visits, tracking, and bookings.",
+      "item": [
+        {
+          "name": "List Projects",
+          "request": {
+            "method": "GET",
+            "description": "Lists projects.",
+            "url": {
+              "raw": "{{baseUrl}}/projects?search=Palm&status=Active&location=Malad",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects"],
+              "query": [
+                { "key": "search", "value": "Palm" },
+                { "key": "status", "value": "Active" },
+                { "key": "location", "value": "Malad" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Project",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Creates project with configurations, amenities, highlights, and image gallery.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Palm Springs\",\n  \"developer\": \"Truroot Realty\",\n  \"location\": \"Malad, Mumbai\",\n  \"description\": \"Ready-to-move residential project.\",\n  \"status\": \"Active\",\n  \"possession\": \"Ready To Move\",\n  \"priceRange\": \"75 Lakh - 1.5 Cr\",\n  \"configurations\": [\"2 BHK\", \"3 BHK\"],\n  \"amenities\": [\"Lift\", \"Gym\", \"Parking\"],\n  \"highlights\": [\"Near railway station\"],\n  \"imageGallery\": [\"https://example.com/project.jpg\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/projects"
+          }
+        },
+        {
+          "name": "Get Project",
+          "request": {
+            "method": "GET",
+            "description": "Gets project details.",
+            "url": "{{baseUrl}}/projects/{{projectId}}"
+          }
+        },
+        {
+          "name": "Update Project",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Updates project details.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Updated project description.\",\n  \"imageGallery\": [\"https://example.com/project.jpg\", \"https://example.com/project-2.jpg\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/projects/{{projectId}}"
+          }
+        },
+        {
+          "name": "List Units",
+          "request": {
+            "method": "GET",
+            "description": "Lists inventory units for a project.",
+            "url": "{{baseUrl}}/projects/{{projectId}}/units"
+          }
+        },
+        {
+          "name": "Get Unit",
+          "request": {
+            "method": "GET",
+            "description": "Gets one inventory unit.",
+            "url": "{{baseUrl}}/projects/{{projectId}}/units/{{unitId}}"
+          }
+        },
+        {
+          "name": "Create Unit",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Creates project inventory unit.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unitNumber\": \"A-1201\",\n  \"tower\": \"A\",\n  \"configuration\": \"2 BHK\",\n  \"carpetArea\": 750,\n  \"price\": 9500000,\n  \"status\": \"Available\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/projects/{{projectId}}/units"
+          }
+        },
+        {
+          "name": "Update Unit",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Updates inventory unit.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Blocked\",\n  \"price\": 9800000\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/projects/{{projectId}}/units/{{unitId}}"
+          }
+        },
+        {
+          "name": "List Project Leads",
+          "request": {
+            "method": "GET",
+            "description": "Lists leads mapped to a project.",
+            "url": {
+              "raw": "{{baseUrl}}/projects/{{projectId}}/leads?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "{{projectId}}", "leads"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Link Lead To Unit",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Links a lead to a project unit.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leadId\": \"{{leadId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/projects/{{projectId}}/units/{{unitId}}/link-lead"
+          }
+        },
+        {
+          "name": "List Site Visits",
+          "request": {
+            "method": "GET",
+            "description": "Lists site visits.",
+            "url": {
+              "raw": "{{baseUrl}}/site-visits?search=Arjun&status=Scheduled&dateFrom=2026-07-01&dateTo=2026-07-31&fieldExecutiveId={{fieldExecutiveId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["site-visits"],
+              "query": [
+                { "key": "search", "value": "Arjun" },
+                { "key": "status", "value": "Scheduled" },
+                { "key": "dateFrom", "value": "2026-07-01" },
+                { "key": "dateTo", "value": "2026-07-31" },
+                { "key": "fieldExecutiveId", "value": "{{fieldExecutiveId}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Site Visit Options",
+          "request": {
+            "method": "GET",
+            "description": "Gets options for creating site visits.",
+            "url": "{{baseUrl}}/site-visits/options"
+          }
+        },
+        {
+          "name": "Create Site Visit",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Creates a site visit.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leadId\": \"{{leadId}}\",\n  \"projectId\": \"{{projectId}}\",\n  \"fieldExecutiveId\": \"{{fieldExecutiveId}}\",\n  \"scheduledAt\": \"2026-07-25T11:00:00.000Z\",\n  \"notes\": \"Client will visit with family.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/site-visits"
+          }
+        },
+        {
+          "name": "Get Site Visit",
+          "request": {
+            "method": "GET",
+            "description": "Gets site visit details.",
+            "url": "{{baseUrl}}/site-visits/{{siteVisitId}}"
+          }
+        },
+        {
+          "name": "Update Site Visit",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Updates a site visit.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Completed\",\n  \"notes\": \"Visit completed successfully.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/site-visits/{{siteVisitId}}"
+          }
+        },
+        {
+          "name": "Site Visit Check In",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Checks in to site visit with location.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 19.076,\n  \"longitude\": 72.8777,\n  \"accuracy\": 25\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/site-visits/{{siteVisitId}}/check-in"
+          }
+        },
+        {
+          "name": "Site Visit Check Out",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Checks out from site visit.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 19.076,\n  \"longitude\": 72.8777,\n  \"accuracy\": 25,\n  \"remarks\": \"Customer liked the project.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/site-visits/{{siteVisitId}}/check-out"
+          }
+        },
+        {
+          "name": "Tracking Ping",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Records live field executive location.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 19.076,\n  \"longitude\": 72.8777,\n  \"accuracy\": 25\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/site-visits/tracking/ping"
+          }
+        },
+        {
+          "name": "Stop Tracking",
+          "request": {
+            "method": "POST",
+            "description": "Stops live tracking for logged-in field executive.",
+            "url": "{{baseUrl}}/site-visits/tracking/stop"
+          }
+        },
+        {
+          "name": "Live Tracking",
+          "request": {
+            "method": "GET",
+            "description": "Lists live field executive locations.",
+            "url": "{{baseUrl}}/site-visits/tracking/live"
+          }
+        },
+        {
+          "name": "List Bookings",
+          "request": {
+            "method": "GET",
+            "description": "Lists bookings.",
+            "url": {
+              "raw": "{{baseUrl}}/bookings?page=1&limit=10&dateFrom=2026-07-01&dateTo=2026-07-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "dateFrom", "value": "2026-07-01" },
+                { "key": "dateTo", "value": "2026-07-31" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tasks Calls Imports Integrations Reports Notifications",
+      "description": "Employee tasks, call logs, import records, MagicBricks integration, reports, duplicate leads, notifications, and FCM tokens.",
+      "item": [
+        {
+          "name": "List Tasks",
+          "request": {
+            "method": "GET",
+            "description": "Lists employee tasks.",
+            "url": {
+              "raw": "{{baseUrl}}/tasks?assignedToId={{employeeId}}&status=Pending&page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks"],
+              "query": [
+                { "key": "assignedToId", "value": "{{employeeId}}" },
+                { "key": "status", "value": "Pending" },
+                { "key": "leadId", "value": "{{leadId}}", "disabled": true },
+                { "key": "dateFrom", "value": "2026-07-01", "disabled": true },
+                { "key": "dateTo", "value": "2026-07-31", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Employee Task",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Creates an employee task. leadId is optional but must belong to selected employee when present.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Call high priority prospects\",\n  \"description\": \"Call assigned hot leads and update remarks.\",\n  \"assignedToId\": \"{{employeeId}}\",\n  \"leadId\": \"{{leadId}}\",\n  \"dueAt\": \"2026-07-25T10:00:00.000Z\",\n  \"priority\": \"High\",\n  \"status\": \"Pending\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/tasks"
+          }
+        },
+        {
+          "name": "Update Employee Task",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Updates employee task. Employees can update their own task status.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"In Progress\",\n  \"description\": \"Started calling assigned prospects.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/tasks/{{taskId}}"
+          }
+        },
+        {
+          "name": "List Call Logs",
+          "request": {
+            "method": "GET",
+            "description": "Lists call logs.",
+            "url": {
+              "raw": "{{baseUrl}}/call-logs?leadId={{leadId}}&dateFrom=2026-07-01&dateTo=2026-07-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["call-logs"],
+              "query": [
+                { "key": "leadId", "value": "{{leadId}}" },
+                { "key": "dateFrom", "value": "2026-07-01" },
+                { "key": "dateTo", "value": "2026-07-31" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Call Log",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Creates a call log.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leadId\": \"{{leadId}}\",\n  \"direction\": \"Outgoing\",\n  \"outcome\": \"Connected\",\n  \"durationSeconds\": 240,\n  \"remarks\": \"Client asked for callback tomorrow.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/call-logs"
+          }
+        },
+        {
+          "name": "List Lead Imports",
+          "request": {
+            "method": "GET",
+            "description": "Lists lead import batches.",
+            "url": {
+              "raw": "{{baseUrl}}/lead-imports?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["lead-imports"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Lead Import",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Imports leads from normalized rows. Review/link defaults can set source, status, project, Pre Sales, and field executive.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"source\": \"Excel\",\n  \"targetType\": \"LEAD\",\n  \"rows\": [\n    {\n      \"name\": \"Imported Lead\",\n      \"mobile\": \"9876500001\",\n      \"source\": \"MagicBricks\",\n      \"leadStatus\": \"New Lead\",\n      \"projectName\": \"Palm Springs\",\n      \"remarks\": \"Imported from sheet\"\n    }\n  ],\n  \"defaults\": {\n    \"sourceId\": \"{{sourceId}}\",\n    \"statusId\": \"{{statusId}}\",\n    \"projectId\": \"{{projectId}}\",\n    \"telecallerId\": \"{{telecallerId}}\",\n    \"fieldExecutiveId\": \"{{fieldExecutiveId}}\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/lead-imports"
+          }
+        },
+        {
+          "name": "Get MagicBricks Config",
+          "request": {
+            "method": "GET",
+            "description": "Gets MagicBricks integration configuration.",
+            "url": "{{baseUrl}}/integrations/magicbricks"
+          }
+        },
+        {
+          "name": "Save MagicBricks Config",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Enables/disables and configures MagicBricks lead ingestion.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isEnabled\": true,\n  \"sourceId\": \"{{sourceId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/integrations/magicbricks"
+          }
+        },
+        {
+          "name": "Generate MagicBricks API Key",
+          "request": {
+            "method": "POST",
+            "description": "Regenerates MagicBricks webhook API key.",
+            "url": "{{baseUrl}}/integrations/magicbricks/generate-api-key"
+          }
+        },
+        {
+          "name": "Save MagicBricks Field Mapping",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Saves incoming MagicBricks field mapping.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mapping\": {\n    \"name\": \"customerName\",\n    \"mobile\": \"phone\",\n    \"email\": \"email\",\n    \"projectName\": \"project\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/integrations/magicbricks/field-mapping"
+          }
+        },
+        {
+          "name": "Test MagicBricks Integration",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Tests MagicBricks integration using sample payload.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"Webhook Test Lead\",\n  \"phone\": \"9876500002\",\n  \"email\": \"webhook@example.com\",\n  \"project\": \"Palm Springs\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/integrations/magicbricks/test"
+          }
+        },
+        {
+          "name": "MagicBricks Public Webhook",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-api-key", "value": "{{magicbricksApiKey}}" }
+            ],
+            "description": "Public webhook endpoint for MagicBricks lead ingestion. Requires x-api-key.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"Webhook Lead\",\n  \"phone\": \"9876500002\",\n  \"email\": \"webhook@example.com\",\n  \"project\": \"Palm Springs\",\n  \"source\": \"MagicBricks\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/integrations/magicbricks/leads"
+          }
+        },
+        {
+          "name": "List Duplicates",
+          "request": {
+            "method": "GET",
+            "description": "Lists detected duplicate leads.",
+            "url": "{{baseUrl}}/duplicates"
+          }
+        },
+        {
+          "name": "Source Analytics",
+          "request": {
+            "method": "GET",
+            "description": "Gets lead source analytics.",
+            "url": "{{baseUrl}}/reports/source-analytics"
+          }
+        },
+        {
+          "name": "Conversion Analytics",
+          "request": {
+            "method": "GET",
+            "description": "Gets conversion analytics.",
+            "url": {
+              "raw": "{{baseUrl}}/reports/conversion-analytics?dateFrom=2026-07-01&dateTo=2026-07-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "conversion-analytics"],
+              "query": [
+                { "key": "dateFrom", "value": "2026-07-01" },
+                { "key": "dateTo", "value": "2026-07-31" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Notifications",
+          "request": {
+            "method": "GET",
+            "description": "Lists notifications for current user.",
+            "url": {
+              "raw": "{{baseUrl}}/notifications?page=1&limit=20&unreadOnly=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "unreadOnly", "value": "false" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mark Notification Read",
+          "request": {
+            "method": "PATCH",
+            "description": "Marks one notification as read.",
+            "url": "{{baseUrl}}/notifications/{{notificationId}}/read"
+          }
+        },
+        {
+          "name": "Mark All Notifications Read",
+          "request": {
+            "method": "PATCH",
+            "description": "Marks all notifications read for current user.",
+            "url": "{{baseUrl}}/notifications/mark-all-read"
+          }
+        },
+        {
+          "name": "Register Device Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Registers FCM device token for mobile push notifications.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"fcm-device-token\",\n  \"platform\": \"android\",\n  \"deviceId\": \"device-123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/notifications/device-tokens"
+          }
+        },
+        {
+          "name": "Unregister Device Token",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "description": "Unregisters FCM device token.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"fcm-device-token\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/notifications/device-tokens"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Uploads",
+      "description": "Multipart upload endpoints.",
+      "item": [
+        {
+          "name": "Upload Image",
+          "request": {
+            "method": "POST",
+            "description": "Uploads image file. Form field must be named file. Max size 5 MB.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/uploads/images"
+          }
+        },
+        {
+          "name": "Upload Project Brochure",
+          "request": {
+            "method": "POST",
+            "description": "Uploads project brochure file. Form field must be named file. Max size 10 MB.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/uploads/project-brochures"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "videoUrl" TEXT,
+ADD COLUMN IF NOT EXISTS "videoUrls" JSONB;

@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  reverse-proxy:
+    image: nginx:latest
+    container_name: nginx_container
+    ports:
+      - 80:80
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./packages/config/nginx.conf:/etc/nginx/nginx.conf
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=trurootrealty
+      - POSTGRES_USER=trurootrealty
+      - POSTGRES_PASSWORD=IAMPOSSIBLE1A!
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5440:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis_container
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  db_data:
+  redis_data:

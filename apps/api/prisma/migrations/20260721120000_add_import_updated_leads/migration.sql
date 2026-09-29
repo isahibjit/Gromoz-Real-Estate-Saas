@@ -1,0 +1,1 @@
+ALTER TABLE "LeadImport" ADD COLUMN "updatedLeads" INTEGER NOT NULL DEFAULT 0;

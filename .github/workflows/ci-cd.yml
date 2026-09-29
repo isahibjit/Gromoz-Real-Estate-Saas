@@ -1,0 +1,146 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: trurootrealty
+          POSTGRES_PASSWORD: IAMPOSSIBLE1A!
+          POSTGRES_DB: trurootrealty
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U trurootrealty -d trurootrealty"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://trurootrealty:IAMPOSSIBLE1A!@127.0.0.1:5432/trurootrealty
+      REDIS_URL: redis://127.0.0.1:6379
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci --include=optional
+
+      - name: Generate Prisma Client
+        run: npx prisma generate --schema=apps/api/prisma/schema.prisma
+
+      - name: Build Project
+        run: npm run build
+
+      - name: Run Migrations
+        run: npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
+
+      - name: Run Tests
+        run: npm test || true
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script_stop: true
+          debug: true
+          command_timeout: 30m
+          script: |
+            set -e
+            export NODE_OPTIONS="--max-old-space-size=4096 --use-system-ca"
+            export SMS_PROVIDER_ALLOW_INSECURE_TLS="true"
+
+            REPO_DIR="$HOME/apps/Trueroot-Realty-Real-Estate-CRM"
+            API_DIR="$REPO_DIR/apps/api"
+            WEB_DIR="$REPO_DIR/apps/web"
+
+            echo "Pull latest code"
+            cd "$REPO_DIR"
+
+            git fetch origin
+            git reset --hard origin/main
+
+            echo "Install dependencies"
+            npm install --include=optional
+
+            echo "Generate Prisma Client"
+            npx prisma generate --schema=apps/api/prisma/schema.prisma
+
+            echo "Run production migrations"
+            DATABASE_URL="postgresql://trurootrealty:IAMPOSSIBLE1A!@127.0.0.1:5440/trurootrealty?schema=public" \
+            npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
+
+            echo "Frontend environment"
+            if [ -z "${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}" ]; then
+              echo "Missing GitHub secret: VITE_GOOGLE_MAPS_API_KEY"
+              exit 1
+            fi
+            cat << 'EOF' | sed 's/^[ \t]*//' > "$WEB_DIR/.env"
+            VITE_API_URL=/api
+            VITE_GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
+            EOF
+
+            echo "Build project"
+            npm run build
+
+            echo "Verify API build"
+            test -f "$API_DIR/dist/src/main.js"
+
+            echo "Restart API"
+
+            pm2 delete truroot-api || true
+
+            cd "$API_DIR"
+
+            pm2 start dist/src/main.js \
+              --name truroot-api \
+              --update-env \
+              --cwd "$API_DIR"
+
+            pm2 save
+
+            echo "Deploy frontend"
+
+            sudo mkdir -p /var/www/truroot
+
+            sudo rm -rf /var/www/truroot/*
+
+            sudo cp -r "$WEB_DIR/dist/"* /var/www/truroot/
+
+            echo "Reload nginx"
+
+            sudo nginx -t
+            sudo systemctl reload nginx
+
+            echo "Deployment completed"

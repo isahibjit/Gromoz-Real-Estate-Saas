@@ -1,0 +1,3 @@
+ALTER TABLE "LeadMasterValue"
+ADD COLUMN "triggerAction" TEXT NOT NULL DEFAULT 'NONE';
+

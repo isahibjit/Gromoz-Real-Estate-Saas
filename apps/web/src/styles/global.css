@@ -1,0 +1,239 @@
+@import "@fontsource/manrope/latin-400.css";
+@import "@fontsource/manrope/latin-500.css";
+@import "@fontsource/manrope/latin-600.css";
+@import "@fontsource/manrope/latin-700.css";
+@import "@fontsource/manrope/latin-800.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Account for the sidebar and browser zoom before adding dashboard columns. */
+.admin-dashboard { container: admin-dashboard / inline-size; }
+.dashboard-execution-grid,
+.dashboard-detail-grid,
+.dashboard-tracking-grid { grid-template-columns: minmax(0, 1fr); }
+.dashboard-tracking-panel { container: executive-tracking / inline-size; }
+.dashboard-live-map { height: 20rem; }
+.dashboard-executive-scroll { max-height: 16rem; scrollbar-gutter: stable; }
+.dashboard-follow-up-scroll { max-height: 30rem; scrollbar-gutter: stable; }
+
+@container admin-dashboard (min-width: 44rem) {
+  .dashboard-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@container admin-dashboard (min-width: 68rem) {
+  .dashboard-execution-grid { grid-template-columns: minmax(0, 1fr) 22rem; }
+  .dashboard-detail-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@container executive-tracking (min-width: 36rem) {
+  .dashboard-executive-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@container executive-tracking (min-width: 48rem) {
+  .dashboard-tracking-grid { grid-template-columns: minmax(0, 1fr) 17rem; }
+  .dashboard-live-map { height: 24rem; }
+  .dashboard-executive-scroll { max-height: 20rem; }
+  .dashboard-executive-list { grid-template-columns: minmax(0, 1fr); }
+}
+
+@layer base {
+  :root {
+    --background: 216 38% 97%;
+    --foreground: 215 64% 16%;
+    --primary: 25 100% 50%;
+    --primary-hover: 23 100% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 211 83% 18%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 64% 16%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 25 100% 50%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 76% 36%;
+    --warning: 25 95% 53%;
+    --info: 221 83% 53%;
+    --auth-surface: 213 58% 96.3%;
+    --auth-surface-soft: 240 14% 98.6%;
+    --sidebar: 212 100% 16%;
+    --sidebar-deep: 208 100% 11%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-muted: 210 24% 74%;
+    --sidebar-active: 25 100% 50%;
+    --sidebar-active-foreground: 0 0% 100%;
+    --chart-navy: 211 83% 18%;
+    --chart-blue: 205 65% 52%;
+    --chart-sky: 197 75% 66%;
+    --chart-orange: 25 100% 50%;
+    --chart-gold: 35 100% 56%;
+    --radius-control: 8px;
+    --radius-card: 12px;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: Manrope, sans-serif;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply min-h-screen bg-background text-foreground;
+  }
+
+  ::selection {
+    @apply bg-primary/20 text-foreground;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+@layer components {
+  .crm-page {
+    @apply min-h-screen bg-background px-4 py-page-y text-foreground sm:px-page-x;
+  }
+
+  .crm-section {
+    @apply space-y-section;
+  }
+
+  .crm-grid {
+    @apply grid gap-3 md:gap-4;
+  }
+
+  .crm-sidebar {
+    @apply bg-gradient-to-b from-sidebar to-sidebar-deep text-sidebar-foreground;
+  }
+
+  .crm-sidebar-item {
+    @apply flex h-12 items-center justify-start gap-3 rounded-md px-3.5 text-[15px] font-semibold transition-colors;
+  }
+
+  .crm-sidebar-scrollbar {
+    scrollbar-color: rgb(255 255 255 / 0.32) transparent;
+    scrollbar-width: thin;
+  }
+
+  .crm-sidebar-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .crm-sidebar-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .crm-sidebar-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgb(255 255 255 / 0.18);
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: content-box;
+  }
+
+  .crm-sidebar-scrollbar:hover::-webkit-scrollbar-thumb {
+    background-color: rgb(255 255 255 / 0.36);
+  }
+
+  .crm-sidebar-item-active {
+    @apply bg-sidebar-active text-sidebar-active-foreground hover:bg-sidebar-active/90 hover:text-sidebar-active-foreground;
+  }
+
+  .crm-sidebar-collapse {
+    @apply flex h-sidebar-item w-full items-center gap-3 border-t border-white/10 px-3 text-sm font-semibold text-sidebar-muted transition-colors hover:bg-white/10 hover:text-white;
+  }
+
+  .crm-header {
+    @apply flex h-header items-center border-b bg-card px-4 sm:px-page-x;
+  }
+
+  .crm-header-search {
+    @apply w-full max-w-2xl;
+  }
+
+  .crm-header-action {
+    @apply inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground;
+  }
+
+  .crm-profile-control {
+    @apply flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-semibold transition-colors hover:bg-muted;
+  }
+
+  .crm-chart-container {
+    @apply rounded-lg border bg-card p-4 text-card-foreground shadow-card;
+  }
+
+  .crm-card-action {
+    @apply text-xs font-bold text-primary transition-colors hover:bg-primary/5 hover:text-primary-hover;
+  }
+
+  .crm-dialog-overlay[data-state="open"] {
+    animation: crm-dialog-overlay-in 520ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .crm-dialog-overlay[data-state="closed"] {
+    animation: crm-dialog-overlay-out 260ms ease-in forwards;
+  }
+
+  .crm-dialog-content[data-state="open"] {
+    animation: crm-dialog-content-in 560ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .crm-dialog-content[data-state="closed"] {
+    animation: crm-dialog-content-out 240ms ease-in forwards;
+  }
+}
+
+@keyframes crm-dialog-overlay-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes crm-dialog-overlay-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes crm-dialog-content-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -46%) scale(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes crm-dialog-content-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translate(-50%, -46%) scale(0.94);
+  }
+}

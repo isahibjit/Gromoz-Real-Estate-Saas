@@ -1,0 +1,15 @@
+{
+  "extends": "tsconfig/react-app.json",
+  "compilerOptions": {
+    "types": ["jest", "node", "vite/client", "@testing-library/jest-dom"]
+  },
+  "include": [
+    "index.html",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.d.ts",
+    "jest.setup.js",
+    "src/types/global.d.ts"
+  ],
+  "exclude": ["node_modules"]
+}

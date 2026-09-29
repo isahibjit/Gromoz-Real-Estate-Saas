@@ -1,0 +1,3 @@
+ALTER TABLE "PortalIntegration"
+ADD COLUMN IF NOT EXISTS "settings" JSONB,
+ADD COLUMN IF NOT EXISTS "credentials" JSONB;

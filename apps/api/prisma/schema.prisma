@@ -1,0 +1,1354 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String  @id @default(uuid())
+  email            String  @unique
+  passwordHash     String
+  fullName         String?
+  role             Role
+  isActive         Boolean @default(true)
+  twoFactorEnabled Boolean @default(false)
+
+  lastLoginAt            DateTime?
+  avatarStorageKey       String?
+  avatarMimeType         String?
+  avatarUpdatedAt        DateTime?
+  metadata               Json?
+  lastPasswordChange     DateTime?
+  refreshTokenHash       String?
+  passwordResetTokenHash String?
+  passwordResetExpiresAt DateTime?
+
+  auditLogs                   AuditLog[]
+  mobileAppReleases           MobileAppRelease[]
+  employeeProfile             EmployeeProfile?
+  attendanceRecords           AttendanceRecord[]
+  leaveRequests               LeaveRequest[]
+  reviewedLeaves              LeaveRequest[]               @relation("LeaveReviewer")
+  payrollRecords              PayrollRecord[]
+  payslips                    Payslip[]
+  attendanceAudits            AttendanceAudit[]            @relation("AttendanceAuditActor")
+  ledTeams                    Team[]                       @relation("TeamLeader")
+  teamMemberships             TeamMembership[]             @relation("TeamMembershipUser")
+  teamLeaderVisibilityGrants   TeamLeaderVisibilityGrant[]  @relation("TeamLeaderVisibilityLeader")
+  teamLeaderUserGrants         TeamLeaderVisibilityGrant[]  @relation("TeamLeaderVisibilityUser")
+  teamLeaderVisibilityUpdates  TeamLeaderVisibilityGrant[]  @relation("TeamLeaderVisibilityUpdater")
+  leadVisibilityOverrides      LeadVisibilityOverride[]     @relation("LeadVisibilityViewer")
+  leadVisibilityTargets        LeadVisibilityOverride[]     @relation("LeadVisibilityTarget")
+  leadVisibilityUpdates        LeadVisibilityOverride[]     @relation("LeadVisibilityUpdater")
+  mobileDeviceTokens          MobileDeviceToken[]
+  modulePermissions           UserModulePermission[]       @relation("UserModulePermissions")
+  permissionUpdates           UserModulePermission[]       @relation("UserModulePermissionUpdater")
+  rankingTeamAccesses         UserRankingTeamAccess[]      @relation("UserRankingTeamAccesses")
+  rankingTeamAccessUpdates    UserRankingTeamAccess[]      @relation("UserRankingTeamAccessUpdater")
+  bookingIncentives           BookingIncentive[]           @relation("BookingIncentiveRecipient")
+  commissionTargets           UserCommissionTarget[]       @relation("UserCommissionTargetUser")
+  commissionTargetUpdates     UserCommissionTarget[]       @relation("UserCommissionTargetUpdater")
+  paymentRecipients           Payment[]                    @relation("PaymentRecipient")
+  brokerageRuleUpdates        ProjectBrokerageRule[]       @relation("ProjectBrokerageRuleUpdater")
+  incentiveVisibilityUpdates  IncentiveVisibilitySetting[] @relation("IncentiveVisibilityUpdater")
+  extraIncentives             BookingExtraIncentive[]      @relation("ExtraIncentiveRecipient")
+  extraIncentivesCreated      BookingExtraIncentive[]      @relation("ExtraIncentiveCreator")
+  loginOtpChallenges          LoginOtpChallenge[]
+  twoFactorRoleSettingUpdates RoleTwoFactorSetting[]       @relation("RoleTwoFactorSettingUpdater")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RoleTwoFactorSetting {
+  id          String   @id @default(uuid())
+  role        Role     @unique
+  enabled     Boolean  @default(false)
+  updatedById String?
+  updatedBy   User?    @relation("RoleTwoFactorSettingUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([role])
+}
+
+model LoginOtpChallenge {
+  id               String    @id @default(uuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  identifierHash   String
+  otpHash          String
+  passwordVerified Boolean   @default(false)
+  expiresAt        DateTime
+  usedAt           DateTime?
+  attemptCount     Int       @default(0)
+  requestIp        String?
+  userAgent        String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([identifierHash])
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  HR
+  SALES_MANAGER
+  TEAM_LEADER
+  MANAGER
+  SALES_AGENT
+  TELECALLER
+  MARKETING
+  BACKEND
+}
+
+enum LeadVisibilityOverrideAccess {
+  ALLOW
+  BLOCK
+}
+
+model AccessTemplate {
+  id              String   @id @default(uuid())
+  role            Role
+  moduleKey       String
+  canView         Boolean  @default(false)
+  canCreate       Boolean  @default(false)
+  canUpdate       Boolean  @default(false)
+  canDelete       Boolean  @default(false)
+  canPunchIn      Boolean  @default(false)
+  canPunchOut     Boolean  @default(false)
+  isSystemDefault Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([role, moduleKey])
+  @@index([role])
+}
+
+model UserModulePermission {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation("UserModulePermissions", fields: [userId], references: [id], onDelete: Cascade)
+  moduleKey   String
+  canView     Boolean  @default(false)
+  canCreate   Boolean  @default(false)
+  canUpdate   Boolean  @default(false)
+  canDelete   Boolean  @default(false)
+  canPunchIn  Boolean  @default(false)
+  canPunchOut Boolean  @default(false)
+  updatedById String?
+  updatedBy   User?    @relation("UserModulePermissionUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, moduleKey])
+  @@index([userId])
+  @@index([moduleKey])
+}
+
+model UserRankingTeamAccess {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation("UserRankingTeamAccesses", fields: [userId], references: [id], onDelete: Cascade)
+  teamId      String
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  updatedById String?
+  updatedBy   User?    @relation("UserRankingTeamAccessUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, teamId])
+  @@index([userId])
+  @@index([teamId])
+}
+
+model MobileAppRelease {
+  id           String @id @default(uuid())
+  versionName  String
+  buildNumber  Int
+  originalName String
+  storageKey   String @unique
+  sizeBytes    Int
+  sha256       String
+  releaseNotes String @default("")
+  uploaderId   String
+  uploader     User @relation(fields: [uploaderId], references: [id], onDelete: Restrict)
+  createdAt    DateTime @default(now())
+  publishedAt  DateTime?
+  publication  MobileAppPublication?
+
+  @@index([createdAt])
+}
+
+model MobileAppPublication {
+  id        String @id @default("android")
+  releaseId String? @unique
+  release   MobileAppRelease? @relation(fields: [releaseId], references: [id], onDelete: Restrict)
+}
+
+model AuditLog {
+  id          String  @id @default(uuid())
+  actorUserId String?
+  actorUser   User?   @relation(fields: [actorUserId], references: [id])
+
+  action     String // LOGIN_SUCCESS, DOC_UPLOAD, etc.
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+}
+
+model EmployeeProfile {
+  id                      String         @id @default(uuid())
+  userId                  String         @unique
+  user                    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeCode            String         @unique
+  designation             String?
+  joiningDate             DateTime
+  employmentStatus        String         @default("Active")
+  phone                   String?
+  address                 String?
+  reportingToId           String?
+  monthlyBasic            Decimal        @default(0)
+  justificationMultiplier Decimal        @default(0)
+  justificationMode       String         @default("MULTIPLIER")
+  justificationAmount     Decimal?
+  monthlyAllowances       Decimal        @default(0)
+  monthlyDeductions       Decimal        @default(0)
+  teamId                  String?
+  team                    Team?          @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  shiftId                 String?
+  shift                   ShiftTemplate? @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
+  @@index([employmentStatus])
+}
+
+model AttendanceRecord {
+  id                     String            @id @default(uuid())
+  employeeId             String
+  employee               User              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  attendanceDate         DateTime
+  status                 String            @default("Present")
+  checkInAt              DateTime?
+  checkInImageUrl        String?
+  checkInImageCapturedAt DateTime?
+  checkInLocationAddress String?
+  checkInLatitude        Float?
+  checkInLongitude       Float?
+  checkOutAt             DateTime?
+  checkOutImageUrl       String?
+  checkOutImageCapturedAt DateTime?
+  source                 String            @default("PUNCH")
+  shiftId                String?
+  shift                  ShiftTemplate?    @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  isLate                 Boolean           @default(false)
+  lateMinutes            Int               @default(0)
+  lateSequenceInMonth    Int?
+  derivedStatusReason    String?
+  note                   String?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+  audits                 AttendanceAudit[]
+
+  @@unique([employeeId, attendanceDate])
+  @@index([attendanceDate, status])
+}
+
+model ShiftTemplate {
+  id                 String             @id @default(uuid())
+  name               String             @unique
+  startTimeMinutes   Int
+  endTimeMinutes     Int
+  workingDays        Int[]              @default([1, 2, 3, 4, 5, 6])
+  lateGraceMinutes   Int                @default(15)
+  lateThresholdCount Int                @default(3)
+  latePenaltyStatus  String             @default("Half Day")
+  isActive           Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  employeeProfiles   EmployeeProfile[]
+  attendanceRecords  AttendanceRecord[]
+}
+
+model AttendanceAudit {
+  id           String           @id @default(uuid())
+  attendanceId String
+  attendance   AttendanceRecord @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  actorId      String?
+  actor        User?            @relation("AttendanceAuditActor", fields: [actorId], references: [id])
+  previous     Json?
+  current      Json?
+  reason       String
+  createdAt    DateTime         @default(now())
+
+  @@index([attendanceId, createdAt])
+}
+
+model Holiday {
+  id          String   @id @default(uuid())
+  holidayDate DateTime @unique
+  name        String
+  description String?
+  type        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model LeaveRequest {
+  id           String    @id @default(uuid())
+  employeeId   String
+  employee     User      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType    String
+  startDate    DateTime
+  endDate      DateTime
+  days         Decimal
+  reason       String
+  note         String?
+  status       String    @default("Pending")
+  reviewerId   String?
+  reviewer     User?     @relation("LeaveReviewer", fields: [reviewerId], references: [id])
+  reviewerNote String?
+  reviewedAt   DateTime?
+  cancelledAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([employeeId, status])
+  @@index([startDate, endDate])
+}
+
+model PayrollRecord {
+  id             String    @id @default(uuid())
+  employeeId     String
+  employee       User      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  year           Int
+  month          Int
+  status         String    @default("Draft")
+  basicSalary    Decimal
+  allowances     Decimal   @default(0)
+  deductions     Decimal   @default(0)
+  payableDays    Decimal
+  salaryDivisorDays Decimal @default(30)
+  manualOverrideReason String?
+  presentDays    Decimal   @default(0)
+  paidLeaveDays  Decimal   @default(0)
+  unpaidDays     Decimal   @default(0)
+  holidayDays    Decimal   @default(0)
+  grossPay       Decimal
+  netPay         Decimal
+  pfAmount       Decimal   @default(0)
+  pfOverrideReason String?
+  pfUpdatedById  String?
+  pfUpdatedAt    DateTime?
+  adjustment     Decimal   @default(0)
+  adjustmentNote String?
+  finalizedAt    DateTime?
+  finalizedById  String?
+  paidAt         DateTime?
+  paidById       String?
+  reopenedAt     DateTime?
+  reopenedById   String?
+  reopenReason   String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  payslip        Payslip?
+
+  @@unique([employeeId, year, month])
+  @@index([year, month, status])
+}
+
+model Payslip {
+  id             String        @id @default(uuid())
+  payrollId      String        @unique
+  payroll        PayrollRecord @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  employeeId     String
+  employee       User          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  snapshot       Json
+  fileName       String?
+  fileUrl        String?
+  deliveryStatus String        @default("PENDING")
+  sentAt         DateTime?
+  generatedAt    DateTime      @default(now())
+
+  @@index([employeeId, generatedAt])
+}
+
+model Team {
+  id                 String                  @id @default(uuid())
+  name               String
+  code               String                  @unique
+  description        String?
+  leaderId           String?
+  leader             User?                   @relation("TeamLeader", fields: [leaderId], references: [id], onDelete: SetNull)
+  members            EmployeeProfile[]
+  memberships        TeamMembership[]
+  visibilityGrants   TeamLeaderVisibilityGrant[] @relation("TeamLeaderVisibilityTeam")
+  rankingAccessUsers UserRankingTeamAccess[]
+  isActive           Boolean                 @default(true)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  @@index([leaderId])
+}
+
+model TeamMembership {
+  id        String   @id @default(uuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation("TeamMembershipUser", fields: [userId], references: [id], onDelete: Cascade)
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
+  @@index([userId, isPrimary])
+}
+
+model TeamLeaderVisibilityGrant {
+  id           String   @id @default(uuid())
+  leaderUserId String
+  leader       User     @relation("TeamLeaderVisibilityLeader", fields: [leaderUserId], references: [id], onDelete: Cascade)
+  teamId       String?
+  team         Team?    @relation("TeamLeaderVisibilityTeam", fields: [teamId], references: [id], onDelete: Cascade)
+  userId       String?
+  user         User?    @relation("TeamLeaderVisibilityUser", fields: [userId], references: [id], onDelete: Cascade)
+  updatedById  String?
+  updatedBy    User?    @relation("TeamLeaderVisibilityUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([leaderUserId])
+  @@index([teamId])
+  @@index([userId])
+}
+
+model LeadVisibilityOverride {
+  id           String                       @id @default(uuid())
+  viewerUserId String
+  viewer       User                         @relation("LeadVisibilityViewer", fields: [viewerUserId], references: [id], onDelete: Cascade)
+  targetUserId String
+  target       User                         @relation("LeadVisibilityTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  accessType   LeadVisibilityOverrideAccess
+  updatedById  String?
+  updatedBy    User?                        @relation("LeadVisibilityUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  reason       String?
+  createdAt    DateTime                     @default(now())
+  updatedAt    DateTime                     @updatedAt
+
+  @@unique([viewerUserId, targetUserId])
+  @@index([viewerUserId])
+  @@index([targetUserId])
+  @@index([accessType])
+}
+
+model TeamOld {
+  id        String   @id @default(uuid())
+  name      String
+  type      String?
+  location  String?
+  managerId String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LeadMasterCategory {
+  id          String            @id @default(uuid())
+  code        String            @unique
+  name        String
+  description String?
+  sortOrder   Int               @default(0)
+  values      LeadMasterValue[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model LeadMasterValue {
+  id                          String             @id @default(uuid())
+  categoryId                  String
+  categoryRef                 LeadMasterCategory @relation(fields: [categoryId], references: [id])
+  name                        String
+  code                        String
+  description                 String?
+  group                       String?
+  type                        String?
+  statusType                  String             @default("Custom")
+  isActive                    Boolean            @default(true)
+  isSystemDefault             Boolean            @default(false)
+  sortOrder                   Int                @default(0)
+  defaultNextValueId          String?
+  probability                 Int?
+  weight                      Int?
+  manualScore                 Int?
+  pointsEnabled               Boolean            @default(true)
+  channel                     String?
+  reasonCategory              String?
+  displayColor                String?
+  tagColor                    String?
+  ratingValue                 Int?
+  expectedTime                Int?
+  expectedTimeUnit            String?
+  icon                        String?
+  triggerAction               String             @default("NONE")
+  allowFollowUp               Boolean            @default(true)
+  followUpNotificationEnabled Boolean            @default(true)
+  followUpRenotifyMinutes     Int?
+  autoAssignActive            Boolean            @default(true)
+  showInStatsCard             Boolean            @default(true)
+  showInFilterBar             Boolean            @default(true)
+  createdAt                   DateTime           @default(now())
+  updatedAt                   DateTime           @updatedAt
+
+  @@unique([categoryId, code])
+  @@index([categoryId, isActive])
+}
+
+model Lead {
+  id                   String                @id @default(uuid())
+  displayId            String                @unique
+  name                 String
+  email                String?
+  mobileCountryCode    String                @default("+91")
+  mobile               String
+  alternateCountryCode String?
+  alternateMobile      String?
+  dateOfBirth          DateTime?
+  gender               String?
+  sourceId             String?
+  campaignId           String?
+  stageId              String?
+  statusId             String?
+  priorityId           String?
+  temperatureId        String?
+  ratingId             String?
+  interestLevel        String?
+  heardAboutUs         String?
+  remarks              String?
+  referenceBy          String?
+  ownerId              String?
+  managerId            String?
+  telecallerId         String?
+  fieldExecutiveId     String?
+  createdById          String?
+  assignedAt           DateTime?
+  lastContactedAt      DateTime?
+  nextFollowUpAt       DateTime?
+  lostReasonId         String?
+  lostCompetitor       String?
+  lostAt               DateTime?
+  convertedAt          DateTime?
+  deletedAt            DateTime?
+  deletedById          String?
+  deleteReason         String?
+  isDuplicate          Boolean               @default(false)
+  requirement          LeadRequirement?
+  assignments          LeadAssignment[]
+  followUps            FollowUp[]
+  activities           Activity[]
+  tasks                Task[]
+  notes                Note[]
+  documents            Document[]
+  siteVisits           SiteVisit[]
+  bookings             Booking[]
+  payments             Payment[]
+  callLogs             CallLog[]
+  projectInterests     LeadProjectInterest[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@index([mobile])
+  @@index([email])
+  @@index([stageId])
+  @@index([statusId])
+  @@index([sourceId])
+  @@index([ownerId])
+  @@index([nextFollowUpAt])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model LeadRequirement {
+  leadId             String   @id
+  lead               Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  propertyType       String?
+  configuration      String?
+  budgetRange        String?
+  minBudget          Decimal?
+  maxBudget          Decimal?
+  budgetUnit         String?
+  preferredLocation  String?
+  preferredProjectId String?
+  possessionTimeline String?
+  carpetAreaRange    String?
+  purpose            String?
+  minArea            Decimal?
+  maxArea            Decimal?
+  zone               String?
+  occupation         String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model LeadProjectInterest {
+  id           String       @id @default(uuid())
+  leadId       String
+  lead         Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  projectId    String
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  unitId       String?
+  unit         ProjectUnit? @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  isPrimary    Boolean      @default(false)
+  matchPercent Int?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([leadId])
+  @@index([projectId])
+  @@index([projectId, unitId])
+}
+
+enum ContactLeadStatus {
+  COLD
+  INTERESTED
+  NOT_INTERESTED
+  CONVERTED
+  ARCHIVED
+}
+
+enum AutoAssignmentEventStatus {
+  ACTIVE
+  STOPPED
+  EXHAUSTED
+  COMPLETED
+}
+
+model ContactLead {
+  id                   String            @id @default(uuid())
+  sourceId             String?
+  customerName         String
+  mobileCountryCode    String            @default("+91")
+  mobile               String
+  alternateCountryCode String?
+  alternateMobile      String?
+  email                String?
+  preferredProjectId   String?
+  note                 String?
+  assignedToId         String?
+  status               ContactLeadStatus @default(COLD)
+  convertedLeadId      String?
+  convertedAt          DateTime?
+  createdById          String?
+  updatedById          String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  @@index([mobile])
+  @@index([sourceId])
+  @@index([preferredProjectId])
+  @@index([assignedToId])
+  @@index([status, createdAt])
+}
+
+model LeadListColumnPreference {
+  id             String   @id @default("global")
+  visibleColumns Json
+  updatedById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model AutoAssignmentRule {
+  id                  String   @id @default(uuid())
+  name                String   @default("Default auto assignment")
+  isEnabled           Boolean  @default(false)
+  initialUserId       String?
+  transferSequence    Json
+  transferTimeMinutes Int      @default(2)
+  sourceId            String?
+  projectId           String?
+  teamId              String?
+  userRules           Json?
+  createdById         String?
+  updatedById         String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([isEnabled])
+  @@index([sourceId])
+  @@index([projectId])
+  @@index([teamId])
+}
+
+model AutoAssignmentEvent {
+  id            String                    @id @default(uuid())
+  ruleId        String?
+  leadId        String
+  currentUserId String?
+  currentStep   Int                       @default(0)
+  assignedAt    DateTime                  @default(now())
+  dueAt         DateTime
+  status        AutoAssignmentEventStatus @default(ACTIVE)
+  history       Json?
+  lastCheckedAt DateTime?
+  exhaustedAt   DateTime?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+
+  @@index([status, dueAt])
+  @@index([leadId, status])
+}
+
+model LeadAssignment {
+  id           String   @id @default(uuid())
+  leadId       String
+  lead         Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  fromUserId   String?
+  toUserId     String
+  assigneeType String
+  strategy     String?
+  reason       String?
+  assignedById String?
+  assignedAt   DateTime @default(now())
+  isCurrent    Boolean  @default(true)
+
+  @@index([leadId, isCurrent])
+  @@index([toUserId])
+}
+
+model FollowUp {
+  id             String    @id @default(uuid())
+  leadId         String
+  lead           Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assignedToId   String?
+  typeId         String?
+  statusId       String?
+  scheduledAt    DateTime
+  completedAt    DateTime?
+  lastContactAt  DateTime?
+  nextAction     String?
+  notes          String?
+  slaDueAt       DateTime?
+  setReminder    Boolean   @default(true)
+  reminderSentAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([assignedToId, scheduledAt])
+  @@index([statusId])
+  @@index([leadId])
+  @@index([setReminder, completedAt, reminderSentAt, scheduledAt])
+}
+
+model Activity {
+  id          String   @id @default(uuid())
+  leadId      String?
+  lead        Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  actorId     String?
+  type        String
+  title       String
+  description String?
+  occurredAt  DateTime @default(now())
+  metadata    Json?
+
+  @@index([leadId, occurredAt])
+}
+
+model Task {
+  id           String    @id @default(uuid())
+  leadId       String?
+  lead         Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  type         String?
+  priority     String    @default("Medium")
+  status       String    @default("Pending")
+  dueAt        DateTime?
+  assignedToId String?
+  createdById  String?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([assignedToId, status, dueAt])
+  @@index([leadId])
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  authorId  String?
+  text      String
+  isPinned  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Document {
+  id           String   @id @default(uuid())
+  leadId       String?
+  lead         Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  name         String
+  storageKey   String?
+  mimeType     String?
+  sizeBytes    Int?
+  uploadedById String?
+  createdAt    DateTime @default(now())
+}
+
+model Project {
+  id                 String                @id @default(uuid())
+  name               String
+  location           String
+  developer          String?
+  status             String                @default("Active")
+  possession         String?
+  minPrice           Decimal?
+  maxPrice           Decimal?
+  configurations     Json?
+  configurationCarpetAreas Json?
+  configurationVariants Json?
+  numberOfFloors      Int?
+  amenities          Json?
+  highlights         Json?
+  description        String?
+  reraNumber         String?
+  imageUrl           String?
+  imageGallery       Json?
+  videoUrl           String?
+  videoUrls          Json?
+  brochureUrl        String?
+  brochureStorageKey String?
+  brochureFileName   String?
+  brochureMimeType   String?
+  brochureSizeBytes  Int?
+  brochures          Json?
+  salesOwnerId       String?
+  demandScore        Int?
+  latitude           Decimal?
+  longitude          Decimal?
+  geofenceRadiusM    Int                   @default(150)
+  units              ProjectUnit[]
+  siteVisits         SiteVisit[]
+  bookings           Booking[]
+  brokerageRule      ProjectBrokerageRule?
+  leadInterests      LeadProjectInterest[]
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  @@index([status])
+  @@index([location])
+}
+
+model ProjectUnit {
+  id             String                @id @default(uuid())
+  projectId      String
+  project        Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tower          String?
+  unitNumber     String
+  configuration  String?
+  carpetAreaSqft Decimal?
+  floor          String?
+  facing         String?
+  price          Decimal?
+  availability   String                @default("Available")
+  bookingStatus  String                @default("Open")
+  salesOwnerId   String?
+  imageUrl       String?
+  imageGallery   Json?
+  siteVisits     SiteVisit[]
+  bookings       Booking[]
+  leadInterests  LeadProjectInterest[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@unique([projectId, tower, unitNumber])
+  @@index([projectId, availability])
+}
+
+model SiteVisit {
+  id                  String       @id @default(uuid())
+  displayId           String?      @unique
+  leadId              String
+  lead                Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  projectId           String?
+  project             Project?     @relation(fields: [projectId], references: [id])
+  unitId              String?
+  unit                ProjectUnit? @relation(fields: [unitId], references: [id])
+  status              String       @default("Scheduled")
+  visitType           String       @default("Site Visit")
+  scheduledAt         DateTime
+  durationMinutes     Int?
+  assignedExecutiveId String?
+  meetingPoint        String?
+  transportMode       String?
+  visitorCount        Int?
+  specialRequest      String?
+  notes               String?
+  feedback            String?
+  rating              Int?
+  reminderEnabled     Boolean      @default(false)
+  reminderAt          DateTime?
+  checkedInAt         DateTime?
+  checkedInLatitude   Decimal?
+  checkedInLongitude  Decimal?
+  checkedInAccuracyM  Decimal?
+  checkedOutAt        DateTime?
+  checkedOutLatitude  Decimal?
+  checkedOutLongitude Decimal?
+  checkedOutAccuracyM Decimal?
+  createdById         String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@index([assignedExecutiveId, scheduledAt])
+  @@index([projectId, scheduledAt])
+  @@index([status])
+}
+
+model Booking {
+  id                     String                  @id @default(uuid())
+  leadId                 String
+  lead                   Lead                    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  projectId              String?
+  project                Project?                @relation(fields: [projectId], references: [id])
+  unitId                 String?
+  unit                   ProjectUnit?            @relation(fields: [unitId], references: [id])
+  bookingAmount          Decimal
+  agreementValue         Decimal                 @default(0)
+  bookingDate            DateTime                @default(now())
+  status                 String                  @default("Pending")
+  remarks                String?
+  leadCreatedAtSnapshot  DateTime?
+  leadSourceSnapshot     String?
+  customerNameSnapshot   String?
+  customerMobileSnapshot String?
+  projectNameSnapshot    String?
+  towerWingSnapshot      String?
+  flatNoSnapshot         String?
+  configurationSnapshot  String?
+  baseBrokeragePct       Decimal                 @default(0)
+  ladderBrokeragePct     Decimal                 @default(0)
+  aopBrokeragePct        Decimal                 @default(0)
+  gstPct                 Decimal                 @default(0)
+  tdsPct                 Decimal                 @default(0)
+  passbackAmount         Decimal                 @default(0)
+  baseBrokerageAmount    Decimal                 @default(0)
+  ladderBrokerageAmount  Decimal                 @default(0)
+  aopBrokerageAmount     Decimal                 @default(0)
+  grossBrokerageAmount   Decimal                 @default(0)
+  gstAmount              Decimal                 @default(0)
+  tdsAmount              Decimal                 @default(0)
+  netBrokerageAmount     Decimal                 @default(0)
+  receiptDocumentId      String?
+  closedById             String?
+  payments               Payment[]
+  incentives             BookingIncentive[]
+  extraIncentives        BookingExtraIncentive[]
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+
+  @@index([bookingDate, status])
+  @@index([projectId, status])
+}
+
+model Payment {
+  id                String    @id @default(uuid())
+  bookingId         String?
+  booking           Booking?  @relation(fields: [bookingId], references: [id])
+  leadId            String
+  lead              Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  amount            Decimal
+  paymentDate       DateTime  @default(now())
+  receivedDate      DateTime?
+  status            String    @default("Pending")
+  kind              String    @default("BROKERAGE")
+  component         String?
+  recipientUserId   String?
+  recipient         User?     @relation("PaymentRecipient", fields: [recipientUserId], references: [id], onDelete: SetNull)
+  method            String?
+  receiptId         String?
+  referenceNo       String?
+  remarks           String?
+  invoiceDocumentId String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([bookingId, kind, component])
+  @@index([recipientUserId, paymentDate])
+}
+
+model ProjectBrokerageRule {
+  id                             String   @id @default(uuid())
+  projectId                      String   @unique
+  project                        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  baseBrokeragePct               Decimal  @default(0)
+  baseBrokerageMode              String   @default("FIXED")
+  baseBrokerageFixedAmount       Decimal  @default(0)
+  ladderBrokeragePct             Decimal  @default(0)
+  ladderBrokerageMode            String   @default("FIXED")
+  ladderBrokerageFixedAmount     Decimal  @default(0)
+  aopBrokeragePct                Decimal  @default(0)
+  aopBrokerageMode               String   @default("FIXED")
+  aopBrokerageFixedAmount        Decimal  @default(0)
+  gstPct                         Decimal  @default(0)
+  tdsPct                         Decimal  @default(0)
+  passbackDefaultAmount          Decimal  @default(0)
+  salesIncentivePct              Decimal  @default(0)
+  salesIncentiveMode             String   @default("FIXED")
+  salesIncentiveFixedAmount      Decimal  @default(0)
+  preSalesIncentivePct           Decimal  @default(0)
+  preSalesIncentiveMode          String   @default("FIXED")
+  preSalesIncentiveFixedAmount   Decimal  @default(0)
+  teamLeaderIncentivePct         Decimal  @default(0)
+  teamLeaderIncentiveMode        String   @default("FIXED")
+  teamLeaderIncentiveFixedAmount Decimal  @default(0)
+  updatedById                    String?
+  updatedBy                      User?    @relation("ProjectBrokerageRuleUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
+}
+
+model BookingIncentive {
+  id              String    @id @default(uuid())
+  bookingId       String
+  booking         Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  roleType        String
+  recipientUserId String?
+  recipient       User?     @relation("BookingIncentiveRecipient", fields: [recipientUserId], references: [id], onDelete: SetNull)
+  percentage      Decimal   @default(0)
+  calculationMode String    @default("PERCENTAGE")
+  fixedAmount     Decimal   @default(0)
+  amount          Decimal   @default(0)
+  extraAmount     Decimal   @default(0)
+  paymentStatus   String    @default("Pending")
+  paymentDate     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([bookingId, roleType])
+  @@index([recipientUserId, paymentStatus])
+}
+
+model BookingExtraIncentive {
+  id              String    @id @default(uuid())
+  bookingId       String
+  booking         Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  recipientUserId String
+  recipient       User      @relation("ExtraIncentiveRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+  title           String
+  amount          Decimal
+  paymentStatus   String    @default("Pending")
+  paymentDate     DateTime?
+  remarks         String?
+  createdById     String?
+  createdBy       User?     @relation("ExtraIncentiveCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([bookingId])
+  @@index([recipientUserId])
+}
+
+model UserCommissionTarget {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation("UserCommissionTargetUser", fields: [userId], references: [id], onDelete: Cascade)
+  roleScope   String
+  year        Int
+  month       Int
+  targetValue Int      @default(0)
+  updatedById String?
+  updatedBy   User?    @relation("UserCommissionTargetUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, roleScope, year, month])
+  @@index([year, month, roleScope])
+}
+
+model IncentiveVisibilitySetting {
+  id              String   @id @default(uuid())
+  roleScope       String   @unique
+  visibilityScope String   @default("OWN")
+  canEdit         Boolean  @default(false)
+  updatedById     String?
+  updatedBy       User?    @relation("IncentiveVisibilityUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model CallLog {
+  id                  String   @id @default(uuid())
+  leadId              String?
+  lead                Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  userId              String?
+  direction           String
+  startedAt           DateTime @default(now())
+  durationSeconds     Int?
+  outcome             String?
+  followUpStatus      String?
+  notes               String?
+  recordingStorageKey String?
+  recordingId         String?
+  customerResponse    String?
+  nextFollowUpId      String?
+  createdAt           DateTime @default(now())
+
+  @@index([userId, startedAt])
+  @@index([leadId])
+  @@index([outcome])
+}
+
+model LeadImport {
+  id           String          @id @default(uuid())
+  source       String
+  targetType   String          @default("LEAD")
+  fileName     String?
+  status       String          @default("Pending")
+  progress     Int             @default(0)
+  totalRecords Int             @default(0)
+  newLeads     Int             @default(0)
+  updatedLeads Int             @default(0)
+  duplicates   Int             @default(0)
+  errors       Int             @default(0)
+  importedById String?
+  rows         LeadImportRow[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([targetType, createdAt])
+}
+
+model LeadImportRow {
+  id               String     @id @default(uuid())
+  importId         String
+  import           LeadImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  rowNumber        Int
+  rawData          Json?
+  mappedData       Json?
+  status           String     @default("Pending")
+  errorField       String?
+  errorMessage     String?
+  duplicateGroupId String?
+}
+
+model PortalIntegration {
+  id                 String    @id @default(uuid())
+  provider           String    @unique
+  displayName        String
+  status             String    @default("Draft")
+  isActive           Boolean   @default(true)
+  webhookKeyId       String    @unique
+  fieldMapping       Json?
+  settings           Json?
+  credentials        Json?
+  notes              String?
+  lastTestedAt       DateTime?
+  lastTestStatus     String?
+  lastLeadReceivedAt DateTime?
+  totalLeadsReceived Int       @default(0)
+  createdById        String?
+  updatedById        String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([provider, isActive])
+}
+
+model IntegrationRoutingRule {
+  id               String   @id @default(uuid())
+  provider         String
+  accountKey       String?
+  accountLabel     String?
+  pageId           String?
+  pageName         String?
+  formId           String?
+  formName         String?
+  campaignId       String?
+  campaignName     String?
+  sourceId         String?
+  teamId           String?
+  projectId        String?
+  telecallerId     String?
+  fieldExecutiveId String?
+  assignmentMode   String   @default("AUTO_ASSIGN")
+  priority         Int      @default(0)
+  isActive         Boolean  @default(true)
+  createdById      String?
+  updatedById      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([provider, isActive])
+  @@index([accountKey])
+  @@index([pageId, formId, campaignId])
+  @@index([teamId])
+}
+
+model DuplicateLeadGroup {
+  id              String    @id @default(uuid())
+  detectedOn      DateTime  @default(now())
+  source          String?
+  matchPercent    Int
+  scoreLabel      String
+  existingLeadId  String
+  duplicateLeadId String
+  criteria        Json?
+  status          String    @default("Detected")
+  resolvedById    String?
+  resolvedAt      DateTime?
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  userId      String?
+  type        String
+  title       String
+  description String?
+  badge       String?
+  message     String?
+  details     Json?
+  entityType  String?
+  entityId    String?
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@index([type])
+}
+
+model RealtimeOutboxEvent {
+  id              String    @id @default(uuid())
+  type            String
+  aggregateType   String
+  aggregateId     String
+  payload         Json
+  attempts        Int       @default(0)
+  availableAt     DateTime  @default(now())
+  leaseExpiresAt  DateTime?
+  lockedBy        String?
+  publishedAt     DateTime?
+  lastError       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([publishedAt, availableAt])
+  @@index([leaseExpiresAt])
+  @@index([aggregateType, aggregateId])
+}
+
+model MobileDeviceToken {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token      String   @unique
+  platform   String
+  deviceId   String?
+  appVersion String?
+  isActive   Boolean  @default(true)
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId, isActive])
+  @@index([platform, isActive])
+}
+
+model Campaign {
+  id        String    @id @default(uuid())
+  name      String
+  sourceId  String?
+  startDate DateTime?
+  endDate   DateTime?
+  cost      Decimal?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model PayrollSetting {
+  id                     String   @id @default(uuid())
+  workingDays            Int[]
+  divisorType            String   @default("FIXED")
+  fixedDivisor           Int      @default(30)
+  minimumDealsToQualify  Int      @default(0)
+  salesIncentivePct      Decimal  @default(0)
+  preSalesIncentivePct   Decimal  @default(0)
+  teamLeaderIncentivePct Decimal  @default(0)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+model EmailConnector {
+  id             String     @id @default(uuid())
+  name           String
+  provider       String     @default("smtp")
+  host           String     @default("smtp.gmail.com")
+  port           Int        @default(465)
+  secure         Boolean    @default(true)
+  username       String
+  password       String
+  fromName       String?
+  fromEmail      String
+  notificationEmail String?
+  isDefault      Boolean    @default(false)
+  isActive       Boolean    @default(true)
+  lastTestedAt   DateTime?
+  lastTestStatus String?
+  createdById    String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  logs           EmailLog[]
+}
+
+model EmailLog {
+  id          String          @id @default(uuid())
+  connectorId String?
+  connector   EmailConnector? @relation(fields: [connectorId], references: [id], onDelete: SetNull)
+  recipient   String
+  subject     String
+  status      String          @default("Sent")
+  error       String?
+  entityType  String?
+  entityId    String?
+  sentAt      DateTime        @default(now())
+}
+
+model HousingIntegration {
+  id                    String    @id @default(uuid())
+  webhookKeyId          String    @unique
+  apiKey                String?
+  isActive              Boolean   @default(true)
+  fieldMapping          Json?
+  lastWebhookReceivedAt DateTime?
+  createdById           String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model NotificationSetting {
+  id                    String   @id @default("global")
+  globalFcmEnabled      Boolean  @default(true)
+  globalWhatsAppEnabled Boolean  @default(true)
+  eventSettings         Json?
+  updatedById           String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}

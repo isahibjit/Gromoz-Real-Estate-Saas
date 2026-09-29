@@ -1,0 +1,248 @@
+import {
+  Banknote,
+  Bot,
+  Building,
+  Mail,
+  MessageSquare,
+  Phone,
+  RefreshCcw,
+  Sparkles,
+  TrendingDown,
+} from "lucide-react";
+import type {
+  AIInsight,
+  CampaignMetric,
+  DistributionSegment,
+  LostLeadRow,
+  LostLeadStat,
+  LostLeadTrend,
+  ReactivationTool,
+  SummaryRow,
+} from "./lostLeadsTypes";
+
+export const lostLeadStats: LostLeadStat[] = [
+  {
+    label: "Total Lost Leads",
+    value: "182",
+    change: "12",
+    changeTone: "up",
+    helper: "vs last 30 days",
+    icon: TrendingDown,
+    tone: "bg-red-50 text-red-500",
+  },
+  {
+    label: "Lost Value",
+    value: "₹12.5 Cr",
+    change: "₹1.2 Cr",
+    changeTone: "up",
+    helper: "vs last 30 days",
+    icon: Banknote,
+    tone: "bg-violet-50 text-violet-600",
+  },
+  {
+    label: "Reactivated Leads",
+    value: "12",
+    change: "4",
+    changeTone: "up",
+    helper: "vs last 30 days",
+    icon: RefreshCcw,
+    tone: "bg-green-50 text-success",
+  },
+  {
+    label: "Recovered Value",
+    value: "₹1.2 Cr",
+    change: "₹45 L",
+    changeTone: "up",
+    helper: "vs last 30 days",
+    icon: Banknote,
+    tone: "bg-blue-50 text-blue-700",
+  },
+  {
+    label: "Recovery Rate",
+    value: "24.5%",
+    change: "2.1%",
+    changeTone: "up",
+    helper: "vs last 30 days",
+    icon: Sparkles,
+    tone: "bg-emerald-50 text-emerald-600",
+  },
+];
+
+export const lostTrendData: LostLeadTrend[] = [
+  { date: "May 01", leads: 12 },
+  { date: "May 05", leads: 18 },
+  { date: "May 10", leads: 14 },
+  { date: "May 15", leads: 24 },
+  { date: "May 20", leads: 19 },
+  { date: "May 25", leads: 28 },
+  { date: "May 30", leads: 22 },
+];
+
+export const lossReasonDistribution: DistributionSegment[] = [
+  { label: "Budget Issue", value: 65, percent: "35.7%", color: "#3b82f6" },
+  {
+    label: "Location Preference",
+    value: 42,
+    percent: "23.1%",
+    color: "#f59e0b",
+  },
+  { label: "Unresponsive", value: 38, percent: "20.9%", color: "#ef4444" },
+  { label: "Chose Competitor", value: 25, percent: "13.7%", color: "#8b5cf6" },
+  { label: "Not Ready", value: 12, percent: "6.6%", color: "#10b981" },
+];
+
+export const lostLeadRows: LostLeadRow[] = [
+  {
+    id: "LL-201",
+    name: "Ravi Shankar",
+    initials: "RS",
+    avatarTone: "bg-blue-100 text-blue-700",
+    requirement: "3 BHK Premium, Andheri",
+    source: "Facebook Ads",
+    lossReason: "Budget Issue",
+    lossReasonColor: "bg-blue-50 text-blue-700",
+    competitor: null,
+    lostDate: "May 24, 2025",
+    lostTime: "11:30 AM",
+    stageAtLoss: "Negotiation",
+    potentialValue: "₹2.5 Cr",
+    owner: "Amit Kumar",
+    ownerAvatarUrl: "https://api.dicebear.com/7.x/notionists/svg?seed=Amit",
+    bucket: "7-days",
+  },
+  {
+    id: "LL-202",
+    name: "Priya Sharma",
+    initials: "PS",
+    avatarTone: "bg-violet-100 text-violet-700",
+    requirement: "2 BHK Luxury, Bandra",
+    source: "Website Organic",
+    lossReason: "Location Preference",
+    lossReasonColor: "bg-orange-50 text-orange-600",
+    competitor: null,
+    lostDate: "May 22, 2025",
+    lostTime: "04:15 PM",
+    stageAtLoss: "Site Visit",
+    potentialValue: "₹1.8 Cr",
+    owner: "Neha Gupta",
+    ownerAvatarUrl: "https://api.dicebear.com/7.x/notionists/svg?seed=Neha",
+    bucket: "15-days",
+  },
+  {
+    id: "LL-203",
+    name: "Suresh Menon",
+    initials: "SM",
+    avatarTone: "bg-green-100 text-green-700",
+    requirement: "Villa, Powai",
+    source: "Referral",
+    lossReason: "Chose Competitor",
+    lossReasonColor: "bg-violet-50 text-violet-600",
+    competitor: "Lodha Group",
+    lostDate: "May 20, 2025",
+    lostTime: "02:00 PM",
+    stageAtLoss: "Final Review",
+    potentialValue: "₹4.2 Cr",
+    owner: "Rahul Desai",
+    ownerAvatarUrl: "https://api.dicebear.com/7.x/notionists/svg?seed=Rahul",
+    bucket: "15-days",
+  },
+  {
+    id: "LL-204",
+    name: "Kavita Reddy",
+    initials: "KR",
+    avatarTone: "bg-orange-100 text-orange-700",
+    requirement: "1 BHK, Goregaon",
+    source: "Google Ads",
+    lossReason: "Unresponsive",
+    lossReasonColor: "bg-red-50 text-red-600",
+    competitor: null,
+    lostDate: "May 18, 2025",
+    lostTime: "10:45 AM",
+    stageAtLoss: "Follow Up",
+    potentialValue: "₹90 L",
+    owner: "Vikram Singh",
+    ownerAvatarUrl: "https://api.dicebear.com/7.x/notionists/svg?seed=Vikram",
+    bucket: "30-days",
+  },
+  {
+    id: "LL-205",
+    name: "Anil Kapoor",
+    initials: "AK",
+    avatarTone: "bg-red-100 text-red-700",
+    requirement: "Office Space, BKC",
+    source: "LinkedIn",
+    lossReason: "Not Ready",
+    lossReasonColor: "bg-emerald-50 text-emerald-600",
+    competitor: null,
+    lostDate: "May 15, 2025",
+    lostTime: "03:30 PM",
+    stageAtLoss: "Initial Call",
+    potentialValue: "₹8.0 Cr",
+    owner: "Amit Kumar",
+    ownerAvatarUrl: "https://api.dicebear.com/7.x/notionists/svg?seed=Amit",
+    bucket: "60-days",
+  },
+];
+
+export const aiRecommendations: AIInsight[] = [
+  {
+    title: "Price Drop Alert Campaigns",
+    helper:
+      "45 leads lost due to budget could be reactivated with the new festive offers.",
+    icon: Bot,
+    tone: "bg-blue-50 text-blue-700",
+    actionLabel: "Create Campaign",
+  },
+  {
+    title: "Location Alternative Reachout",
+    helper:
+      "22 leads wanted Western Suburbs. Send them the new launch details in Malad.",
+    icon: Building,
+    tone: "bg-violet-50 text-violet-700",
+    actionLabel: "View Matches",
+  },
+  {
+    title: "Re-engagement Sequence",
+    helper:
+      "Start a 3-step WhatsApp sequence for 38 unresponsive leads from last month.",
+    icon: MessageSquare,
+    tone: "bg-green-50 text-success",
+    actionLabel: "Start Sequence",
+  },
+];
+
+export const reactivationTools: ReactivationTool[] = [
+  {
+    title: "Automated WhatsApp Sequences",
+    helper: "Setup drip campaigns for lost leads.",
+    icon: MessageSquare,
+    tone: "bg-green-50 text-success",
+  },
+  {
+    title: "Bulk Email Offers",
+    helper: "Send targeted emails based on loss reason.",
+    icon: Mail,
+    tone: "bg-violet-50 text-violet-700",
+  },
+  {
+    title: "Tele-calling Scripts",
+    helper: "AI-generated scripts to handle objections.",
+    icon: Phone,
+    tone: "bg-blue-50 text-blue-700",
+  },
+];
+
+export const campaignMetrics: CampaignMetric[] = [
+  { label: "Emails Sent", value: "4,502", change: "12%" },
+  { label: "Open Rate", value: "24.5%", change: "3.2%" },
+  { label: "Link Clicks", value: "892", change: "5%" },
+  { label: "Replies", value: "145", change: "18%" },
+  { label: "Meetings Booked", value: "28", change: "8%" },
+];
+
+export const lostSummaryRows: SummaryRow[] = [
+  { label: "Avg. Time to Loss", value: "18 Days" },
+  { label: "Highest Loss Stage", value: "Negotiation" },
+  { label: "Top Competitor", value: "Lodha Group" },
+  { label: "Most Vulnerable Source", value: "Facebook Ads" },
+];
