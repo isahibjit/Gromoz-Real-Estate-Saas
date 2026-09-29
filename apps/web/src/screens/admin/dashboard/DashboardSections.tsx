@@ -276,7 +276,7 @@ function SearchResultList({
                     "No active stop"}
                 </p>
                 <p className="mt-1 text-[11px] font-medium text-slate-400">
-                  Last sync {formatTrackingTime(row.tracking.trackedAt)}
+                  Last sync {formatTrackingTime(row.tracking?.trackedAt)}
                 </p>
                 {row.activeVisit || row.nextVisit ? (
                   <p className="mt-1 truncate text-[11px] font-medium text-slate-400">
@@ -341,6 +341,7 @@ function LiveExecutiveMap({
           <MapUpdater center={center} zoom={selectedExecutive ? 12 : 11} />
           {rows.map((row) => {
             if (
+              !row.tracking ||
               typeof row.tracking.latitude !== "number" ||
               typeof row.tracking.longitude !== "number"
             ) {
@@ -492,7 +493,7 @@ export function LiveExecutiveTrackingPanel({
   const selectedExecutive =
     rows.find((row) => row.id === selectedId) ?? rows[0] ?? null;
   const selectedMapLink =
-    selectedExecutive &&
+    selectedExecutive?.tracking &&
     typeof selectedExecutive.tracking.latitude === "number" &&
     typeof selectedExecutive.tracking.longitude === "number"
       ? `https://www.google.com/maps/search/?api=1&query=${selectedExecutive.tracking.latitude},${selectedExecutive.tracking.longitude}`
