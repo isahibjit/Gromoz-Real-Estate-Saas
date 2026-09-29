@@ -43,9 +43,9 @@ interface ProvisionTenantModalProps {
   onTenantCreated: () => void;
 }
 
-const PLAN_TIERS = [
+const DEFAULT_PLANS = [
   {
-    id: "STARTER" as const,
+    id: "STARTER",
     name: "Starter Plan",
     price: 499,
     annualPrice: 399,
@@ -57,7 +57,7 @@ const PLAN_TIERS = [
     description: "Core CRM, lead capture & follow-up pipelines.",
   },
   {
-    id: "GROWTH" as const,
+    id: "GROWTH",
     name: "Growth Automation",
     price: 899,
     annualPrice: 749,
@@ -69,7 +69,7 @@ const PLAN_TIERS = [
     description: "Live GPS tracking, portal integrations & incentives.",
   },
   {
-    id: "ENTERPRISE" as const,
+    id: "ENTERPRISE",
     name: "Enterprise Suite",
     price: 1499,
     annualPrice: 1199,
@@ -90,6 +90,7 @@ export function ProvisionTenantModal({
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [dynamicPlans, setDynamicPlans] = useState<any[]>([]);
 
   // Form State
   const [form, setForm] = useState({
@@ -101,7 +102,7 @@ export function ProvisionTenantModal({
     state: "Maharashtra",
 
     // Step 2: Commercial Plan & Seats
-    planTier: "GROWTH" as "STARTER" | "GROWTH" | "ENTERPRISE",
+    planTier: "GROWTH",
     seats: 15,
     billingCycle: "monthly" as "monthly" | "annual",
     isTrial: true,
@@ -112,6 +113,38 @@ export function ProvisionTenantModal({
     adminPassword: "",
     sendWelcomeInvite: true,
   });
+
+  // Fetch dynamic plans when modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      api
+        .get("/organizations/platform-plans")
+        .then((res) => {
+          if (Array.isArray(res.data) && res.data.length > 0) {
+            const formatted = res.data
+              .filter((p: any) => p.status !== "Archived")
+              .map((p: any) => ({
+                id: p.code || p.id,
+                name: p.name,
+                price: p.pricing?.monthlyPricePerSeat || 499,
+                annualPrice: p.pricing?.annualPricePerSeat || 399,
+                seatsIncluded: p.limits?.defaultSeatLimit || 5,
+                storage: `${p.limits?.storageGb || 10} GB`,
+                leads: Number(p.limits?.leadLimit || 5000).toLocaleString("en-IN"),
+                color: p.color || "#0D1F3D",
+                badge: p.badge || "",
+                description: p.description || "Commercial SaaS Subscription",
+              }));
+            setDynamicPlans(formatted);
+          }
+        })
+        .catch(() => {
+          // fallback to defaults silently
+        });
+    }
+  }, [isOpen]);
+
+  const availablePlans = dynamicPlans.length > 0 ? dynamicPlans : DEFAULT_PLANS;
 
   // Auto-generate slug from company name
   const handleCompanyNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -141,7 +174,7 @@ export function ProvisionTenantModal({
     toast.success("Generated secure temporary password");
   };
 
-  const selectedPlan = PLAN_TIERS.find((p) => p.id === form.planTier) || PLAN_TIERS[1];
+  const selectedPlan = availablePlans.find((p) => p.id === form.planTier) || availablePlans[0] || DEFAULT_PLANS[0];
   const unitPrice = form.billingCycle === "annual" ? selectedPlan.annualPrice : selectedPlan.price;
   const estimatedMonthly = unitPrice * form.seats;
 
@@ -463,7 +496,7 @@ export function ProvisionTenantModal({
 
               {/* Plan Tier Selection Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {PLAN_TIERS.map((plan) => {
+                {availablePlans.map((plan) => {
                   const isSelected = form.planTier === plan.id;
                   const price = form.billingCycle === "annual" ? plan.annualPrice : plan.price;
 

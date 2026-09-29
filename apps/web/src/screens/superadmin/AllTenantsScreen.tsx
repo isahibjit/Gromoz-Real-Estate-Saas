@@ -53,8 +53,23 @@ export function AllTenantsScreen() {
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   // Create Tenant Modal
   const [createModalOpen, setCreateModalOpen] = useState(false);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest(".tenant-action-menu-container")) {
+        setActiveMenuId(null);
+      }
+    };
+    window.addEventListener("click", handleOutsideClick);
+    return () => window.removeEventListener("click", handleOutsideClick);
+  }, []);
 
   const fetchTenants = async () => {
     setLoading(true);
@@ -104,6 +119,17 @@ export function AllTenantsScreen() {
       return matchSearch && matchPlan && matchStatus;
     });
   }, [tenants, searchTerm, selectedPlan, selectedStatus]);
+
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedPlan, selectedStatus]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredTenants.length / pageSize));
+  const paginatedTenants = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredTenants.slice(start, start + pageSize);
+  }, [filteredTenants, currentPage, pageSize]);
 
   // Compute KPIs
   const totalTenants = tenants.length;
@@ -291,154 +317,195 @@ export function AllTenantsScreen() {
         </div>
       </div>
 
-      {/* Tenants Table */}
-      <div className="rounded-sm border border-slate-200 bg-white shadow-xs overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-[#0D1F3D]">Tenant Workspaces</h3>
-          <span className="text-xs font-medium text-slate-500">
-            Showing <strong className="text-[#0D1F3D]">{filteredTenants.length}</strong> of{" "}
-            <strong className="text-[#0D1F3D]">{totalTenants}</strong> tenants
-          </span>
-        </div>
+      {/* Tenants Table Container with Fixed Min Height Layout */}
+      <div className="rounded-sm border border-slate-200 bg-white shadow-xs min-h-[580px] flex flex-col justify-between overflow-hidden">
+        <div>
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-[#0D1F3D]">Tenant Workspaces Directory</h3>
+            <span className="text-xs font-medium text-slate-500">
+              Showing <strong className="text-[#0D1F3D]">{filteredTenants.length}</strong> of{" "}
+              <strong className="text-[#0D1F3D]">{totalTenants}</strong> tenants
+            </span>
+          </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs whitespace-nowrap">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/50 text-xs font-bold text-[#0D1F3D]">
-                <th className="py-3 px-4 w-8">#</th>
-                <th className="py-3 px-4">Organization Name</th>
-                <th className="py-3 px-4">Slug / Subdomain</th>
-                <th className="py-3 px-4">Commercial Plan</th>
-                <th className="py-3 px-4">Users / Seats</th>
-                <th className="py-3 px-4">Leads / Inventory</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Created On</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-              {loading ? (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-500">
-                    <div className="inline-block animate-spin h-5 w-5 border-2 border-[#0D1F3D] border-t-transparent rounded-full mb-2" />
-                    <p className="text-xs font-semibold">Loading tenant directory...</p>
-                  </td>
+          <div className="overflow-x-auto min-h-[440px] pb-32">
+            <table className="w-full text-left text-xs whitespace-nowrap">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/50 text-xs font-bold text-[#0D1F3D]">
+                  <th className="py-3 px-4 w-8">#</th>
+                  <th className="py-3 px-4">Organization Name</th>
+                  <th className="py-3 px-4">Slug / Subdomain</th>
+                  <th className="py-3 px-4">Commercial Plan</th>
+                  <th className="py-3 px-4">Users / Seats</th>
+                  <th className="py-3 px-4">Leads / Inventory</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Created On</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
-              ) : filteredTenants.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-500">
-                    <Building2 className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-                    <p className="text-sm font-bold text-[#0D1F3D]">No tenant organizations found</p>
-                    <p className="text-xs text-slate-400 mt-0.5">Try adjusting search filters or provision a new tenant.</p>
-                  </td>
-                </tr>
-              ) : (
-                filteredTenants.map((t, idx) => (
-                  <tr key={t.id} className="hover:bg-slate-50/80 transition group">
-                    <td className="py-3.5 px-4 text-slate-400 font-semibold">{idx + 1}</td>
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-[#0D1F3D] text-white font-extrabold shadow-2xs">
-                          {t.name.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="font-bold text-[#0D1F3D] group-hover:text-blue-600 transition">
-                            {t.name}
-                          </p>
-                          <p className="text-[11px] font-medium text-slate-400">
-                            {t.customDomain || `${t.slug}.truerootcrm.com`}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 font-mono text-xs font-bold text-slate-800">
-                      {t.slug}
-                    </td>
-                    <td className="py-3.5 px-4">{getPlanBadge(t.planTier)}</td>
-                    <td className="py-3.5 px-4">
-                      <span className="font-bold text-slate-800">{t.activeMembers}</span>
-                      <span className="text-slate-400 text-[11px]"> / {t.allocatedSeats} seats</span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="font-semibold text-slate-700">{t.leadsCount} leads</span>
-                      <span className="text-slate-400 text-[11px]"> • {t.projectsCount} projects</span>
-                    </td>
-                    <td className="py-3.5 px-4">{getStatusBadge(t.status)}</td>
-                    <td className="py-3.5 px-4 text-slate-500 font-medium">
-                      {new Date(t.createdAt).toLocaleDateString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleAccessTenant(t)}
-                          className="inline-flex items-center gap-1.5 rounded-sm bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 transition cursor-pointer"
-                          title="Open Tenant Workspace"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          Access Workspace
-                        </button>
-
-                        <div className="relative">
-                          <button
-                            type="button"
-                            onClick={() => setActiveMenuId(activeMenuId === t.id ? null : t.id)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </button>
-
-                          {activeMenuId === t.id && (
-                            <div className="absolute right-0 top-full z-30 mt-1 w-48 rounded-sm border border-slate-200 bg-white p-1.5 shadow-xl font-sans text-left">
-                              <button
-                                type="button"
-                                onClick={() => handleAccessTenant(t)}
-                                className="w-full flex items-center gap-2 rounded-sm px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50"
-                              >
-                                <ExternalLink className="h-4 w-4 text-blue-600" /> Access Workspace
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(t.slug);
-                                  toast.success(`Copied slug: ${t.slug}`);
-                                  setActiveMenuId(null);
-                                }}
-                                className="w-full flex items-center gap-2 rounded-sm px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                              >
-                                <Copy className="h-4 w-4 text-slate-400" /> Copy Slug
-                              </button>
-                              {t.status === "ACTIVE" ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateStatus(t.id, "SUSPENDED")}
-                                  className="w-full flex items-center gap-2 rounded-sm px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 border-t border-slate-100"
-                                >
-                                  <PauseCircle className="h-4 w-4 text-rose-600" /> Suspend Workspace
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateStatus(t.id, "ACTIVE")}
-                                  className="w-full flex items-center gap-2 rounded-sm px-3 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 border-t border-slate-100"
-                                >
-                                  <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Activate Workspace
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                {loading ? (
+                  <tr>
+                    <td colSpan={9} className="py-24 text-center text-slate-500">
+                      <div className="inline-block animate-spin h-6 w-6 border-2 border-[#0D1F3D] border-t-transparent rounded-full mb-3" />
+                      <p className="text-xs font-semibold">Loading tenant directory...</p>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : paginatedTenants.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-24 text-center text-slate-500">
+                      <Building2 className="mx-auto h-10 w-10 text-slate-400 mb-2" />
+                      <p className="text-sm font-bold text-[#0D1F3D]">No tenant organizations found</p>
+                      <p className="text-xs text-slate-400 mt-1">Try adjusting search filters or provision a new tenant.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedTenants.map((t, idx) => (
+                    <tr key={t.id} className="hover:bg-slate-50/80 transition group">
+                      <td className="py-3.5 px-4 text-slate-400 font-semibold">
+                        {(currentPage - 1) * pageSize + idx + 1}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-[#0D1F3D] text-white font-extrabold shadow-2xs">
+                            {t.name.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-bold text-[#0D1F3D] group-hover:text-blue-600 transition">
+                              {t.name}
+                            </p>
+                            <p className="text-[11px] font-medium text-slate-400">
+                              {t.customDomain || `${t.slug}.truerootcrm.com`}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-xs font-bold text-slate-800">
+                        {t.slug}
+                      </td>
+                      <td className="py-3.5 px-4">{getPlanBadge(t.planTier)}</td>
+                      <td className="py-3.5 px-4">
+                        <span className="font-bold text-slate-800">{t.activeMembers}</span>
+                        <span className="text-slate-400 text-[11px]"> / {t.allocatedSeats} seats</span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="font-semibold text-slate-700">{t.leadsCount} leads</span>
+                        <span className="text-slate-400 text-[11px]"> • {t.projectsCount} projects</span>
+                      </td>
+                      <td className="py-3.5 px-4">{getStatusBadge(t.status)}</td>
+                      <td className="py-3.5 px-4 text-slate-500 font-medium">
+                        {new Date(t.createdAt).toLocaleDateString("en-IN", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleAccessTenant(t)}
+                            className="inline-flex items-center gap-1.5 rounded-sm bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 transition cursor-pointer"
+                            title="Open Tenant Workspace"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            Access Workspace
+                          </button>
+
+                          <div className="relative tenant-action-menu-container">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMenuId(activeMenuId === t.id ? null : t.id);
+                              }}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
+
+                            {activeMenuId === t.id && (
+                              <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-sm border border-slate-200 bg-white p-1.5 shadow-2xl font-sans text-left animate-fadeIn">
+                                <button
+                                  type="button"
+                                  onClick={() => handleAccessTenant(t)}
+                                  className="w-full flex items-center gap-2 rounded-sm px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+                                >
+                                  <ExternalLink className="h-4 w-4 text-blue-600" /> Access Workspace
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(t.slug);
+                                    toast.success(`Copied slug: ${t.slug}`);
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 rounded-sm px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                >
+                                  <Copy className="h-4 w-4 text-slate-400" /> Copy Slug
+                                </button>
+                                {t.status === "ACTIVE" ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateStatus(t.id, "SUSPENDED")}
+                                    className="w-full flex items-center gap-2 rounded-sm px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 border-t border-slate-100"
+                                  >
+                                    <PauseCircle className="h-4 w-4 text-rose-600" /> Suspend Workspace
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateStatus(t.id, "ACTIVE")}
+                                    className="w-full flex items-center gap-2 rounded-sm px-3 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 border-t border-slate-100"
+                                  >
+                                    <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Activate Workspace
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Table Footer / Pagination Controls */}
+        <div className="p-3.5 border-t border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-slate-500 font-medium">
+            <span>
+              Showing {filteredTenants.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} to{" "}
+              {Math.min(currentPage * pageSize, filteredTenants.length)} of {filteredTenants.length} entries
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              className="h-8 px-2.5 text-xs font-bold text-slate-700"
+            >
+              <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Previous
+            </Button>
+            <span className="px-2 font-bold text-[#0D1F3D]">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              className="h-8 px-2.5 text-xs font-bold text-slate-700"
+            >
+              Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
+            </Button>
+          </div>
         </div>
       </div>
 

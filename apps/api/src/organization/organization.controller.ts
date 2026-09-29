@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Param,
   Patch,
   Post,
   Query,
@@ -89,6 +91,55 @@ export class OrganizationController {
   @UseGuards(AuthGuard)
   async getCommercialPlans() {
     return this.orgService.getCommercialPlans();
+  }
+
+  @Post('platform-plans')
+  @UseGuards(AuthGuard)
+  async createCommercialPlan(@Req() req: any, @Body() dto: any) {
+    if (req.user.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Platform SuperAdmin access required');
+    }
+    return this.orgService.createCommercialPlan(dto);
+  }
+
+  @Patch('platform-plans/:id')
+  @UseGuards(AuthGuard)
+  async updateCommercialPlan(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: any,
+  ) {
+    if (req.user.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Platform SuperAdmin access required');
+    }
+    return this.orgService.updateCommercialPlan(id, dto);
+  }
+
+  @Post('platform-plans/:id/duplicate')
+  @UseGuards(AuthGuard)
+  async duplicateCommercialPlan(@Req() req: any, @Param('id') id: string) {
+    if (req.user.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Platform SuperAdmin access required');
+    }
+    return this.orgService.duplicateCommercialPlan(id);
+  }
+
+  @Patch('platform-plans/:id/archive')
+  @UseGuards(AuthGuard)
+  async archiveCommercialPlan(@Req() req: any, @Param('id') id: string) {
+    if (req.user.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Platform SuperAdmin access required');
+    }
+    return this.orgService.archiveCommercialPlan(id);
+  }
+
+  @Delete('platform-plans/:id')
+  @UseGuards(AuthGuard)
+  async deleteCommercialPlan(@Req() req: any, @Param('id') id: string) {
+    if (req.user.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Platform SuperAdmin access required');
+    }
+    return this.orgService.archiveCommercialPlan(id);
   }
 
   @Get('platform-audit-logs')

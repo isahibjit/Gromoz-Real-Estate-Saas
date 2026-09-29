@@ -8,6 +8,8 @@ import {
 import * as argon2 from 'argon2';
 import * as crypto from 'crypto';
 import * as dns from 'dns';
+import * as fs from 'fs';
+import * as path from 'path';
 import { promisify } from 'util';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { BillingService } from '../billing/billing.service';
@@ -766,15 +768,35 @@ export class OrganizationService {
     return org;
   }
 
-  async getCommercialPlans() {
-    // Commercial SaaS Plans without modular fragmentation - selling based on unified plan tiers
-    return [
+  private getPlansFilePath(): string {
+    const dir = path.join(process.cwd(), 'storage');
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    return path.join(dir, 'commercial_plans.json');
+  }
+
+  async getCommercialPlans(): Promise<any[]> {
+    const filePath = this.getPlansFilePath();
+    if (fs.existsSync(filePath)) {
+      try {
+        const raw = fs.readFileSync(filePath, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch {
+        /* fallback to defaults */
+      }
+    }
+
+    const defaultPlans = [
       {
         id: 'starter',
         name: 'Starter Plan',
         code: 'STARTER',
         status: 'Active',
-        badge: 'Popular for Small Teams',
+        badge: 'Emerging Brokerages',
         color: '#F43F5E',
         description: 'Ideal for independent brokers and emerging realty agencies.',
         pricing: {
@@ -825,7 +847,7 @@ export class OrganizationService {
         },
         limits: {
           minimumSeats: 5,
-          defaultSeatLimit: 25,
+          defaultSeatLimit: 15,
           storageGb: 50,
           leadLimit: 50000,
           projectLimit: 50,
@@ -863,7 +885,7 @@ export class OrganizationService {
         },
         limits: {
           minimumSeats: 25,
-          defaultSeatLimit: 100,
+          defaultSeatLimit: 50,
           storageGb: 500,
           leadLimit: 500000,
           projectLimit: 500,
@@ -883,6 +905,122 @@ export class OrganizationService {
         },
       },
     ];
+
+    fs.writeFileSync(filePath, JSON.stringify(defaultPlans, null, 2), 'utf-8');
+    return defaultPlans;
+  }
+
+  async saveCommercialPlans(plans: any[]): Promise<void> {
+    const filePath = this.getPlansFilePath();
+    fs.writeFileSync(filePath, JSON.stringify(plans, null, 2), 'utf-8');
+  }
+
+  async createCommercialPlan(dto: any) {
+    const plans = await this.getCommercialPlans();
+    const cleanCode = (dto.code || dto.name || 'CUSTOM').toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+    const id = cleanCode.toLowerCase().replace(/_/g, '-');
+
+    const newPlan = {
+      id: `${id}-${Date.now().toString().slice(-4)}`,
+      name: dto.name || 'Custom Commercial Plan',
+      code: cleanCode,
+      status: dto.status || 'Active',
+      badge: dto.badge || 'Custom Tier',
+      color: dto.color || '#8B5CF6',
+      description: dto.description || 'Custom tailored subscription plan for real estate business.',
+      pricing: {
+        model: dto.pricing?.model || 'Per User',
+        monthlyPricePerSeat: Number(dto.pricing?.monthlyPricePerSeat) || 999,
+        annualPricePerSeat: Number(dto.pricing?.annualPricePerSeat) || 799,
+        setupFee: Number(dto.pricing?.setupFee) || 0,
+        currency: dto.pricing?.currency || 'INR',
+        allowMonthlyBilling: dto.pricing?.allowMonthlyBilling ?? true,
+        allowAnnualBilling: dto.pricing?.allowAnnualBilling ?? true,
+      },
+      limits: {
+        minimumSeats: Number(dto.limits?.minimumSeats) || 1,
+        defaultSeatLimit: Number(dto.limits?.defaultSeatLimit) || 10,
+        storageGb: Number(dto.limits?.storageGb) || 25,
+        leadLimit: Number(dto.limits?.leadLimit) || 10000,
+        projectLimit: Number(dto.limits?.projectLimit) || 20,
+      },
+      features: Array.isArray(dto.features) && dto.features.length > 0 ? dto.features : [
+        'Full Real Estate CRM & Pipelines',
+        'Lead Capture & Auto-Assignment',
+        'Site Visit GPS Check-ins',
+        'WhatsApp & Email Notifications',
+      ],
+      commercialRules: {
+        trialEnabled: dto.commercialRules?.trialEnabled ?? true,
+        trialDurationDays: Number(dto.commercialRules?.trialDurationDays) || 14,
+      },
+    };
+
+    plans.push(newPlan);
+    await this.saveCommercialPlans(plans);
+    return newPlan;
+  }
+
+  async updateCommercialPlan(planId: string, dto: any) {
+    const plans = await this.getCommercialPlans();
+    const index = plans.findIndex((p) => p.id === planId || p.code === planId);
+    if (index === -1) {
+      throw new NotFoundException(`Commercial plan with id '${planId}' not found.`);
+    }
+
+    const current = plans[index];
+    plans[index] = {
+      ...current,
+      ...dto,
+      pricing: {
+        ...current.pricing,
+        ...(dto.pricing || {}),
+      },
+      limits: {
+        ...current.limits,
+        ...(dto.limits || {}),
+      },
+      commercialRules: {
+        ...current.commercialRules,
+        ...(dto.commercialRules || {}),
+      },
+    };
+
+    await this.saveCommercialPlans(plans);
+    return plans[index];
+  }
+
+  async duplicateCommercialPlan(planId: string) {
+    const plans = await this.getCommercialPlans();
+    const source = plans.find((p) => p.id === planId || p.code === planId);
+    if (!source) {
+      throw new NotFoundException(`Commercial plan with id '${planId}' not found.`);
+    }
+
+    const duplicatedPlan = {
+      ...source,
+      id: `${source.id}-copy-${Date.now().toString().slice(-4)}`,
+      name: `${source.name} (Copy)`,
+      code: `${source.code}_COPY`,
+      status: 'Draft',
+      badge: 'Draft Clone',
+    };
+
+    plans.push(duplicatedPlan);
+    await this.saveCommercialPlans(plans);
+    return duplicatedPlan;
+  }
+
+  async archiveCommercialPlan(planId: string) {
+    const plans = await this.getCommercialPlans();
+    const index = plans.findIndex((p) => p.id === planId || p.code === planId);
+    if (index === -1) {
+      throw new NotFoundException(`Commercial plan with id '${planId}' not found.`);
+    }
+
+    plans[index].status = 'Archived';
+    await this.saveCommercialPlans(plans);
+    return { success: true, message: `Plan '${plans[index].name}' has been archived.` };
   }
 
   async getPlatformAuditLogs() {
