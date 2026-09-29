@@ -452,7 +452,7 @@ export function LoginPageCmsModal({
           <div className="lg:col-span-6 flex flex-col bg-slate-900 p-4 sm:p-5 overflow-y-auto">
             <div className="flex items-center justify-between mb-2.5 text-white">
               <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                <Eye className="size-3.5 text-primary" /> Live snapshot preview
+                <Eye className="h-3.5 w-3.5 text-primary shrink-0" /> Live snapshot preview
               </span>
               <span className="text-[10px] text-emerald-400 font-medium bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-800/40">
                 Real-time updates
@@ -526,7 +526,7 @@ export function LoginPageCmsModal({
 
                   {data.showDownloadApp && (
                     <div className="h-5 border border-slate-200 rounded flex items-center justify-center text-[8.5px] font-medium text-slate-700 bg-slate-50">
-                      <Smartphone className="size-2.5 mr-1 text-slate-500" />
+                      <Smartphone className="h-2.5 w-2.5 mr-1 text-slate-500 shrink-0" />
                       {data.downloadAppLabel}
                     </div>
                   )}
@@ -538,8 +538,8 @@ export function LoginPageCmsModal({
                       <p className="text-[7.5px] text-slate-500">{data.supportSubtitle}</p>
                     </div>
                     <div className="text-right font-semibold text-slate-800 text-[7.5px]">
-                      <p className="flex items-center justify-end gap-0.5 text-primary">
-                        <Phone className="size-2" /> {data.supportPhone}
+                      <p className="flex items-center justify-end gap-1 text-primary font-bold">
+                        <Phone className="h-2.5 w-2.5 shrink-0" /> {data.supportPhone}
                       </p>
                       <p className="text-slate-500 truncate max-w-[90px]">{data.supportEmail}</p>
                     </div>
@@ -559,7 +559,7 @@ export function LoginPageCmsModal({
             onClick={handleReset}
             className="text-muted-foreground hover:text-foreground gap-1.5 text-xs"
           >
-            <RotateCcw className="size-3.5" /> Reset to defaults
+            <RotateCcw className="h-3.5 w-3.5" /> Reset to defaults
           </Button>
 
           <div className="flex items-center gap-2">
@@ -581,7 +581,7 @@ export function LoginPageCmsModal({
               disabled={isSaving}
               className="gap-1.5 font-bold text-xs"
             >
-              <Save className="size-3.5" />
+              <Save className="h-3.5 w-3.5" />
               {isSaving ? "Saving..." : "Save and publish"}
             </Button>
           </div>

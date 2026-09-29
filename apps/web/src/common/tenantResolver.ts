@@ -17,6 +17,20 @@ export const resolveTenantFromHostname = resolveTenantFromHost;
 export async function resolveTenantFromHost(): Promise<ResolvedTenant | null> {
   if (typeof window === "undefined") return null;
 
+  const urlParams = new URLSearchParams(window.location.search);
+  const explicitOrg = urlParams.get("org") || urlParams.get("tenant") || urlParams.get("slug");
+
+  if (explicitOrg) {
+    try {
+      const response = await api.get(`/organizations/resolve-domain?host=${encodeURIComponent(explicitOrg)}`);
+      if (response.data?.found && response.data?.organization) {
+        return response.data.organization;
+      }
+    } catch {
+      // continue
+    }
+  }
+
   const hostname = window.location.hostname.toLowerCase();
 
   // If local development, check localStorage first

@@ -454,6 +454,24 @@ export class OrganizationService {
       }
     }
 
+    // 3. Check direct slug match (e.g., host param passed as slug directly)
+    if (!org && cleanHost) {
+      org = await this.prisma.organization.findUnique({
+        where: { slug: cleanHost },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          logoUrl: true,
+          brandingPrimaryColor: true,
+          brandingSecondaryColor: true,
+          status: true,
+          showLogoInLogin: true,
+          workspaceSettingsJson: true,
+        },
+      });
+    }
+
     if (!org) {
       return { found: false };
     }

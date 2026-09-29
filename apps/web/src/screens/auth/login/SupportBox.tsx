@@ -19,10 +19,10 @@ export function SupportBox({
     <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-none 2xl:px-5 2xl:py-4">
       <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
         <div className="flex items-center gap-4">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 2xl:size-12">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 2xl:h-12 2xl:w-12">
             <Headphones
               aria-hidden="true"
-              className="size-5 2xl:size-6"
+              className="h-5 w-5 2xl:h-6 2xl:w-6 shrink-0"
               strokeWidth={1.8}
             />
           </span>
@@ -39,18 +39,18 @@ export function SupportBox({
           {phone && (
             <a
               href={phoneHref}
-              className="flex items-center gap-3 hover:text-primary transition-colors"
+              className="flex items-center gap-2 hover:text-primary transition-colors"
             >
-              <Phone aria-hidden="true" className="size-4 text-primary" />
+              <Phone aria-hidden="true" className="h-4 w-4 shrink-0 text-primary" />
               {phone}
             </a>
           )}
           {email && (
             <a
               href={`mailto:${email}`}
-              className="flex items-center gap-3 hover:text-primary transition-colors"
+              className="flex items-center gap-2 hover:text-primary transition-colors"
             >
-              <Mail aria-hidden="true" className="size-4 text-slate-500" />
+              <Mail aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />
               {email}
             </a>
           )}
