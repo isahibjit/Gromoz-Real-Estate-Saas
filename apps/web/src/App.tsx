@@ -701,7 +701,6 @@ export default function App() {
         ADMIN_HOLIDAYS_PATH,
         ADMIN_PAYROLL_PATH,
         ADMIN_PAYSLIPS_PATH,
-        ADMIN_SETTINGS_PATH,
       ].map((path) => (
         <Route key={path} path={path} element={<AdminRoute><HrWorkspaceScreen /></AdminRoute>} />
       ))}
@@ -714,7 +713,23 @@ export default function App() {
         }
       />
       <Route
+        path={ADMIN_SETTINGS_PATH}
+        element={
+          <AdminRoute>
+            <WorkspaceSettingsPage />
+          </AdminRoute>
+        }
+      />
+      <Route
         path={ADMIN_WORKSPACE_SETTINGS_PATH}
+        element={
+          <AdminRoute>
+            <WorkspaceSettingsPage />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/settings"
         element={
           <AdminRoute>
             <WorkspaceSettingsPage />

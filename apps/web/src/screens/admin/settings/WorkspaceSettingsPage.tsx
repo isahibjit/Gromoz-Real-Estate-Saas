@@ -162,6 +162,7 @@ export function WorkspaceSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [verifyingDomain, setVerifyingDomain] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const collapsedFileInputRef = useRef<HTMLInputElement>(null);
 
   const [settings, setSettings] = useState<any>(null);
   const [loginCms, setLoginCms] = useState<LoginPageCmsData | null>(null);
@@ -305,7 +306,44 @@ export function WorkspaceSettingsPage() {
       reader.onload = () => {
         const dataUrl = reader.result as string;
         handleFieldChange("logoUrl", dataUrl);
-        toast.success("Logo uploaded! Click 'Save Workspace Profile' to apply.");
+        const activeOrgId = localStorage.getItem("active_organization_id") || "default";
+        const brandingPayload = {
+          logoUrl: dataUrl,
+          collapsedLogoUrl: form.collapsedLogoUrl,
+          showLogoInSidebar: form.showLogoInSidebar,
+          sidebarLogoHeight: form.sidebarLogoHeight,
+        };
+        localStorage.setItem(`visiblo_workspace_branding_${activeOrgId}`, JSON.stringify(brandingPayload));
+        localStorage.setItem("truroot_workspace_branding", JSON.stringify(brandingPayload));
+        window.dispatchEvent(new Event("workspace_branding_updated"));
+        toast.success("Logo uploaded! Click 'Save Workspace Changes' to persist.");
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCollapsedLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 3 * 1024 * 1024) {
+        toast.error("Icon file size must be less than 3MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        handleFieldChange("collapsedLogoUrl", dataUrl);
+        const activeOrgId = localStorage.getItem("active_organization_id") || "default";
+        const brandingPayload = {
+          logoUrl: form.logoUrl,
+          collapsedLogoUrl: dataUrl,
+          showLogoInSidebar: form.showLogoInSidebar,
+          sidebarLogoHeight: form.sidebarLogoHeight,
+        };
+        localStorage.setItem(`visiblo_workspace_branding_${activeOrgId}`, JSON.stringify(brandingPayload));
+        localStorage.setItem("truroot_workspace_branding", JSON.stringify(brandingPayload));
+        window.dispatchEvent(new Event("workspace_branding_updated"));
+        toast.success("Compact sidebar icon uploaded! Click 'Save Workspace Changes' to persist.");
       };
       reader.readAsDataURL(file);
     }
@@ -329,7 +367,19 @@ export function WorkspaceSettingsPage() {
         integrations: integrationsForm,
       });
 
-      toast.success("Workspace profile and domain settings updated!");
+      const activeOrgId = localStorage.getItem("active_organization_id") || "default";
+      const brandingPayload = {
+        logoUrl: form.logoUrl,
+        collapsedLogoUrl: form.collapsedLogoUrl,
+        showLogoInSidebar: form.showLogoInSidebar,
+        sidebarLogoHeight: form.sidebarLogoHeight,
+      };
+      localStorage.setItem(`visiblo_workspace_branding_${activeOrgId}`, JSON.stringify(brandingPayload));
+      localStorage.setItem("truroot_workspace_branding", JSON.stringify(brandingPayload));
+      window.dispatchEvent(new Event("workspace_branding_updated"));
+      window.dispatchEvent(new Event("storage"));
+
+      toast.success("Workspace profile and branding settings updated!");
       fetchSettings();
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Failed to update workspace profile");
@@ -422,6 +472,13 @@ export function WorkspaceSettingsPage() {
         accept="image/png,image/jpeg,image/webp,image/svg+xml"
         className="hidden"
       />
+      <input
+        type="file"
+        ref={collapsedFileInputRef}
+        onChange={handleCollapsedLogoFileChange}
+        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+        className="hidden"
+      />
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/80 pb-4">
@@ -435,7 +492,7 @@ export function WorkspaceSettingsPage() {
             Workspace Configuration
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Branding, subdomains, white-label custom domains, and organizational policies for{" "}
+            Branding, sidebar logos, subdomains, white-label custom domains, and organizational policies for{" "}
             <strong>{settings?.profile?.companyName}</strong>.
           </p>
         </div>
@@ -564,89 +621,151 @@ export function WorkspaceSettingsPage() {
             </div>
           </Card>
 
-          {/* Card 2: Company Info & Logo */}
+          {/* Card 2: Company Info & Dual Sidebar Logos */}
           <Card className="border border-border bg-card shadow-sm rounded-xl p-6 space-y-5">
             <div className="flex items-center gap-2 border-b border-border/60 pb-3">
               <Building2 className="h-4 w-4 text-primary shrink-0" />
               <div>
-                <h3 className="text-sm font-bold text-foreground">Company Information & Branding</h3>
+                <h3 className="text-sm font-bold text-foreground">Company Information & Sidebar Branding</h3>
                 <p className="text-xs text-muted-foreground">
-                  Branding themes, logo appearance, and company metadata.
+                  Upload your full brand logo and compact collapsed icon for the navigation sidebar.
                 </p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-              {/* Logo Box */}
-              <div className="md:col-span-4 flex flex-col items-center justify-center p-4 border border-border rounded-lg bg-muted/20 space-y-3">
-                <div className="flex h-28 w-full items-center justify-center rounded-md bg-card border border-border p-2 shadow-xs overflow-hidden">
-                  {form.logoUrl ? (
-                    <img
-                      src={form.logoUrl}
-                      alt="Company Logo"
-                      style={{
-                        height: `${form.sidebarLogoHeight || 42}px`,
-                        maxHeight: "80px",
-                        maxWidth: "200px",
-                        objectFit: "contain",
-                      }}
-                    />
-                  ) : (
-                    <div className="text-center">
-                      <p className="font-bold text-foreground text-sm">
-                        {form.companyName || "WORKSPACE"}
-                      </p>
-                      <p className="text-[10px] font-semibold text-muted-foreground">DEFAULT LOGO</p>
-                    </div>
-                  )}
-                </div>
+              {/* Dual Logo Upload Column */}
+              <div className="md:col-span-5 space-y-4">
+                {/* 1. Main Expanded Sidebar Logo */}
+                <div className="p-4 border border-border rounded-lg bg-muted/20 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground">Expanded Sidebar Logo</span>
+                    <span className="text-[10px] font-semibold text-muted-foreground">Recommended: 220×55px PNG/SVG</span>
+                  </div>
 
-                <div className="flex items-center gap-2 w-full">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex-1 gap-1.5 text-xs font-semibold"
-                  >
-                    <Upload className="h-3.5 w-3.5 text-primary" />
-                    {form.logoUrl ? "Change Logo" : "Upload Logo"}
-                  </Button>
-                  {form.logoUrl && (
+                  <div className="flex h-20 w-full items-center justify-center rounded-md bg-card border border-border p-2 shadow-xs overflow-hidden">
+                    {form.logoUrl ? (
+                      <img
+                        src={form.logoUrl}
+                        alt="Company Logo"
+                        style={{
+                          height: `${form.sidebarLogoHeight || 42}px`,
+                          maxHeight: "56px",
+                          maxWidth: "210px",
+                          objectFit: "contain",
+                        }}
+                      />
+                    ) : (
+                      <div className="text-center">
+                        <p className="font-bold text-foreground text-xs">
+                          {form.companyName || "WORKSPACE LOGO"}
+                        </p>
+                        <p className="text-[9px] font-semibold text-muted-foreground">DEFAULT TRUROOT LOGO</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full">
                     <Button
                       type="button"
-                      variant="destructive"
+                      variant="outline"
                       size="sm"
-                      onClick={() => handleFieldChange("logoUrl", "")}
-                      className="text-xs px-2"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-1 gap-1.5 text-xs font-semibold"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Upload className="h-3.5 w-3.5 text-primary" />
+                      {form.logoUrl ? "Change Main Logo" : "Upload Main Logo"}
                     </Button>
+                    {form.logoUrl && (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleFieldChange("logoUrl", "")}
+                        className="text-xs px-2"
+                        title="Remove custom logo"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+
+                  {form.logoUrl && (
+                    <div className="w-full space-y-1 pt-2 border-t border-border">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-semibold text-muted-foreground">Sidebar Logo Height</span>
+                        <span className="font-mono text-primary font-bold text-xs">
+                          {form.sidebarLogoHeight}px
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="24"
+                        max="56"
+                        value={form.sidebarLogoHeight}
+                        onChange={(e) => handleFieldChange("sidebarLogoHeight", Number(e.target.value))}
+                        className="w-full accent-primary cursor-pointer"
+                      />
+                    </div>
                   )}
                 </div>
 
-                {form.logoUrl && (
-                  <div className="w-full space-y-1.5 pt-2 border-t border-border">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-foreground">Logo Height</span>
-                      <span className="font-mono text-primary font-bold text-xs">
-                        {form.sidebarLogoHeight}px
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="24"
-                      max="64"
-                      value={form.sidebarLogoHeight}
-                      onChange={(e) => handleFieldChange("sidebarLogoHeight", Number(e.target.value))}
-                      className="w-full accent-primary cursor-pointer"
-                    />
+                {/* 2. Collapsed Sidebar Mini Icon */}
+                <div className="p-4 border border-border rounded-lg bg-muted/20 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground">Collapsed Sidebar Mini Icon</span>
+                    <span className="text-[10px] font-semibold text-muted-foreground">1:1 Square (e.g. 40×40px)</span>
                   </div>
-                )}
+
+                  <div className="flex h-16 w-full items-center justify-center rounded-md bg-card border border-border p-2 shadow-xs">
+                    {form.collapsedLogoUrl ? (
+                      <img
+                        src={form.collapsedLogoUrl}
+                        alt="Collapsed Sidebar Icon"
+                        className="h-10 w-10 object-contain rounded"
+                      />
+                    ) : form.logoUrl ? (
+                      <img
+                        src={form.logoUrl}
+                        alt="Fallback Logo"
+                        className="h-9 w-9 object-contain opacity-70"
+                      />
+                    ) : (
+                      <div className="h-9 w-9 rounded bg-primary/10 flex items-center justify-center font-bold text-primary text-xs">
+                        {(form.companyName || "W").charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => collapsedFileInputRef.current?.click()}
+                      className="flex-1 gap-1.5 text-xs font-semibold"
+                    >
+                      <Upload className="h-3.5 w-3.5 text-primary" />
+                      {form.collapsedLogoUrl ? "Change Mini Icon" : "Upload Mini Icon"}
+                    </Button>
+                    {form.collapsedLogoUrl && (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleFieldChange("collapsedLogoUrl", "")}
+                        className="text-xs px-2"
+                        title="Remove mini icon"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Company Fields */}
-              <div className="md:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="md:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-foreground">Company Name *</label>
                   <Input
