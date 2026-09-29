@@ -11,7 +11,7 @@ import * as dns from 'dns';
 import { promisify } from 'util';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { BillingService } from '../billing/billing.service';
-import { Role } from '@prisma/client';
+import { Role, OrganizationStatus } from '@prisma/client';
 
 const resolveCnameAsync = promisify(dns.resolveCname);
 
@@ -737,7 +737,6 @@ export class OrganizationService {
                 id: true,
                 fullName: true,
                 email: true,
-                phone: true,
                 role: true,
                 isActive: true,
                 createdAt: true,
@@ -887,11 +886,11 @@ export class OrganizationService {
   }
 
   async getPlatformAuditLogs() {
-    return this.prisma.auditLog.findMany({
+    const logs = await this.prisma.auditLog.findMany({
       orderBy: { createdAt: 'desc' },
       take: 100,
       include: {
-        user: {
+        actorUser: {
           select: {
             id: true,
             fullName: true,
@@ -908,5 +907,16 @@ export class OrganizationService {
         },
       },
     });
+
+    return logs.map((log) => ({
+      id: log.id,
+      action: log.action,
+      targetType: log.entityType,
+      targetId: log.entityId,
+      metadata: log.metadata,
+      createdAt: log.createdAt,
+      user: log.actorUser,
+      organization: log.organization,
+    }));
   }
 }

@@ -26,6 +26,7 @@ import {
 import { toast } from "react-hot-toast";
 import { api } from "../../common/api";
 import { Button, Card, Input, Badge } from "ui";
+import { ProvisionTenantModal } from "./ProvisionTenantModal";
 
 interface TenantOrg {
   id: string;
@@ -54,16 +55,6 @@ export function AllTenantsScreen() {
 
   // Create Tenant Modal
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [createForm, setCreateForm] = useState({
-    companyName: "",
-    subdomain: "",
-    adminName: "",
-    adminEmail: "",
-    adminPassword: "",
-    planTier: "GROWTH" as "STARTER" | "GROWTH" | "ENTERPRISE",
-    seats: 10,
-  });
 
   const fetchTenants = async () => {
     setLoading(true);
@@ -98,42 +89,6 @@ export function AllTenantsScreen() {
       setActiveMenuId(null);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Failed to update tenant status");
-    }
-  };
-
-  const handleCreateTenant = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!createForm.companyName || !createForm.adminEmail || !createForm.adminPassword) {
-      toast.error("Please fill in all required fields.");
-      return;
-    }
-    setIsCreating(true);
-    try {
-      await api.post("/organizations/register", {
-        organizationName: createForm.companyName,
-        subdomain: createForm.subdomain || createForm.companyName.toLowerCase().replace(/[^a-z0-9]/g, "-"),
-        fullName: createForm.adminName || `${createForm.companyName} Admin`,
-        email: createForm.adminEmail,
-        password: createForm.adminPassword,
-        planTier: createForm.planTier,
-        seats: Number(createForm.seats) || 5,
-      });
-      toast.success(`Tenant "${createForm.companyName}" created successfully!`);
-      setCreateModalOpen(false);
-      setCreateForm({
-        companyName: "",
-        subdomain: "",
-        adminName: "",
-        adminEmail: "",
-        adminPassword: "",
-        planTier: "GROWTH",
-        seats: 10,
-      });
-      fetchTenants();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to create tenant organization");
-    } finally {
-      setIsCreating(false);
     }
   };
 
@@ -487,153 +442,12 @@ export function AllTenantsScreen() {
         </div>
       </div>
 
-      {/* Provision Tenant Modal */}
-      {createModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="w-full max-w-lg rounded-sm border border-slate-200 bg-white p-6 shadow-2xl space-y-4 font-sans max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-[#0D1F3D] text-white">
-                  <Building2 className="h-4 w-4" />
-                </div>
-                <div>
-                  <h3 className="text-base font-extrabold text-[#0D1F3D]">Provision Tenant Workspace</h3>
-                  <p className="text-xs text-slate-500 font-medium">Onboard a new real estate company</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setCreateModalOpen(false)}
-                className="h-8 w-8 flex items-center justify-center rounded-sm text-slate-400 hover:bg-slate-100"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateTenant} className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-slate-700">Company / Brokerage Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Prestige Heights Realtors"
-                  value={createForm.companyName}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setCreateForm((prev) => ({
-                      ...prev,
-                      companyName: val,
-                      subdomain: val.toLowerCase().replace(/[^a-z0-9]/g, "-"),
-                    }));
-                  }}
-                  className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-700">Subdomain Slug *</label>
-                <div className="mt-1 flex items-center rounded-sm border border-slate-200 bg-slate-50 px-3">
-                  <input
-                    type="text"
-                    required
-                    placeholder="prestige-heights"
-                    value={createForm.subdomain}
-                    onChange={(e) => setCreateForm({ ...createForm, subdomain: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })}
-                    className="h-10 flex-1 bg-transparent text-xs font-mono font-bold text-slate-800 focus:outline-none"
-                  />
-                  <span className="text-xs font-medium text-slate-400">.truerootcrm.com</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-700">Plan Tier</label>
-                  <select
-                    value={createForm.planTier}
-                    onChange={(e) => setCreateForm({ ...createForm, planTier: e.target.value as any })}
-                    className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
-                  >
-                    <option value="STARTER">Starter Plan</option>
-                    <option value="GROWTH">Growth Plan</option>
-                    <option value="ENTERPRISE">Enterprise Plan</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-700">Licensed Seats</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={createForm.seats}
-                    onChange={(e) => setCreateForm({ ...createForm, seats: Number(e.target.value) })}
-                    className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="border-t border-slate-100 pt-3">
-                <p className="text-xs font-bold text-[#0D1F3D] mb-2">Primary Tenant Admin Account</p>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs font-medium text-slate-600">Admin Full Name</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Rajesh Sharma"
-                      value={createForm.adminName}
-                      onChange={(e) => setCreateForm({ ...createForm, adminName: e.target.value })}
-                      className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-slate-600">Admin Email *</label>
-                    <input
-                      type="email"
-                      required
-                      placeholder="admin@prestigeheights.com"
-                      value={createForm.adminEmail}
-                      onChange={(e) => setCreateForm({ ...createForm, adminEmail: e.target.value })}
-                      className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-slate-600">Initial Password *</label>
-                    <input
-                      type="password"
-                      required
-                      placeholder="••••••••••••"
-                      value={createForm.adminPassword}
-                      onChange={(e) => setCreateForm({ ...createForm, adminPassword: e.target.value })}
-                      className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-3 border-t border-slate-100">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCreateModalOpen(false)}
-                  disabled={isCreating}
-                  className="flex-1 font-bold justify-center"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={isCreating}
-                  className="flex-1 font-bold bg-[#0D1F3D] text-white hover:bg-[#132d56] justify-center"
-                >
-                  {isCreating ? "Provisioning..." : "Create Workspace"}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Enhanced Provision Tenant Modal */}
+      <ProvisionTenantModal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onTenantCreated={fetchTenants}
+      />
     </div>
   );
 }

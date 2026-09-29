@@ -569,6 +569,38 @@ export default function App() {
         }
       />
       <Route
+        path="/superadmin/tenants"
+        element={
+          <SuperAdminRoute>
+            <AllTenantsScreen />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
+        path="/superadmin/plans"
+        element={
+          <SuperAdminRoute>
+            <PlansPricingScreen />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
+        path="/superadmin/audit"
+        element={
+          <SuperAdminRoute>
+            <PlatformAuditLogsScreen />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
+        path="/superadmin/settings"
+        element={
+          <SuperAdminRoute>
+            <PlatformSettingsScreen />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
         path={LOGIN_OTP_PATH}
         element={<Navigate to={LOGIN_PATH} replace />}
       />
