@@ -40,34 +40,38 @@
 
 @layer base {
   :root {
-    --background: 216 38% 97%;
-    --foreground: 215 64% 16%;
-    --primary: 25 100% 50%;
-    --primary-hover: 23 100% 48%;
+    --background: 216 20% 97%;       /* #F3F5F7 Light Gray */
+    --foreground: 218 65% 15%;       /* #0D1F3D Deep Navy */
+    --primary: 218 65% 15%;          /* #0D1F3D Deep Navy */
+    --primary-hover: 218 65% 10%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 211 83% 18%;
+    --secondary: 218 65% 15%;        /* #0D1F3D Deep Navy */
     --secondary-foreground: 0 0% 100%;
-    --muted: 210 40% 96%;
+    --accent: 356 95% 45%;           /* #E20613 Corporate Red */
+    --accent-foreground: 0 0% 100%;
+    --muted: 216 20% 95%;
     --muted-foreground: 215 16% 47%;
     --card: 0 0% 100%;
-    --card-foreground: 215 64% 16%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 25 100% 50%;
-    --destructive: 0 84% 60%;
+    --card-foreground: 218 65% 15%;
+    --border: 214 20% 90%;
+    --input: 214 20% 90%;
+    --ring: 356 95% 45%;
+    --destructive: 356 95% 45%;
     --destructive-foreground: 0 0% 100%;
     --success: 142 76% 36%;
+    --success-soft: 142 76% 96%;
     --warning: 25 95% 53%;
-    --info: 221 83% 53%;
+    --info: 218 65% 15%;
+    --info-soft: 218 65% 96%;
     --auth-surface: 213 58% 96.3%;
     --auth-surface-soft: 240 14% 98.6%;
-    --sidebar: 212 100% 16%;
-    --sidebar-deep: 208 100% 11%;
+    --sidebar: 218 65% 15%;
+    --sidebar-deep: 218 65% 10%;
     --sidebar-foreground: 0 0% 100%;
     --sidebar-muted: 210 24% 74%;
-    --sidebar-active: 25 100% 50%;
+    --sidebar-active: 218 65% 15%;
     --sidebar-active-foreground: 0 0% 100%;
-    --chart-navy: 211 83% 18%;
+    --chart-navy: 218 65% 15%;
     --chart-blue: 205 65% 52%;
     --chart-sky: 197 75% 66%;
     --chart-orange: 25 100% 50%;
@@ -114,20 +118,20 @@
   }
 
   .crm-sidebar {
-    @apply bg-gradient-to-b from-sidebar to-sidebar-deep text-sidebar-foreground;
+    @apply bg-white border-r border-slate-200 text-slate-700 shadow-xs;
   }
 
   .crm-sidebar-item {
-    @apply flex h-12 items-center justify-start gap-3 rounded-md px-3.5 text-[15px] font-semibold transition-colors;
+    @apply flex h-10 items-center justify-start gap-3 rounded-sm px-3 text-[13px] font-medium transition-all duration-150;
   }
 
   .crm-sidebar-scrollbar {
-    scrollbar-color: rgb(255 255 255 / 0.32) transparent;
+    scrollbar-color: #cbd5e1 transparent;
     scrollbar-width: thin;
   }
 
   .crm-sidebar-scrollbar::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
   }
 
   .crm-sidebar-scrollbar::-webkit-scrollbar-track {
@@ -135,26 +139,24 @@
   }
 
   .crm-sidebar-scrollbar::-webkit-scrollbar-thumb {
-    background-color: rgb(255 255 255 / 0.18);
-    border: 2px solid transparent;
+    background-color: #cbd5e1;
     border-radius: 999px;
-    background-clip: content-box;
   }
 
   .crm-sidebar-scrollbar:hover::-webkit-scrollbar-thumb {
-    background-color: rgb(255 255 255 / 0.36);
+    background-color: #0d1f3d;
   }
 
   .crm-sidebar-item-active {
-    @apply bg-sidebar-active text-sidebar-active-foreground hover:bg-sidebar-active/90 hover:text-sidebar-active-foreground;
+    @apply bg-[#0D1F3D] text-white hover:bg-[#0D1F3D] hover:text-white shadow-xs font-semibold;
   }
 
   .crm-sidebar-collapse {
-    @apply flex h-sidebar-item w-full items-center gap-3 border-t border-white/10 px-3 text-sm font-semibold text-sidebar-muted transition-colors hover:bg-white/10 hover:text-white;
+    @apply flex h-sidebar-item w-full items-center gap-3 border-t border-slate-200 px-3 text-sm font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900;
   }
 
   .crm-header {
-    @apply flex h-header items-center border-b bg-card px-4 sm:px-page-x;
+    @apply flex h-20 items-center border-b border-slate-200 bg-white px-4 sm:px-6 shadow-sm;
   }
 
   .crm-header-search {
@@ -177,6 +179,38 @@
     @apply text-xs font-bold text-primary transition-colors hover:bg-primary/5 hover:text-primary-hover;
   }
 
+  /* ─── Auth Classes ─── */
+  .auth-card {
+    @apply w-full max-w-md rounded-sm bg-card p-8 shadow-sm;
+  }
+
+  .auth-input {
+    @apply flex h-12 w-full rounded-sm border border-input bg-background px-4 py-2 pl-11 text-sm transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .auth-btn {
+    @apply flex h-12 w-full items-center justify-center gap-2 rounded-sm text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .auth-btn-primary {
+    @apply auth-btn text-white;
+    background: linear-gradient(135deg, hsl(223 78% 31%), hsl(170 100% 39%));
+  }
+
+  .auth-btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, hsl(223 78% 26%), hsl(170 100% 34%));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgb(18 58 143 / 0.25);
+  }
+
+  .auth-btn-outline {
+    @apply auth-btn border border-border bg-card text-foreground hover:bg-muted;
+  }
+
+  .otp-input {
+    @apply flex h-14 w-12 items-center justify-center rounded-sm border-2 border-input bg-background text-center text-xl font-semibold text-foreground transition-colors focus:border-primary focus:ring-1 focus:ring-primary;
+  }
+
   .crm-dialog-overlay[data-state="open"] {
     animation: crm-dialog-overlay-in 520ms cubic-bezier(0.16, 1, 0.3, 1);
   }
@@ -194,11 +228,150 @@
   }
 }
 
+/* ─── Recharts Tooltip Contrast & Elevation Fix (Deep Navy #0D1F3D & Corporate Red #E20613) ─── */
+.recharts-tooltip-wrapper {
+  z-index: 100 !important;
+  pointer-events: none !important;
+}
+
+.recharts-default-tooltip {
+  background-color: #0D1F3D !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 12px 30px -5px rgba(13, 31, 61, 0.4) !important;
+  padding: 8px 14px !important;
+}
+
+.recharts-tooltip-label {
+  color: #E20613 !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  margin-bottom: 4px !important;
+}
+
+.recharts-tooltip-item,
+.recharts-tooltip-item-name,
+.recharts-tooltip-item-value,
+.recharts-tooltip-item-separator {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+}
+
+/* ─── Smooth Modal Animations ─── */
+@keyframes modalBackdropFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-modal-backdrop {
+  animation: modalBackdropFade 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-modal-content {
+  animation: modalScaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ─── Smooth Dropdown & Action Card Pop Animation ─── */
+@keyframes dropdownPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-dropdown,
+.animate-fadeIn {
+  animation: dropdownPopIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: top right;
+}
+
+/* ─── Smooth Pure Opacity Fade Page Route Transition ─── */
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-page-enter {
+  animation: pageFadeIn 0.2s ease-out forwards;
+}
+
+/* ─── Custom Theme Scrollbars ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+  transition: background-color 0.2s ease-in-out;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #0d1f3d;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #0d1f3d;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 @keyframes crm-dialog-overlay-in {
   from {
     opacity: 0;
   }
-
   to {
     opacity: 1;
   }
@@ -208,7 +381,6 @@
   from {
     opacity: 1;
   }
-
   to {
     opacity: 0;
   }
@@ -219,7 +391,6 @@
     opacity: 0;
     transform: translate(-50%, -46%) scale(0.9);
   }
-
   to {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
@@ -231,7 +402,6 @@
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
   }
-
   to {
     opacity: 0;
     transform: translate(-50%, -46%) scale(0.94);
