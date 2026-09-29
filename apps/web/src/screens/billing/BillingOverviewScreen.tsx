@@ -182,7 +182,7 @@ export function BillingOverviewScreen() {
             <span className="text-2xl font-bold text-foreground capitalize">
               {data?.planTier || "Starter"}
             </span>
-            <Badge variant="outline" className="text-xs font-normal">
+            <Badge variant="neutral" className="text-xs font-normal">
               ₹{data?.pricePerSeatMonth}/user/mo
             </Badge>
           </div>
@@ -265,8 +265,8 @@ export function BillingOverviewScreen() {
                       </td>
                       <td className="px-6 py-4">
                         <Badge
-                          variant="outline"
-                          className="text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                          variant="success"
+                          className="text-xs"
                         >
                           {tx.status}
                         </Badge>

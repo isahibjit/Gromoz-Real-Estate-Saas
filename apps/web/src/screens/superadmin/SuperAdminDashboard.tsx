@@ -203,12 +203,8 @@ export function SuperAdminDashboard() {
                       </td>
                       <td className="px-6 py-4">
                         <Badge
-                          variant="outline"
-                          className={`text-xs ${
-                            org.status === "ACTIVE"
-                              ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-                              : "bg-amber-500/10 text-amber-600 border-amber-500/20"
-                          }`}
+                          variant={org.status === "ACTIVE" ? "success" : "warning"}
+                          className="text-xs"
                         >
                           {org.status}
                         </Badge>
