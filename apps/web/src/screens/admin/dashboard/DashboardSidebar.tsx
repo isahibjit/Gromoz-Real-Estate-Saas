@@ -303,32 +303,23 @@ const superAdminNavCategories: NavCategory[] = [
         label: "Tenant Organizations",
         icon: Building2,
         to: "/superadmin/tenants",
-        badge: "SaaS",
+        badge: "Tenants",
       },
       {
-        label: "Billing & Subscriptions",
+        label: "Pricing & Plans",
         icon: CreditCard,
-        to: "/billing",
+        to: "/superadmin/plans",
+        badge: "Commercial",
       },
       {
         label: "Platform Audit Logs",
         icon: ShieldAlert,
         to: "/superadmin/audit",
       },
-    ],
-  },
-  {
-    title: "Workspace Inspection",
-    items: [
       {
-        label: "Workspace Dashboard",
-        icon: Monitor,
-        to: "/admin/dashboard",
-      },
-      {
-        label: "Workspace Settings",
+        label: "Platform Settings",
         icon: Settings,
-        to: "/admin/settings",
+        to: "/superadmin/settings",
       },
     ],
   },

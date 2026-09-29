@@ -698,6 +698,7 @@ export class OrganizationService {
         planTier: org.planTier,
         setupFeePaid: org.setupFeePaid,
         allocatedSeats: org.allocatedSeats,
+        pricePerSeatMonth: org.pricePerSeatMonth,
         customDomain: org.customDomain,
         activeMembers: org._count.memberships,
         leadsCount: org._count.leads,
@@ -705,5 +706,207 @@ export class OrganizationService {
         createdAt: org.createdAt,
       })),
     };
+  }
+
+  async updateTenantStatus(orgId: string, status: OrganizationStatus) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+    });
+    if (!org) {
+      throw new NotFoundException('Organization not found');
+    }
+    const updated = await this.prisma.organization.update({
+      where: { id: orgId },
+      data: { status },
+    });
+    return {
+      success: true,
+      message: `Tenant status updated to ${status}`,
+      organization: updated,
+    };
+  }
+
+  async getTenantDetails(orgId: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+      include: {
+        memberships: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+                phone: true,
+                role: true,
+                isActive: true,
+                createdAt: true,
+              },
+            },
+          },
+        },
+        billingTransactions: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
+        _count: {
+          select: {
+            leads: true,
+            projects: true,
+            teams: true,
+            attendanceRecords: true,
+          },
+        },
+      },
+    });
+
+    if (!org) {
+      throw new NotFoundException('Tenant organization not found');
+    }
+
+    return org;
+  }
+
+  async getCommercialPlans() {
+    // Commercial SaaS Plans without modular fragmentation - selling based on unified plan tiers
+    return [
+      {
+        id: 'starter',
+        name: 'Starter Plan',
+        code: 'STARTER',
+        status: 'Active',
+        badge: 'Popular for Small Teams',
+        color: '#F43F5E',
+        description: 'Ideal for independent brokers and emerging realty agencies.',
+        pricing: {
+          model: 'Per User',
+          monthlyPricePerSeat: 499,
+          annualPricePerSeat: 399,
+          setupFee: 4999,
+          currency: 'INR',
+          allowMonthlyBilling: true,
+          allowAnnualBilling: true,
+        },
+        limits: {
+          minimumSeats: 1,
+          defaultSeatLimit: 5,
+          storageGb: 10,
+          leadLimit: 5000,
+          projectLimit: 10,
+        },
+        features: [
+          'Full Real Estate CRM & Pipeline',
+          'Lead Capture & Auto-Assignment',
+          'Site Visit Tracking & GPS Check-ins',
+          'MagicBricks & 99Acres Integrations',
+          'WhatsApp & Email Notifications',
+          'Standard Calling Performance Reports',
+        ],
+        commercialRules: {
+          trialEnabled: true,
+          trialDurationDays: 14,
+        },
+      },
+      {
+        id: 'growth',
+        name: 'Growth Automation',
+        code: 'GROWTH',
+        status: 'Active',
+        badge: 'Most Popular',
+        color: '#10B981',
+        description: 'Designed for scaling real estate sales teams and dynamic brokerages.',
+        pricing: {
+          model: 'Per User',
+          monthlyPricePerSeat: 899,
+          annualPricePerSeat: 749,
+          setupFee: 9999,
+          currency: 'INR',
+          allowMonthlyBilling: true,
+          allowAnnualBilling: true,
+        },
+        limits: {
+          minimumSeats: 5,
+          defaultSeatLimit: 25,
+          storageGb: 50,
+          leadLimit: 50000,
+          projectLimit: 50,
+        },
+        features: [
+          'Everything in Starter',
+          'Live Executive GPS Field Force Tracking',
+          'Multi-Channel Lead Portal Automation',
+          'Brokerage & Commission Incentive Engine',
+          'HR, Attendance & Shifts Management',
+          'Custom Roles & Granular Field Access Control',
+          'Priority WhatsApp & Call Support',
+        ],
+        commercialRules: {
+          trialEnabled: true,
+          trialDurationDays: 14,
+        },
+      },
+      {
+        id: 'enterprise',
+        name: 'Enterprise Commercial Suite',
+        code: 'ENTERPRISE',
+        status: 'Active',
+        badge: 'Enterprise Grade',
+        color: '#2563EB',
+        description: 'For premier real estate developers, builders, and large enterprise brokerages.',
+        pricing: {
+          model: 'Custom Contract',
+          monthlyPricePerSeat: 1499,
+          annualPricePerSeat: 1199,
+          setupFee: 19999,
+          currency: 'INR',
+          allowMonthlyBilling: true,
+          allowAnnualBilling: true,
+        },
+        limits: {
+          minimumSeats: 25,
+          defaultSeatLimit: 100,
+          storageGb: 500,
+          leadLimit: 500000,
+          projectLimit: 500,
+        },
+        features: [
+          'Everything in Growth',
+          'Custom Domain & Complete White-Labeling',
+          'Dedicated Database Instance & SLA Guarantee',
+          'Custom API & Webhook Integrations',
+          'Payroll & Advanced Incentive Calculator',
+          'Custom Login Page Visual CMS Customizer',
+          'Dedicated Key Account Manager & 24/7 Phone SLA',
+        ],
+        commercialRules: {
+          trialEnabled: false,
+          trialDurationDays: 0,
+        },
+      },
+    ];
+  }
+
+  async getPlatformAuditLogs() {
+    return this.prisma.auditLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            role: true,
+          },
+        },
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    });
   }
 }

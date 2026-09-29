@@ -84,4 +84,41 @@ export class OrganizationController {
     }
     return this.orgService.getPlatformSuperAdminMetrics();
   }
+
+  @Get('platform-plans')
+  @UseGuards(AuthGuard)
+  async getCommercialPlans() {
+    return this.orgService.getCommercialPlans();
+  }
+
+  @Get('platform-audit-logs')
+  @UseGuards(AuthGuard)
+  async getPlatformAuditLogs(@Req() req: any) {
+    if (req.user.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Platform SuperAdmin access required');
+    }
+    return this.orgService.getPlatformAuditLogs();
+  }
+
+  @Get('tenant-details/:id')
+  @UseGuards(AuthGuard)
+  async getTenantDetails(@Req() req: any, @Query('id') id: string) {
+    if (req.user.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Platform SuperAdmin access required');
+    }
+    return this.orgService.getTenantDetails(id);
+  }
+
+  @Patch('tenant-status/:id')
+  @UseGuards(AuthGuard)
+  async updateTenantStatus(
+    @Req() req: any,
+    @Body('id') id: string,
+    @Body('status') status: any,
+  ) {
+    if (req.user.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Platform SuperAdmin access required');
+    }
+    return this.orgService.updateTenantStatus(id, status);
+  }
 }
