@@ -289,6 +289,22 @@ function LoadingWorkspace() {
   );
 }
 
+function SuperAdminRoute({ children }: PropsWithChildren) {
+  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
+  const user = useAppSelector((state) => state.auth.user);
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    return <Navigate to={LOGIN_PATH} replace state={{ from: location }} />;
+  }
+
+  if (user?.role !== "SUPER_ADMIN") {
+    return <Navigate to={DASHBOARD_PATH} replace />;
+  }
+
+  return <DashboardWorkspaceFrame>{children}</DashboardWorkspaceFrame>;
+}
+
 function AdminRoute({ children }: PropsWithChildren) {
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
   const user = useAppSelector((state) => state.auth.user);
@@ -296,6 +312,16 @@ function AdminRoute({ children }: PropsWithChildren) {
   if (!isAuthenticated) {
     return <Navigate to={LOGIN_PATH} replace state={{ from: location }} />;
   }
+
+  // If Platform SuperAdmin is not impersonating a tenant, redirect them to the Platform SuperAdmin portal
+  if (
+    user?.role === "SUPER_ADMIN" &&
+    !localStorage.getItem("active_organization_id") &&
+    location.pathname === DASHBOARD_PATH
+  ) {
+    return <Navigate to={SUPERADMIN_PATH} replace />;
+  }
+
   const inaccessibleFallback = buildInaccessibleRouteFallback(user, location.pathname);
   if (["/settings/mobile-app", "/settings/notifications"].includes(location.pathname) && !["ADMIN", "SUPER_ADMIN"].includes(user?.role ?? "")) return inaccessibleFallback;
   const moduleKey = moduleKeyForPath(location.pathname);
@@ -398,6 +424,7 @@ function PermissionRoute({ children }: PropsWithChildren) {
 }
 
 function defaultDashboardPath(role?: string) {
+  if (role === "SUPER_ADMIN") return SUPERADMIN_PATH;
   if (role === "SALES_AGENT") return FIELD_EXECUTIVE_DASHBOARD_PATH;
   if (role === "TEAM_LEADER" || role === "MANAGER") return ALL_LEADS_PATH;
   return role === "TELECALLER" ? TELECALLER_DASHBOARD_PATH : DASHBOARD_PATH;
@@ -532,9 +559,9 @@ export default function App() {
       <Route
         path={SUPERADMIN_PATH}
         element={
-          <AdminRoute>
+          <SuperAdminRoute>
             <SuperAdminDashboard />
-          </AdminRoute>
+          </SuperAdminRoute>
         }
       />
       <Route

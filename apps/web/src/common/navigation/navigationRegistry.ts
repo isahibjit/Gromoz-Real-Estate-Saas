@@ -2,6 +2,7 @@ import {
   BadgeIndianRupee,
   BellRing,
   BriefcaseBusiness,
+  Building,
   CalendarCheck,
   CalendarClock,
   Database,
@@ -9,6 +10,7 @@ import {
   LayoutDashboard,
   PhoneCall,
   Settings,
+  ShieldCheck,
   Target,
   UserRoundCheck,
   UsersRound,
@@ -64,7 +66,6 @@ export interface ActiveNavigation {
 }
 
 const adminRoles: NavigationRole[] = [
-  "SUPER_ADMIN",
   "ADMIN",
   "HR",
   "SALES_MANAGER",
@@ -77,7 +78,6 @@ const adminRoles: NavigationRole[] = [
 const preSalesRoles: NavigationRole[] = ["TELECALLER"];
 const fieldExecutiveRoles: NavigationRole[] = ["SALES_AGENT"];
 const employeeRoles: NavigationRole[] = [
-  "SUPER_ADMIN",
   "ADMIN",
   "HR",
   "SALES_MANAGER",
@@ -606,13 +606,55 @@ export function filterNavigationByPermissions(
     .filter((item): item is NavigationItem => Boolean(item));
 }
 
+export const platformSuperAdminNavigation: NavigationItem[] = [
+  {
+    id: "platform.dashboard",
+    label: "Platform Analytics",
+    icon: ShieldCheck,
+    to: "/superadmin",
+    matchPaths: ["/superadmin"],
+    roleScopes: ["SUPER_ADMIN"],
+  },
+  {
+    id: "platform.tenants",
+    label: "Tenant Workspaces",
+    icon: Building,
+    to: "/superadmin",
+    matchPaths: ["/superadmin"],
+    roleScopes: ["SUPER_ADMIN"],
+  },
+  {
+    id: "platform.billing",
+    label: "SaaS Subscriptions",
+    icon: BadgeIndianRupee,
+    to: "/billing",
+    matchPaths: ["/billing"],
+    roleScopes: ["SUPER_ADMIN"],
+  },
+  {
+    id: "platform.audit",
+    label: "System Audit Logs",
+    icon: Database,
+    to: "/admin/audit-logs",
+    matchPaths: ["/admin/audit-logs"],
+    roleScopes: ["SUPER_ADMIN"],
+  },
+];
+
 export function getNavigationForUser(user: AuthUser) {
+  if (user?.role === "SUPER_ADMIN" && !localStorage.getItem("active_organization_id")) {
+    return platformSuperAdminNavigation;
+  }
+
   return removeDuplicateSelfServiceNavigation(
     filterNavigationByPermissions(navigationRegistry, user),
   );
 }
 
 export function getFirstAccessibleNavigationPath(user: AuthUser) {
+  if (user?.role === "SUPER_ADMIN" && !localStorage.getItem("active_organization_id")) {
+    return "/superadmin";
+  }
   const [firstItem] = getNavigationForUser(user);
   if (!firstItem) return null;
   return firstItem.to ?? firstItem.children?.[0]?.to ?? null;
@@ -636,15 +678,20 @@ function itemMatchesPath(
 
 export function getActiveNavigation(
   pathname: string,
-  items: NavigationItem[] = navigationRegistry,
+  items?: NavigationItem[],
 ): ActiveNavigation {
+  const effectiveItems =
+    items ??
+    (pathname.startsWith("/superadmin")
+      ? platformSuperAdminNavigation
+      : navigationRegistry);
   const matches: Array<{
     item: NavigationItem;
     child?: NavigationChildItem;
     score: number;
   }> = [];
 
-  for (const item of items) {
+  for (const item of effectiveItems) {
     if (itemMatchesPath(item, pathname)) {
       matches.push({ item, score: item.to?.length ?? 0 });
     }
