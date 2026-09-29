@@ -264,53 +264,63 @@ export function ProvisionTenantModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-2xl sm:max-w-3xl max-h-[92vh] overflow-y-auto p-0 border border-slate-200 bg-white shadow-2xl rounded-lg font-sans">
         {/* Modal Header */}
-        <div className="bg-[#0D1F3D] text-white p-6 rounded-t-lg relative">
+        <div className="bg-[#0D1F3D] !text-white p-6 rounded-t-lg relative">
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-4 top-4 text-slate-300 hover:text-white p-1 rounded-md transition hover:bg-white/10"
+            className="absolute right-4 top-4 !text-white/80 hover:!text-white p-1 rounded-md transition hover:bg-white/10"
           >
             <X className="h-5 w-5" />
           </button>
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-sm bg-white/10 text-white border border-white/20 shadow-xs">
-              <Building2 className="h-5 w-5" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-sm bg-white/10 !text-white border border-white/20 shadow-xs">
+              <Building2 className="h-5 w-5 !text-white" />
             </div>
             <div>
-              <DialogTitle className="text-lg font-extrabold text-white">
+              <h2 className="text-lg font-extrabold !text-white tracking-tight">
                 Provision Customer Tenant Workspace
-              </DialogTitle>
-              <DialogDescription className="text-xs text-slate-300 font-medium mt-0.5">
+              </h2>
+              <p className="text-xs !text-slate-200 font-medium mt-0.5">
                 Onboard a new real estate company with customized commercial subscription and admin setup.
-              </DialogDescription>
+              </p>
             </div>
           </div>
 
           {/* Stepper Indicator */}
-          <div className="grid grid-cols-3 gap-2 mt-6 pt-4 border-t border-white/10">
+          <div className="grid grid-cols-3 gap-2 mt-6 pt-4 border-t border-white/20">
             <button
               type="button"
               onClick={() => setStep(1)}
               className={`flex items-center gap-2 p-2 rounded text-left transition ${
                 step === 1
-                  ? "bg-white/15 text-white font-bold border border-white/30"
+                  ? "bg-white/20 !text-white font-bold border border-white/40 shadow-xs"
                   : step > 1
-                  ? "text-emerald-400 font-semibold hover:bg-white/5"
-                  : "text-slate-400 hover:bg-white/5"
+                  ? "!text-emerald-300 font-semibold hover:bg-white/10"
+                  : "!text-slate-300 hover:!text-white hover:bg-white/10"
               }`}
             >
               <span
                 className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
                   step === 1
-                    ? "bg-[#E20613] text-white"
+                    ? "bg-[#E20613] !text-white"
                     : step > 1
-                    ? "bg-emerald-500 text-white"
-                    : "bg-slate-700 text-slate-300"
+                    ? "bg-emerald-500 !text-white"
+                    : "bg-slate-700 !text-slate-200"
                 }`}
               >
-                {step > 1 ? <Check className="h-3 w-3" /> : "1"}
+                {step > 1 ? <Check className="h-3 w-3 !text-white" /> : "1"}
               </span>
-              <span className="text-xs truncate">1. Workspace Identity</span>
+              <span
+                className={`text-xs truncate font-medium ${
+                  step === 1
+                    ? "!text-white font-bold"
+                    : step > 1
+                    ? "!text-emerald-300 font-semibold"
+                    : "!text-slate-200"
+                }`}
+              >
+                1. Workspace Identity
+              </span>
             </button>
 
             <button
@@ -320,24 +330,34 @@ export function ProvisionTenantModal({
               }}
               className={`flex items-center gap-2 p-2 rounded text-left transition ${
                 step === 2
-                  ? "bg-white/15 text-white font-bold border border-white/30"
+                  ? "bg-white/20 !text-white font-bold border border-white/40 shadow-xs"
                   : step > 2
-                  ? "text-emerald-400 font-semibold hover:bg-white/5"
-                  : "text-slate-400 hover:bg-white/5"
+                  ? "!text-emerald-300 font-semibold hover:bg-white/10"
+                  : "!text-slate-300 hover:!text-white hover:bg-white/10"
               }`}
             >
               <span
                 className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
                   step === 2
-                    ? "bg-[#E20613] text-white"
+                    ? "bg-[#E20613] !text-white"
                     : step > 2
-                    ? "bg-emerald-500 text-white"
-                    : "bg-slate-700 text-slate-300"
+                    ? "bg-emerald-500 !text-white"
+                    : "bg-slate-700 !text-slate-200"
                 }`}
               >
-                {step > 2 ? <Check className="h-3 w-3" /> : "2"}
+                {step > 2 ? <Check className="h-3 w-3 !text-white" /> : "2"}
               </span>
-              <span className="text-xs truncate">2. Commercial Plan</span>
+              <span
+                className={`text-xs truncate font-medium ${
+                  step === 2
+                    ? "!text-white font-bold"
+                    : step > 2
+                    ? "!text-emerald-300 font-semibold"
+                    : "!text-slate-200"
+                }`}
+              >
+                2. Commercial Plan
+              </span>
             </button>
 
             <button
@@ -347,18 +367,24 @@ export function ProvisionTenantModal({
               }}
               className={`flex items-center gap-2 p-2 rounded text-left transition ${
                 step === 3
-                  ? "bg-white/15 text-white font-bold border border-white/30"
-                  : "text-slate-400 hover:bg-white/5"
+                  ? "bg-white/20 !text-white font-bold border border-white/40 shadow-xs"
+                  : "!text-slate-300 hover:!text-white hover:bg-white/10"
               }`}
             >
               <span
                 className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
-                  step === 3 ? "bg-[#E20613] text-white" : "bg-slate-700 text-slate-300"
+                  step === 3 ? "bg-[#E20613] !text-white" : "bg-slate-700 !text-slate-200"
                 }`}
               >
                 3
               </span>
-              <span className="text-xs truncate">3. Tenant Admin</span>
+              <span
+                className={`text-xs truncate font-medium ${
+                  step === 3 ? "!text-white font-bold" : "!text-slate-200"
+                }`}
+              >
+                3. Tenant Admin
+              </span>
             </button>
           </div>
         </div>
@@ -495,9 +521,18 @@ export function ProvisionTenantModal({
               </div>
 
               {/* Plan Tier Selection Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {availablePlans.map((plan) => {
-                  const isSelected = form.planTier === plan.id;
+              {availablePlans.length === 0 ? (
+                <div className="rounded-sm border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+                  <CreditCard className="mx-auto h-8 w-8 text-slate-400 mb-2" />
+                  <p className="text-xs font-bold text-[#0D1F3D]">No commercial plans configured</p>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Please create or activate commercial subscription tiers in Platform Settings &gt; Pricing &amp; Plans.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {availablePlans.map((plan) => {
+                    const isSelected = form.planTier === plan.id;
                   const price = form.billingCycle === "annual" ? plan.annualPrice : plan.price;
 
                   return (
@@ -555,6 +590,7 @@ export function ProvisionTenantModal({
                   );
                 })}
               </div>
+              )}
 
               {/* Seat Allocation & Activation Mode */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">

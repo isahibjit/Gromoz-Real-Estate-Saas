@@ -153,7 +153,7 @@ export class OrganizationController {
 
   @Get('tenant-details/:id')
   @UseGuards(AuthGuard)
-  async getTenantDetails(@Req() req: any, @Query('id') id: string) {
+  async getTenantDetails(@Req() req: any, @Param('id') id: string) {
     if (req.user.role !== 'SUPER_ADMIN') {
       throw new ForbiddenException('Platform SuperAdmin access required');
     }

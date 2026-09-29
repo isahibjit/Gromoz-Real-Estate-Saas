@@ -22,6 +22,7 @@ import {
   ChevronRight,
   X,
   Sparkles,
+  Eye,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { api } from "../../common/api";
@@ -366,13 +367,17 @@ export function AllTenantsScreen() {
                         {(currentPage - 1) * pageSize + idx + 1}
                       </td>
                       <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-[#0D1F3D] text-white font-extrabold shadow-2xs">
+                        <div
+                          onClick={() => navigate(`/superadmin/tenants/${t.id}`)}
+                          className="flex items-center gap-3 cursor-pointer group"
+                        >
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-[#0D1F3D] text-white font-extrabold shadow-2xs group-hover:bg-[#1e3b6a] transition">
                             {t.name.charAt(0)}
                           </div>
                           <div>
-                            <p className="font-bold text-[#0D1F3D] group-hover:text-blue-600 transition">
+                            <p className="font-bold text-[#0D1F3D] group-hover:text-blue-600 transition flex items-center gap-1.5">
                               {t.name}
+                              <Eye className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 text-blue-600 transition" />
                             </p>
                             <p className="text-[11px] font-medium text-slate-400">
                               {t.customDomain || `${t.slug}.truerootcrm.com`}
@@ -404,6 +409,16 @@ export function AllTenantsScreen() {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             type="button"
+                            onClick={() => navigate(`/superadmin/tenants/${t.id}`)}
+                            className="inline-flex items-center gap-1 rounded-sm bg-slate-100 hover:bg-slate-200 px-2 py-1 text-xs font-bold text-slate-700 transition cursor-pointer"
+                            title="View Tenant Workspace Overview"
+                          >
+                            <Eye className="h-3.5 w-3.5 text-slate-500" />
+                            View
+                          </button>
+
+                          <button
+                            type="button"
                             onClick={() => handleAccessTenant(t)}
                             className="inline-flex items-center gap-1.5 rounded-sm bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 transition cursor-pointer"
                             title="Open Tenant Workspace"
@@ -426,6 +441,16 @@ export function AllTenantsScreen() {
 
                             {activeMenuId === t.id && (
                               <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-sm border border-slate-200 bg-white p-1.5 shadow-2xl font-sans text-left animate-fadeIn">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    navigate(`/superadmin/tenants/${t.id}`);
+                                  }}
+                                  className="w-full flex items-center gap-2 rounded-sm px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+                                >
+                                  <Eye className="h-4 w-4 text-slate-500" /> View Overview
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => handleAccessTenant(t)}

@@ -7,6 +7,7 @@ import { RegisterOrganizationScreen } from "./screens/auth/register/RegisterOrga
 import { BillingOverviewScreen } from "./screens/billing/BillingOverviewScreen";
 import { SuperAdminDashboard } from "./screens/superadmin/SuperAdminDashboard";
 import { AllTenantsScreen } from "./screens/superadmin/AllTenantsScreen";
+import { TenantOverviewScreen } from "./screens/superadmin/TenantOverviewScreen";
 import { PlansPricingScreen } from "./screens/superadmin/PlansPricingScreen";
 import { PlatformAuditLogsScreen } from "./screens/superadmin/PlatformAuditLogsScreen";
 import { PlatformSettingsScreen } from "./screens/superadmin/PlatformSettingsScreen";
@@ -573,6 +574,14 @@ export default function App() {
         element={
           <SuperAdminRoute>
             <AllTenantsScreen />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
+        path="/superadmin/tenants/:tenantId"
+        element={
+          <SuperAdminRoute>
+            <TenantOverviewScreen />
           </SuperAdminRoute>
         }
       />

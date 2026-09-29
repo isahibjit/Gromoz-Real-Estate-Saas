@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ShieldAlert, Search, RotateCcw, Building2, User, Clock, FileText } from "lucide-react";
+import { ShieldAlert, Search, RotateCcw, Building2, User, Clock, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { Button } from "ui";
 import { api } from "../../common/api";
@@ -8,6 +8,8 @@ export function PlatformAuditLogsScreen() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -33,6 +35,9 @@ export function PlatformAuditLogsScreen() {
       (log.organization?.name && log.organization.name.toLowerCase().includes(s))
     );
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / pageSize));
+  const paginatedLogs = filteredLogs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-6 pb-12 font-sans">
@@ -73,61 +78,99 @@ export function PlatformAuditLogsScreen() {
         </div>
       </div>
 
-      {/* Audit Log Table */}
-      <div className="rounded-sm border border-slate-200 bg-white shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs whitespace-nowrap">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/50 text-xs font-bold text-[#0D1F3D]">
-                <th className="py-3 px-4 w-8">#</th>
-                <th className="py-3 px-4">Timestamp</th>
-                <th className="py-3 px-4">Operator / User</th>
-                <th className="py-3 px-4">Tenant Organization</th>
-                <th className="py-3 px-4">Event Action</th>
-                <th className="py-3 px-4">Resource Target</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500">
-                    <div className="inline-block animate-spin h-5 w-5 border-2 border-[#0D1F3D] border-t-transparent rounded-full mb-2" />
-                    <p className="text-xs font-semibold">Loading security audit records...</p>
-                  </td>
+      {/* Audit Log Table Container */}
+      <div className="rounded-sm border border-slate-200 bg-white shadow-xs min-h-[580px] flex flex-col justify-between overflow-hidden">
+        <div>
+          <div className="overflow-x-auto min-h-[460px]">
+            <table className="w-full text-left text-xs whitespace-nowrap">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/50 text-xs font-bold text-[#0D1F3D]">
+                  <th className="py-3 px-4 w-8">#</th>
+                  <th className="py-3 px-4">Timestamp</th>
+                  <th className="py-3 px-4">Operator / User</th>
+                  <th className="py-3 px-4">Tenant Organization</th>
+                  <th className="py-3 px-4">Event Action</th>
+                  <th className="py-3 px-4">Resource Target</th>
                 </tr>
-              ) : filteredLogs.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500">
-                    <FileText className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-                    <p className="text-sm font-bold text-[#0D1F3D]">No audit log entries found</p>
-                  </td>
-                </tr>
-              ) : (
-                filteredLogs.map((log, idx) => (
-                  <tr key={log.id || idx} className="hover:bg-slate-50/80 transition">
-                    <td className="py-3 px-4 text-slate-400 font-semibold">{idx + 1}</td>
-                    <td className="py-3 px-4 text-slate-500 font-mono">
-                      {new Date(log.createdAt).toLocaleString("en-IN")}
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-slate-800">
-                      {log.user?.fullName || log.user?.email || "System"}
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-[#0D1F3D]">
-                      {log.organization?.name || "Global Platform"}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="inline-flex rounded bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-bold text-slate-700 border border-slate-200">
-                        {log.action}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-slate-600 font-medium">
-                      {log.targetType || "ORGANIZATION"} {log.targetId ? `(${log.targetId.slice(0, 8)}...)` : ""}
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="py-24 text-center text-slate-500">
+                      <div className="inline-block animate-spin h-6 w-6 border-2 border-[#0D1F3D] border-t-transparent rounded-full mb-3" />
+                      <p className="text-xs font-semibold">Loading security audit records...</p>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : paginatedLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-24 text-center text-slate-500">
+                      <FileText className="mx-auto h-10 w-10 text-slate-400 mb-2" />
+                      <p className="text-sm font-bold text-[#0D1F3D]">No audit log entries found</p>
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedLogs.map((log, idx) => (
+                    <tr key={log.id || idx} className="hover:bg-slate-50/80 transition">
+                      <td className="py-3.5 px-4 text-slate-400 font-semibold">
+                        {(currentPage - 1) * pageSize + idx + 1}
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-500 font-mono">
+                        {new Date(log.createdAt).toLocaleString("en-IN")}
+                      </td>
+                      <td className="py-3.5 px-4 font-semibold text-slate-800">
+                        {log.user?.fullName || log.user?.email || "System"}
+                      </td>
+                      <td className="py-3.5 px-4 font-semibold text-[#0D1F3D]">
+                        {log.organization?.name || "Global Platform"}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="inline-flex rounded bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-bold text-slate-700 border border-slate-200">
+                          {log.action}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-600 font-medium">
+                        {log.targetType || "ORGANIZATION"} {log.targetId ? `(${log.targetId.slice(0, 8)}...)` : ""}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Table Footer / Pagination */}
+        <div className="p-3.5 border-t border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-slate-500 font-medium">
+            <span>
+              Showing {filteredLogs.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} to{" "}
+              {Math.min(currentPage * pageSize, filteredLogs.length)} of {filteredLogs.length} entries
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              className="h-8 px-2.5 text-xs font-bold text-slate-700"
+            >
+              <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Previous
+            </Button>
+            <span className="px-2 font-bold text-[#0D1F3D]">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              className="h-8 px-2.5 text-xs font-bold text-slate-700"
+            >
+              Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>

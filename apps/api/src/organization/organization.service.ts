@@ -729,8 +729,10 @@ export class OrganizationService {
   }
 
   async getTenantDetails(orgId: string) {
-    const org = await this.prisma.organization.findUnique({
-      where: { id: orgId },
+    const org = await this.prisma.organization.findFirst({
+      where: {
+        OR: [{ id: orgId }, { slug: orgId }],
+      },
       include: {
         memberships: {
           include: {
