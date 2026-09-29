@@ -30,6 +30,9 @@ export interface EnvironmentVariables {
   SMS_SENDER?: string;
   LOGIN_NOTIFICATION_EMAIL?: string;
   MOBILE_APP_UPLOAD_TMP_DIR?: string;
+  RAZORPAY_KEY_ID?: string;
+  RAZORPAY_KEY_SECRET?: string;
+  RAZORPAY_WEBHOOK_SECRET?: string;
 }
 
 export const validationSchemaForEnv = Joi.object<EnvironmentVariables, true>({
@@ -62,4 +65,7 @@ export const validationSchemaForEnv = Joi.object<EnvironmentVariables, true>({
   SMS_SENDER: Joi.string().allow('').optional(),
   LOGIN_NOTIFICATION_EMAIL: Joi.string().email().allow('').optional(),
   MOBILE_APP_UPLOAD_TMP_DIR: Joi.string().allow('').optional(),
+  RAZORPAY_KEY_ID: Joi.string().allow('').optional(),
+  RAZORPAY_KEY_SECRET: Joi.string().allow('').optional(),
+  RAZORPAY_WEBHOOK_SECRET: Joi.string().allow('').optional(),
 });

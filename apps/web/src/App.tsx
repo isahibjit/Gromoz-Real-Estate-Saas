@@ -3,6 +3,9 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import type { AuthTokens } from "@truroot/shared/auth";
 
 import { LoginScreen } from "./screens/auth/login/login";
+import { RegisterOrganizationScreen } from "./screens/auth/register/RegisterOrganizationScreen";
+import { BillingOverviewScreen } from "./screens/billing/BillingOverviewScreen";
+import { SuperAdminDashboard } from "./screens/superadmin/SuperAdminDashboard";
 import { DownloadAppScreen } from "./screens/public/DownloadAppScreen";
 import { MobileAppScreen } from "./screens/admin/settings/MobileAppScreen";
 import { useRefreshSession } from "./common/queries/useRefreshSession";
@@ -88,6 +91,9 @@ import {
 type AuthUser = AuthTokens["user"] | null | undefined;
 
 const LOGIN_PATH = "/login";
+const REGISTER_PATH = "/register";
+const BILLING_PATH = "/billing";
+const SUPERADMIN_PATH = "/superadmin";
 const LOGIN_OTP_PATH = "/login/otp";
 const FORGOT_PASSWORD_PATH = "/forgot-password";
 const RESET_PASSWORD_PATH = "/reset-password";
@@ -503,6 +509,30 @@ export default function App() {
           <PublicOnlyRoute>
             <LoginScreen />
           </PublicOnlyRoute>
+        }
+      />
+      <Route
+        path={REGISTER_PATH}
+        element={
+          <PublicOnlyRoute>
+            <RegisterOrganizationScreen />
+          </PublicOnlyRoute>
+        }
+      />
+      <Route
+        path={BILLING_PATH}
+        element={
+          <AdminRoute>
+            <BillingOverviewScreen />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path={SUPERADMIN_PATH}
+        element={
+          <AdminRoute>
+            <SuperAdminDashboard />
+          </AdminRoute>
         }
       />
       <Route

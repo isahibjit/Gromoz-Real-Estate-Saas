@@ -18,6 +18,9 @@ import { UploadsModule } from './uploads/uploads.module';
 import { HrModule } from './hr/hr.module';
 import { AccessModule } from './access/access.module';
 import { MobileAppModule } from './mobile-app/mobile-app.module';
+import { TenantModule } from './common/tenant/tenant.module';
+import { BillingModule } from './billing/billing.module';
+import { OrganizationModule } from './organization/organization.module';
 
 @Module({
   imports: [
@@ -46,6 +49,9 @@ import { MobileAppModule } from './mobile-app/mobile-app.module';
     ThrottlingModule,
     PersistenceModule,
     AuthModule,
+    TenantModule,
+    BillingModule,
+    OrganizationModule,
     DashboardModule,
     CrmModule,
     UploadsModule,

@@ -10,6 +10,120 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum OrganizationStatus {
+  TRIAL
+  SETUP_PENDING
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+}
+
+enum PlanTier {
+  STARTER
+  GROWTH
+  ENTERPRISE
+}
+
+model Organization {
+  id                      String                  @id @default(uuid())
+  name                    String
+  slug                    String                  @unique
+  logoUrl                 String?
+  status                  OrganizationStatus      @default(SETUP_PENDING)
+  planTier                PlanTier                @default(STARTER)
+
+  // Seats & Pricing
+  allocatedSeats          Int                     @default(1)
+  pricePerSeatMonth       Float                   @default(500.0)
+  setupFeeAmount          Float                   @default(9999.0)
+  setupFeePaid            Boolean                 @default(false)
+
+  // Razorpay references
+  razorpayCustomerId      String?
+  razorpaySubscriptionId  String?
+
+  trialEndsAt             DateTime?
+  currentPeriodStart      DateTime?
+  currentPeriodEnd        DateTime?
+
+  // Relations
+  memberships             OrganizationMember[]
+  invitations             OrganizationInvitation[]
+  billingTransactions     BillingTransaction[]
+  leads                   Lead[]
+  projects                Project[]
+  teams                   Team[]
+  attendanceRecords       AttendanceRecord[]
+  leaveRequests           LeaveRequest[]
+  payrollRecords          PayrollRecord[]
+  auditLogs               AuditLog[]
+
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+
+  @@index([status])
+  @@index([slug])
+}
+
+model OrganizationMember {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           Role         @default(SALES_AGENT)
+  isOwner        Boolean      @default(false)
+  isActive       Boolean      @default(true)
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model OrganizationInvitation {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           Role         @default(SALES_AGENT)
+  token          String       @unique
+  invitedById    String?
+  invitedBy      User?        @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: SetNull)
+  status         String       @default("PENDING") // PENDING, ACCEPTED, EXPIRED, REVOKED
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([email])
+  @@index([token])
+}
+
+model BillingTransaction {
+  id                String       @id @default(uuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  amount            Float
+  currency          String       @default("INR")
+  type              String       // SETUP_FEE, RECURRING_SEATS, SEAT_UPGRADE
+  razorpayPaymentId String?      @unique
+  razorpayOrderId   String?
+  status            String       // created, captured, failed, refunded
+  receiptUrl        String?
+  invoiceNumber     String?
+  metadata          Json?
+
+  createdAt         DateTime     @default(now())
+
+  @@index([organizationId])
+  @@index([razorpayPaymentId])
+}
+
 model User {
   id               String  @id @default(uuid())
   email            String  @unique
@@ -28,6 +142,9 @@ model User {
   refreshTokenHash       String?
   passwordResetTokenHash String?
   passwordResetExpiresAt DateTime?
+
+  organizationMemberships    OrganizationMember[]
+  invitationsSent            OrganizationInvitation[]     @relation("InvitationSender")
 
   auditLogs                   AuditLog[]
   mobileAppReleases           MobileAppRelease[]
@@ -196,9 +313,11 @@ model MobileAppPublication {
 }
 
 model AuditLog {
-  id          String  @id @default(uuid())
-  actorUserId String?
-  actorUser   User?   @relation(fields: [actorUserId], references: [id])
+  id             String        @id @default(uuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actorUserId    String?
+  actorUser      User?         @relation(fields: [actorUserId], references: [id])
 
   action     String // LOGIN_SUCCESS, DOC_UPLOAD, etc.
   entityType String?
@@ -207,6 +326,9 @@ model AuditLog {
   ip         String?
   userAgent  String?
   createdAt  DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([createdAt])
 }
 
 model EmployeeProfile {
@@ -238,6 +360,8 @@ model EmployeeProfile {
 
 model AttendanceRecord {
   id                     String            @id @default(uuid())
+  organizationId         String?
+  organization           Organization?     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   employeeId             String
   employee               User              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   attendanceDate         DateTime
@@ -264,6 +388,7 @@ model AttendanceRecord {
   audits                 AttendanceAudit[]
 
   @@unique([employeeId, attendanceDate])
+  @@index([organizationId])
   @@index([attendanceDate, status])
 }
 
@@ -309,35 +434,40 @@ model Holiday {
 }
 
 model LeaveRequest {
-  id           String    @id @default(uuid())
-  employeeId   String
-  employee     User      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  leaveType    String
-  startDate    DateTime
-  endDate      DateTime
-  days         Decimal
-  reason       String
-  note         String?
-  status       String    @default("Pending")
-  reviewerId   String?
-  reviewer     User?     @relation("LeaveReviewer", fields: [reviewerId], references: [id])
-  reviewerNote String?
-  reviewedAt   DateTime?
-  cancelledAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id             String        @id @default(uuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employeeId     String
+  employee       User          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType      String
+  startDate      DateTime
+  endDate        DateTime
+  days           Decimal
+  reason         String
+  note           String?
+  status         String        @default("Pending")
+  reviewerId     String?
+  reviewer       User?         @relation("LeaveReviewer", fields: [reviewerId], references: [id])
+  reviewerNote   String?
+  reviewedAt     DateTime?
+  cancelledAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
+  @@index([organizationId])
   @@index([employeeId, status])
   @@index([startDate, endDate])
 }
 
 model PayrollRecord {
-  id             String    @id @default(uuid())
+  id             String        @id @default(uuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   employeeId     String
-  employee       User      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee       User          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   year           Int
   month          Int
-  status         String    @default("Draft")
+  status         String        @default("Draft")
   basicSalary    Decimal
   allowances     Decimal   @default(0)
   deductions     Decimal   @default(0)
@@ -368,6 +498,7 @@ model PayrollRecord {
   payslip        Payslip?
 
   @@unique([employeeId, year, month])
+  @@index([organizationId])
   @@index([year, month, status])
 }
 
@@ -389,6 +520,8 @@ model Payslip {
 
 model Team {
   id                 String                  @id @default(uuid())
+  organizationId     String?
+  organization       Organization?           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name               String
   code               String                  @unique
   description        String?
@@ -402,6 +535,7 @@ model Team {
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
 
+  @@index([organizationId])
   @@index([leaderId])
 }
 
@@ -522,6 +656,8 @@ model LeadMasterValue {
 
 model Lead {
   id                   String                @id @default(uuid())
+  organizationId       String?
+  organization         Organization?         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   displayId            String                @unique
   name                 String
   email                String?
@@ -573,6 +709,7 @@ model Lead {
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
 
+  @@index([organizationId])
   @@index([mobile])
   @@index([email])
   @@index([stageId])
@@ -815,6 +952,8 @@ model Document {
 
 model Project {
   id                 String                @id @default(uuid())
+  organizationId     String?
+  organization       Organization?         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name               String
   location           String
   developer          String?
@@ -853,6 +992,7 @@ model Project {
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
 
+  @@index([organizationId])
   @@index([status])
   @@index([location])
 }
