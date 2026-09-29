@@ -26,7 +26,7 @@ import { RealtimeModule } from '../realtime/realtime.module';
   ],
   controllers: [AuthController],
   providers: [AuthService, SmsService, DailyAutoLogoutWorker],
-  exports: [AuthService],
+  exports: [AuthService, JwtModule],
 })
 export class AuthModule {}
 
