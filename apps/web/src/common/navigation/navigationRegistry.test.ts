@@ -84,12 +84,15 @@ describe("navigationRegistry contract tests", () => {
     });
   });
 
-  it("resolves moduleKey and pageKey for /admin/payroll and /admin/attendance", () => {
+  it("resolves moduleKey and pageKey for canonical admin routes", () => {
     expect(moduleKeyForPath("/admin/payroll")).toBe("payroll");
     expect(pageKeyForPath("/admin/payroll")).toBe("page.payroll");
 
     expect(moduleKeyForPath("/admin/attendance")).toBe("attendance");
     expect(pageKeyForPath("/admin/attendance")).toBe("page.attendance");
+
+    expect(moduleKeyForPath("/admin/tasks")).toBe("tasks");
+    expect(pageKeyForPath("/admin/tasks")).toBe("page.tasks");
   });
 
   it("shows Project Masters when property master access is enabled", () => {

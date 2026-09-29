@@ -34,7 +34,7 @@ export function HeaderNotificationBell() {
   const loadNotifications = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/notifications/feed').catch(() => null);
+      const res = await api.get('/notifications').catch(() => null);
       if (res?.data) {
         setUnreadCount(res.data.unreadCount || 0);
         setNotifications(res.data.notifications || []);

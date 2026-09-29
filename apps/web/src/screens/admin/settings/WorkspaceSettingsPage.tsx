@@ -40,7 +40,7 @@ import {
   LoginPageCmsData,
   defaultLoginPageCms,
 } from "./LoginPageCmsModal";
-import { ImageCropModal } from "../../hr/components/ImageCropModal";
+import { SidebarLogoCustomizerModal } from "../../../components/ui/SidebarLogoCustomizerModal";
 
 const COUNTRY_OPTIONS = [
   { value: "India", label: "India" },
@@ -168,8 +168,9 @@ export function WorkspaceSettingsPage() {
   const [settings, setSettings] = useState<any>(null);
   const [loginCms, setLoginCms] = useState<LoginPageCmsData | null>(null);
   const [isLoginCmsModalOpen, setIsLoginCmsModalOpen] = useState(false);
-  const [pendingCropImage, setPendingCropImage] = useState<string | null>(null);
-  const [pendingCropTarget, setPendingCropTarget] = useState<"main" | "collapsed">("main");
+  const [isLogoCustomizerOpen, setIsLogoCustomizerOpen] = useState(false);
+  const [customizerImageUrl, setCustomizerImageUrl] = useState("");
+  const [customizerCollapsedUrl, setCustomizerCollapsedUrl] = useState("");
 
   // Form states
   const [form, setForm] = useState({
@@ -190,6 +191,11 @@ export function WorkspaceSettingsPage() {
     showLogoInSidebar: true,
     showLogoInLogin: true,
     sidebarLogoHeight: 42,
+    sidebarLogoObjectFit: "contain" as "contain" | "cover",
+    sidebarLogoBg: "transparent",
+    sidebarLogoRadius: 6,
+    sidebarLogoAlign: "left" as "left" | "center" | "right",
+    sidebarHeaderBg: "transparent",
     subdomain: "",
     customDomain: "",
     customDomainVerified: false,
@@ -271,6 +277,11 @@ export function WorkspaceSettingsPage() {
           showLogoInSidebar: d.profile.showLogoInSidebar ?? true,
           showLogoInLogin: d.profile.showLogoInLogin ?? true,
           sidebarLogoHeight: d.profile.sidebarLogoHeight ?? 42,
+          sidebarLogoObjectFit: d.profile.sidebarLogoObjectFit || "contain",
+          sidebarLogoBg: d.profile.sidebarLogoBg || "transparent",
+          sidebarLogoRadius: d.profile.sidebarLogoRadius ?? 6,
+          sidebarLogoAlign: d.profile.sidebarLogoAlign || "left",
+          sidebarHeaderBg: d.profile.sidebarHeaderBg || "transparent",
           subdomain: d.profile.subdomain || "",
           customDomain: d.profile.customDomain || "",
           customDomainVerified: Boolean(d.profile.customDomainVerified),
@@ -307,8 +318,9 @@ export function WorkspaceSettingsPage() {
       }
       const reader = new FileReader();
       reader.onload = () => {
-        setPendingCropTarget("main");
-        setPendingCropImage(reader.result as string);
+        setCustomizerImageUrl(reader.result as string);
+        setCustomizerCollapsedUrl(form.collapsedLogoUrl || "");
+        setIsLogoCustomizerOpen(true);
       };
       reader.readAsDataURL(file);
     }
@@ -323,49 +335,55 @@ export function WorkspaceSettingsPage() {
       }
       const reader = new FileReader();
       reader.onload = () => {
-        setPendingCropTarget("collapsed");
-        setPendingCropImage(reader.result as string);
+        setCustomizerImageUrl(form.logoUrl || (reader.result as string));
+        setCustomizerCollapsedUrl(reader.result as string);
+        setIsLogoCustomizerOpen(true);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleCropComplete = (croppedDataUrl: string) => {
-    const activeOrgId = localStorage.getItem("active_organization_id") || "default";
-
-    if (pendingCropTarget === "main") {
-      handleFieldChange("logoUrl", croppedDataUrl);
-      const brandingPayload = {
-        logoUrl: croppedDataUrl,
-        collapsedLogoUrl: form.collapsedLogoUrl,
-        showLogoInSidebar: form.showLogoInSidebar,
-        sidebarLogoHeight: form.sidebarLogoHeight,
-      };
-      localStorage.setItem(`visiblo_workspace_branding_${activeOrgId}`, JSON.stringify(brandingPayload));
-      localStorage.setItem("truroot_workspace_branding", JSON.stringify(brandingPayload));
-      window.dispatchEvent(new Event("workspace_branding_updated"));
-      toast.success("Main logo adjusted and applied! Click 'Save Workspace Changes' to persist.");
-    } else {
-      handleFieldChange("collapsedLogoUrl", croppedDataUrl);
-      const brandingPayload = {
-        logoUrl: form.logoUrl,
-        collapsedLogoUrl: croppedDataUrl,
-        showLogoInSidebar: form.showLogoInSidebar,
-        sidebarLogoHeight: form.sidebarLogoHeight,
-      };
-      localStorage.setItem(`visiblo_workspace_branding_${activeOrgId}`, JSON.stringify(brandingPayload));
-      localStorage.setItem("truroot_workspace_branding", JSON.stringify(brandingPayload));
-      window.dispatchEvent(new Event("workspace_branding_updated"));
-      toast.success("Collapsed sidebar icon adjusted and applied! Click 'Save Workspace Changes' to persist.");
-    }
-
-    setPendingCropImage(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    if (collapsedFileInputRef.current) collapsedFileInputRef.current.value = "";
+  const handleOpenCustomizer = () => {
+    setCustomizerImageUrl(form.logoUrl || "");
+    setCustomizerCollapsedUrl(form.collapsedLogoUrl || "");
+    setIsLogoCustomizerOpen(true);
   };
 
-  const handleCropCancel = () => {
-    setPendingCropImage(null);
+  const handleApplyCustomizer = (newBranding: {
+    logoUrl: string;
+    collapsedLogoUrl?: string;
+    showLogoInSidebar: boolean;
+    sidebarLogoHeight: number;
+    sidebarLogoObjectFit: "contain" | "cover";
+    sidebarLogoBg: string;
+    sidebarLogoRadius: number;
+    sidebarLogoAlign: "left" | "center" | "right";
+    sidebarHeaderBg: string;
+  }) => {
+    setForm((prev) => ({
+      ...prev,
+      logoUrl: newBranding.logoUrl,
+      collapsedLogoUrl: newBranding.collapsedLogoUrl || "",
+      showLogoInSidebar: newBranding.showLogoInSidebar,
+      sidebarLogoHeight: newBranding.sidebarLogoHeight,
+      sidebarLogoObjectFit: newBranding.sidebarLogoObjectFit,
+      sidebarLogoBg: newBranding.sidebarLogoBg,
+      sidebarLogoRadius: newBranding.sidebarLogoRadius,
+      sidebarLogoAlign: newBranding.sidebarLogoAlign,
+      sidebarHeaderBg: newBranding.sidebarHeaderBg,
+    }));
+
+    const activeOrgId = localStorage.getItem("active_organization_id") || "default";
+    const brandingPayload = {
+      ...newBranding,
+    };
+    localStorage.setItem(`visiblo_workspace_branding_${activeOrgId}`, JSON.stringify(brandingPayload));
+    localStorage.setItem("truroot_workspace_branding", JSON.stringify(brandingPayload));
+    window.dispatchEvent(new Event("workspace_branding_updated"));
+    window.dispatchEvent(new Event("storage"));
+
+    setIsLogoCustomizerOpen(false);
+    toast.success("Sidebar branding customized and applied live! Click 'Save Workspace Changes' to persist.");
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (collapsedFileInputRef.current) collapsedFileInputRef.current.value = "";
   };
@@ -394,6 +412,11 @@ export function WorkspaceSettingsPage() {
         collapsedLogoUrl: form.collapsedLogoUrl,
         showLogoInSidebar: form.showLogoInSidebar,
         sidebarLogoHeight: form.sidebarLogoHeight,
+        sidebarLogoObjectFit: form.sidebarLogoObjectFit,
+        sidebarLogoBg: form.sidebarLogoBg,
+        sidebarLogoRadius: form.sidebarLogoRadius,
+        sidebarLogoAlign: form.sidebarLogoAlign,
+        sidebarHeaderBg: form.sidebarHeaderBg,
       };
       localStorage.setItem(`visiblo_workspace_branding_${activeOrgId}`, JSON.stringify(brandingPayload));
       localStorage.setItem("truroot_workspace_branding", JSON.stringify(brandingPayload));
@@ -716,14 +739,26 @@ export function WorkspaceSettingsPage() {
 
           {/* Card 2: Company Info & Dual Sidebar Logos */}
           <Card className="border border-border bg-card shadow-sm rounded-xl p-6 space-y-5">
-            <div className="flex items-center gap-2 border-b border-border/60 pb-3">
-              <Building2 className="h-4 w-4 text-primary shrink-0" />
-              <div>
-                <h3 className="text-sm font-bold text-foreground">Company Information & Sidebar Branding</h3>
-                <p className="text-xs text-muted-foreground">
-                  Upload your full brand logo and compact collapsed icon for the navigation sidebar.
-                </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-primary shrink-0" />
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">Company Information & Sidebar Branding</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Upload your full brand logo and compact collapsed icon for the navigation sidebar.
+                  </p>
+                </div>
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleOpenCustomizer}
+                className="gap-1.5 text-xs font-bold text-primary border-primary/40 bg-primary/5 hover:bg-primary/10 shadow-2xs"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                Open Sidebar Brand Customizer
+              </Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
@@ -736,7 +771,13 @@ export function WorkspaceSettingsPage() {
                     <span className="text-[10px] font-semibold text-muted-foreground">Recommended: 220×55px (PNG/SVG)</span>
                   </div>
 
-                  <div className="flex h-20 w-full items-center justify-center rounded-md bg-card border border-border p-2 shadow-xs overflow-hidden">
+                  <div
+                    className="flex h-20 w-full items-center justify-center rounded-md border border-border p-2 shadow-xs overflow-hidden"
+                    style={{
+                      backgroundColor: form.sidebarLogoBg !== "transparent" ? form.sidebarLogoBg : "var(--card)",
+                      borderRadius: `${form.sidebarLogoRadius || 6}px`,
+                    }}
+                  >
                     {form.logoUrl ? (
                       <img
                         src={form.logoUrl}
@@ -745,7 +786,7 @@ export function WorkspaceSettingsPage() {
                           height: `${form.sidebarLogoHeight || 42}px`,
                           maxHeight: "56px",
                           maxWidth: "210px",
-                          objectFit: "contain",
+                          objectFit: form.sidebarLogoObjectFit || "contain",
                         }}
                       />
                     ) : (
@@ -810,7 +851,13 @@ export function WorkspaceSettingsPage() {
                     <span className="text-[10px] font-semibold text-muted-foreground">1:1 Square (e.g. 40×40px)</span>
                   </div>
 
-                  <div className="flex h-16 w-full items-center justify-center rounded-md bg-card border border-border p-2 shadow-xs">
+                  <div
+                    className="flex h-16 w-full items-center justify-center rounded-md border border-border p-2 shadow-xs"
+                    style={{
+                      backgroundColor: form.sidebarLogoBg !== "transparent" ? form.sidebarLogoBg : "var(--card)",
+                      borderRadius: `${form.sidebarLogoRadius || 6}px`,
+                    }}
+                  >
                     {form.collapsedLogoUrl ? (
                       <img
                         src={form.collapsedLogoUrl}
@@ -1382,14 +1429,26 @@ export function WorkspaceSettingsPage() {
         orgEmail={form.primaryEmail || "support@truerootrealty.com"}
       />
 
-      {/* Brand Logo & Icon Crop Modal */}
-      <ImageCropModal
-        isOpen={pendingCropImage !== null}
-        imageSrc={pendingCropImage || ""}
-        onClose={handleCropCancel}
-        onCropComplete={handleCropComplete}
-        cropShape="rect"
-        aspect={pendingCropTarget === "main" ? 4 : 1}
+      {/* Sidebar Brand Logo & Live Sidebar Customizer Modal */}
+      <SidebarLogoCustomizerModal
+        isOpen={isLogoCustomizerOpen}
+        imageUrl={customizerImageUrl || form.logoUrl || ""}
+        collapsedLogoUrl={customizerCollapsedUrl || form.collapsedLogoUrl || ""}
+        initialSettings={{
+          showLogoInSidebar: form.showLogoInSidebar,
+          sidebarLogoHeight: form.sidebarLogoHeight,
+          sidebarLogoObjectFit: form.sidebarLogoObjectFit,
+          sidebarLogoBg: form.sidebarLogoBg,
+          sidebarLogoRadius: form.sidebarLogoRadius,
+          sidebarLogoAlign: form.sidebarLogoAlign,
+          sidebarHeaderBg: form.sidebarHeaderBg,
+        }}
+        onClose={() => {
+          setIsLogoCustomizerOpen(false);
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          if (collapsedFileInputRef.current) collapsedFileInputRef.current.value = "";
+        }}
+        onApply={handleApplyCustomizer}
       />
     </div>
   );

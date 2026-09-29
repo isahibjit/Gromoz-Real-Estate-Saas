@@ -13,11 +13,13 @@
   },
   "dependencies": {
     "@fontsource/manrope": "^5.1.1",
+    "@radix-ui/react-portal": "^1.1.9",
     "@reduxjs/toolkit": "^1.9.5",
     "@tanstack/react-query": "^5.101.0",
     "@truroot/shared": "*",
     "@vis.gl/react-google-maps": "^1.8.3",
     "axios": "^1.17.0",
+    "framer-motion": "^13.4.6",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-easy-crop": "^6.0.2",

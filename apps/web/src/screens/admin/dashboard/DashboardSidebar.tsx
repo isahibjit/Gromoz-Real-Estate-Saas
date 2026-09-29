@@ -1,6 +1,5 @@
 import {
   Award,
-  BarChart3,
   Building2,
   CalendarCheck,
   ChevronLeft,
@@ -188,24 +187,19 @@ const defaultNavCategories: NavCategory[] = [
       {
         label: "Portal Integrations",
         icon: Plug,
-        to: "/leads/import/magicbricks",
+        to: "/leads/import/connect/magicbricks",
         badge: "Connectors",
       },
       {
         label: "Import CSV Leads",
         icon: PlusCircle,
-        to: "/leads/import/csv",
+        to: "/leads/import",
       },
       {
         label: "Conversion Funnel",
         icon: Filter,
-        to: "/leads/conversion",
+        to: "/leads/conversion-analytics",
         badge: "Funnel",
-      },
-      {
-        label: "Source Analytics",
-        icon: BarChart3,
-        to: "/leads/source-analytics",
       },
     ],
   },
@@ -220,12 +214,12 @@ const defaultNavCategories: NavCategory[] = [
       {
         label: "Employee Tasks",
         icon: CalendarCheck,
-        to: "/tasks",
+        to: "/admin/tasks",
       },
       {
         label: "Attendance & Shifts",
         icon: Clock,
-        to: "/attendance",
+        to: "/admin/attendance",
       },
     ],
   },

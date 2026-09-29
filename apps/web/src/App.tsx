@@ -756,6 +756,10 @@ export default function App() {
         <Route key={path} path={path} element={<AdminRoute><HrWorkspaceScreen /></AdminRoute>} />
       ))}
       <Route
+        path="/attendance"
+        element={<Navigate to={ADMIN_ATTENDANCE_PATH} replace />}
+      />
+      <Route
         path={ADMIN_ACCESS_CONTROL_PATH}
         element={
           <AdminRoute>
@@ -794,6 +798,10 @@ export default function App() {
             <EmployeeTasksScreen />
           </AdminRoute>
         }
+      />
+      <Route
+        path="/tasks"
+        element={<Navigate to={ADMIN_TASKS_PATH} replace />}
       />
       <Route
         path={ADMIN_CALLING_PERFORMANCE_PATH}
