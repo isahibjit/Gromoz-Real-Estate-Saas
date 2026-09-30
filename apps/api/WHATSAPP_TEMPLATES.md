@@ -1,31 +1,33 @@
-# WhatsApp notification templates
+# Tenant WhatsApp notification templates
 
-The existing Pinbot transport now sends template messages, with body parameters
-in the order submitted to K3. Names use `trueroot`, as shown in the provider list.
-English defaults to `en`; set `WHATSAPP_TEMPLATE_LANGUAGE` only if the approved
-templates use a different language code. No database migration is required.
+WhatsApp is a tenant-owned, disabled-by-default notification channel. Each
+workspace uses either the platform Pinbot sender or its own encrypted Pinbot
+credentials. Custom mode never falls back to the platform sender.
+
+Platform credentials are read from `WHATSAPP_PLATFORM_API_URL`,
+`WHATSAPP_PLATFORM_API_KEY`, and `WHATSAPP_PLATFORM_WABA_NUMBER`. Template
+language defaults to `en` through `WHATSAPP_PLATFORM_TEMPLATE_LANGUAGE`.
+Tenant-owned API tokens require `WHATSAPP_CREDENTIAL_ENCRYPTION_KEY` and their
+HTTPS endpoint host must appear in `WHATSAPP_CUSTOM_API_HOST_ALLOWLIST`.
 
 | Template | Body parameters |
 | --- | --- |
 | trueroot_announcement | Recipient name, title, message |
 | trueroot_lead_assigned | Recipient name, lead name, dispatch time (IST) |
 | trueroot_follow_up_reminder | Recipient name, lead name, scheduled time (IST) |
-| trueroot_site_visit_reminder | Recipient name, lead name, project, scheduled time (IST) |
 | trueroot_site_visit_update | Recipient name, status, lead name, project, scheduled time (IST) |
 | trueroot_site_visit_cancelled | Recipient name, lead name, project, scheduled time (IST) |
 
-Existing assignment, follow-up reminder, announcement and visit update events
-use these mappings. Completed visits and unknown events are not misrepresented
-as announcements. Missing required data skips WhatsApp with a warning; FCM is
-unaffected. The site-visit reminder mapping is ready but no existing automatic
-site-visit reminder dispatcher was found; adding that scheduler is separate work.
+Supported events are announcements, lead assignment/reassignment, SLA transfer,
+follow-up reminders, and scheduled/updated/cancelled site visits. Other events
+remain FCM-only. Messages target active staff who belong exclusively to the
+selected tenant; client numbers, platform users, orphan users, and shared users
+are excluded.
 
-The screenshot showed Pending for all templates. Obtain approval before testing.
-Static website buttons need no runtime parameters. Dynamic buttons or headers
-would require additional components and are not supported by this body-only setup.
+The outbox records queued, processing, retrying, accepted, failed, and skipped
+states. Provider acceptance means the provider returned a message ID; it is not
+proof that the recipient received or read the message.
 
-Deploy the API build and restart the process. Test an announcement with WhatsApp
-enabled and then with both FCM and WhatsApp enabled: each should submit WhatsApp
-once. Check the provider delivery report using the returned message ID. An
-accepted response is not proof of delivery; delivery webhook persistence is not
-implemented here. No real messages were sent during local verification.
+Apply the Prisma migration, deploy the API build, restart the process, configure
+a provider in the tenant notification settings, and only then enable the master
+WhatsApp switch. No real messages are sent by build or unit-test validation.

@@ -1,8 +1,12 @@
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { TenantAccessService } from '../common/tenant/tenant-access.service';
+import { TenantContextService } from '../common/tenant/tenant-context.service';
 import { CrmService } from './crm.service';
 import { LeadVisibilityService } from './lead-visibility.service';
+import { TenantNotificationService } from './notifications/tenant-notification.service';
+import { WhatsAppDispatchService } from './notifications/whatsapp-dispatch.service';
 
 describe('Follow-up reminder dispatch', () => {
   let service: CrmService;
@@ -66,6 +70,22 @@ describe('Follow-up reminder dispatch', () => {
         { provide: PrismaService, useValue: db },
         { provide: RealtimeService, useValue: {} },
         { provide: LeadVisibilityService, useValue: {} },
+        {
+          provide: TenantAccessService,
+          useValue: { organizationId: 'tenant-a' },
+        },
+        {
+          provide: TenantContextService,
+          useValue: { getTenantId: () => 'tenant-a' },
+        },
+        {
+          provide: TenantNotificationService,
+          useValue: { isChannelEnabled: jest.fn().mockResolvedValue(false) },
+        },
+        {
+          provide: WhatsAppDispatchService,
+          useValue: { enqueueWithClient: jest.fn() },
+        },
       ],
     }).compile();
 

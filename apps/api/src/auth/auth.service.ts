@@ -1292,10 +1292,12 @@ export class AuthService {
           REFRESH_TOKEN_TTL_SECONDS,
         )
         .catch(() => undefined),
-      this.prisma.mobileDeviceToken?.updateMany?.({
-        where: { userId: user.id },
-        data: { isActive: false },
-      })?.catch(() => undefined),
+      this.prisma.mobileDeviceToken
+        ?.updateMany?.({
+          where: { userId: user.id },
+          data: { isActive: false },
+        })
+        ?.catch(() => undefined),
     ]);
 
     this.realtimeService.emitUserSessionExpired(
@@ -1319,38 +1321,57 @@ export class AuthService {
       request,
     });
 
-    // 3. Create In-App Notifications for Admins & Super Admins
+    // 3. Create tenant-owned in-app notifications for the user's workspace admins.
     try {
-      const admins = await this.prisma.user.findMany({
-        where: {
-          role: { in: [Role.SUPER_ADMIN, Role.ADMIN] },
-          isActive: true,
-        },
-        select: { id: true },
+      const memberships = await this.prisma.organizationMember.findMany({
+        where: { userId: user.id, isActive: true },
+        select: { organizationId: true },
       });
+      const organizationIds = [
+        ...new Set(memberships.map(({ organizationId }) => organizationId)),
+      ];
+      const userName = user.fullName || user.email;
 
-      if (admins.length > 0) {
-        const userName = user.fullName || user.email;
-        await this.prisma.notification.createMany({
-          data: admins.map((admin) => ({
-            userId: admin.id,
-            type: 'SECURITY_ALERT',
-            title: 'Security Alert: User Account Deactivated',
-            badge: 'Security',
-            message: `Account for ${userName} (${user.email}) was automatically deactivated after ${maxAttempts} failed login attempts.`,
-            details: {
-              userId: user.id,
-              email: user.email,
-              role: user.role,
-              employeeCode: user.employeeProfile?.employeeCode ?? null,
-              ip,
-              location,
-              reason: 'EXCESSIVE_FAILED_LOGINS',
-              maxAttempts,
-              lockedAt: new Date().toISOString(),
+      for (const organizationId of organizationIds) {
+        const admins = await this.prisma.organizationMember.findMany({
+          where: {
+            organizationId,
+            isActive: true,
+            OR: [{ isOwner: true }, { role: Role.ADMIN }],
+            user: {
+              isActive: true,
+              role: { not: Role.SUPER_ADMIN },
+              organizationMemberships: {
+                none: { organizationId: { not: organizationId } },
+              },
             },
-          })),
+          },
+          select: { userId: true },
         });
+
+        if (admins.length > 0) {
+          await this.prisma.notification.createMany({
+            data: admins.map((admin) => ({
+              organizationId,
+              userId: admin.userId,
+              type: 'SECURITY_ALERT',
+              title: 'Security Alert: User Account Deactivated',
+              badge: 'Security',
+              message: `Account for ${userName} (${user.email}) was automatically deactivated after ${maxAttempts} failed login attempts.`,
+              details: {
+                userId: user.id,
+                email: user.email,
+                role: user.role,
+                employeeCode: user.employeeProfile?.employeeCode ?? null,
+                ip,
+                location,
+                reason: 'EXCESSIVE_FAILED_LOGINS',
+                maxAttempts,
+                lockedAt: new Date().toISOString(),
+              },
+            })),
+          });
+        }
       }
     } catch (notifError) {
       this.logger.warn(

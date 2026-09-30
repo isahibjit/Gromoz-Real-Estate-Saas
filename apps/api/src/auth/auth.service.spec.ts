@@ -45,6 +45,9 @@ describe('AuthService - Brute Force Protection & Account Lockout', () => {
         update: jest.fn(),
         findMany: jest.fn(),
       },
+      organizationMember: {
+        findMany: jest.fn(),
+      },
       auditLog: {
         create: jest.fn().mockResolvedValue({ id: 'audit-1' }),
       },
@@ -79,7 +82,9 @@ describe('AuthService - Brute Force Protection & Account Lockout', () => {
         { provide: PrismaService, useValue: prisma },
         {
           provide: JwtService,
-          useValue: { signAsync: jest.fn().mockResolvedValue('mock-jwt-token') },
+          useValue: {
+            signAsync: jest.fn().mockResolvedValue('mock-jwt-token'),
+          },
         },
         {
           provide: ConfigService,
@@ -95,7 +100,9 @@ describe('AuthService - Brute Force Protection & Account Lockout', () => {
         { provide: RedisService, useValue: redis },
         {
           provide: AccessService,
-          useValue: { getEffectivePermissions: jest.fn().mockResolvedValue({}) },
+          useValue: {
+            getEffectivePermissions: jest.fn().mockResolvedValue({}),
+          },
         },
         {
           provide: SmsService,
@@ -127,8 +134,13 @@ describe('AuthService - Brute Force Protection & Account Lockout', () => {
       ),
     );
 
-    expect(redis.incr).toHaveBeenCalledWith(`auth:failed-attempts:${mockUser.id}`);
-    expect(redis.expire).toHaveBeenCalledWith(`auth:failed-attempts:${mockUser.id}`, 86400);
+    expect(redis.incr).toHaveBeenCalledWith(
+      `auth:failed-attempts:${mockUser.id}`,
+    );
+    expect(redis.expire).toHaveBeenCalledWith(
+      `auth:failed-attempts:${mockUser.id}`,
+      86400,
+    );
     expect(prisma.user.update).not.toHaveBeenCalled();
     expect(mailService.sendAccountLockedAlert).not.toHaveBeenCalled();
   });
@@ -152,9 +164,9 @@ describe('AuthService - Brute Force Protection & Account Lockout', () => {
   it('automatically deactivates account and alerts admins on 3rd failed password attempt', async () => {
     prisma.user.findUnique.mockResolvedValue(mockUser);
     prisma.user.update.mockResolvedValue({ ...mockUser, isActive: false });
-    prisma.user.findMany.mockResolvedValue([
-      { id: 'admin-1', role: Role.ADMIN, email: 'admin@truroot.in' },
-    ]);
+    prisma.organizationMember.findMany
+      .mockResolvedValueOnce([{ organizationId: 'organization-1' }])
+      .mockResolvedValueOnce([{ userId: 'admin-1' }]);
     redis.incr.mockResolvedValue(3);
 
     await expect(
@@ -177,12 +189,15 @@ describe('AuthService - Brute Force Protection & Account Lockout', () => {
 
     // 2. Refresh token revoked and failed counter reset
     expect(redis.del).toHaveBeenCalledWith(`auth:refresh-token:${mockUser.id}`);
-    expect(redis.del).toHaveBeenCalledWith(`auth:failed-attempts:${mockUser.id}`);
+    expect(redis.del).toHaveBeenCalledWith(
+      `auth:failed-attempts:${mockUser.id}`,
+    );
 
     // 3. In-app notification created for Admins
     expect(prisma.notification.createMany).toHaveBeenCalledWith({
       data: expect.arrayContaining([
         expect.objectContaining({
+          organizationId: 'organization-1',
           userId: 'admin-1',
           type: 'SECURITY_ALERT',
           title: 'Security Alert: User Account Deactivated',
@@ -230,7 +245,9 @@ describe('AuthService - Brute Force Protection & Account Lockout', () => {
     });
 
     expect(result).toHaveProperty('accessToken');
-    expect(redis.del).toHaveBeenCalledWith(`auth:failed-attempts:${mockUser.id}`);
+    expect(redis.del).toHaveBeenCalledWith(
+      `auth:failed-attempts:${mockUser.id}`,
+    );
   });
 
   describe('Configurable Lockout Threshold', () => {
@@ -247,7 +264,9 @@ describe('AuthService - Brute Force Protection & Account Lockout', () => {
         ),
       );
 
-      expect(redis.get).toHaveBeenCalledWith('security:max-failed-login-attempts');
+      expect(redis.get).toHaveBeenCalledWith(
+        'security:max-failed-login-attempts',
+      );
     });
 
     it('locks account at configured threshold (5 attempts)', async () => {
@@ -310,23 +329,35 @@ describe('AuthService - Brute Force Protection & Account Lockout', () => {
     it('updateSecuritySettings throws BadRequestException for out-of-bounds values', async () => {
       await expect(
         service.updateSecuritySettings({ maxFailedLoginAttempts: 2 }),
-      ).rejects.toThrow('Maximum failed login attempts must be an integer between 3 and 10.');
+      ).rejects.toThrow(
+        'Maximum failed login attempts must be an integer between 3 and 10.',
+      );
 
       await expect(
         service.updateSecuritySettings({ maxFailedLoginAttempts: 11 }),
-      ).rejects.toThrow('Maximum failed login attempts must be an integer between 3 and 10.');
+      ).rejects.toThrow(
+        'Maximum failed login attempts must be an integer between 3 and 10.',
+      );
     });
   });
 
   describe('Daily 7:30 PM Auto-Logout', () => {
     it('executes auto-logout, sets cutoff in redis, clears refresh tokens, and broadcasts socket event', async () => {
       const mockClient = {
-        keys: jest.fn().mockResolvedValue(['auth:refresh-token:user-1', 'auth:refresh-token:user-2']),
+        keys: jest
+          .fn()
+          .mockResolvedValue([
+            'auth:refresh-token:user-1',
+            'auth:refresh-token:user-2',
+          ]),
         del: jest.fn().mockResolvedValue(2),
       };
       redis.getClient.mockReturnValue(mockClient);
 
-      const result = await service.executeDailyAutoLogout('SYSTEM_CRON', 'Scheduled test');
+      const result = await service.executeDailyAutoLogout(
+        'SYSTEM_CRON',
+        'Scheduled test',
+      );
 
       expect(result.success).toBe(true);
       expect(result.clearedTokensCount).toBe(2);
@@ -356,7 +387,9 @@ describe('AuthService - Brute Force Protection & Account Lockout', () => {
       });
 
       await expect(service.refreshTokens('old-token')).rejects.toThrow(
-        new UnauthorizedException('Daily session expired at 7:30 PM. Please log in again.'),
+        new UnauthorizedException(
+          'Daily session expired at 7:30 PM. Please log in again.',
+        ),
       );
     });
   });

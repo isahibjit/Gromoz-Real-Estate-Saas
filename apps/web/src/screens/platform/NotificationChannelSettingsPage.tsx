@@ -1,11 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { toast } from "sonner";
+import toast from "react-hot-toast";
 import { Bell, MessageCircle } from "lucide-react";
 import { api } from "../../common/api";
-import { Button } from "../../components/ui/Button";
-import { Checkbox } from "../../components/ui/Checkbox";
+import { Button, Checkbox } from "ui";
 import { useAppSelector } from "../../store";
-import { crmError } from "../../features/crm/crm.state";
 
 interface Settings {
   pushEnabled: boolean;
@@ -23,9 +21,8 @@ const endpoint = "/platform/notifications/settings";
 export function NotificationChannelSettingsPage() {
   const canManage = useAppSelector(
     (state) =>
-      state.authorization.platform?.permissions?.includes(
-        "platform.notifications.settings.manage",
-      ) ?? false,
+      state.auth.user?.role === "SUPER_ADMIN" ||
+      state.auth.user?.role === "ADMIN",
   );
   const [saved, setSaved] = useState<Settings | null>(null);
   const [draft, setDraft] = useState<Settings | null>(null);
@@ -41,8 +38,8 @@ export function NotificationChannelSettingsPage() {
       if (signal?.aborted) return;
       setSaved(response.data);
       setDraft(response.data);
-    } catch (failure) {
-      if (!signal?.aborted) setError(crmError(failure).message);
+    } catch (failure: any) {
+      if (!signal?.aborted) setError(failure?.response?.data?.message || failure?.message || "Failed to load settings");
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -77,8 +74,8 @@ export function NotificationChannelSettingsPage() {
       setSaved(response.data);
       setDraft(response.data);
       toast.success("Notification settings saved");
-    } catch (failure) {
-      setError(crmError(failure).message);
+    } catch (failure: any) {
+      setError(failure?.response?.data?.message || failure?.message || "Failed to save settings");
     } finally {
       setSaving(false);
     }
@@ -143,7 +140,7 @@ export function NotificationChannelSettingsPage() {
               label={draft.pushEnabled ? "Enabled" : "Disabled"}
               checked={draft.pushEnabled}
               disabled={!canManage || !draft.fcmConfigured}
-              onChange={(checked) => change("pushEnabled", checked)}
+              onChange={(e) => change("pushEnabled", e.target.checked)}
             />
             {!draft.fcmConfigured && (
               <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
@@ -167,19 +164,19 @@ export function NotificationChannelSettingsPage() {
               label="Notify the assignee when a follow-up is assigned"
               checked={draft.followUpAssignedPush}
               disabled={!canManage}
-              onChange={(checked) => change("followUpAssignedPush", checked)}
+              onChange={(e) => change("followUpAssignedPush", e.target.checked)}
             />
             <Checkbox
               label="Remind the assignee when a follow-up is due"
               checked={draft.followUpDuePush}
               disabled={!canManage}
-              onChange={(checked) => change("followUpDuePush", checked)}
+              onChange={(e) => change("followUpDuePush", e.target.checked)}
             />
             <Checkbox
               label="Notify the assignee when a follow-up is completed"
               checked={draft.followUpCompletedPush}
               disabled={!canManage}
-              onChange={(checked) => change("followUpCompletedPush", checked)}
+              onChange={(e) => change("followUpCompletedPush", e.target.checked)}
             />
           </section>
           <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -211,11 +208,10 @@ export function NotificationChannelSettingsPage() {
             {canManage && (
               <Button
                 type="submit"
-                variant="accent"
-                isLoading={saving}
-                disabled={!dirty}
+                variant="primary"
+                disabled={!dirty || saving}
               >
-                Save notification settings
+                {saving ? "Saving..." : "Save notification settings"}
               </Button>
             )}
           </div>

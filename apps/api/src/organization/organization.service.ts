@@ -15,15 +15,79 @@ import { PrismaService } from '../persistence/prisma/prisma.service';
 import { BillingService } from '../billing/billing.service';
 import { Role, OrganizationStatus } from '@prisma/client';
 
+import {
+  IsEmail,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
+
 const resolveCnameAsync = promisify(dns.resolveCname);
 
 export class RegisterOrgDto {
-  orgName!: string;
-  orgSlug!: string;
-  adminFullName!: string;
-  adminEmail!: string;
-  adminPassword!: string;
+  @IsString()
+  @IsOptional()
+  orgName?: string;
+
+  @IsString()
+  @IsOptional()
+  organizationName?: string;
+
+  @IsString()
+  @IsOptional()
+  orgSlug?: string;
+
+  @IsString()
+  @IsOptional()
+  subdomain?: string;
+
+  @IsString()
+  @IsOptional()
+  adminFullName?: string;
+
+  @IsString()
+  @IsOptional()
+  fullName?: string;
+
+  @IsString()
+  @IsOptional()
+  adminEmail?: string;
+
+  @IsString()
+  @IsOptional()
+  email?: string;
+
+  @IsString()
+  @IsOptional()
+  adminPassword?: string;
+
+  @IsString()
+  @IsOptional()
+  password?: string;
+
+  @IsNumber()
+  @IsOptional()
   initialSeats?: number;
+
+  @IsNumber()
+  @IsOptional()
+  seats?: number;
+
+  @IsString()
+  @IsOptional()
+  planTier?: string;
+
+  @IsString()
+  @IsOptional()
+  industry?: string;
+
+  @IsString()
+  @IsOptional()
+  city?: string;
+
+  @IsString()
+  @IsOptional()
+  state?: string;
 }
 
 export class InviteMemberDto {
@@ -68,7 +132,27 @@ export class OrganizationService {
   ) {}
 
   async registerOrganization(dto: RegisterOrgDto) {
-    const cleanSlug = dto.orgSlug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '-');
+    const rawOrgName = (dto.organizationName || dto.orgName || '').trim();
+    const rawSlug = (dto.subdomain || dto.orgSlug || '').trim();
+    const rawAdminFullName = (dto.fullName || dto.adminFullName || '').trim();
+    const rawAdminEmail = (dto.email || dto.adminEmail || '').trim();
+    const rawAdminPassword = dto.password || dto.adminPassword || '';
+    const initialSeats = Math.max(1, Number(dto.seats || dto.initialSeats) || 1);
+
+    if (!rawOrgName) {
+      throw new BadRequestException('Organization name is required');
+    }
+    if (!rawSlug) {
+      throw new BadRequestException('Subdomain / Slug is required');
+    }
+    if (!rawAdminEmail) {
+      throw new BadRequestException('Admin email is required');
+    }
+    if (!rawAdminPassword || rawAdminPassword.length < 6) {
+      throw new BadRequestException('Admin password must be at least 6 characters long');
+    }
+
+    const cleanSlug = rawSlug.toLowerCase().replace(/[^a-z0-9-]/g, '-');
     const existingOrg = await this.prisma.organization.findUnique({
       where: { slug: cleanSlug },
     });
@@ -78,21 +162,23 @@ export class OrganizationService {
     }
 
     const existingUser = await this.prisma.user.findUnique({
-      where: { email: dto.adminEmail.toLowerCase().trim() },
+      where: { email: rawAdminEmail.toLowerCase() },
     });
 
     if (existingUser) {
       throw new ConflictException('An account with this email address already exists. Please log in.');
     }
 
-    const passwordHash = await argon2.hash(dto.adminPassword);
-    const initialSeats = Math.max(1, dto.initialSeats || 1);
+    const passwordHash = await argon2.hash(rawAdminPassword);
+    const planTier = (['STARTER', 'GROWTH', 'ENTERPRISE'].includes((dto.planTier || '').toUpperCase())
+      ? dto.planTier!.toUpperCase()
+      : 'STARTER') as any;
 
     const result = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
-          email: dto.adminEmail.toLowerCase().trim(),
-          fullName: dto.adminFullName,
+          email: rawAdminEmail.toLowerCase(),
+          fullName: rawAdminFullName || 'Organization Admin',
           passwordHash,
           role: 'ADMIN',
           isActive: true,
@@ -101,9 +187,12 @@ export class OrganizationService {
 
       const organization = await tx.organization.create({
         data: {
-          name: dto.orgName,
+          name: rawOrgName,
           slug: cleanSlug,
           status: 'SETUP_PENDING',
+          planTier,
+          industry: dto.industry || 'Real Estate',
+          city: dto.city || null,
           allocatedSeats: initialSeats,
           setupFeePaid: false,
           setupFeeAmount: 9999.0,

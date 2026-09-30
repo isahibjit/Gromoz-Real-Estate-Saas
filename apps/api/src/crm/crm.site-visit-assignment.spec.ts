@@ -4,7 +4,11 @@ import { Prisma } from '@prisma/client';
 import { CrmService } from './crm.service';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { TenantAccessService } from '../common/tenant/tenant-access.service';
+import { TenantContextService } from '../common/tenant/tenant-context.service';
 import { LeadVisibilityService } from './lead-visibility.service';
+import { TenantNotificationService } from './notifications/tenant-notification.service';
+import { WhatsAppDispatchService } from './notifications/whatsapp-dispatch.service';
 
 describe('Site visit assignment', () => {
   const lead = { id: 'lead-1', fieldExecutiveId: 'exec-a', statusId: 'old-status' };
@@ -49,6 +53,10 @@ describe('Site visit assignment', () => {
         { provide: PrismaService, useValue: { ...db, $transaction: transaction } },
         { provide: RealtimeService, useValue: {} },
         { provide: LeadVisibilityService, useValue: {} },
+        { provide: TenantAccessService, useValue: {} },
+        { provide: TenantContextService, useValue: { getTenantId: () => 'tenant-a' } },
+        { provide: TenantNotificationService, useValue: { isChannelEnabled: jest.fn().mockResolvedValue(false) } },
+        { provide: WhatsAppDispatchService, useValue: { enqueueWithClient: jest.fn() } },
       ],
     }).compile();
     service = module.get(CrmService);

@@ -7,14 +7,20 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
-import { buildWhatsAppTemplate } from './whatsapp-template';
-import { dispatchNotificationChannels } from './dispatch-notification-channels';
 import PDFDocument from 'pdfkit';
-import { createHmac, createSign, randomBytes } from 'crypto';
+import { createHmac, createSign, randomBytes, randomUUID } from 'crypto';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { getUserRoleLabel } from '../common/role-labels';
 import { RealtimeService } from '../realtime/realtime.service';
 import { LeadVisibilityService } from './lead-visibility.service';
+import { TenantAccessService } from '../common/tenant/tenant-access.service';
+import { TenantContextService } from '../common/tenant/tenant-context.service';
+import { TenantNotificationService } from './notifications/tenant-notification.service';
+import { WhatsAppDispatchService } from './notifications/whatsapp-dispatch.service';
+import {
+  SUPPORTED_WHATSAPP_EVENT_SET,
+  type SupportedWhatsAppEvent,
+} from './notifications/notification.constants';
 
 type Query = Record<string, string | string[] | undefined>;
 type Body = Record<string, any>;
@@ -1182,10 +1188,26 @@ export class CrmService {
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeService,
     private readonly leadVisibility: LeadVisibilityService,
+    private readonly tenantAccess: TenantAccessService,
+    private readonly tenantContext: TenantContextService,
+    private readonly notificationSettings: TenantNotificationService,
+    private readonly whatsappDispatches: WhatsAppDispatchService,
   ) {}
 
   private db() {
     return this.prisma as any;
+  }
+
+  private assertTenantWorkspaceMutation() {
+    const tenant = this.tenantContext.getTenant();
+    if (!tenant) {
+      throw new ForbiddenException('Select a tenant workspace');
+    }
+    if (tenant.role === 'SUPER_ADMIN') {
+      throw new ForbiddenException(
+        'Platform spectators have read-only workspace access',
+      );
+    }
   }
 
   private async nextLeadDisplayId() {
@@ -1404,21 +1426,153 @@ export class CrmService {
     notificationData: Body,
     navigation: NotificationNavigationPayload,
   ) {
-    const notification = await this.db().notification.create({
-      data: {
-        ...notificationData,
-        details: {
-          ...(notificationData.details ?? {}),
-          ...navigation,
-        },
-      },
-    });
-    const payload = { ...navigation, notificationId: notification.id };
-    await this.db().notification.update({
-      where: { id: notification.id },
-      data: { details: { ...(notificationData.details ?? {}), ...payload } },
+    const notificationId = randomUUID();
+    const payload = { ...navigation, notificationId };
+    const resolved = await this.resolveNotificationDispatchContext(
+      notificationData,
+    );
+    const eventKey =
+      notificationData.type === 'site-visit-updated' &&
+      resolved?.context.status === 'Cancelled'
+        ? 'site-visit-cancelled'
+        : String(notificationData.type ?? '');
+    const whatsappEnabled =
+      resolved && SUPPORTED_WHATSAPP_EVENT_SET.has(eventKey)
+        ? await this.notificationSettings.isChannelEnabled(
+            resolved.organizationId,
+            'whatsapp',
+            eventKey,
+          )
+        : false;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.notification.create({
+        data: {
+          ...notificationData,
+          id: notificationId,
+          organizationId: resolved?.organizationId ?? null,
+          details: {
+            ...(notificationData.details ?? {}),
+            ...payload,
+          },
+        } as Prisma.NotificationUncheckedCreateInput,
+      });
+      if (
+        whatsappEnabled &&
+        resolved &&
+        typeof notificationData.userId === 'string'
+      ) {
+        await this.whatsappDispatches.enqueueWithClient(tx, {
+          organizationId: resolved.organizationId,
+          notificationId,
+          recipientUserId: notificationData.userId,
+          eventKey: eventKey as SupportedWhatsAppEvent,
+          context: resolved.context,
+        });
+      }
     });
     return payload;
+  }
+
+  private async resolveNotificationDispatchContext(notificationData: Body) {
+    const recipientId =
+      typeof notificationData.userId === 'string'
+        ? notificationData.userId
+        : undefined;
+    const recipient = recipientId
+      ? await this.prisma.user.findUnique({
+          where: { id: recipientId },
+          select: { fullName: true },
+        })
+      : null;
+    const details =
+      notificationData.details && typeof notificationData.details === 'object'
+        ? notificationData.details
+        : {};
+    let organizationId =
+      typeof notificationData.organizationId === 'string'
+        ? notificationData.organizationId
+        : this.tenantContext.getTenantId();
+    let leadName =
+      typeof details.leadName === 'string' ? details.leadName : undefined;
+    let leadReference =
+      typeof details.leadDisplayId === 'string'
+        ? details.leadDisplayId
+        : undefined;
+    let scheduledAt =
+      typeof details.scheduledAt === 'string' ||
+      details.scheduledAt instanceof Date
+        ? details.scheduledAt
+        : undefined;
+    let projectName =
+      typeof details.projectName === 'string' ? details.projectName : undefined;
+    let status = typeof details.status === 'string' ? details.status : undefined;
+
+    if (
+      notificationData.entityType === 'Lead' &&
+      typeof notificationData.entityId === 'string'
+    ) {
+      const lead = await this.prisma.lead.findUnique({
+        where: { id: notificationData.entityId },
+        select: { organizationId: true, name: true, displayId: true },
+      });
+      organizationId = lead?.organizationId ?? organizationId;
+      leadName = lead?.name ?? leadName;
+      leadReference = lead?.displayId ?? leadReference;
+    }
+
+    if (
+      notificationData.entityType === 'SiteVisit' &&
+      typeof notificationData.entityId === 'string'
+    ) {
+      const visit = await this.prisma.siteVisit.findUnique({
+        where: { id: notificationData.entityId },
+        select: {
+          scheduledAt: true,
+          status: true,
+          lead: {
+            select: {
+              organizationId: true,
+              name: true,
+              displayId: true,
+            },
+          },
+          project: { select: { name: true } },
+        },
+      });
+      organizationId = visit?.lead.organizationId ?? organizationId;
+      leadName = visit?.lead.name ?? leadName;
+      leadReference = visit?.lead.displayId ?? leadReference;
+      scheduledAt = visit?.scheduledAt ?? scheduledAt;
+      projectName = visit?.project?.name ?? projectName;
+      status = visit?.status ?? status;
+    }
+
+    if (!organizationId) return null;
+    const eventType = String(notificationData.type ?? '');
+    if (
+      !scheduledAt &&
+      ['lead-assigned', 'lead-reassigned', 'sla-breach-transferred'].includes(
+        eventType,
+      )
+    ) {
+      scheduledAt = new Date();
+    }
+    return {
+      organizationId,
+      context: {
+        recipientName: recipient?.fullName?.trim() || 'Team member',
+        title: String(notificationData.title ?? ''),
+        body: String(
+          notificationData.description ?? notificationData.message ?? '',
+        ),
+        leadName,
+        leadReference,
+        scheduledAt,
+        projectName,
+        status,
+      },
+    };
   }
 
   private buildFollowUpReminderPayload(
@@ -1517,6 +1671,9 @@ export class CrmService {
     title?: string,
     bodyText?: string,
   ) {
+    this.assertTenantWorkspaceMutation();
+    await this.tenantAccess.assertEmployee(userId);
+    const organizationId = this.tenantAccess.organizationId;
     const tokens = await this.listUserDeviceTokens(userId);
     if (!tokens.length) {
       throw new BadRequestException(
@@ -1531,7 +1688,7 @@ export class CrmService {
         'This is a live test push notification sent via Firebase Cloud Messaging.',
       type: 'test-notification',
       data: this.buildNotificationNavigationPayload(null, 'notifications'),
-    });
+    }, { organizationId });
     return {
       success: true,
       message: `Test push sent to ${tokens.length} active device token(s)`,
@@ -1619,333 +1776,27 @@ export class CrmService {
     return null;
   }
 
-  public async getNotificationSettings() {
-    const DEFAULT_NOTIFICATION_EVENT_SETTINGS: Record<
-      string,
-      { fcmEnabled: boolean; whatsappEnabled: boolean }
-    > = {
-      'lead-assigned': { fcmEnabled: true, whatsappEnabled: true },
-      'lead-reassigned': { fcmEnabled: true, whatsappEnabled: true },
-      'sla-breach-transferred': { fcmEnabled: true, whatsappEnabled: true },
-      'follow-up-assigned': { fcmEnabled: true, whatsappEnabled: true },
-      'follow-up-reminder': { fcmEnabled: true, whatsappEnabled: true },
-      'follow-up-renotify': { fcmEnabled: true, whatsappEnabled: true },
-      'follow-up-updated': { fcmEnabled: true, whatsappEnabled: true },
-      'site-visit-scheduled': { fcmEnabled: true, whatsappEnabled: true },
-      'site-visit-reminder': { fcmEnabled: true, whatsappEnabled: true },
-      'site-visit-updated': { fcmEnabled: true, whatsappEnabled: true },
-      'task-assigned': { fcmEnabled: true, whatsappEnabled: true },
-      'task-updated': { fcmEnabled: true, whatsappEnabled: true },
-      'booking-created': { fcmEnabled: true, whatsappEnabled: true },
-      announcement: { fcmEnabled: true, whatsappEnabled: true },
-    };
-
-    let settings = await (this.prisma as any).notificationSetting.findUnique({
-      where: { id: 'global' },
-    });
-
-    if (!settings) {
-      settings = await (this.prisma as any).notificationSetting.create({
-        data: {
-          id: 'global',
-          globalFcmEnabled: true,
-          globalWhatsAppEnabled: true,
-          eventSettings: DEFAULT_NOTIFICATION_EVENT_SETTINGS,
-        },
-      });
-    }
-
-    const eventSettings = {
-      ...DEFAULT_NOTIFICATION_EVENT_SETTINGS,
-      ...((settings.eventSettings as Record<string, any>) || {}),
-    };
-
-    return {
-      id: settings.id,
-      globalFcmEnabled: settings.globalFcmEnabled ?? true,
-      globalWhatsAppEnabled: settings.globalWhatsAppEnabled ?? true,
-      eventSettings,
-      updatedAt: settings.updatedAt,
-      updatedById: settings.updatedById,
-    };
-  }
-
-  public async updateNotificationSettings(
-    dto: {
-      globalFcmEnabled?: boolean;
-      globalWhatsAppEnabled?: boolean;
-      eventSettings?: Record<
-        string,
-        { fcmEnabled?: boolean; whatsappEnabled?: boolean }
-      >;
-    },
-    user?: { sub?: string; id?: string },
-  ) {
-    const existing = await this.getNotificationSettings();
-
-    const updatedGlobalFcm =
-      typeof dto.globalFcmEnabled === 'boolean'
-        ? dto.globalFcmEnabled
-        : existing.globalFcmEnabled;
-    const updatedGlobalWhatsApp =
-      typeof dto.globalWhatsAppEnabled === 'boolean'
-        ? dto.globalWhatsAppEnabled
-        : existing.globalWhatsAppEnabled;
-
-    const mergedEventSettings = { ...existing.eventSettings };
-    if (dto.eventSettings) {
-      for (const [key, val] of Object.entries(dto.eventSettings)) {
-        mergedEventSettings[key] = {
-          fcmEnabled:
-            typeof val?.fcmEnabled === 'boolean'
-              ? val.fcmEnabled
-              : mergedEventSettings[key]?.fcmEnabled ?? true,
-          whatsappEnabled:
-            typeof val?.whatsappEnabled === 'boolean'
-              ? val.whatsappEnabled
-              : mergedEventSettings[key]?.whatsappEnabled ?? true,
-        };
-      }
-    }
-
-    const updated = await (this.prisma as any).notificationSetting.upsert({
-      where: { id: 'global' },
-      create: {
-        id: 'global',
-        globalFcmEnabled: updatedGlobalFcm,
-        globalWhatsAppEnabled: updatedGlobalWhatsApp,
-        eventSettings: mergedEventSettings,
-        updatedById: user?.sub || user?.id || null,
-      },
-      update: {
-        globalFcmEnabled: updatedGlobalFcm,
-        globalWhatsAppEnabled: updatedGlobalWhatsApp,
-        eventSettings: mergedEventSettings,
-        updatedById: user?.sub || user?.id || null,
-      },
-    });
-
-    return {
-      id: updated.id,
-      globalFcmEnabled: updated.globalFcmEnabled,
-      globalWhatsAppEnabled: updated.globalWhatsAppEnabled,
-      eventSettings: updated.eventSettings,
-      updatedAt: updated.updatedAt,
-      updatedById: updated.updatedById,
-    };
-  }
-
   public async isNotificationChannelEnabled(
     channel: 'fcm' | 'whatsapp',
     eventType?: string,
+    organizationId?: string,
   ): Promise<boolean> {
     try {
-      const settings = await this.getNotificationSettings();
-
-      if (channel === 'fcm' && !settings.globalFcmEnabled) {
-        return false;
-      }
-      if (channel === 'whatsapp' && !settings.globalWhatsAppEnabled) {
-        return false;
-      }
-
-      if (eventType && settings.eventSettings?.[eventType]) {
-        const eventConfig = settings.eventSettings[eventType];
-        if (channel === 'fcm' && eventConfig.fcmEnabled === false) {
-          return false;
-        }
-        if (channel === 'whatsapp' && eventConfig.whatsappEnabled === false) {
-          return false;
-        }
-      }
-
-      return true;
-    } catch (err: any) {
+      const tenantId =
+        organizationId ?? this.tenantContext.getTenantId();
+      if (!tenantId) return channel === 'fcm';
+      return this.notificationSettings.isChannelEnabled(
+        tenantId,
+        channel,
+        eventType,
+      );
+    } catch (error) {
       this.logger.warn(
-        `Failed to check notification setting for channel ${channel}: ${err?.message}`,
+        `Failed to check tenant notification setting for ${channel}: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
       );
-      return true;
-    }
-  }
-
-  public async sendWhatsAppNotification(
-    recipientUserId: string,
-    payload: {
-      title: string;
-      body: string;
-      type?: string;
-      data?: Record<string, unknown>;
-    },
-  ) {
-    if (!recipientUserId) return;
-    const isWAEnabled = await this.isNotificationChannelEnabled(
-      'whatsapp',
-      payload.type,
-    );
-    if (!isWAEnabled) {
-      this.logger.log(
-        `WhatsApp notification skipped for event ${
-          payload.type ?? 'general'
-        }: disabled in notification settings`,
-      );
-      return;
-    }
-    try {
-      let rawMobile: string | undefined = undefined;
-      const user = await this.prisma.user.findUnique({
-        where: { id: recipientUserId },
-        select: {
-          id: true,
-          fullName: true,
-          email: true,
-          employeeProfile: {
-            select: {
-              phone: true,
-            },
-          },
-        },
-      });
-      if (user) {
-        rawMobile = user.employeeProfile?.phone ?? undefined;
-      } else {
-        const lead = await this.prisma.lead.findUnique({
-          where: { id: recipientUserId },
-          select: { mobile: true },
-        });
-        if (lead) {
-          rawMobile = lead.mobile ?? undefined;
-        } else if (/^\+?\d{10,14}$/.test(recipientUserId)) {
-          rawMobile = recipientUserId;
-        }
-      }
-
-      if (!rawMobile) {
-        this.logger.warn(
-          `No phone number found for recipient ${recipientUserId} to send WhatsApp notification`,
-        );
-        return;
-      }
-
-      let cleanMobile = String(rawMobile ?? '').replace(/\D/g, '');
-      if (!cleanMobile) return;
-
-      if (cleanMobile.length === 10) {
-        cleanMobile = `91${cleanMobile}`;
-      }
-
-      const apiUrl =
-        process.env.WHATSAPP_API_URL ||
-        'https://partnersv1.pinbot.ai/v3/1287003447831866/messages';
-      const apiKey =
-        process.env.WHATSAPP_API_KEY || '04fa2b3e-a8fc-11f1-afb3-02c8a5e042bd';
-      const waNumber = process.env.WHATSAPP_WABA_NUMBER || '917400304860';
-      const apiKeyHeader =
-        process.env.WHATSAPP_API_KEY_HEADER?.trim() || 'apikey';
-      if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(apiKeyHeader)) {
-        throw new Error('WHATSAPP_API_KEY_HEADER must be a valid HTTP header name without spaces');
-      }
-
-      const data = payload.data ?? {};
-      const visit = typeof data.visitId === 'string'
-        ? await this.prisma.siteVisit.findUnique({
-            where: { id: data.visitId },
-            select: {
-              scheduledAt: true,
-              status: true,
-              lead: { select: { name: true, displayId: true, id: true } },
-              project: { select: { name: true } },
-            },
-          })
-        : null;
-
-      let leadName =
-        visit?.lead.name ||
-        (typeof data.leadName === 'string' && data.leadName.trim()
-          ? data.leadName.trim()
-          : undefined);
-
-      if (!leadName && typeof data.leadId === 'string') {
-        const leadRecord = await this.prisma.lead.findUnique({
-          where: { id: data.leadId },
-          select: { name: true },
-        });
-        if (leadRecord?.name?.trim()) {
-          leadName = leadRecord.name.trim();
-        }
-      }
-
-      const resolvedLead =
-        leadName ||
-        visit?.lead.displayId ||
-        visit?.lead.id ||
-        (typeof data.leadDisplayId === 'string'
-          ? data.leadDisplayId
-          : typeof data.leadId === 'string'
-            ? data.leadId
-            : undefined);
-
-      const assignment = ['lead-assigned', 'lead-reassigned', 'sla-breach-transferred'].includes(payload.type ?? '');
-      const template = buildWhatsAppTemplate({
-        type: payload.type ?? '',
-        recipientName: user?.fullName || 'Team member',
-        title: payload.title,
-        body: payload.body,
-        leadName: resolvedLead,
-        scheduledAt: visit?.scheduledAt ?? (assignment ? new Date() :
-          typeof data.scheduledAt === 'string' || data.scheduledAt instanceof Date ? data.scheduledAt : undefined),
-        projectName: visit?.project?.name,
-        status: visit?.status,
-      }, process.env.WHATSAPP_TEMPLATE_LANGUAGE?.trim() || 'en');
-      if (!template) {
-        this.logger.warn(`WhatsApp skipped for ${payload.type}: no matching template or required parameters missing`);
-        return;
-      }
-
-      const requestBody = {
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
-        to: cleanMobile,
-        type: 'template',
-        template,
-      };
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          [apiKeyHeader]: apiKey,
-          wanumber: waNumber,
-        },
-        body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(15000),
-      });
-
-      if (response.ok) {
-        const resJson: unknown = await response.json().catch(() => null);
-        const messages = resJson && typeof resJson === 'object' && 'messages' in resJson
-          ? resJson.messages : null;
-        const firstMessage: unknown = Array.isArray(messages) ? messages[0] : null;
-        const messageId = firstMessage && typeof firstMessage === 'object' && 'id' in firstMessage
-          && typeof firstMessage.id === 'string' ? firstMessage.id : null;
-        if (!messageId) {
-          this.logger.warn(`WhatsApp provider returned HTTP ${response.status} without a message ID for ${template.name}`);
-          return;
-        }
-        this.logger.log(
-          `WhatsApp template ${template.name} accepted by provider (delivery unconfirmed) for user ${recipientUserId} for ${
-            payload.type || 'notification'
-          }: ${messageId}`,
-        );
-      } else {
-        const errRes = await response.text().catch(() => '');
-        this.logger.warn(
-          `WhatsApp API HTTP ${response.status} error for user ${recipientUserId} (${cleanMobile}): ${errRes}`,
-        );
-      }
-    } catch (err: any) {
-      this.logger.warn(
-        `Failed to send WhatsApp notification to user ${recipientUserId}: ${err?.message}`,
-      );
+      return false;
     }
   }
 
@@ -1957,7 +1808,7 @@ export class CrmService {
       type: string;
       data?: Record<string, any>;
     },
-    sendWhatsApp = true,
+    options?: { organizationId?: string },
   ) {
     const emptyResult = {
       attempted: false,
@@ -1968,21 +1819,10 @@ export class CrmService {
     };
     if (!recipientUserId) return emptyResult;
 
-    let whatsappSent = false;
-    if (sendWhatsApp) {
-      const isWAEnabled = await this.isNotificationChannelEnabled(
-        'whatsapp',
-        payload.type,
-      );
-      if (isWAEnabled) {
-        void this.sendWhatsAppNotification(recipientUserId, payload);
-        whatsappSent = true;
-      }
-    }
-
     const isFcmEnabled = await this.isNotificationChannelEnabled(
       'fcm',
       payload.type,
+      options?.organizationId,
     );
     if (!isFcmEnabled) {
       this.logger.log(
@@ -1990,7 +1830,7 @@ export class CrmService {
           payload.type ?? 'general'
         }: disabled in notification settings`,
       );
-      return { ...emptyResult, delivered: whatsappSent, whatsappSent };
+      return emptyResult;
     }
 
     const fcmAuth = await this.getGoogleFcmAccessToken();
@@ -2000,7 +1840,7 @@ export class CrmService {
       this.logger.warn(
         'FCM Push skip: Neither FIREBASE_SERVICE_ACCOUNT_JSON nor FCM_SERVER_KEY is configured.',
       );
-      return { ...emptyResult, delivered: whatsappSent, whatsappSent };
+      return emptyResult;
     }
 
     const tokens = await this.db().mobileDeviceToken.findMany({
@@ -2017,7 +1857,7 @@ export class CrmService {
       this.logger.warn(
         `FCM Push skip: No active device tokens registered for user ${recipientUserId}.`,
       );
-      return { ...emptyResult, delivered: whatsappSent, whatsappSent };
+      return emptyResult;
     }
 
     const projectId =
@@ -2167,17 +2007,17 @@ export class CrmService {
 
     return {
       attempted,
-      delivered: deliveredCount > 0 || whatsappSent,
+      delivered: deliveredCount > 0,
       tokenCount: tokens.length,
       deliveredCount,
       invalidTokenCount: invalidTokenIds.length,
-      whatsappSent,
     };
   }
 
   private async sendFollowUpReminderPush(
     recipientUserId: string,
     reminder: FollowUpReminderPayload,
+    organizationId?: string,
   ) {
     const notificationTitle =
       reminder.title || `Follow-up due for ${reminder.leadName}`;
@@ -2192,7 +2032,7 @@ export class CrmService {
       body: notificationBody,
       type: 'follow-up-reminder',
       data: reminder as any,
-    });
+    }, { organizationId });
   }
 
   private magicBricksPublicApiBaseUrl() {
@@ -7585,7 +7425,7 @@ export class CrmService {
       body: notificationContent.description || notificationContent.message,
       type: notificationContent.type,
       data: reminderPayload as any,
-    }).catch(() => undefined);
+    }, { organizationId: lead.organizationId }).catch(() => undefined);
   }
 
   private async ensureMasters(categoryCode: string, defaults: Body[]) {
@@ -10174,6 +10014,7 @@ export class CrmService {
     await Promise.all([
       this.db().notification.create({
         data: {
+          organizationId: lead.organizationId ?? null,
           userId: String(previousUserId),
           type: 'AUTO_ASSIGNMENT_TRANSFERRED',
           title: 'Lead moved to next assignee',
@@ -10224,15 +10065,27 @@ export class CrmService {
             leadDisplayId: lead.displayId ?? lead.id,
           }),
         },
-      }).catch((err) =>
+      }, { organizationId: lead.organizationId }).catch((err) =>
         this.logger.warn(`Push notify error on SLA transfer: ${err?.message}`),
       );
     }
   }
 
   private async notifyAdminsAutoAssignmentExhausted(lead: Body) {
+    if (!lead.organizationId) return;
     const admins = await this.db().user.findMany({
-      where: { role: { in: ['SUPER_ADMIN', 'ADMIN'] }, isActive: true },
+      where: {
+        isActive: true,
+        role: { not: 'SUPER_ADMIN' },
+        organizationMemberships: {
+          some: {
+            organizationId: lead.organizationId,
+            isActive: true,
+            role: 'ADMIN',
+          },
+          none: { organizationId: { not: lead.organizationId } },
+        },
+      },
       select: { id: true },
     });
     if (!admins.length) return;
@@ -10246,6 +10099,7 @@ export class CrmService {
     );
     await this.db().notification.createMany({
       data: admins.map((admin: Body) => ({
+        organizationId: lead.organizationId,
         userId: admin.id,
         type: 'AUTO_ASSIGNMENT_EXHAUSTED',
         title: 'Auto assignment exhausted',
@@ -10266,7 +10120,7 @@ export class CrmService {
         } reached the end of its SLA transfer sequence.`,
         type: 'sla-exhausted',
         data: navigation,
-      }).catch((err) =>
+      }, { organizationId: lead.organizationId }).catch((err) =>
         this.logger.warn(`Push notify error on SLA exhausted: ${err?.message}`),
       );
     });
@@ -10898,7 +10752,7 @@ export class CrmService {
           leadName: lead.name,
           ...assignmentPushPayload,
         },
-      }).catch((err) =>
+      }, { organizationId: effectiveOrgId }).catch((err) =>
         this.logger.warn(
           `Push notify error on lead create assign: ${err?.message}`,
         ),
@@ -14990,7 +14844,7 @@ export class CrmService {
           assigneeType,
           ...assignmentPushPayload,
         },
-      }).catch((err) =>
+      }, { organizationId: current.organizationId }).catch((err) =>
         this.logger.warn(`Push notify error on lead assign: ${err?.message}`),
       );
     }
@@ -17494,7 +17348,7 @@ export class CrmService {
         this.db()
           .lead.findUnique({
             where: { id: visit.leadId },
-            select: { name: true, displayId: true },
+            select: { name: true, displayId: true, organizationId: true },
           })
           .catch(() => null),
         this.db().user.findUnique({
@@ -17538,7 +17392,7 @@ export class CrmService {
           scheduledAt: visit.scheduledAt,
           ...pushPayload,
         },
-      }).catch((err) =>
+      }, { organizationId: lead?.organizationId }).catch((err) =>
         this.logger.warn(
           `Push notify error on site visit schedule: ${err?.message}`,
         ),
@@ -17588,7 +17442,7 @@ export class CrmService {
         this.db()
           .lead.findUnique({
             where: { id: visit.leadId },
-            select: { name: true, displayId: true },
+            select: { name: true, displayId: true, organizationId: true },
           })
           .catch(() => null),
         this.db().user.findUnique({
@@ -17610,7 +17464,10 @@ export class CrmService {
         ? await this.createNotificationWithNavigation(
             {
               userId: recipient.id,
-              type: 'site-visit-updated',
+              type:
+                visit.status === 'Cancelled'
+                  ? 'site-visit-cancelled'
+                  : 'site-visit-updated',
               title: `Site Visit ${visit.status || 'Updated'}`,
               description: `Site visit for ${leadName} has been updated (${visit.status || 'Updated'})`,
               badge: this.roleLabel(recipient.role),
@@ -17627,12 +17484,15 @@ export class CrmService {
         body: `Site visit for ${leadName} has been updated (${
           visit.status || 'Updated'
         })`,
-        type: 'site-visit-updated',
+        type:
+          visit.status === 'Cancelled'
+            ? 'site-visit-cancelled'
+            : 'site-visit-updated',
         data: {
           status: visit.status,
           ...pushPayload,
         },
-      }).catch((err) =>
+      }, { organizationId: lead?.organizationId }).catch((err) =>
         this.logger.warn(
           `Push notify error on site visit update: ${err?.message}`,
         ),
@@ -18841,7 +18701,7 @@ export class CrmService {
 
   async runFollowUpReminderDispatches() {
     const now = new Date();
-    const dueFollowUps = await this.db().followUp.findMany({
+    const dueFollowUps = await this.prisma.followUp.findMany({
       where: {
         completedAt: null,
         scheduledAt: { lte: now },
@@ -18855,6 +18715,7 @@ export class CrmService {
             id: true,
             displayId: true,
             name: true,
+            organizationId: true,
             statusId: true,
             updatedAt: true,
             deletedAt: true,
@@ -18866,12 +18727,8 @@ export class CrmService {
     let processedCount = 0;
     for (const followUp of dueFollowUps) {
       if (!followUp.assignedToId) continue;
-      let shouldSendPush = false;
-      let pushRecipientId: string | null = null;
-      let pushRole: string | null | undefined = null;
-      let pushLead: Body | null = null;
-      let pushFollowUp: Body | null = null;
-      await this.db().$transaction(async (tx: Body) => {
+      try {
+        const reminder = await this.prisma.$transaction(async (tx) => {
         const current = await tx.followUp.findUnique({
           where: { id: followUp.id },
           select: {
@@ -18886,6 +18743,7 @@ export class CrmService {
                 id: true,
                 displayId: true,
                 name: true,
+                organizationId: true,
                 statusId: true,
                 updatedAt: true,
                 deletedAt: true,
@@ -18899,7 +18757,7 @@ export class CrmService {
           current.scheduledAt > now ||
           current.lead?.deletedAt
         ) {
-          return;
+          return null;
         }
         const status = current.lead?.statusId
           ? await tx.leadMasterValue.findUnique({
@@ -18911,7 +18769,7 @@ export class CrmService {
             })
           : null;
         if (status?.followUpNotificationEnabled === false) {
-          return;
+          return null;
         }
         const renotifyMinutes = Number(status?.followUpRenotifyMinutes ?? 0);
         if (current.reminderSentAt) {
@@ -18921,102 +18779,111 @@ export class CrmService {
             current.reminderSentAt.getTime() + renotifyMinutes * 60 * 1000,
           );
           if (!canRenotify || nextReminderAt > now) {
-            return;
+            return null;
           }
         }
-        const recipient = await tx.user.findUnique({
-          where: { id: current.assignedToId },
-          select: { id: true, role: true },
+        const organizationId = current.lead?.organizationId;
+        if (!organizationId) return null;
+        const recipient = await tx.user.findFirst({
+          where: {
+            id: current.assignedToId,
+            isActive: true,
+            role: { not: 'SUPER_ADMIN' },
+            organizationMemberships: {
+              some: { organizationId, isActive: true },
+              none: { organizationId: { not: organizationId } },
+            },
+          },
+          select: { id: true, role: true, fullName: true },
         });
-        if (!recipient?.id) return;
+        if (!recipient?.id) return null;
 
         const lead = current.lead ?? followUp.lead;
-        shouldSendPush = true;
-        pushRecipientId = recipient.id;
-        pushRole = recipient.role;
-        pushLead = lead;
-        pushFollowUp = current;
+        const claim = await tx.followUp.updateMany({
+          where: {
+            id: current.id,
+            completedAt: null,
+            assignedToId: current.assignedToId,
+            reminderSentAt: current.reminderSentAt,
+            scheduledAt: { lte: now },
+          },
+          data: { reminderSentAt: now },
+        });
+        if (claim.count !== 1) return null;
+
+        const notificationId = randomUUID();
+        const notificationDescription = `${lead.name} (${
+          lead.displayId ?? lead.id
+        }) is due now.`;
+        const reminderPayload = this.buildFollowUpReminderPayload(
+          recipient.role,
+          lead,
+          current,
+        );
+        await tx.notification.create({
+          data: {
+            id: notificationId,
+            organizationId,
+            userId: recipient.id,
+            type: 'follow-up-reminder',
+            title: 'Follow-up reminder',
+            description: notificationDescription,
+            badge: this.roleLabel(recipient.role),
+            message: `${String(
+              current.typeId ?? 'Follow-up',
+            )} is scheduled for ${this.formatFollowUpSchedule(
+              current.scheduledAt,
+            )}.`,
+            entityType: 'Lead',
+            entityId: lead.id,
+            details: { ...reminderPayload, notificationId },
+          },
+        });
+        const whatsappEnabled =
+          await this.notificationSettings.isChannelEnabled(
+            organizationId,
+            'whatsapp',
+            'follow-up-reminder',
+          );
+        if (whatsappEnabled) {
+          await this.whatsappDispatches.enqueueWithClient(tx, {
+            organizationId,
+            notificationId,
+            recipientUserId: recipient.id,
+            eventKey: 'follow-up-reminder',
+            context: {
+              recipientName: recipient.fullName || 'Team member',
+              title: 'Follow-up reminder',
+              body: notificationDescription,
+              leadName: lead.name,
+              leadReference: lead.displayId ?? lead.id,
+              scheduledAt: current.scheduledAt,
+            },
+          });
+        }
+        return {
+          organizationId,
+          recipientId: recipient.id,
+          role: recipient.role,
+          lead,
+          followUp: current,
+        };
       });
 
-      if (!shouldSendPush || !pushRecipientId || !pushLead || !pushFollowUp) {
-        continue;
-      }
-      try {
-        const pushResult = await this.sendFollowUpReminderPush(
-          pushRecipientId,
-          this.buildFollowUpReminderPayload(pushRole, pushLead, pushFollowUp),
+        if (!reminder) continue;
+        processedCount += 1;
+        await this.sendFollowUpReminderPush(
+          reminder.recipientId,
+          this.buildFollowUpReminderPayload(
+            reminder.role,
+            reminder.lead,
+            reminder.followUp,
+          ),
+          reminder.organizationId,
         );
-        if (!pushResult.delivered) {
-          this.logger.warn(
-            `Follow-up reminder push not delivered for follow-up ${followUp.id}: tokenCount=${pushResult.tokenCount}, attempted=${pushResult.attempted}`,
-          );
-          continue;
-        }
-        await this.db().$transaction(async (tx: Body) => {
-          const current = await tx.followUp.findUnique({
-            where: { id: followUp.id },
-            select: {
-              id: true,
-              assignedToId: true,
-              completedAt: true,
-              reminderSentAt: true,
-              scheduledAt: true,
-              typeId: true,
-              lead: {
-                select: {
-                  id: true,
-                  displayId: true,
-                  name: true,
-                  deletedAt: true,
-                },
-              },
-            },
-          });
-          if (
-            !current?.assignedToId ||
-            current.completedAt ||
-            current.scheduledAt > now ||
-            current.lead?.deletedAt
-          ) {
-            return;
-          }
-          const lead = current.lead ?? pushLead;
-          const notificationDescription = `${lead.name} (${
-            lead.displayId ?? lead.id
-          }) is due now.`;
-          await tx.notification.create({
-            data: {
-              userId: pushRecipientId,
-              type: 'follow-up-reminder',
-              title: 'Follow-up reminder',
-              description: notificationDescription,
-              badge: this.roleLabel(pushRole),
-              message: `${String(
-                current.typeId ?? 'Follow-up',
-              )} is scheduled for ${this.formatFollowUpSchedule(
-                current.scheduledAt,
-              )}.`,
-              entityType: 'Lead',
-              entityId: lead.id,
-              details: this.buildFollowUpReminderPayload(
-                pushRole,
-                lead,
-                current,
-              ),
-            },
-          });
-
-          await tx.followUp.update({
-            where: { id: followUp.id },
-            data: {
-              reminderSentAt: now,
-            },
-          });
-          processedCount += 1;
-        });
       } catch (error) {
         this.logger.warn(
-          `Unable to send reminder push for follow-up ${followUp.id}: ${
+          `Unable to dispatch follow-up reminder ${followUp.id}: ${
             error instanceof Error ? error.message : 'Unknown error'
           }`,
         );
@@ -19028,7 +18895,9 @@ export class CrmService {
 
   async listNotifications(query: Query, user?: Body) {
     const { page, limit, skip } = pageMeta(query);
-    const where: Body = {};
+    const where: Body = {
+      organizationId: this.tenantAccess.organizationId,
+    };
     if (user?.sub) where.userId = user.sub;
     if (query.type) where.type = String(query.type);
     if (query.read === 'false') where.readAt = null;
@@ -19045,15 +18914,27 @@ export class CrmService {
   }
 
   async markNotificationRead(id: string, user?: Body) {
+    const notification = await this.db().notification.findFirst({
+      where: {
+        id,
+        organizationId: this.tenantAccess.organizationId,
+        ...(user?.sub ? { userId: user.sub } : {}),
+      },
+    });
+    if (!notification) throw new NotFoundException('Notification not found');
     return this.db().notification.update({
-      where: { id },
-      data: { readAt: new Date(), userId: user?.sub },
+      where: { id: notification.id },
+      data: { readAt: new Date() },
     });
   }
 
   async markAllNotificationsRead(user?: Body) {
     await this.db().notification.updateMany({
-      where: user?.sub ? { userId: user.sub, readAt: null } : { readAt: null },
+      where: {
+        organizationId: this.tenantAccess.organizationId,
+        ...(user?.sub ? { userId: user.sub } : {}),
+        readAt: null,
+      },
       data: { readAt: new Date() },
     });
     return { updated: true };
@@ -19073,6 +18954,8 @@ export class CrmService {
     },
     actorUser?: Body,
   ) {
+    this.assertTenantWorkspaceMutation();
+    const organizationId = this.tenantAccess.organizationId;
     const title = String(body.title ?? '').trim();
     const message = String(body.message ?? '').trim();
     if (!title || !message) {
@@ -19085,22 +18968,49 @@ export class CrmService {
     let targetUserIds: string[] = [];
 
     if (targetType === 'INDIVIDUAL' && Array.isArray(body.targetUserIds)) {
-      targetUserIds = body.targetUserIds.filter(Boolean);
+      targetUserIds = [...new Set(body.targetUserIds.filter(Boolean))];
+      await this.tenantAccess.assertEmployees(targetUserIds);
     } else if (targetType === 'ROLE' && body.targetRole) {
+      if (!Object.values(Role).includes(body.targetRole as Role)) {
+        throw new BadRequestException('Invalid target role');
+      }
       const users = await this.db().user.findMany({
-        where: { role: body.targetRole as any, isActive: true },
+        where: {
+          AND: [
+            this.tenantAccess.employeeWhere(),
+            {
+              isActive: true,
+              organizationMemberships: {
+                some: {
+                  organizationId,
+                  isActive: true,
+                  role: body.targetRole as Role,
+                },
+              },
+            },
+          ],
+        },
         select: { id: true },
       });
       targetUserIds = users.map((u: any) => u.id);
     } else if (targetType === 'TEAM' && body.targetTeamId) {
-      const members = await this.db().teamMember.findMany({
-        where: { teamId: body.targetTeamId, user: { isActive: true } },
+      await this.tenantAccess.assertTeams([body.targetTeamId]);
+      const members = await this.db().teamMembership.findMany({
+        where: {
+          teamId: body.targetTeamId,
+          team: { organizationId },
+          user: {
+            AND: [this.tenantAccess.employeeWhere(), { isActive: true }],
+          },
+        },
         select: { userId: true },
       });
       targetUserIds = members.map((m: any) => m.userId);
     } else {
       const users = await this.db().user.findMany({
-        where: { isActive: true },
+        where: {
+          AND: [this.tenantAccess.employeeWhere(), { isActive: true }],
+        },
         select: { id: true },
       });
       targetUserIds = users.map((u: any) => u.id);
@@ -19118,8 +19028,19 @@ export class CrmService {
       null,
       'notifications',
     );
-    const createData = targetUserIds.map((userId) => ({
-      userId,
+    const recipients = await this.db().user.findMany({
+      where: {
+        AND: [
+          this.tenantAccess.employeeWhere(),
+          { id: { in: targetUserIds }, isActive: true },
+        ],
+      },
+      select: { id: true, fullName: true },
+    });
+    const createData = recipients.map((recipient: Body) => ({
+      id: randomUUID(),
+      organizationId,
+      userId: recipient.id,
       type: notificationType,
       title,
       description: message,
@@ -19140,27 +19061,50 @@ export class CrmService {
       readAt: null,
     }));
 
-    await this.db().notification.createMany({
-      data: createData,
+    let whatsappQueuedCount = 0;
+    await this.db().$transaction(async (tx: Prisma.TransactionClient) => {
+      await tx.notification.createMany({ data: createData });
+      if (
+        sendWhatsApp &&
+        SUPPORTED_WHATSAPP_EVENT_SET.has(notificationType)
+      ) {
+        for (const [index, recipient] of recipients.entries()) {
+          const queued = await this.whatsappDispatches.enqueueWithClient(tx, {
+            organizationId,
+            notificationId: createData[index].id,
+            recipientUserId: recipient.id,
+            eventKey: notificationType as SupportedWhatsAppEvent,
+            context: {
+              recipientName: recipient.fullName || 'Team member',
+              title,
+              body: message,
+            },
+          });
+          if (queued) whatsappQueuedCount += 1;
+        }
+      }
     });
 
     const notificationPayload = {
       title, body: message, type: notificationType, data: navigation,
     };
-    const dispatchCounts = await dispatchNotificationChannels(
-      targetUserIds,
-      {
-        push: sendPush
-          ? (userId) => this.sendPushNotification(userId, notificationPayload, false)
-          : undefined,
-        whatsapp: sendWhatsApp
-          ? (userId) => this.sendWhatsAppNotification(userId, notificationPayload)
-          : undefined,
-      },
-      (channel, userId, error) => this.logger.warn(
-        `Failed to dispatch ${channel} notification to user ${userId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      ),
-    );
+    let pushCount = 0;
+    if (sendPush) {
+      for (const recipient of recipients) {
+        try {
+          await this.sendPushNotification(recipient.id, notificationPayload, {
+            organizationId,
+          });
+          pushCount += 1;
+        } catch (error) {
+          this.logger.warn(
+            `Failed to dispatch push notification to user ${recipient.id}: ${
+              error instanceof Error ? error.message : 'Unknown error'
+            }`,
+          );
+        }
+      }
+    }
 
     await this.audit(
       actorUser?.sub,
@@ -19173,26 +19117,34 @@ export class CrmService {
         recipientCount: targetUserIds.length,
         pushSent: sendPush,
       },
+      organizationId,
     );
 
     return {
       success: true,
       broadcastGroupId,
-      recipientCount: targetUserIds.length,
-      pushCount: dispatchCounts.push,
-      message: `Notification broadcasted to ${targetUserIds.length} user(s).`,
+      recipientCount: recipients.length,
+      pushCount,
+      whatsappQueuedCount,
+      message: `Notification broadcasted to ${recipients.length} user(s).`,
     };
   }
 
   async listNotificationRecipients(query: Query) {
     const users = await this.db().user.findMany({
-      where: { isActive: true },
+      where: {
+        AND: [this.tenantAccess.employeeWhere(), { isActive: true }],
+      },
       select: {
         id: true,
         fullName: true,
         email: true,
-        role: true,
         avatarStorageKey: true,
+        organizationMemberships: {
+          where: { organizationId: this.tenantAccess.organizationId },
+          select: { role: true },
+          take: 1,
+        },
       },
       orderBy: { fullName: 'asc' },
     });
@@ -19202,7 +19154,7 @@ export class CrmService {
         id: u.id,
         fullName: u.fullName,
         email: u.email,
-        role: u.role,
+        role: u.organizationMemberships[0]?.role,
         avatarUrl: u.avatarStorageKey,
       })),
     };
@@ -19212,6 +19164,7 @@ export class CrmService {
     const { page, limit, skip } = pageMeta(query);
     const notifications = await this.db().notification.findMany({
       where: {
+        organizationId: this.tenantAccess.organizationId,
         OR: [{ badge: 'Broadcast' }, { entityType: 'Broadcast' }],
       },
       orderBy: { createdAt: 'desc' },
@@ -19264,8 +19217,10 @@ export class CrmService {
   }
 
   async resendBroadcastNotification(id: string, actorUser?: Body) {
-    const notification = await this.db().notification.findUnique({
-      where: { id },
+    this.assertTenantWorkspaceMutation();
+    const organizationId = this.tenantAccess.organizationId;
+    const notification = await this.db().notification.findFirst({
+      where: { id, organizationId },
     });
     if (!notification) {
       throw new NotFoundException('Notification not found');
@@ -19278,6 +19233,7 @@ export class CrmService {
     if (broadcastGroupId) {
       targetNotifications = await this.db().notification.findMany({
         where: {
+          organizationId,
           details: {
             path: ['broadcastGroupId'],
             equals: broadcastGroupId,
@@ -19290,50 +19246,27 @@ export class CrmService {
       new Set(targetNotifications.map((n) => n.userId)),
     );
 
-    let pushCount = 0;
-    for (const userId of targetUserIds) {
-      try {
-        await this.sendPushNotification(userId, {
-          title: notification.title,
-          body: notification.message || notification.description || '',
-          type: notification.type,
-          data: this.buildNotificationNavigationPayload(null, 'notifications'),
-        });
-        pushCount++;
-      } catch (err: any) {
-        this.logger.warn(`Resend FCM push failed for user ${userId}: ${err?.message}`);
-      }
-    }
-
-    // Touch readAt = null to bring to front
-    await this.db().notification.updateMany({
-      where: { id: { in: targetNotifications.map((n) => n.id) } },
-      data: { readAt: null, createdAt: new Date() },
-    });
-
-    await this.audit(
-      actorUser?.sub,
-      'BROADCAST_NOTIFICATION_RESENT',
-      'Notification',
-      id,
+    return this.sendBroadcastNotification(
       {
         title: notification.title,
-        recipientCount: targetUserIds.length,
-        pushCount,
+        message: notification.message || notification.description || '',
+        type: notification.type,
+        targetType: 'INDIVIDUAL',
+        targetUserIds: targetUserIds.filter(
+          (userId): userId is string => typeof userId === 'string',
+        ),
+        sendPush: details.sendPush !== false,
+        sendWhatsApp: details.sendWhatsApp !== false,
       },
+      actorUser,
     );
-
-    return {
-      success: true,
-      recipientCount: targetUserIds.length,
-      pushCount,
-      message: `Broadcast notification resent to ${targetUserIds.length} employee(s).`,
-    };
   }
 
   async deleteNotification(id: string, actorUser?: Body) {
-    const notification = await this.db().notification.findUnique({
-      where: { id },
+    this.assertTenantWorkspaceMutation();
+    const organizationId = this.tenantAccess.organizationId;
+    const notification = await this.db().notification.findFirst({
+      where: { id, organizationId },
     });
     if (!notification) {
       throw new NotFoundException('Notification not found');
@@ -19345,6 +19278,7 @@ export class CrmService {
     if (broadcastGroupId) {
       await this.db().notification.deleteMany({
         where: {
+          organizationId,
           details: {
             path: ['broadcastGroupId'],
             equals: broadcastGroupId,
@@ -19352,8 +19286,8 @@ export class CrmService {
         },
       });
     } else {
-      await this.db().notification.delete({
-        where: { id },
+      await this.db().notification.deleteMany({
+        where: { id, organizationId },
       });
     }
 

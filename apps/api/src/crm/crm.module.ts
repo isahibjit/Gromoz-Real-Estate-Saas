@@ -45,6 +45,11 @@ import {
 } from './housing-integrations.controller';
 import { HousingIntegrationsService } from './housing-integrations.service';
 import { MobileLeadsController } from './mobile-leads.controller';
+import { PinbotWhatsAppService } from './notifications/pinbot-whatsapp.service';
+import { TenantNotificationService } from './notifications/tenant-notification.service';
+import { WhatsAppCredentialService } from './notifications/whatsapp-credential.service';
+import { WhatsAppDispatchService } from './notifications/whatsapp-dispatch.service';
+import { WhatsAppDispatchWorker } from './notifications/whatsapp-dispatch.worker';
 
 @Module({
   imports: [
@@ -98,7 +103,18 @@ import { MobileLeadsController } from './mobile-leads.controller';
     HousingIntegrationsService,
     AutoAssignmentWorker,
     FollowUpReminderWorker,
+    WhatsAppCredentialService,
+    PinbotWhatsAppService,
+    TenantNotificationService,
+    WhatsAppDispatchService,
+    WhatsAppDispatchWorker,
   ],
-  exports: [CrmService, EmailConnectorsService, HousingIntegrationsService],
+  exports: [
+    CrmService,
+    EmailConnectorsService,
+    HousingIntegrationsService,
+    TenantNotificationService,
+    WhatsAppDispatchService,
+  ],
 })
 export class CrmModule {}

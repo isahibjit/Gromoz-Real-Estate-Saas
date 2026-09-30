@@ -34,6 +34,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Input,
 } from "ui";
 import { api } from "../../common/api";
 
@@ -87,7 +88,7 @@ export function ProvisionTenantModal({
   onClose,
   onTenantCreated,
 }: ProvisionTenantModalProps) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [dynamicPlans, setDynamicPlans] = useState<any[]>([]);
@@ -214,13 +215,22 @@ export function ProvisionTenantModal({
     return true;
   };
 
+  const [createdTenantResult, setCreatedTenantResult] = useState<{
+    companyName: string;
+    subdomain: string;
+    adminEmail: string;
+    paymentLinkUrl: string;
+    totalAmount: number;
+    seats: number;
+  } | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateStep3()) return;
 
     setIsSubmitting(true);
     try {
-      await api.post("/organizations/register", {
+      const res = await api.post("/organizations/register", {
         organizationName: form.companyName.trim(),
         subdomain: form.slug.trim().toLowerCase(),
         fullName: form.adminFullName.trim(),
@@ -233,26 +243,21 @@ export function ProvisionTenantModal({
         state: form.state,
       });
 
+      const checkoutData = res.data?.checkoutOrder;
+      const linkUrl = checkoutData?.paymentLinkUrl || checkoutData?.shortUrl || "";
+
+      setCreatedTenantResult({
+        companyName: form.companyName.trim(),
+        subdomain: form.slug.trim().toLowerCase(),
+        adminEmail: form.adminEmail.trim().toLowerCase(),
+        paymentLinkUrl: linkUrl,
+        totalAmount: checkoutData?.amount || 0,
+        seats: checkoutData?.seatsCount || Number(form.seats) || 5,
+      });
+
       toast.success(`Tenant organization "${form.companyName}" successfully provisioned!`);
       onTenantCreated();
-      onClose();
-      // Reset form
-      setForm({
-        companyName: "",
-        slug: "",
-        industry: "Real Estate & Property Development",
-        city: "Mumbai",
-        state: "Maharashtra",
-        planTier: "GROWTH",
-        seats: 15,
-        billingCycle: "monthly",
-        isTrial: true,
-        adminFullName: "",
-        adminEmail: "",
-        adminPassword: "",
-        sendWelcomeInvite: true,
-      });
-      setStep(1);
+      setStep(4);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Failed to provision tenant workspace.");
     } finally {
@@ -409,14 +414,14 @@ export function ProvisionTenantModal({
                   placeholder="e.g. Prestige Heights Realtors Pvt Ltd"
                   value={form.companyName}
                   onChange={handleCompanyNameChange}
-                  className="mt-1 h-11 w-full rounded-sm border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:border-[#0D1F3D] focus:outline-none focus:ring-1 focus:ring-[#0D1F3D]"
+                  className="mt-1 h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:border-[#0D1F3D] focus:outline-none focus:ring-2 focus:ring-[#0D1F3D]/10 transition-all"
                 />
               </div>
 
               <div>
                 <label className="text-xs font-bold text-slate-700">Workspace Subdomain Slug *</label>
-                <div className="mt-1 flex items-center rounded-sm border border-slate-200 bg-slate-50 px-3 focus-within:border-[#0D1F3D] focus-within:ring-1 focus-within:ring-[#0D1F3D]">
-                  <Globe className="h-4 w-4 text-slate-400 mr-2" />
+                <div className="mt-1 flex items-center rounded-lg border border-slate-200 bg-slate-50 px-3.5 transition-all focus-within:border-[#0D1F3D] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0D1F3D]/10">
+                  <Globe className="h-4 w-4 text-slate-400 mr-2 shrink-0" />
                   <input
                     type="text"
                     required
@@ -428,9 +433,10 @@ export function ProvisionTenantModal({
                         slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""),
                       })
                     }
-                    className="h-11 flex-1 bg-transparent text-xs font-mono font-bold text-slate-800 focus:outline-none"
+                    style={{ outline: "none", border: "none", boxShadow: "none" }}
+                    className="h-11 flex-1 bg-transparent border-none outline-none ring-0 shadow-none text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-0 focus:border-none focus:shadow-none focus:bg-transparent focus-visible:outline-none focus-visible:ring-0 focus-visible:border-none focus-visible:shadow-none invalid:outline-none invalid:shadow-none px-0"
                   />
-                  <span className="text-xs font-semibold text-slate-400">.truerootcrm.com</span>
+                  <span className="text-xs font-semibold text-slate-400 shrink-0 pl-1">.truerootcrm.com</span>
                 </div>
                 <p className="text-[11px] text-slate-400 font-medium mt-1">
                   Tenant workspace will be accessible at:{" "}
@@ -446,7 +452,7 @@ export function ProvisionTenantModal({
                   <select
                     value={form.industry}
                     onChange={(e) => setForm({ ...form, industry: e.target.value })}
-                    className="mt-1 h-11 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                    className="mt-1 h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none focus:ring-2 focus:ring-[#0D1F3D]/10 transition-all"
                   >
                     <option value="Real Estate & Property Development">Real Estate & Property Development</option>
                     <option value="Brokerage Agency & Channel Partner">Brokerage Agency & Channel Partner</option>
@@ -464,14 +470,14 @@ export function ProvisionTenantModal({
                       placeholder="City (e.g. Mumbai)"
                       value={form.city}
                       onChange={(e) => setForm({ ...form, city: e.target.value })}
-                      className="h-11 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                      className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none focus:ring-2 focus:ring-[#0D1F3D]/10 transition-all"
                     />
                     <input
                       type="text"
                       placeholder="State (e.g. Maharashtra)"
                       value={form.state}
                       onChange={(e) => setForm({ ...form, state: e.target.value })}
-                      className="h-11 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                      className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none focus:ring-2 focus:ring-[#0D1F3D]/10 transition-all"
                     />
                   </div>
                 </div>
@@ -688,30 +694,32 @@ export function ProvisionTenantModal({
 
               <div>
                 <label className="text-xs font-bold text-slate-700">Administrator Full Name *</label>
-                <div className="mt-1 flex items-center rounded-sm border border-slate-200 bg-white px-3 focus-within:border-[#0D1F3D] focus-within:ring-1 focus-within:ring-[#0D1F3D]">
-                  <User className="h-4 w-4 text-slate-400 mr-2" />
+                <div className="mt-1 flex items-center rounded-lg border border-slate-200 bg-white px-3.5 transition-all focus-within:border-[#0D1F3D] focus-within:ring-2 focus-within:ring-[#0D1F3D]/10">
+                  <User className="h-4 w-4 text-slate-400 mr-2 shrink-0" />
                   <input
                     type="text"
                     required
                     placeholder="e.g. Vikramaditya Singhania"
                     value={form.adminFullName}
                     onChange={(e) => setForm({ ...form, adminFullName: e.target.value })}
-                    className="h-11 flex-1 bg-transparent text-xs font-semibold text-slate-800 focus:outline-none"
+                    style={{ outline: "none", border: "none", boxShadow: "none" }}
+                    className="h-11 flex-1 bg-transparent border-none outline-none ring-0 shadow-none text-xs font-semibold text-slate-800 focus:outline-none focus:ring-0 focus:border-none focus:shadow-none focus:bg-transparent focus-visible:outline-none focus-visible:ring-0 focus-visible:border-none focus-visible:shadow-none invalid:outline-none invalid:shadow-none px-0"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="text-xs font-bold text-slate-700">Administrator Email Address *</label>
-                <div className="mt-1 flex items-center rounded-sm border border-slate-200 bg-white px-3 focus-within:border-[#0D1F3D] focus-within:ring-1 focus-within:ring-[#0D1F3D]">
-                  <Mail className="h-4 w-4 text-slate-400 mr-2" />
+                <div className="mt-1 flex items-center rounded-lg border border-slate-200 bg-white px-3.5 transition-all focus-within:border-[#0D1F3D] focus-within:ring-2 focus-within:ring-[#0D1F3D]/10">
+                  <Mail className="h-4 w-4 text-slate-400 mr-2 shrink-0" />
                   <input
                     type="email"
                     required
                     placeholder="admin@prestigeheights.com"
                     value={form.adminEmail}
                     onChange={(e) => setForm({ ...form, adminEmail: e.target.value })}
-                    className="h-11 flex-1 bg-transparent text-xs font-semibold text-slate-800 focus:outline-none"
+                    style={{ outline: "none", border: "none", boxShadow: "none" }}
+                    className="h-11 flex-1 bg-transparent border-none outline-none ring-0 shadow-none text-xs font-semibold text-slate-800 focus:outline-none focus:ring-0 focus:border-none focus:shadow-none focus:bg-transparent focus-visible:outline-none focus-visible:ring-0 focus-visible:border-none focus-visible:shadow-none invalid:outline-none invalid:shadow-none px-0"
                   />
                 </div>
                 <p className="text-[11px] text-slate-400 font-medium mt-1">
@@ -730,15 +738,16 @@ export function ProvisionTenantModal({
                     <RefreshCw className="h-3 w-3" /> Generate Password
                   </button>
                 </div>
-                <div className="mt-1 flex items-center rounded-sm border border-slate-200 bg-white px-3 focus-within:border-[#0D1F3D] focus-within:ring-1 focus-within:ring-[#0D1F3D]">
-                  <Key className="h-4 w-4 text-slate-400 mr-2" />
+                <div className="mt-1 flex items-center rounded-lg border border-slate-200 bg-white px-3.5 transition-all focus-within:border-[#0D1F3D] focus-within:ring-2 focus-within:ring-[#0D1F3D]/10">
+                  <Key className="h-4 w-4 text-slate-400 mr-2 shrink-0" />
                   <input
                     type={showPassword ? "text" : "password"}
                     required
                     placeholder="••••••••••••"
                     value={form.adminPassword}
                     onChange={(e) => setForm({ ...form, adminPassword: e.target.value })}
-                    className="h-11 flex-1 bg-transparent text-xs font-mono font-bold text-slate-800 focus:outline-none"
+                    style={{ outline: "none", border: "none", boxShadow: "none" }}
+                    className="h-11 flex-1 bg-transparent border-none outline-none ring-0 shadow-none text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-0 focus:border-none focus:shadow-none focus:bg-transparent focus-visible:outline-none focus-visible:ring-0 focus-visible:border-none focus-visible:shadow-none invalid:outline-none invalid:shadow-none px-0"
                   />
                   <button
                     type="button"
@@ -780,56 +789,166 @@ export function ProvisionTenantModal({
               </div>
             </div>
           )}
+          {step === 4 && createdTenantResult && (
+            <div className="space-y-5 animate-in fade-in duration-300 py-2">
+              <div className="text-center space-y-2">
+                <div className="mx-auto w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shadow-xs">
+                  <CheckCircle2 className="w-7 h-7" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900">
+                  Workspace Provisioned Successfully!
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Tenant <strong className="text-slate-800">{createdTenantResult.companyName}</strong> has been created and is awaiting activation payment.
+                </p>
+              </div>
+
+              {/* Status & Details */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-medium">Workspace Status:</span>
+                  <span className="bg-amber-100 text-amber-800 font-semibold px-2.5 py-0.5 rounded-full">
+                    SETUP_PENDING
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-medium">Admin Email:</span>
+                  <span className="font-semibold text-slate-800">{createdTenantResult.adminEmail}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-medium">Allocated Seats:</span>
+                  <span className="font-semibold text-slate-800">{createdTenantResult.seats} Seats</span>
+                </div>
+              </div>
+
+              {/* Payment Link & Sharing Controls */}
+              <div className="space-y-3 bg-blue-50/60 border border-blue-200/80 rounded-xl p-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <CreditCard className="w-4 h-4 text-blue-600" />
+                    Shareable Razorpay Payment Link:
+                  </label>
+                  <span className="text-[11px] text-blue-700 font-medium">Automated Email Sent</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Input
+                    readOnly
+                    value={createdTenantResult.paymentLinkUrl || "Generating payment link..."}
+                    className="font-mono text-xs bg-white border-blue-200 text-slate-800 select-all"
+                  />
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    className="flex items-center gap-1.5 whitespace-nowrap bg-blue-600 hover:bg-blue-700"
+                    onClick={() => {
+                      if (createdTenantResult.paymentLinkUrl) {
+                        navigator.clipboard.writeText(createdTenantResult.paymentLinkUrl);
+                        toast.success("Payment link copied to clipboard!");
+                      }
+                    }}
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    Copy Link
+                  </Button>
+                </div>
+
+                {createdTenantResult.paymentLinkUrl && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <a
+                      href={`https://wa.me/?text=${encodeURIComponent(
+                        `Hello! Here is your official setup & activation payment link for ${createdTenantResult.companyName} CRM: ${createdTenantResult.paymentLinkUrl}`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      <Send className="w-3.5 h-3.5 text-emerald-600" />
+                      Share via WhatsApp
+                    </a>
+                    <a
+                      href={createdTenantResult.paymentLinkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      Open Link <ChevronRight className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal Footer Controls */}
         <div className="bg-slate-50 p-4 px-6 border-t border-slate-200 rounded-b-lg flex items-center justify-between">
-          {step > 1 ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setStep((prev) => (prev - 1) as any)}
-              className="font-bold text-slate-700"
-            >
-              Back
-            </Button>
+          {step === 4 ? (
+            <div className="w-full flex justify-end">
+              <Button
+                type="button"
+                size="sm"
+                className="font-bold bg-[#0D1F3D] text-white hover:bg-[#132d56]"
+                onClick={() => {
+                  onClose();
+                  setStep(1);
+                  setCreatedTenantResult(null);
+                }}
+              >
+                Close & View Workspaces
+              </Button>
+            </div>
           ) : (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onClose}
-              className="font-bold text-slate-700"
-            >
-              Cancel
-            </Button>
-          )}
+            <>
+              {step > 1 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setStep((prev) => (prev - 1) as any)}
+                  className="font-bold text-slate-700"
+                >
+                  Back
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onClose}
+                  className="font-bold text-slate-700"
+                >
+                  Cancel
+                </Button>
+              )}
 
-          {step < 3 ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => {
-                if (step === 1 && validateStep1()) setStep(2);
-                else if (step === 2 && validateStep2()) setStep(3);
-              }}
-              className="font-bold bg-[#0D1F3D] text-white hover:bg-[#132d56] shadow-xs gap-1.5"
-            >
-              Continue to Step {step + 1}
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs gap-2"
-            >
-              <Sparkles className="h-4 w-4" />
-              {isSubmitting ? "Provisioning Tenant..." : "Complete & Provision Workspace"}
-            </Button>
+              {step < 3 ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    if (step === 1 && validateStep1()) setStep(2);
+                    else if (step === 2 && validateStep2()) setStep(3);
+                  }}
+                  className="font-bold bg-[#0D1F3D] text-white hover:bg-[#132d56] shadow-xs gap-1.5"
+                >
+                  Continue to Step {step + 1}
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                  className="font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs gap-2"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  {isSubmitting ? "Provisioning Tenant..." : "Complete & Provision Workspace"}
+                </Button>
+              )}
+            </>
           )}
         </div>
       </DialogContent>

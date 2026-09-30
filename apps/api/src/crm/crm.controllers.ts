@@ -23,6 +23,13 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { PermissionGuard } from '../access/permission.guard';
 import { CrmService } from './crm.service';
+import type { TenantContextPayload } from '../common/tenant/tenant-context.service';
+import {
+  UpdateNotificationSettingsDto,
+  UpdateWhatsAppConfigDto,
+  WhatsAppDeliveriesQueryDto,
+} from './notifications/notification.dto';
+import { TenantNotificationService } from './notifications/tenant-notification.service';
 
 const userFrom = (req: any) => req.user ?? {};
 const orgIdFrom = (req: { tenant?: { organizationId: string } }) => req.tenant?.organizationId;
@@ -1896,24 +1903,53 @@ export class ReportsController {
 }
 
 @Controller('notifications')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('notifications')
 export class NotificationsController {
-  constructor(private readonly crm: CrmService) {}
+  constructor(
+    private readonly crm: CrmService,
+    private readonly notifications: TenantNotificationService,
+  ) {}
 
   @Get('settings')
   @Roles('SUPER_ADMIN', 'ADMIN')
-  getNotificationSettings() {
-    return this.crm.getNotificationSettings();
+  getNotificationSettings(
+    @Req() req: { tenant: TenantContextPayload },
+  ) {
+    return this.notifications.getSettings(req.tenant);
   }
 
   @Patch('settings')
   @Roles('SUPER_ADMIN', 'ADMIN')
   updateNotificationSettings(
-    @Body() body: Record<string, any>,
-    @Req() req: any,
+    @Body() body: UpdateNotificationSettingsDto,
+    @Req() req: { tenant: TenantContextPayload },
   ) {
-    return this.crm.updateNotificationSettings(body, userFrom(req));
+    return this.notifications.updateSettings(req.tenant, body);
+  }
+
+  @Get('whatsapp-config')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  getWhatsAppConfig(@Req() req: { tenant: TenantContextPayload }) {
+    return this.notifications.getWhatsAppConfig(req.tenant);
+  }
+
+  @Patch('whatsapp-config')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  updateWhatsAppConfig(
+    @Body() body: UpdateWhatsAppConfigDto,
+    @Req() req: { tenant: TenantContextPayload },
+  ) {
+    return this.notifications.updateWhatsAppConfig(req.tenant, body);
+  }
+
+  @Get('whatsapp-deliveries')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  listWhatsAppDeliveries(
+    @Query() query: WhatsAppDeliveriesQueryDto,
+    @Req() req: { tenant: TenantContextPayload },
+  ) {
+    return this.notifications.listWhatsAppDeliveries(req.tenant, query);
   }
 
   @Get()

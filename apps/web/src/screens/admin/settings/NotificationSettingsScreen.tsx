@@ -24,6 +24,8 @@ import {
 import toast from "react-hot-toast";
 import { Badge, Button, Card, Switch, Input, cn } from "ui";
 import { api } from "../../../common/api";
+import { currentOrganizationId } from "../../../common/tenantRequestScope";
+import { WhatsAppSettingsPanel } from "./WhatsAppSettingsPanel";
 
 type EventSettingItem = {
   fcmEnabled: boolean;
@@ -32,11 +34,13 @@ type EventSettingItem = {
 
 type NotificationSettingsResponse = {
   id: string;
+  organizationId: string;
   globalFcmEnabled: boolean;
   globalWhatsAppEnabled: boolean;
   eventSettings: Record<string, EventSettingItem>;
   updatedAt?: string;
   updatedById?: string;
+  canManage: boolean;
 };
 
 interface EventMeta {
@@ -59,7 +63,8 @@ const NOTIFICATION_CATEGORIES: CategoryMeta[] = [
   {
     id: "leads",
     title: "Leads & Auto-Assignment",
-    description: "Alerts for new lead assignments, transfers, and SLA breach auto-routing",
+    description:
+      "Alerts for new lead assignments, transfers, and SLA breach auto-routing",
     icon: UserCheck,
     events: [
       {
@@ -72,14 +77,16 @@ const NOTIFICATION_CATEGORIES: CategoryMeta[] = [
       {
         key: "lead-reassigned",
         title: "Lead Ownership Reassigned",
-        description: "Sent when lead ownership is manually or automatically transferred.",
+        description:
+          "Sent when lead ownership is manually or automatically transferred.",
         audience: "New Executive",
         badgeText: "Lead Transfer",
       },
       {
         key: "sla-breach-transferred",
         title: "SLA Breach Auto-Transfer",
-        description: "Alert dispatched when a lead breaches SLA time limit and is re-routed.",
+        description:
+          "Alert dispatched when a lead breaches SLA time limit and is re-routed.",
         audience: "Previous & New Owner",
         badgeText: "SLA Rule",
       },
@@ -88,13 +95,15 @@ const NOTIFICATION_CATEGORIES: CategoryMeta[] = [
   {
     id: "followups",
     title: "Follow-ups & Reminders",
-    description: "Notifications for upcoming scheduled follow-ups, renotifies, and status updates",
+    description:
+      "Notifications for upcoming scheduled follow-ups, renotifies, and status updates",
     icon: CalendarClock,
     events: [
       {
         key: "follow-up-assigned",
         title: "Follow-up Scheduled",
-        description: "Dispatched when a new follow-up date and time is assigned.",
+        description:
+          "Dispatched when a new follow-up date and time is assigned.",
         audience: "Assigned Executive",
         badgeText: "Follow-up",
       },
@@ -108,14 +117,16 @@ const NOTIFICATION_CATEGORIES: CategoryMeta[] = [
       {
         key: "follow-up-renotify",
         title: "Recurring Renotify Alert",
-        description: "Subsequent reminders sent every 'X' minutes until follow-up is completed.",
+        description:
+          "Subsequent reminders sent every 'X' minutes until follow-up is completed.",
         audience: "Assigned Executive",
         badgeText: "Recurring",
       },
       {
         key: "follow-up-updated",
         title: "Follow-up Status Updated",
-        description: "Sent when a follow-up is rescheduled, completed, or outcome logged.",
+        description:
+          "Sent when a follow-up is rescheduled, completed, or outcome logged.",
         audience: "Assigned Staff",
         badgeText: "Status Change",
       },
@@ -124,49 +135,63 @@ const NOTIFICATION_CATEGORIES: CategoryMeta[] = [
   {
     id: "site-visits",
     title: "Site Visits & Property Tours",
-    description: "Alerts for customer site visits, venue reminders, and executive dispatch",
+    description:
+      "Alerts for customer site visits, venue reminders, and executive dispatch",
     icon: MapPin,
     events: [
       {
         key: "site-visit-scheduled",
         title: "Site Visit Scheduled",
-        description: "Dispatched when a buyer site visit is fixed with property details.",
+        description:
+          "Dispatched when a buyer site visit is fixed with property details.",
         audience: "Assigned Agent & Lead",
         badgeText: "Site Visit",
       },
       {
         key: "site-visit-reminder",
         title: "Site Visit Due Reminder",
-        description: "Timely reminder sent before the scheduled site visit inspection time.",
+        description:
+          "Timely reminder sent before the scheduled site visit inspection time.",
         audience: "Assigned Agent",
         badgeText: "Visit Reminder",
       },
       {
         key: "site-visit-updated",
         title: "Site Visit Status Changed",
-        description: "Alert issued when site visit is marked Completed, Rescheduled, or Cancelled.",
+        description:
+          "Alert issued when site visit details or status are changed.",
         audience: "Executive & Manager",
         badgeText: "Visit Outcome",
+      },
+      {
+        key: "site-visit-cancelled",
+        title: "Site Visit Cancelled",
+        description: "Alert issued when a scheduled site visit is cancelled.",
+        audience: "Assigned Executive",
+        badgeText: "Visit Cancelled",
       },
     ],
   },
   {
     id: "tasks",
     title: "Tasks & Workflows",
-    description: "Operational task assignments, reminders, and resolution updates",
+    description:
+      "Operational task assignments, reminders, and resolution updates",
     icon: CheckSquare,
     events: [
       {
         key: "task-assigned",
         title: "Task Assigned",
-        description: "Sent to team member when a CRM action item or task is delegated.",
+        description:
+          "Sent to team member when a CRM action item or task is delegated.",
         audience: "Task Assignee",
         badgeText: "Task Assign",
       },
       {
         key: "task-updated",
         title: "Task Status Updated",
-        description: "Alert issued when task progress, priority, or completion status is changed.",
+        description:
+          "Alert issued when task progress, priority, or completion status is changed.",
         audience: "Assignee & Creator",
         badgeText: "Task Update",
       },
@@ -175,13 +200,15 @@ const NOTIFICATION_CATEGORIES: CategoryMeta[] = [
   {
     id: "bookings",
     title: "Bookings & Sales",
-    description: "Deal closing, unit reservation, and payment milestone notifications",
+    description:
+      "Deal closing, unit reservation, and payment milestone notifications",
     icon: Receipt,
     events: [
       {
         key: "booking-created",
         title: "New Booking Recorded",
-        description: "Instant notification when a buyer completes a unit booking.",
+        description:
+          "Instant notification when a buyer completes a unit booking.",
         audience: "Sales Team & Admin",
         badgeText: "Closing",
       },
@@ -196,7 +223,8 @@ const NOTIFICATION_CATEGORIES: CategoryMeta[] = [
       {
         key: "announcement",
         title: "System Broadcast Announcement",
-        description: "Mass push notification & WhatsApp broadcast sent by system administrators.",
+        description:
+          "Mass push notification & WhatsApp broadcast sent by system administrators.",
         audience: "All Users / Targeted Roles",
         badgeText: "Broadcast",
       },
@@ -205,36 +233,63 @@ const NOTIFICATION_CATEGORIES: CategoryMeta[] = [
 ];
 
 const DEFAULT_EVENT_SETTINGS: Record<string, EventSettingItem> = {
-  "lead-assigned": { fcmEnabled: true, whatsappEnabled: true },
-  "lead-reassigned": { fcmEnabled: true, whatsappEnabled: true },
-  "sla-breach-transferred": { fcmEnabled: true, whatsappEnabled: true },
-  "follow-up-assigned": { fcmEnabled: true, whatsappEnabled: true },
-  "follow-up-reminder": { fcmEnabled: true, whatsappEnabled: true },
-  "follow-up-renotify": { fcmEnabled: true, whatsappEnabled: true },
-  "follow-up-updated": { fcmEnabled: true, whatsappEnabled: true },
-  "site-visit-scheduled": { fcmEnabled: true, whatsappEnabled: true },
-  "site-visit-reminder": { fcmEnabled: true, whatsappEnabled: true },
-  "site-visit-updated": { fcmEnabled: true, whatsappEnabled: true },
-  "task-assigned": { fcmEnabled: true, whatsappEnabled: true },
-  "task-updated": { fcmEnabled: true, whatsappEnabled: true },
-  "booking-created": { fcmEnabled: true, whatsappEnabled: true },
-  "announcement": { fcmEnabled: true, whatsappEnabled: true },
+  "lead-assigned": { fcmEnabled: true, whatsappEnabled: false },
+  "lead-reassigned": { fcmEnabled: true, whatsappEnabled: false },
+  "sla-breach-transferred": { fcmEnabled: true, whatsappEnabled: false },
+  "follow-up-assigned": { fcmEnabled: true, whatsappEnabled: false },
+  "follow-up-reminder": { fcmEnabled: true, whatsappEnabled: false },
+  "follow-up-renotify": { fcmEnabled: true, whatsappEnabled: false },
+  "follow-up-updated": { fcmEnabled: true, whatsappEnabled: false },
+  "site-visit-scheduled": { fcmEnabled: true, whatsappEnabled: false },
+  "site-visit-reminder": { fcmEnabled: true, whatsappEnabled: false },
+  "site-visit-updated": { fcmEnabled: true, whatsappEnabled: false },
+  "site-visit-cancelled": { fcmEnabled: true, whatsappEnabled: false },
+  "task-assigned": { fcmEnabled: true, whatsappEnabled: false },
+  "task-updated": { fcmEnabled: true, whatsappEnabled: false },
+  "booking-created": { fcmEnabled: true, whatsappEnabled: false },
+  announcement: { fcmEnabled: true, whatsappEnabled: false },
 };
+
+const SUPPORTED_WHATSAPP_EVENTS = new Set([
+  "announcement",
+  "lead-assigned",
+  "lead-reassigned",
+  "sla-breach-transferred",
+  "follow-up-reminder",
+  "site-visit-scheduled",
+  "site-visit-updated",
+  "site-visit-cancelled",
+]);
+
+function errorMessage(error: unknown, fallback: string): string {
+  if (!error || typeof error !== "object") return fallback;
+  const response = "response" in error ? error.response : undefined;
+  if (!response || typeof response !== "object" || !("data" in response)) {
+    return fallback;
+  }
+  const payload = response.data;
+  if (!payload || typeof payload !== "object" || !("message" in payload)) {
+    return fallback;
+  }
+  return typeof payload.message === "string" ? payload.message : fallback;
+}
 
 export function NotificationSettingsScreen() {
   const queryClient = useQueryClient();
+  const organizationId = currentOrganizationId() ?? "unscoped";
   const [searchQuery, setSearchQuery] = useState("");
+  const [whatsAppProviderReady, setWhatsAppProviderReady] = useState(false);
 
   // Local draft state for settings
   const [draftGlobalFcm, setDraftGlobalFcm] = useState(true);
-  const [draftGlobalWhatsApp, setDraftGlobalWhatsApp] = useState(true);
+  const [draftGlobalWhatsApp, setDraftGlobalWhatsApp] = useState(false);
   const [draftEventSettings, setDraftEventSettings] = useState<
     Record<string, EventSettingItem>
   >(DEFAULT_EVENT_SETTINGS);
 
   const { data, isLoading, isError, refetch } =
     useQuery<NotificationSettingsResponse>({
-      queryKey: ["notification-settings"],
+      queryKey: ["notification-settings", organizationId],
       queryFn: async () => {
         const response = await api.get("/notifications/settings");
         return response.data;
@@ -283,21 +338,30 @@ export function NotificationSettingsScreen() {
       return response.data;
     },
     onSuccess: (updatedData) => {
-      toast.success("Notification settings updated successfully!");
-      queryClient.setQueryData(["notification-settings"], updatedData);
+      toast.success("Notification settings updated successfully");
+      queryClient.setQueryData(
+        ["notification-settings", organizationId],
+        updatedData,
+      );
     },
-    onError: (err: any) => {
+    onError: (error: unknown) => {
       toast.error(
-        err?.response?.data?.message || "Failed to update notification settings",
+        errorMessage(error, "Failed to update notification settings"),
       );
     },
   });
+
+  const canManage = data?.canManage === true;
 
   const handleToggleEventChannel = (
     eventKey: string,
     channel: "fcm" | "whatsapp",
     value: boolean,
   ) => {
+    if (!canManage) return;
+    if (channel === "whatsapp" && !SUPPORTED_WHATSAPP_EVENTS.has(eventKey)) {
+      return;
+    }
     setDraftEventSettings((prev) => ({
       ...prev,
       [eventKey]: {
@@ -313,12 +377,19 @@ export function NotificationSettingsScreen() {
     channel: "fcm" | "whatsapp",
     enable: boolean,
   ) => {
+    if (!canManage) return;
     const category = NOTIFICATION_CATEGORIES.find((c) => c.id === categoryId);
     if (!category) return;
 
     setDraftEventSettings((prev) => {
       const updated = { ...prev };
       for (const event of category.events) {
+        if (
+          channel === "whatsapp" &&
+          !SUPPORTED_WHATSAPP_EVENTS.has(event.key)
+        ) {
+          continue;
+        }
         updated[event.key] = {
           ...DEFAULT_EVENT_SETTINGS[event.key],
           ...(updated[event.key] || {}),
@@ -328,18 +399,31 @@ export function NotificationSettingsScreen() {
       return updated;
     });
     toast.success(
-      `${enable ? "Enabled" : "Disabled"} ${channel.toUpperCase()} for all ${category.title} events`,
+      `${enable ? "Enabled" : "Disabled"} ${channel.toUpperCase()} for all ${
+        category.title
+      } events`,
     );
   };
 
   const handleSetAllChannels = (enable: boolean) => {
+    if (!canManage) return;
     setDraftGlobalFcm(enable);
-    setDraftGlobalWhatsApp(enable);
+    setDraftGlobalWhatsApp(enable && whatsAppProviderReady);
     const updatedEvents: Record<string, EventSettingItem> = {};
     for (const key of Object.keys(DEFAULT_EVENT_SETTINGS)) {
-      updatedEvents[key] = { fcmEnabled: enable, whatsappEnabled: enable };
+      updatedEvents[key] = {
+        fcmEnabled: enable,
+        whatsappEnabled:
+          enable && whatsAppProviderReady && SUPPORTED_WHATSAPP_EVENTS.has(key),
+      };
     }
     setDraftEventSettings(updatedEvents);
+    if (enable && !whatsAppProviderReady) {
+      toast.error(
+        "Configure a ready WhatsApp provider before enabling WhatsApp",
+      );
+      return;
+    }
     toast.success(
       enable
         ? "All notification channels and triggers enabled"
@@ -433,21 +517,22 @@ export function NotificationSettingsScreen() {
                 <h1 className="text-2xl font-black tracking-tight text-secondary">
                   Notification Channel & Trigger Settings
                 </h1>
-                {isDirty && (
-                  <Badge className="border-0 bg-amber-100 text-amber-800 text-[10px] font-black uppercase tracking-wider">
-                    Unsaved Changes
+                {isDirty && canManage && (
+                  <Badge className="border-0 bg-amber-100 text-amber-800 text-[10px] font-black">
+                    Unsaved changes
                   </Badge>
                 )}
               </div>
               <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
-                Control master notification delivery channels (FCM Push & WhatsApp Business API) and fine-tune event triggers.
+                Control master notification delivery channels (FCM Push &
+                WhatsApp Business API) and fine-tune event triggers.
               </p>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {isDirty && (
+          {isDirty && canManage && (
             <Button
               type="button"
               variant="outline"
@@ -462,7 +547,7 @@ export function NotificationSettingsScreen() {
           <Button
             type="button"
             onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending || !isDirty}
+            disabled={saveMutation.isPending || !isDirty || !canManage}
             className={cn(
               "h-10 rounded-xl px-6 text-xs font-black shadow-sm transition-all",
               isDirty
@@ -475,12 +560,23 @@ export function NotificationSettingsScreen() {
             ) : (
               <>
                 <Save className="mr-1.5 size-4" />
-                Save Notification Settings
+                Save notification settings
               </>
             )}
           </Button>
         </div>
       </div>
+
+      {!canManage && (
+        <Card className="flex gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 shadow-none">
+          <ShieldCheck className="mt-0.5 size-4 shrink-0" />
+          <p>
+            {
+              "Platform administrators can inspect this tenant's notification setup, but only the tenant owner or an administrator can change it."
+            }
+          </p>
+        </Card>
+      )}
 
       {/* Global Master Channel Toggles */}
       <div className="grid gap-6 md:grid-cols-2">
@@ -532,13 +628,16 @@ export function NotificationSettingsScreen() {
                 <Switch
                   checked={draftGlobalFcm}
                   onCheckedChange={(val) => setDraftGlobalFcm(val)}
+                  disabled={!canManage}
                   className="scale-110"
                 />
               </div>
             </div>
 
             <p className="mt-4 text-xs font-semibold text-slate-600 leading-relaxed">
-              Global master switch for native push notifications delivered to registered user devices (Android / iOS). When disabled, zero push messages will be sent across any event.
+              Global master switch for native push notifications delivered to
+              registered user devices (Android / iOS). When disabled, zero push
+              messages will be sent across any event.
             </p>
           </div>
 
@@ -600,14 +699,28 @@ export function NotificationSettingsScreen() {
               <div className="flex items-center gap-2">
                 <Switch
                   checked={draftGlobalWhatsApp}
-                  onCheckedChange={(val) => setDraftGlobalWhatsApp(val)}
+                  onCheckedChange={(value) => {
+                    if (value && !whatsAppProviderReady) {
+                      toast.error(
+                        "Configure a ready WhatsApp provider before enabling WhatsApp",
+                      );
+                      return;
+                    }
+                    setDraftGlobalWhatsApp(value);
+                  }}
+                  disabled={
+                    !canManage ||
+                    (!draftGlobalWhatsApp && !whatsAppProviderReady)
+                  }
                   className="scale-110"
                 />
               </div>
             </div>
 
             <p className="mt-4 text-xs font-semibold text-slate-600 leading-relaxed">
-              Global master switch for automated WhatsApp template notifications sent to client & staff phone numbers. When disabled, zero WhatsApp messages will be dispatched.
+              Global master switch for automated WhatsApp template notifications
+              sent only to eligible tenant staff. When disabled, no WhatsApp
+              messages are dispatched.
             </p>
           </div>
 
@@ -622,6 +735,11 @@ export function NotificationSettingsScreen() {
           </div>
         </Card>
       </div>
+
+      <WhatsAppSettingsPanel
+        organizationId={organizationId}
+        onReadinessChange={setWhatsAppProviderReady}
+      />
 
       {/* Quick Controls & Search Bar */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-y border-slate-200/80 py-4">
@@ -642,6 +760,7 @@ export function NotificationSettingsScreen() {
             variant="outline"
             size="sm"
             onClick={() => handleSetAllChannels(true)}
+            disabled={!canManage}
             className="h-9 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50/60 border-emerald-200 hover:bg-emerald-100"
           >
             <CheckCheck className="mr-1.5 size-3.5 text-emerald-600" />
@@ -653,6 +772,7 @@ export function NotificationSettingsScreen() {
             variant="outline"
             size="sm"
             onClick={() => handleSetAllChannels(false)}
+            disabled={!canManage}
             className="h-9 rounded-xl text-xs font-bold text-slate-700 bg-slate-100/80 border-slate-200 hover:bg-slate-200"
           >
             <Ban className="mr-1.5 size-3.5 text-slate-500" />
@@ -665,6 +785,9 @@ export function NotificationSettingsScreen() {
       <div className="space-y-8">
         {filteredCategories.map((category) => {
           const CategoryIcon = category.icon;
+          const categorySupportsWhatsApp = category.events.some((event) =>
+            SUPPORTED_WHATSAPP_EVENTS.has(event.key),
+          );
           return (
             <Card
               key={category.id}
@@ -692,7 +815,10 @@ export function NotificationSettingsScreen() {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleBatchToggleCategory(category.id, "fcm", true)}
+                    onClick={() =>
+                      handleBatchToggleCategory(category.id, "fcm", true)
+                    }
+                    disabled={!canManage}
                     className="h-8 text-[11px] font-bold text-slate-700 hover:bg-white"
                   >
                     + All FCM
@@ -701,7 +827,14 @@ export function NotificationSettingsScreen() {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleBatchToggleCategory(category.id, "whatsapp", true)}
+                    onClick={() =>
+                      handleBatchToggleCategory(category.id, "whatsapp", true)
+                    }
+                    disabled={
+                      !canManage ||
+                      !draftGlobalWhatsApp ||
+                      !categorySupportsWhatsApp
+                    }
                     className="h-8 text-[11px] font-bold text-slate-700 hover:bg-white"
                   >
                     + All WhatsApp
@@ -712,16 +845,20 @@ export function NotificationSettingsScreen() {
               {/* Event Rows */}
               <div className="divide-y divide-slate-100">
                 {category.events.map((event) => {
-                  const setting =
-                    draftEventSettings[event.key] ||
+                  const setting = draftEventSettings[event.key] ||
                     DEFAULT_EVENT_SETTINGS[event.key] || {
                       fcmEnabled: true,
-                      whatsappEnabled: true,
+                      whatsappEnabled: false,
                     };
 
                   const effectiveFcm = draftGlobalFcm && setting.fcmEnabled;
+                  const whatsappSupported = SUPPORTED_WHATSAPP_EVENTS.has(
+                    event.key,
+                  );
                   const effectiveWhatsApp =
-                    draftGlobalWhatsApp && setting.whatsappEnabled;
+                    whatsappSupported &&
+                    draftGlobalWhatsApp &&
+                    setting.whatsappEnabled;
 
                   return (
                     <div
@@ -772,14 +909,18 @@ export function NotificationSettingsScreen() {
                             </div>
                             <p className="text-[10px] font-bold">
                               {!draftGlobalFcm ? (
-                                <span className="text-amber-600">Global Off</span>
+                                <span className="text-amber-600">
+                                  Global Off
+                                </span>
                               ) : setting.fcmEnabled ? (
                                 <span className="text-emerald-700 flex items-center gap-0.5">
-                                  <CheckCircle2 className="size-3 shrink-0 inline" /> Active
+                                  <CheckCircle2 className="size-3 shrink-0 inline" />{" "}
+                                  Active
                                 </span>
                               ) : (
                                 <span className="text-slate-500 flex items-center gap-0.5">
-                                  <XCircle className="size-3 shrink-0 inline" /> Disabled
+                                  <XCircle className="size-3 shrink-0 inline" />{" "}
+                                  Disabled
                                 </span>
                               )}
                             </p>
@@ -790,53 +931,74 @@ export function NotificationSettingsScreen() {
                             onCheckedChange={(val) =>
                               handleToggleEventChannel(event.key, "fcm", val)
                             }
-                            disabled={!draftGlobalFcm}
+                            disabled={!canManage || !draftGlobalFcm}
                           />
                         </div>
 
                         {/* WhatsApp Toggle Box */}
-                        <div
-                          className={cn(
-                            "flex items-center gap-3 rounded-xl border p-2.5 px-3.5 transition-colors min-w-[150px] justify-between",
-                            effectiveWhatsApp
-                              ? "border-emerald-200 bg-emerald-50/30"
-                              : "border-slate-200 bg-slate-50/60",
-                          )}
-                        >
-                          <div className="space-y-0.5">
-                            <div className="flex items-center gap-1.5">
-                              <MessageSquare className="size-3.5 text-slate-600 shrink-0" />
-                              <span className="text-xs font-black text-secondary">
-                                WhatsApp
-                              </span>
+                        {whatsappSupported ? (
+                          <div
+                            className={cn(
+                              "flex items-center gap-3 rounded-xl border p-2.5 px-3.5 transition-colors min-w-[150px] justify-between",
+                              effectiveWhatsApp
+                                ? "border-emerald-200 bg-emerald-50/30"
+                                : "border-slate-200 bg-slate-50/60",
+                            )}
+                          >
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <MessageSquare className="size-3.5 text-slate-600 shrink-0" />
+                                <span className="text-xs font-black text-secondary">
+                                  WhatsApp
+                                </span>
+                              </div>
+                              <p className="text-[10px] font-bold">
+                                {!draftGlobalWhatsApp ? (
+                                  <span className="text-amber-600">
+                                    Global Off
+                                  </span>
+                                ) : setting.whatsappEnabled ? (
+                                  <span className="text-emerald-700 flex items-center gap-0.5">
+                                    <CheckCircle2 className="size-3 shrink-0 inline" />{" "}
+                                    Active
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-500 flex items-center gap-0.5">
+                                    <XCircle className="size-3 shrink-0 inline" />{" "}
+                                    Disabled
+                                  </span>
+                                )}
+                              </p>
                             </div>
-                            <p className="text-[10px] font-bold">
-                              {!draftGlobalWhatsApp ? (
-                                <span className="text-amber-600">Global Off</span>
-                              ) : setting.whatsappEnabled ? (
-                                <span className="text-emerald-700 flex items-center gap-0.5">
-                                  <CheckCircle2 className="size-3 shrink-0 inline" /> Active
-                                </span>
-                              ) : (
-                                <span className="text-slate-500 flex items-center gap-0.5">
-                                  <XCircle className="size-3 shrink-0 inline" /> Disabled
-                                </span>
-                              )}
-                            </p>
-                          </div>
 
-                          <Switch
-                            checked={setting.whatsappEnabled}
-                            onCheckedChange={(val) =>
-                              handleToggleEventChannel(
-                                event.key,
-                                "whatsapp",
-                                val,
-                              )
-                            }
-                            disabled={!draftGlobalWhatsApp}
-                          />
-                        </div>
+                            <Switch
+                              checked={setting.whatsappEnabled}
+                              onCheckedChange={(val) =>
+                                handleToggleEventChannel(
+                                  event.key,
+                                  "whatsapp",
+                                  val,
+                                )
+                              }
+                              disabled={!canManage || !draftGlobalWhatsApp}
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex min-w-40 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <MessageSquare className="size-3.5 shrink-0 text-slate-400" />
+                                <span className="text-xs font-black text-secondary">
+                                  WhatsApp
+                                </span>
+                              </div>
+                              <p className="text-[10px] font-bold text-slate-500">
+                                FCM only
+                              </p>
+                            </div>
+                            <Ban className="size-4 text-slate-400" />
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -853,7 +1015,9 @@ export function NotificationSettingsScreen() {
               No matching notification events found
             </h3>
             <p className="mt-1 text-xs font-semibold text-muted-foreground">
-              Try searching with another keyword like 'follow-up', 'lead', or 'site visit'.
+              {
+                "Try searching with another keyword like 'follow-up', 'lead', or 'site visit'."
+              }
             </p>
             <Button
               type="button"
@@ -868,7 +1032,7 @@ export function NotificationSettingsScreen() {
       </div>
 
       {/* Floating Unsaved Changes Footer Bar */}
-      {isDirty && (
+      {isDirty && canManage && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-950/90 px-6 py-3.5 text-white shadow-2xl backdrop-blur-md w-11/12 max-w-2xl">
           <div className="flex items-center gap-2.5">
             <span className="flex size-3 rounded-full bg-amber-400 animate-ping" />

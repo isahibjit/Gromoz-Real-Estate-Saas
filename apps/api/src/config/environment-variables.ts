@@ -33,6 +33,13 @@ export interface EnvironmentVariables {
   RAZORPAY_KEY_ID?: string;
   RAZORPAY_KEY_SECRET?: string;
   RAZORPAY_WEBHOOK_SECRET?: string;
+  WHATSAPP_PLATFORM_API_URL?: string;
+  WHATSAPP_PLATFORM_API_KEY?: string;
+  WHATSAPP_PLATFORM_WABA_NUMBER?: string;
+  WHATSAPP_PLATFORM_TEMPLATE_LANGUAGE: string;
+  WHATSAPP_CREDENTIAL_ENCRYPTION_KEY?: string;
+  WHATSAPP_CUSTOM_API_HOST_ALLOWLIST: string;
+  WHATSAPP_DISPATCH_INTERVAL_MS: number;
 }
 
 export const validationSchemaForEnv = Joi.object<EnvironmentVariables, true>({
@@ -68,4 +75,27 @@ export const validationSchemaForEnv = Joi.object<EnvironmentVariables, true>({
   RAZORPAY_KEY_ID: Joi.string().allow('').optional(),
   RAZORPAY_KEY_SECRET: Joi.string().allow('').optional(),
   RAZORPAY_WEBHOOK_SECRET: Joi.string().allow('').optional(),
+  WHATSAPP_PLATFORM_API_URL: Joi.string()
+    .uri({ scheme: ['https'] })
+    .allow('')
+    .optional(),
+  WHATSAPP_PLATFORM_API_KEY: Joi.string().allow('').optional(),
+  WHATSAPP_PLATFORM_WABA_NUMBER: Joi.string()
+    .pattern(/^\d{10,15}$/)
+    .allow('')
+    .optional(),
+  WHATSAPP_PLATFORM_TEMPLATE_LANGUAGE: Joi.string()
+    .pattern(/^[a-z]{2,3}(?:_[A-Z]{2})?$/)
+    .default('en'),
+  WHATSAPP_CREDENTIAL_ENCRYPTION_KEY: Joi.string()
+    .pattern(/^(?:[A-Fa-f0-9]{64}|[A-Za-z0-9+/]{43}=)$/)
+    .allow('')
+    .optional(),
+  WHATSAPP_CUSTOM_API_HOST_ALLOWLIST: Joi.string().default(
+    'partnersv1.pinbot.ai',
+  ),
+  WHATSAPP_DISPATCH_INTERVAL_MS: Joi.number()
+    .integer()
+    .min(500)
+    .default(1000),
 });

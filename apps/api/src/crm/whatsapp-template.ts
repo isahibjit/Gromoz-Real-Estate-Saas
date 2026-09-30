@@ -10,13 +10,19 @@ export interface WhatsAppTemplateContext {
   status?: string;
 }
 
-export function buildWhatsAppTemplate(context: WhatsAppTemplateContext, language = 'en') {
+export function buildWhatsAppTemplate(
+  context: WhatsAppTemplateContext,
+  language = 'en',
+) {
   const date = context.scheduledAt ? new Date(context.scheduledAt) : null;
-  const schedule = date && Number.isFinite(date.getTime())
-    ? new Intl.DateTimeFormat('en-IN', {
-        timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short',
-      }).format(date) + ' IST'
-    : '';
+  const schedule =
+    date && Number.isFinite(date.getTime())
+      ? new Intl.DateTimeFormat('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }).format(date) + ' IST'
+      : '';
   const lead = context.leadName || context.leadReference || '';
   let name: string;
   let values: string[];
@@ -37,26 +43,56 @@ export function buildWhatsAppTemplate(context: WhatsAppTemplateContext, language
       break;
     case 'site-visit-reminder':
       name = 'trueroot_site_visit_reminder';
-      values = [context.recipientName, lead, context.projectName || '', schedule];
+      values = [
+        context.recipientName,
+        lead,
+        context.projectName || '',
+        schedule,
+      ];
       break;
     case 'site-visit-scheduled':
     case 'site-visit-updated':
       if (context.status === 'Cancelled') {
         name = 'trueroot_site_visit_cancelled';
-        values = [context.recipientName, lead, context.projectName || '', schedule];
+        values = [
+          context.recipientName,
+          lead,
+          context.projectName || '',
+          schedule,
+        ];
       } else if (['Scheduled', 'Rescheduled'].includes(context.status || '')) {
         name = 'trueroot_site_visit_update';
-        values = [context.recipientName, context.status!, lead, context.projectName || '', schedule];
+        values = [
+          context.recipientName,
+          context.status!,
+          lead,
+          context.projectName || '',
+          schedule,
+        ];
       } else return null;
+      break;
+    case 'site-visit-cancelled':
+      name = 'trueroot_site_visit_cancelled';
+      values = [
+        context.recipientName,
+        lead,
+        context.projectName || '',
+        schedule,
+      ];
       break;
     default:
       return null;
   }
-  const normalized = values.map(value => value.replace(/\s+/g, ' ').trim());
-  if (normalized.some(value => !value)) return null;
+  const normalized = values.map((value) => value.replace(/\s+/g, ' ').trim());
+  if (normalized.some((value) => !value)) return null;
   return {
     name,
     language: { code: language },
-    components: [{ type: 'body', parameters: normalized.map(text => ({ type: 'text', text })) }],
+    components: [
+      {
+        type: 'body',
+        parameters: normalized.map((text) => ({ type: 'text', text })),
+      },
+    ],
   };
 }

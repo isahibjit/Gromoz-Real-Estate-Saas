@@ -75,12 +75,19 @@ export class BillingService {
   async createSetupCheckout(organizationId: string, dto: SetupCheckoutDto) {
     const org = await this.prisma.organization.findUnique({
       where: { id: organizationId },
+      include: {
+        memberships: {
+          include: { user: true },
+          where: { isOwner: true },
+        },
+      },
     });
 
     if (!org) {
       throw new NotFoundException('Organization not found');
     }
 
+    const adminUser = org.memberships[0]?.user;
     const seats = Math.max(1, dto.initialSeats || 1);
     const seatsTotal = seats * org.pricePerSeatMonth;
     const totalAmount = org.setupFeeAmount + seatsTotal;
@@ -97,10 +104,33 @@ export class BillingService {
       },
     });
 
+    let paymentLink: any = null;
+    try {
+      paymentLink = await this.razorpay.createPaymentLink({
+        amount: totalAmount,
+        description: `Truroot CRM Setup & ${seats} User Seats (${org.name})`,
+        customer: {
+          name: adminUser?.fullName || org.name,
+          email: adminUser?.email || 'admin@trueroot.com',
+        },
+        notes: {
+          organizationId: org.id,
+          organizationSlug: org.slug,
+          type: 'SETUP_AND_INITIAL_SEATS',
+          seats: String(seats),
+        },
+      });
+    } catch (err: any) {
+      this.logger.warn(`Failed to generate Razorpay payment link: ${err?.message}`);
+    }
+
     return {
       orderId: order.id,
+      paymentLinkId: paymentLink?.id,
+      paymentLinkUrl: paymentLink?.short_url,
+      shortUrl: paymentLink?.short_url,
       amount: totalAmount,
-      currency: order.currency,
+      currency: order.currency || 'INR',
       setupFeeAmount: org.setupFeeAmount,
       seatsCount: seats,
       seatsAmount: seatsTotal,
@@ -262,9 +292,9 @@ export class BillingService {
     const event = payload.event;
     this.logger.log(`Received Razorpay webhook: ${event}`);
 
-    if (event === 'payment.captured') {
-      const payment = payload.payload?.payment?.entity;
-      const notes = payment?.notes;
+    if (event === 'payment.captured' || event === 'payment_link.paid') {
+      const entity = payload.payload?.payment_link?.entity || payload.payload?.payment?.entity;
+      const notes = entity?.notes;
       if (notes?.organizationId && notes?.type === 'SETUP_AND_INITIAL_SEATS') {
         const seats = Number(notes.seats || 1);
         await this.prisma.organization.update({
@@ -277,6 +307,7 @@ export class BillingService {
             currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           },
         });
+        this.logger.log(`Organization ${notes.organizationId} activated via Razorpay webhook (${event})`);
       }
     }
 

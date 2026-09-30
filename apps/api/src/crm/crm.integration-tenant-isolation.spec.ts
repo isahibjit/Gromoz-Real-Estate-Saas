@@ -2,9 +2,13 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { TenantAccessService } from '../common/tenant/tenant-access.service';
+import { TenantContextService } from '../common/tenant/tenant-context.service';
 import { CrmService } from './crm.service';
 import { LeadVisibilityService } from './lead-visibility.service';
 import { HousingIntegrationsService } from './housing-integrations.service';
+import { TenantNotificationService } from './notifications/tenant-notification.service';
+import { WhatsAppDispatchService } from './notifications/whatsapp-dispatch.service';
 
 describe('Portal connection tenant isolation', () => {
   const prisma = {
@@ -42,6 +46,26 @@ describe('Portal connection tenant isolation', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: RealtimeService, useValue: {} },
         { provide: LeadVisibilityService, useValue: {} },
+        {
+          provide: TenantAccessService,
+          useValue: {
+            organizationId: 'tenant-a',
+            assertEmployee: jest.fn(),
+            employeeWhere: jest.fn(() => ({})),
+          },
+        },
+        {
+          provide: TenantContextService,
+          useValue: { getTenantId: () => 'tenant-a' },
+        },
+        {
+          provide: TenantNotificationService,
+          useValue: { isChannelEnabled: jest.fn().mockResolvedValue(false) },
+        },
+        {
+          provide: WhatsAppDispatchService,
+          useValue: { enqueueWithClient: jest.fn() },
+        },
       ],
     }).compile();
     service = module.get(CrmService);

@@ -21,6 +21,26 @@ export interface RazorpayOrderResponse {
   created_at: number;
 }
 
+export interface CreatePaymentLinkParams {
+  amount: number;
+  currency?: string;
+  description: string;
+  customer: {
+    name: string;
+    email: string;
+    contact?: string;
+  };
+  notes?: Record<string, string>;
+  callbackUrl?: string;
+}
+
+export interface RazorpayPaymentLinkResponse {
+  id: string;
+  short_url: string;
+  status: string;
+  amount: number;
+}
+
 @Injectable()
 export class RazorpayService {
   private readonly logger = new Logger(RazorpayService.name);
@@ -88,13 +108,61 @@ export class RazorpayService {
     return (await response.json()) as RazorpayOrderResponse;
   }
 
+  async createPaymentLink(params: CreatePaymentLinkParams): Promise<RazorpayPaymentLinkResponse> {
+    const amountInPaise = Math.round(params.amount * 100);
+
+    if (!this.isConfigured) {
+      this.logger.warn('Razorpay keys not configured. Returning simulated payment link.');
+      return {
+        id: `plink_mock_${Date.now()}`,
+        short_url: `https://rzp.io/i/mock_${Date.now()}`,
+        status: 'created',
+        amount: amountInPaise,
+      };
+    }
+
+    const response = await fetch('https://api.razorpay.com/v1/payment_links', {
+      method: 'POST',
+      headers: {
+        Authorization: this.getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        amount: amountInPaise,
+        currency: params.currency || 'INR',
+        accept_partial: false,
+        description: params.description,
+        customer: {
+          name: params.customer.name,
+          email: params.customer.email,
+          contact: params.customer.contact,
+        },
+        notify: {
+          sms: false,
+          email: true,
+        },
+        reminder_enable: true,
+        notes: params.notes,
+        callback_url: params.callbackUrl || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`,
+        callback_method: 'get',
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      this.logger.error(`Razorpay payment link creation failed: ${errorText}`);
+      throw new Error(`Razorpay Payment Link creation failed: ${errorText}`);
+    }
+
+    return (await response.json()) as RazorpayPaymentLinkResponse;
+  }
+
   verifyPaymentSignature(params: {
     orderId: string;
     paymentId: string;
     signature: string;
   }): boolean {
     if (!this.isConfigured) {
-      // If running in development/mock mode without real keys, accept signature
       return true;
     }
 
