@@ -61,9 +61,18 @@ describe('Lead assignment filters and follow-up timestamps', () => {
         { provide: AccessService, useValue: {} },
         { provide: RealtimeService, useValue: {} },
         { provide: TenantAccessService, useValue: {} },
-        { provide: TenantContextService, useValue: { getTenantId: () => undefined } },
-        { provide: TenantNotificationService, useValue: { isChannelEnabled: jest.fn().mockResolvedValue(false) } },
-        { provide: WhatsAppDispatchService, useValue: { enqueueWithClient: jest.fn() } },
+        {
+          provide: TenantContextService,
+          useValue: { getTenantId: () => undefined },
+        },
+        {
+          provide: TenantNotificationService,
+          useValue: { isChannelEnabled: jest.fn().mockResolvedValue(false) },
+        },
+        {
+          provide: WhatsAppDispatchService,
+          useValue: { enqueueWithClient: jest.fn() },
+        },
       ],
     }).compile();
     service = module.get(CrmService);
@@ -269,7 +278,12 @@ describe('Lead assignment filters and follow-up timestamps', () => {
       .spyOn(service, 'getLead')
       .mockResolvedValue({ id: 'lead', name: 'Client' });
     db.followUp.findMany.mockResolvedValueOnce([
-      { id: 'existing-fu-1', notes: 'Old note', slaDueAt: null, setReminder: true },
+      {
+        id: 'existing-fu-1',
+        notes: 'Old note',
+        slaDueAt: null,
+        setReminder: true,
+      },
     ]);
 
     await service.createFollowUp('lead', {

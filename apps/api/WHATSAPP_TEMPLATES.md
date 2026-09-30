@@ -7,6 +7,8 @@ credentials. Custom mode never falls back to the platform sender.
 Platform credentials are read from `WHATSAPP_PLATFORM_API_URL`,
 `WHATSAPP_PLATFORM_API_KEY`, and `WHATSAPP_PLATFORM_WABA_NUMBER`. Template
 language defaults to `en` through `WHATSAPP_PLATFORM_TEMPLATE_LANGUAGE`.
+The former `WHATSAPP_API_URL`, `WHATSAPP_API_KEY`, `WHATSAPP_WABA_NUMBER`, and
+`WHATSAPP_TEMPLATE_LANGUAGE` names remain read-only compatibility aliases.
 Tenant-owned API tokens require `WHATSAPP_CREDENTIAL_ENCRYPTION_KEY` and their
 HTTPS endpoint host must appear in `WHATSAPP_CUSTOM_API_HOST_ALLOWLIST`.
 

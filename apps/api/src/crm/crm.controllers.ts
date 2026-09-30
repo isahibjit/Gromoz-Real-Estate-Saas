@@ -32,7 +32,8 @@ import {
 import { TenantNotificationService } from './notifications/tenant-notification.service';
 
 const userFrom = (req: any) => req.user ?? {};
-const orgIdFrom = (req: { tenant?: { organizationId: string } }) => req.tenant?.organizationId;
+const orgIdFrom = (req: { tenant?: { organizationId: string } }) =>
+  req.tenant?.organizationId;
 const leadReadRoles = [
   'SUPER_ADMIN',
   'ADMIN',
@@ -86,7 +87,7 @@ enum PropertyMasterCategory {
 }
 
 @Controller('leads')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('leads')
 export class LeadsController {
   constructor(private readonly crm: CrmService) {}
@@ -298,7 +299,7 @@ export class LeadsController {
 }
 
 @Controller('tasks')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('tasks')
 export class TasksController {
   constructor(private readonly crm: CrmService) {}
@@ -327,7 +328,7 @@ export class TasksController {
 }
 
 @Controller('contact-leads')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('contact_leads')
 export class ContactLeadsController {
   constructor(private readonly crm: CrmService) {}
@@ -415,7 +416,7 @@ export class ContactLeadsController {
 }
 
 @Controller('lead-list-columns')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('leads')
 export class LeadListColumnsController {
   constructor(private readonly crm: CrmService) {}
@@ -438,7 +439,7 @@ export class LeadListColumnsController {
 }
 
 @Controller('lead-field-permissions')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('leads')
 export class LeadFieldPermissionsController {
   constructor(private readonly crm: CrmService) {}
@@ -460,7 +461,7 @@ export class LeadFieldPermissionsController {
 }
 
 @Controller('auto-assignment')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('auto_assignment_master')
 export class AutoAssignmentController {
   constructor(private readonly crm: CrmService) {}
@@ -501,7 +502,7 @@ export class AutoAssignmentController {
 }
 
 @Controller('lead-masters')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 export class LeadMastersController {
   constructor(private readonly crm: CrmService) {}
 
@@ -569,7 +570,7 @@ export class LeadMastersController {
 }
 
 @Controller('property-masters')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @Roles(...leadReadRoles)
 @RequirePermission('property_masters')
 export class PropertyMastersController {
@@ -617,7 +618,7 @@ export class PropertyMastersController {
 }
 
 @Controller('projects')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 export class ProjectsController {
   constructor(private readonly crm: CrmService) {}
 
@@ -732,7 +733,7 @@ export class PublicProjectsController {
 }
 
 @Controller('site-visits')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('site_visits')
 export class SiteVisitsController {
   constructor(private readonly crm: CrmService) {}
@@ -811,7 +812,7 @@ export class SiteVisitsController {
 }
 
 @Controller('bookings')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('bookings')
 export class BookingsController {
   constructor(private readonly crm: CrmService) {}
@@ -1069,7 +1070,7 @@ export class BookingsController {
 }
 
 @Controller('call-logs')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('leads')
 export class CallLogsController {
   constructor(private readonly crm: CrmService) {}
@@ -1090,7 +1091,7 @@ export class CallLogsController {
 @ApiTags('Lead Imports')
 @ApiBearerAuth('bearer')
 @Controller('lead-imports')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('leads')
 export class LeadImportsController {
   constructor(private readonly crm: CrmService) {}
@@ -1123,25 +1124,39 @@ export class MagicBricksIntegrationsController {
   @Get()
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
   getConfig(@Req() req: any) {
-    return this.crm.getMagicBricksIntegration(userFrom(req).sub, orgIdFrom(req));
+    return this.crm.getMagicBricksIntegration(
+      userFrom(req).sub,
+      orgIdFrom(req),
+    );
   }
 
   @Patch()
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
   saveConfig(@Body() body: Record<string, any>, @Req() req: any) {
-    return this.crm.saveMagicBricksIntegration(body, userFrom(req).sub, orgIdFrom(req));
+    return this.crm.saveMagicBricksIntegration(
+      body,
+      userFrom(req).sub,
+      orgIdFrom(req),
+    );
   }
 
   @Post('generate-api-key')
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
   regenerateApiKey(@Req() req: any) {
-    return this.crm.regenerateMagicBricksApiKey(userFrom(req).sub, orgIdFrom(req));
+    return this.crm.regenerateMagicBricksApiKey(
+      userFrom(req).sub,
+      orgIdFrom(req),
+    );
   }
 
   @Patch('field-mapping')
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
   saveFieldMapping(@Body() body: Record<string, any>, @Req() req: any) {
-    return this.crm.saveMagicBricksFieldMapping(body, userFrom(req).sub, orgIdFrom(req));
+    return this.crm.saveMagicBricksFieldMapping(
+      body,
+      userFrom(req).sub,
+      orgIdFrom(req),
+    );
   }
 
   @Post('test')
@@ -1172,7 +1187,11 @@ export class Acres99IntegrationsController {
   @Patch()
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
   saveConfig(@Body() body: Record<string, any>, @Req() req: any) {
-    return this.crm.save99AcresIntegration(body, userFrom(req).sub, orgIdFrom(req));
+    return this.crm.save99AcresIntegration(
+      body,
+      userFrom(req).sub,
+      orgIdFrom(req),
+    );
   }
 
   @Post('generate-api-key')
@@ -1184,7 +1203,11 @@ export class Acres99IntegrationsController {
   @Patch('field-mapping')
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
   saveFieldMapping(@Body() body: Record<string, any>, @Req() req: any) {
-    return this.crm.save99AcresFieldMapping(body, userFrom(req).sub, orgIdFrom(req));
+    return this.crm.save99AcresFieldMapping(
+      body,
+      userFrom(req).sub,
+      orgIdFrom(req),
+    );
   }
 
   @Post('test')
@@ -1229,7 +1252,11 @@ export class Public99AcresWebhookController {
   }
 
   @Post(':keyId')
-  ingestPostByKey(@Param('keyId') keyId: string, @Body() body: any, @Req() req: any) {
+  ingestPostByKey(
+    @Param('keyId') keyId: string,
+    @Body() body: any,
+    @Req() req: any,
+  ) {
     return this.crm.receive99AcresLead(
       body,
       keyId,
@@ -1264,7 +1291,11 @@ export class WebsiteIntegrationsController {
   @Patch()
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
   saveConfig(@Body() body: Record<string, any>, @Req() req: any) {
-    return this.crm.saveWebsiteIntegration(body, userFrom(req).sub, orgIdFrom(req));
+    return this.crm.saveWebsiteIntegration(
+      body,
+      userFrom(req).sub,
+      orgIdFrom(req),
+    );
   }
 
   @Post('websites')
@@ -1276,7 +1307,11 @@ export class WebsiteIntegrationsController {
   @Delete('websites/:websiteId')
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
   deleteWebsite(@Param('websiteId') websiteId: string, @Req() req: any) {
-    return this.crm.deleteWebsiteUrl(websiteId, userFrom(req).sub, orgIdFrom(req));
+    return this.crm.deleteWebsiteUrl(
+      websiteId,
+      userFrom(req).sub,
+      orgIdFrom(req),
+    );
   }
 
   @Patch('websites/:websiteId/routing')
@@ -1286,7 +1321,12 @@ export class WebsiteIntegrationsController {
     @Body() body: Record<string, any>,
     @Req() req: any,
   ) {
-    return this.crm.saveWebsiteRouting(websiteId, body, userFrom(req).sub, orgIdFrom(req));
+    return this.crm.saveWebsiteRouting(
+      websiteId,
+      body,
+      userFrom(req).sub,
+      orgIdFrom(req),
+    );
   }
 
   @Post('generate-api-key')
@@ -1298,7 +1338,11 @@ export class WebsiteIntegrationsController {
   @Patch('field-mapping')
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
   saveFieldMapping(@Body() body: Record<string, any>, @Req() req: any) {
-    return this.crm.saveWebsiteFieldMapping(body, userFrom(req).sub, orgIdFrom(req));
+    return this.crm.saveWebsiteFieldMapping(
+      body,
+      userFrom(req).sub,
+      orgIdFrom(req),
+    );
   }
 
   @Post('test')
@@ -1316,7 +1360,11 @@ export class WebsiteIntegrationsController {
   @Get('delivery-logs')
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
   deliveryLogs(@Query() query: Record<string, string>, @Req() req: any) {
-    return this.crm.listWebsiteDeliveryLogs(query, userFrom(req).sub, orgIdFrom(req));
+    return this.crm.listWebsiteDeliveryLogs(
+      query,
+      userFrom(req).sub,
+      orgIdFrom(req),
+    );
   }
 }
 
@@ -1704,7 +1752,7 @@ export class PublicIncomingLeadsWebhookController {
 }
 
 @Controller('integrations/meta')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('leads')
 export class MetaIntegrationsController {
   constructor(private readonly crm: CrmService) {}
@@ -1871,7 +1919,7 @@ export class PublicMetaWebhookController {
 }
 
 @Controller('duplicates')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('leads')
 export class DuplicatesController {
   constructor(private readonly crm: CrmService) {}
@@ -1884,7 +1932,7 @@ export class DuplicatesController {
 }
 
 @Controller('reports')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('dashboard')
 export class ReportsController {
   constructor(private readonly crm: CrmService) {}
@@ -1912,15 +1960,13 @@ export class NotificationsController {
   ) {}
 
   @Get('settings')
-  @Roles('SUPER_ADMIN', 'ADMIN')
-  getNotificationSettings(
-    @Req() req: { tenant: TenantContextPayload },
-  ) {
+  @Roles(...notificationRoles)
+  getNotificationSettings(@Req() req: { tenant: TenantContextPayload }) {
     return this.notifications.getSettings(req.tenant);
   }
 
   @Patch('settings')
-  @Roles('SUPER_ADMIN', 'ADMIN')
+  @Roles(...notificationRoles)
   updateNotificationSettings(
     @Body() body: UpdateNotificationSettingsDto,
     @Req() req: { tenant: TenantContextPayload },
@@ -1929,13 +1975,13 @@ export class NotificationsController {
   }
 
   @Get('whatsapp-config')
-  @Roles('SUPER_ADMIN', 'ADMIN')
+  @Roles(...notificationRoles)
   getWhatsAppConfig(@Req() req: { tenant: TenantContextPayload }) {
     return this.notifications.getWhatsAppConfig(req.tenant);
   }
 
   @Patch('whatsapp-config')
-  @Roles('SUPER_ADMIN', 'ADMIN')
+  @Roles(...notificationRoles)
   updateWhatsAppConfig(
     @Body() body: UpdateWhatsAppConfigDto,
     @Req() req: { tenant: TenantContextPayload },
@@ -1944,7 +1990,7 @@ export class NotificationsController {
   }
 
   @Get('whatsapp-deliveries')
-  @Roles('SUPER_ADMIN', 'ADMIN')
+  @Roles(...notificationRoles)
   listWhatsAppDeliveries(
     @Query() query: WhatsAppDeliveriesQueryDto,
     @Req() req: { tenant: TenantContextPayload },

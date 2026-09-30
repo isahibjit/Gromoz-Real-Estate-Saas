@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
   Bell,
@@ -9,9 +9,10 @@ import {
   Megaphone,
   Sparkles,
   Zap,
-} from 'lucide-react';
-import { Button } from 'ui';
-import { api } from '../../common/api';
+} from "lucide-react";
+import { Button } from "ui";
+import { api } from "../../common/api";
+import { currentOrganizationId } from "../../common/tenantRequestScope";
 
 export interface NotificationItem {
   id: string;
@@ -23,34 +24,78 @@ export interface NotificationItem {
   actionUrl?: string | null;
 }
 
+interface ApiNotificationItem {
+  id: string;
+  title: string;
+  description?: string | null;
+  message?: string | null;
+  type: string;
+  readAt?: string | null;
+  createdAt: string;
+  details?: Record<string, unknown> | null;
+}
+
+interface NotificationFeedState {
+  organizationId: string;
+  unreadCount: number;
+  notifications: NotificationItem[];
+}
+
 export function HeaderNotificationBell() {
+  const organizationId = currentOrganizationId() ?? "unscoped";
   const [isOpen, setIsOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [feed, setFeed] = useState<NotificationFeedState>({
+    organizationId,
+    unreadCount: 0,
+    notifications: [],
+  });
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  const loadNotifications = async () => {
+  const visibleFeed =
+    feed.organizationId === organizationId
+      ? feed
+      : { organizationId, unreadCount: 0, notifications: [] };
+  const { unreadCount, notifications } = visibleFeed;
+
+  const loadNotifications = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get('/notifications').catch(() => null);
-      if (res?.data) {
-        setUnreadCount(res.data.unreadCount || 0);
-        setNotifications(res.data.notifications || []);
+      const res = await api.get("/notifications").catch(() => null);
+      if (res?.data && currentOrganizationId() === organizationId) {
+        const rows: ApiNotificationItem[] = Array.isArray(res.data.data)
+          ? res.data.data
+          : [];
+        setFeed({
+          organizationId,
+          unreadCount: Number(res.data.unreadCount ?? 0),
+          notifications: rows.map((row) => ({
+            id: row.id,
+            title: row.title,
+            body: row.description || row.message || "",
+            category: row.type,
+            isRead: Boolean(row.readAt),
+            createdAt: row.createdAt,
+            actionUrl:
+              row.details && typeof row.details.webPath === "string"
+                ? row.details.webPath
+                : null,
+          })),
+        });
       }
     } catch {
       // Graceful local fallback
     } finally {
       setLoading(false);
     }
-  };
+  }, [organizationId]);
 
   useEffect(() => {
     loadNotifications();
     const interval = setInterval(loadNotifications, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [loadNotifications]);
 
   // Close on outside click
   useEffect(() => {
@@ -63,18 +108,23 @@ export function HeaderNotificationBell() {
       }
     }
     if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
     }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
   const handleMarkAsRead = async (logId: string, actionUrl?: string | null) => {
     try {
       await api.patch(`/notifications/${logId}/read`).catch(() => null);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === logId ? { ...n, isRead: true } : n)),
-      );
-      setUnreadCount((c) => Math.max(0, c - 1));
+      setFeed((current) => ({
+        ...current,
+        notifications: current.notifications.map((notification) =>
+          notification.id === logId
+            ? { ...notification, isRead: true }
+            : notification,
+        ),
+        unreadCount: Math.max(0, current.unreadCount - 1),
+      }));
       if (actionUrl) {
         setIsOpen(false);
         navigate(actionUrl);
@@ -86,9 +136,15 @@ export function HeaderNotificationBell() {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await api.patch('/notifications/read-all').catch(() => null);
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-      setUnreadCount(0);
+      await api.patch("/notifications/mark-all-read").catch(() => null);
+      setFeed((current) => ({
+        ...current,
+        notifications: current.notifications.map((notification) => ({
+          ...notification,
+          isRead: true,
+        })),
+        unreadCount: 0,
+      }));
     } catch {
       // Fallback
     }
@@ -96,14 +152,14 @@ export function HeaderNotificationBell() {
 
   const getCategoryIcon = (category?: string) => {
     switch (category) {
-      case 'EMERGENCY_ALERT':
-      case 'ALERT':
+      case "EMERGENCY_ALERT":
+      case "ALERT":
         return <AlertCircle className="h-4 w-4 text-rose-600" />;
-      case 'TARGET_ALERT':
+      case "TARGET_ALERT":
         return <Zap className="h-4 w-4 text-amber-600" />;
-      case 'LEAD_UPDATE':
+      case "LEAD_UPDATE":
         return <Sparkles className="h-4 w-4 text-blue-600" />;
-      case 'ANNOUNCEMENT':
+      case "ANNOUNCEMENT":
         return <Megaphone className="h-4 w-4 text-purple-600" />;
       default:
         return <Bell className="h-4 w-4 text-[#0D1F3D]" />;
@@ -120,8 +176,8 @@ export function HeaderNotificationBell() {
         title="Notifications"
         className={`relative inline-flex h-9 w-9 items-center justify-center rounded-sm border transition-colors cursor-pointer ${
           isOpen
-            ? 'border-[#0D1F3D] bg-slate-100 text-[#0D1F3D]'
-            : 'border-slate-200 text-slate-600 hover:bg-slate-100'
+            ? "border-[#0D1F3D] bg-slate-100 text-[#0D1F3D]"
+            : "border-slate-200 text-slate-600 hover:bg-slate-100"
         }`}
       >
         <Bell className="h-4 w-4" />
@@ -186,7 +242,7 @@ export function HeaderNotificationBell() {
                   key={item.id}
                   onClick={() => handleMarkAsRead(item.id, item.actionUrl)}
                   className={`flex items-start gap-3 p-3 text-xs transition-colors cursor-pointer hover:bg-slate-50 ${
-                    !item.isRead ? 'bg-blue-50/30' : ''
+                    !item.isRead ? "bg-blue-50/30" : ""
                   }`}
                 >
                   <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-sm bg-slate-100">
@@ -197,8 +253,8 @@ export function HeaderNotificationBell() {
                       <p
                         className={`truncate text-xs ${
                           !item.isRead
-                            ? 'font-extrabold text-[#0D1F3D]'
-                            : 'font-semibold text-slate-700'
+                            ? "font-extrabold text-[#0D1F3D]"
+                            : "font-semibold text-slate-700"
                         }`}
                       >
                         {item.title}
@@ -214,8 +270,8 @@ export function HeaderNotificationBell() {
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {new Date(item.createdAt).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
+                          hour: "2-digit",
+                          minute: "2-digit",
                         })}
                       </span>
                       {item.actionUrl && (
@@ -237,11 +293,12 @@ export function HeaderNotificationBell() {
               size="sm"
               onClick={() => {
                 setIsOpen(false);
-                navigate('/notifications');
+                navigate("/notifications");
               }}
               className="w-full text-xs font-bold text-[#0D1F3D] hover:text-[#E20613]"
             >
-              Open Notification Center <ChevronRight className="h-3.5 w-3.5 ml-1" />
+              Open Notification Center{" "}
+              <ChevronRight className="h-3.5 w-3.5 ml-1" />
             </Button>
           </div>
         </div>

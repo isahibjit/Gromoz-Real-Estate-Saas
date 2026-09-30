@@ -23,6 +23,7 @@ describe('Follow-up reminder dispatch', () => {
       id: 'lead-1',
       displayId: 'TR000001',
       name: 'Anand',
+      organizationId: 'tenant-a',
       statusId: 'status-1',
       updatedAt: new Date(Date.now() - 120_000),
       deletedAt: null,
@@ -36,13 +37,13 @@ describe('Follow-up reminder dispatch', () => {
     followUp: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
-      update: jest.fn(),
+      updateMany: jest.fn(),
     },
     leadMasterValue: {
       findUnique: jest.fn(),
     },
     user: {
-      findUnique: jest.fn(),
+      findFirst: jest.fn(),
     },
     notification: {
       create: jest.fn(),
@@ -54,14 +55,20 @@ describe('Follow-up reminder dispatch', () => {
     db.$transaction.mockImplementation(
       async (handler: (tx: unknown) => unknown) => handler(db),
     );
-    db.followUp.findMany.mockResolvedValue([{ ...followUp, setReminder: false }]);
+    db.followUp.findMany.mockResolvedValue([
+      { ...followUp, setReminder: false },
+    ]);
     db.followUp.findUnique.mockResolvedValue(followUp);
-    db.followUp.update.mockResolvedValue({});
+    db.followUp.updateMany.mockResolvedValue({ count: 1 });
     db.leadMasterValue.findUnique.mockResolvedValue({
       followUpNotificationEnabled: true,
       followUpRenotifyMinutes: null,
     });
-    db.user.findUnique.mockResolvedValue({ id: 'user-1', role: 'TELECALLER' });
+    db.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      role: 'TELECALLER',
+      fullName: 'Test User',
+    });
     db.notification.create.mockResolvedValue({});
 
     const module = await Test.createTestingModule({
@@ -114,6 +121,7 @@ describe('Follow-up reminder dispatch', () => {
         leadId: 'lead-1',
         followUpId: 'follow-up-1',
       }),
+      'tenant-a',
     );
     expect(db.notification.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -123,16 +131,16 @@ describe('Follow-up reminder dispatch', () => {
         }),
       }),
     );
-    expect(db.followUp.update).toHaveBeenCalledWith(
+    expect(db.followUp.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'follow-up-1' },
+        where: expect.objectContaining({ id: 'follow-up-1' }),
         data: expect.objectContaining({ reminderSentAt: expect.any(Date) }),
       }),
     );
     expect(result.processed).toBe(1);
   });
 
-  it('does not mark reminderSentAt when FCM is not delivered', async () => {
+  it('persists the in-app reminder even when FCM is not delivered', async () => {
     jest.spyOn(service as any, 'sendFollowUpReminderPush').mockResolvedValue({
       attempted: false,
       delivered: false,
@@ -144,9 +152,9 @@ describe('Follow-up reminder dispatch', () => {
     const result = await service.runFollowUpReminderDispatches();
 
     expect((service as any).sendFollowUpReminderPush).toHaveBeenCalled();
-    expect(db.notification.create).not.toHaveBeenCalled();
-    expect(db.followUp.update).not.toHaveBeenCalled();
-    expect(result.processed).toBe(0);
+    expect(db.notification.create).toHaveBeenCalled();
+    expect(db.followUp.updateMany).toHaveBeenCalled();
+    expect(result.processed).toBe(1);
   });
 
   it('notifies only once when followUpRenotifyMinutes is 0', async () => {
@@ -202,6 +210,7 @@ describe('Follow-up reminder dispatch', () => {
         leadId: 'lead-1',
         followUpId: 'follow-up-1',
       }),
+      'tenant-a',
     );
     expect(result.processed).toBe(1);
   });

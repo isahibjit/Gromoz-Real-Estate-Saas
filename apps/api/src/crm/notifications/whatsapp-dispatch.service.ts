@@ -221,7 +221,7 @@ export class WhatsAppDispatchService {
         parameters,
       },
     });
-    await this.recordResult(dispatch, result, recipientNumber);
+    await this.recordResult(dispatch, result, recipientNumber, provider.apiKey);
   }
 
   private async recordResult(
@@ -231,6 +231,7 @@ export class WhatsAppDispatchService {
     },
     result: PinbotSendResult,
     recipientNumber: string,
+    providerApiKey: string,
   ): Promise<void> {
     const attemptNumber = dispatch.attemptCount + 1;
     const now = new Date();
@@ -265,7 +266,7 @@ export class WhatsAppDispatchService {
     }
 
     const failure = result as Extract<PinbotSendResult, { accepted: false }>;
-    const error = this.sanitizeError(failure.errorMessage);
+    const error = this.sanitizeError(failure.errorMessage, providerApiKey);
     const retrying = failure.retryable && attemptNumber < 5;
     const status = retrying
       ? WhatsAppDispatchStatus.RETRYING
@@ -366,9 +367,11 @@ export class WhatsAppDispatchService {
     return value.filter((item): item is string => typeof item === 'string');
   }
 
-  private sanitizeError(value: string): string {
+  private sanitizeError(value: string, providerApiKey?: string): string {
     const platformKey = String(
-      this.config.get<string>('WHATSAPP_PLATFORM_API_KEY') ?? '',
+      this.config.get<string>('WHATSAPP_PLATFORM_API_KEY') ??
+        this.config.get<string>('WHATSAPP_API_KEY') ??
+        '',
     ).trim();
     let sanitized = value
       .replace(
@@ -378,6 +381,8 @@ export class WhatsAppDispatchService {
       .replace(/\b\d{8,15}\b/g, '[phone-redacted]');
     if (platformKey)
       sanitized = sanitized.split(platformKey).join('[redacted]');
+    if (providerApiKey)
+      sanitized = sanitized.split(providerApiKey).join('[redacted]');
     return sanitized.slice(0, 1000);
   }
 }

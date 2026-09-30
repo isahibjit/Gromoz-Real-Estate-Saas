@@ -15,9 +15,7 @@ import {
   RotateCw,
   Edit2,
   Trash2,
-  MoreVertical,
   Loader2,
-  Users,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -48,6 +46,7 @@ import { telecallerSidebarItems } from "../telecaller/dashboard/telecallerDashbo
 import { fieldExecutiveSidebarItems } from "../field-executive/fieldExecutiveData";
 import { SendNotificationModal } from "./SendNotificationModal";
 import { api } from "../../common/api";
+import { currentOrganizationId } from "../../common/tenantRequestScope";
 import trurootLogo from "../../assets/truroot-logo.png";
 
 function getNotificationIcon(type: string) {
@@ -114,7 +113,7 @@ function formatTimeAgo(dateString: string) {
   const date = new Date(dateString);
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-  
+
   if (diffInSeconds < 60) return "Just now";
   const diffInMinutes = Math.floor(diffInSeconds / 60);
   if (diffInMinutes < 60) return `${diffInMinutes} mins ago`;
@@ -125,24 +124,29 @@ function formatTimeAgo(dateString: string) {
 }
 
 export function NotificationsScreen() {
+  const organizationId = currentOrganizationId() ?? "unscoped";
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const navigate = useNavigate();
   const user = useAppSelector((state) => state.auth.user);
   const queryClient = useQueryClient();
-  
-  const [selectedNotificationId, setSelectedNotificationId] = useState<string | null>(null);
+
+  const [selectedNotificationId, setSelectedNotificationId] = useState<
+    string | null
+  >(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
   const [editingBroadcast, setEditingBroadcast] = useState<any | null>(null);
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [deletingTarget, setDeletingTarget] = useState<{ id: string; title: string } | null>(null);
-  
+  const [deletingTarget, setDeletingTarget] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+
   const userRoleUpper = String(user?.role ?? "").toUpperCase();
   const canSendNotifications =
-    !user?.role ||
-    !["TELECALLER"].includes(userRoleUpper);
+    !user?.role || !["TELECALLER"].includes(userRoleUpper);
 
   const [filters, setFilters] = useState({
     all: true,
@@ -189,7 +193,7 @@ export function NotificationsScreen() {
   const mutations = useNotificationMutations();
 
   const broadcastsQuery = useQuery({
-    queryKey: ["broadcasts"],
+    queryKey: ["broadcasts", organizationId],
     queryFn: async () => {
       const res = await api.get<{ data: any[] }>("/notifications/broadcasts");
       return res.data?.data || [];
@@ -232,7 +236,9 @@ export function NotificationsScreen() {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       queryClient.invalidateQueries({ queryKey: ["broadcasts"] });
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to resend notification");
+      toast.error(
+        err?.response?.data?.message || "Failed to resend notification",
+      );
     } finally {
       setResendingId(null);
     }
@@ -252,7 +258,9 @@ export function NotificationsScreen() {
       queryClient.invalidateQueries({ queryKey: ["broadcasts"] });
       setDeletingTarget(null);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to delete notification");
+      toast.error(
+        err?.response?.data?.message || "Failed to delete notification",
+      );
     } finally {
       setDeletingId(null);
     }
@@ -287,14 +295,19 @@ export function NotificationsScreen() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-2xl bg-white p-2 border border-border shadow-sm shrink-0 flex items-center justify-center">
-                <img src={trurootLogo} alt="Truroot Realty" className="w-full h-full object-contain" />
+                <img
+                  src={trurootLogo}
+                  alt="Truroot Realty"
+                  className="w-full h-full object-contain"
+                />
               </div>
               <div>
                 <h1 className="text-2xl font-extrabold text-secondary">
                   Notifications
                 </h1>
                 <p className="text-sm font-semibold text-muted-foreground mt-0.5">
-                  Stay updated with important alerts, team broadcasts, and activities.
+                  Stay updated with important alerts, team broadcasts, and
+                  activities.
                 </p>
               </div>
             </div>
@@ -326,13 +339,22 @@ export function NotificationsScreen() {
           </div>
 
           {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full"
+          >
             <TabsList className="bg-transparent border-b border-border w-full justify-start rounded-none h-auto p-0 gap-6 overflow-x-auto">
               {[
                 { value: "all", label: "All Alerts" },
                 { value: "unread", label: "Unread" },
                 ...(canSendNotifications
-                  ? [{ value: "broadcasts", label: `Sent Broadcasts (${broadcasts.length})` }]
+                  ? [
+                      {
+                        value: "broadcasts",
+                        label: `Sent Broadcasts (${broadcasts.length})`,
+                      },
+                    ]
                   : []),
               ].map((tab) => (
                 <TabsTrigger
@@ -355,7 +377,8 @@ export function NotificationsScreen() {
                         Broadcast History & Management
                       </h3>
                       <p className="text-xs text-muted-foreground font-semibold mt-0.5">
-                        Manage, edit, resend ("Try Again"), and delete broadcast notifications.
+                        Manage, edit, resend (Try Again), and delete broadcast
+                        notifications.
                       </p>
                     </div>
                   </div>
@@ -364,7 +387,9 @@ export function NotificationsScreen() {
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
                         <tr className="bg-slate-50/80 border-b border-border text-muted-foreground font-bold">
-                          <th className="p-3.5 pl-5">Notification Title & Message</th>
+                          <th className="p-3.5 pl-5">
+                            Notification Title & Message
+                          </th>
                           <th className="p-3.5">Category</th>
                           <th className="p-3.5">Target Audience</th>
                           <th className="p-3.5">Recipients</th>
@@ -375,19 +400,29 @@ export function NotificationsScreen() {
                       <tbody className="divide-y divide-border">
                         {broadcastsQuery.isLoading ? (
                           <tr>
-                            <td colSpan={6} className="p-8 text-center text-muted-foreground font-semibold">
+                            <td
+                              colSpan={6}
+                              className="p-8 text-center text-muted-foreground font-semibold"
+                            >
                               Loading broadcast history...
                             </td>
                           </tr>
                         ) : broadcasts.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="p-8 text-center text-muted-foreground font-semibold">
-                              No broadcast notifications created yet. Click "+ Create Notification" to get started.
+                            <td
+                              colSpan={6}
+                              className="p-8 text-center text-muted-foreground font-semibold"
+                            >
+                              No broadcast notifications created yet. Select
+                              Create notification to get started.
                             </td>
                           </tr>
                         ) : (
                           broadcasts.map((b) => (
-                            <tr key={b.id} className="hover:bg-slate-50/60 transition-colors">
+                            <tr
+                              key={b.id}
+                              className="hover:bg-slate-50/60 transition-colors"
+                            >
                               <td className="p-3.5 pl-5 max-w-[280px]">
                                 <div className="flex items-center gap-2.5">
                                   <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
@@ -404,7 +439,10 @@ export function NotificationsScreen() {
                                 </div>
                               </td>
                               <td className="p-3.5">
-                                <Badge variant="neutral" className="bg-slate-100 text-slate-600 font-extrabold text-[10px] uppercase">
+                                <Badge
+                                  variant="neutral"
+                                  className="bg-slate-100 text-slate-600 font-extrabold text-[10px] uppercase"
+                                >
                                   {b.type || "Announcement"}
                                 </Badge>
                               </td>
@@ -442,7 +480,8 @@ export function NotificationsScreen() {
                                       <Loader2 className="w-3 h-3 animate-spin" />
                                     ) : (
                                       <>
-                                        <RotateCw className="w-3 h-3 mr-1" /> Try Again
+                                        <RotateCw className="w-3 h-3 mr-1" />{" "}
+                                        Try Again
                                       </>
                                     )}
                                   </Button>
@@ -463,7 +502,9 @@ export function NotificationsScreen() {
                                     variant="outline"
                                     size="sm"
                                     disabled={deletingId === b.id}
-                                    onClick={() => onRequestDelete(b.id, b.title)}
+                                    onClick={() =>
+                                      onRequestDelete(b.id, b.title)
+                                    }
                                     className="h-7 px-2 text-[11px] font-bold text-destructive border-destructive/20 hover:bg-destructive/10 rounded-md"
                                     title="Delete notification"
                                   >
@@ -573,7 +614,15 @@ export function NotificationsScreen() {
                       <div className="pt-2">
                         <Button
                           variant="outline"
-                          onClick={() => setFilters({ all: true, lead: false, assignment: false, system: false, others: false })}
+                          onClick={() =>
+                            setFilters({
+                              all: true,
+                              lead: false,
+                              assignment: false,
+                              system: false,
+                              others: false,
+                            })
+                          }
                           className="w-full h-10 font-bold text-xs bg-slate-50 border-border text-secondary rounded-[var(--radius-control)]"
                         >
                           <ArrowRightLeft className="w-3.5 h-3.5 mr-2 rotate-90" />
@@ -595,39 +644,66 @@ export function NotificationsScreen() {
 
                     <div className="divide-y divide-border bg-white">
                       {isLoading ? (
-                        <div className="p-8 text-center text-muted-foreground text-sm font-medium">Loading notifications...</div>
+                        <div className="p-8 text-center text-muted-foreground text-sm font-medium">
+                          Loading notifications...
+                        </div>
                       ) : filteredNotifications.length === 0 ? (
-                        <div className="p-8 text-center text-muted-foreground text-sm font-medium">No notifications found.</div>
+                        <div className="p-8 text-center text-muted-foreground text-sm font-medium">
+                          No notifications found.
+                        </div>
                       ) : (
                         filteredNotifications.map((notification) => {
-                          const { icon: Icon, color, bg } = getNotificationIcon(notification.type);
+                          const {
+                            icon: Icon,
+                            color,
+                            bg,
+                          } = getNotificationIcon(notification.type);
                           const isUnread = !notification.readAt;
-                          
+
                           return (
                             <div
                               key={notification.id}
-                              onClick={() => handleNotificationClick(notification.id, isUnread)}
+                              onClick={() =>
+                                handleNotificationClick(
+                                  notification.id,
+                                  isUnread,
+                                )
+                              }
                               className={cn(
                                 "p-5 flex gap-4 hover:bg-slate-50 transition-colors cursor-pointer relative group",
                                 isUnread && "bg-slate-50/50",
                               )}
                             >
-                              <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border border-border/40 shadow-xs", bg)}>
+                              <div
+                                className={cn(
+                                  "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border border-border/40 shadow-xs",
+                                  bg,
+                                )}
+                              >
                                 <Icon className={cn("w-5 h-5", color)} />
                               </div>
 
                               <div className="flex-1 min-w-0">
                                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-1 sm:gap-4">
                                   <div>
-                                    <h4 className={cn("text-[13px] font-extrabold text-secondary", !isUnread && "text-secondary/80")}>
+                                    <h4
+                                      className={cn(
+                                        "text-[13px] font-extrabold text-secondary",
+                                        !isUnread && "text-secondary/80",
+                                      )}
+                                    >
                                       {notification.title}
                                     </h4>
                                     <p className="text-[13px] font-semibold text-muted-foreground mt-0.5">
-                                      {notification.description || notification.message}
+                                      {notification.description ||
+                                        notification.message}
                                     </p>
                                     {notification.badge && (
                                       <div className="mt-2.5 flex items-center gap-2">
-                                        <Badge variant="neutral" className="bg-slate-100 text-slate-500 hover:bg-slate-100 px-2 text-[10px] rounded-md font-extrabold">
+                                        <Badge
+                                          variant="neutral"
+                                          className="bg-slate-100 text-slate-500 hover:bg-slate-100 px-2 text-[10px] rounded-md font-extrabold"
+                                        >
                                           {notification.badge}
                                         </Badge>
                                       </div>
@@ -638,7 +714,10 @@ export function NotificationsScreen() {
                                       {formatTimeAgo(notification.createdAt)}
                                     </span>
                                     {isUnread && (
-                                      <span className="w-2 h-2 rounded-full bg-primary shrink-0" aria-label="Unread" />
+                                      <span
+                                        className="w-2 h-2 rounded-full bg-primary shrink-0"
+                                        aria-label="Unread"
+                                      />
                                     )}
                                     {canSendNotifications && (
                                       <div className="flex items-center gap-1 ml-2">
@@ -646,9 +725,13 @@ export function NotificationsScreen() {
                                           type="button"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            handleResendBroadcast(notification.id);
+                                            handleResendBroadcast(
+                                              notification.id,
+                                            );
                                           }}
-                                          disabled={resendingId === notification.id}
+                                          disabled={
+                                            resendingId === notification.id
+                                          }
                                           className="p-1.5 rounded text-muted-foreground hover:text-primary hover:bg-slate-100 transition-colors"
                                           title="Try Again / Resend notification"
                                         >
@@ -675,7 +758,10 @@ export function NotificationsScreen() {
                                           type="button"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            onRequestDelete(notification.id, notification.title);
+                                            onRequestDelete(
+                                              notification.id,
+                                              notification.title,
+                                            );
                                           }}
                                           className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-red-50 transition-colors"
                                           title="Delete notification"
@@ -705,8 +791,8 @@ export function NotificationsScreen() {
         <DialogContent className="sm:max-w-[560px] p-0 overflow-hidden rounded-[var(--radius-card)] [&>button]:hidden">
           {(() => {
             if (!selectedNotification) return null;
-            const { icon: Icon, color, bg } = getNotificationIcon(selectedNotification.type);
-            
+            const { bg } = getNotificationIcon(selectedNotification.type);
+
             return (
               <>
                 <DialogHeader className="sr-only">
@@ -719,8 +805,17 @@ export function NotificationsScreen() {
                     <span className="sr-only">Close</span>
                   </DialogClose>
 
-                  <div className={cn("w-12 h-12 rounded-2xl p-2 border border-border shrink-0 flex items-center justify-center", bg)}>
-                    <img src={trurootLogo} alt="Truroot" className="w-full h-full object-contain" />
+                  <div
+                    className={cn(
+                      "w-12 h-12 rounded-2xl p-2 border border-border shrink-0 flex items-center justify-center",
+                      bg,
+                    )}
+                  >
+                    <img
+                      src={trurootLogo}
+                      alt="Truroot"
+                      className="w-full h-full object-contain"
+                    />
                   </div>
                   <div className="pr-6">
                     <h2 className="text-xl font-extrabold text-secondary">
@@ -733,7 +828,10 @@ export function NotificationsScreen() {
                     )}
                     {selectedNotification.badge && (
                       <div className="mt-2.5">
-                        <Badge variant="neutral" className="bg-slate-100 text-slate-500 hover:bg-slate-100 px-2.5 py-0.5 text-xs rounded-md font-extrabold">
+                        <Badge
+                          variant="neutral"
+                          className="bg-slate-100 text-slate-500 hover:bg-slate-100 px-2.5 py-0.5 text-xs rounded-md font-extrabold"
+                        >
                           {selectedNotification.badge}
                         </Badge>
                       </div>
@@ -773,7 +871,9 @@ export function NotificationsScreen() {
 
                   {selectedNotification.message && (
                     <div className="space-y-3">
-                      <h3 className="text-sm font-extrabold text-secondary">Message</h3>
+                      <h3 className="text-sm font-extrabold text-secondary">
+                        Message
+                      </h3>
                       <Card className="p-4 bg-slate-50 border-border rounded-[var(--radius-control)] shadow-none">
                         <p className="text-[13px] font-semibold text-muted-foreground leading-relaxed">
                           {selectedNotification.message}
@@ -790,7 +890,9 @@ export function NotificationsScreen() {
                         variant="outline"
                         size="sm"
                         disabled={resendingId === selectedNotification.id}
-                        onClick={() => handleResendBroadcast(selectedNotification.id)}
+                        onClick={() =>
+                          handleResendBroadcast(selectedNotification.id)
+                        }
                         className="h-9 px-3 text-xs font-bold text-primary border-primary/20 hover:bg-primary/5 rounded-xl"
                       >
                         {resendingId === selectedNotification.id ? (
@@ -819,7 +921,10 @@ export function NotificationsScreen() {
                         size="sm"
                         onClick={() => {
                           setIsPreviewModalOpen(false);
-                          onRequestDelete(selectedNotification.id, selectedNotification.title);
+                          onRequestDelete(
+                            selectedNotification.id,
+                            selectedNotification.title,
+                          );
                         }}
                         className="h-9 px-3 text-xs font-bold text-destructive border-destructive/20 hover:bg-destructive/10 rounded-xl"
                       >
@@ -827,7 +932,9 @@ export function NotificationsScreen() {
                         Delete
                       </Button>
                     </div>
-                  ) : <div />}
+                  ) : (
+                    <div />
+                  )}
 
                   <div className="flex items-center gap-2">
                     {selectedNotificationWebPath ? (
@@ -882,7 +989,7 @@ export function NotificationsScreen() {
                 <DialogDescription className="mt-0.5 text-xs font-semibold text-muted-foreground leading-relaxed">
                   Are you sure you want to delete{" "}
                   <strong className="text-secondary font-extrabold">
-                    "{deletingTarget?.title}"
+                    &ldquo;{deletingTarget?.title}&rdquo;
                   </strong>
                   ? This will remove the notification broadcast from the system.
                 </DialogDescription>
@@ -908,7 +1015,8 @@ export function NotificationsScreen() {
             >
               {deletingId ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Deleting...
+                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />{" "}
+                  Deleting...
                 </>
               ) : (
                 "Delete Notification"

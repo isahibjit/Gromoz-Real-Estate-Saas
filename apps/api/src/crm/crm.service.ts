@@ -252,7 +252,9 @@ const optionalString = (value: unknown) => {
 };
 
 const isPausedStatus = (value: unknown) =>
-  String(value ?? '').trim().toLowerCase() === 'paused';
+  String(value ?? '')
+    .trim()
+    .toLowerCase() === 'paused';
 
 const isIntegrationPaused = (integration: {
   isActive?: boolean | null;
@@ -339,7 +341,11 @@ const isConversionStatus = (status: Body) => {
   );
 };
 
-const siteVisitExecutiveRoles: Role[] = ['SALES_AGENT', 'SALES_MANAGER', 'ADMIN'];
+const siteVisitExecutiveRoles: Role[] = [
+  'SALES_AGENT',
+  'SALES_MANAGER',
+  'ADMIN',
+];
 
 const coordinate = (
   value: unknown,
@@ -1279,7 +1285,10 @@ export class CrmService {
     }
 
     let score = Number(statusMaster.manualScore ?? 0) || 0;
-    if (score === 0 && (statusMaster.id || statusMaster.name || statusMaster.code)) {
+    if (
+      score === 0 &&
+      (statusMaster.id || statusMaster.name || statusMaster.code)
+    ) {
       const resolvedStatus = await dbClient.leadMasterValue.findFirst({
         where: {
           isActive: true,
@@ -1506,7 +1515,8 @@ export class CrmService {
         : undefined;
     let projectName =
       typeof details.projectName === 'string' ? details.projectName : undefined;
-    let status = typeof details.status === 'string' ? details.status : undefined;
+    let status =
+      typeof details.status === 'string' ? details.status : undefined;
 
     if (
       notificationData.entityType === 'Lead' &&
@@ -1681,14 +1691,18 @@ export class CrmService {
       );
     }
 
-    await this.sendPushNotification(userId, {
-      title: title || 'Truroot CRM Test Push Notification',
-      body:
-        bodyText ||
-        'This is a live test push notification sent via Firebase Cloud Messaging.',
-      type: 'test-notification',
-      data: this.buildNotificationNavigationPayload(null, 'notifications'),
-    }, { organizationId });
+    await this.sendPushNotification(
+      userId,
+      {
+        title: title || 'Truroot CRM Test Push Notification',
+        body:
+          bodyText ||
+          'This is a live test push notification sent via Firebase Cloud Messaging.',
+        type: 'test-notification',
+        data: this.buildNotificationNavigationPayload(null, 'notifications'),
+      },
+      { organizationId },
+    );
     return {
       success: true,
       message: `Test push sent to ${tokens.length} active device token(s)`,
@@ -1764,9 +1778,7 @@ export class CrmService {
       if (data?.access_token) {
         return { token: data.access_token, projectId };
       } else if (data?.error_description) {
-        this.logger.warn(
-          `Google OAuth token error: ${data.error_description}`,
-        );
+        this.logger.warn(`Google OAuth token error: ${data.error_description}`);
       }
     } catch (err: any) {
       this.logger.warn(
@@ -1782,8 +1794,7 @@ export class CrmService {
     organizationId?: string,
   ): Promise<boolean> {
     try {
-      const tenantId =
-        organizationId ?? this.tenantContext.getTenantId();
+      const tenantId = organizationId ?? this.tenantContext.getTenantId();
       if (!tenantId) return channel === 'fcm';
       return this.notificationSettings.isChannelEnabled(
         tenantId,
@@ -1861,9 +1872,7 @@ export class CrmService {
     }
 
     const projectId =
-      fcmAuth?.projectId ||
-      process.env.FCM_PROJECT_ID ||
-      'realestatecrm-da93a';
+      fcmAuth?.projectId || process.env.FCM_PROJECT_ID || 'realestatecrm-da93a';
     const notificationTitle = payload.title;
     const notificationBody = payload.body;
 
@@ -1939,7 +1948,9 @@ export class CrmService {
               invalidTokenIds.push(entry.id);
             } else {
               this.logger.warn(
-                `FCM v1 push response for ${entry.id}: ${v1Response.status} ${JSON.stringify(errRes)}`,
+                `FCM v1 push response for ${entry.id}: ${
+                  v1Response.status
+                } ${JSON.stringify(errRes)}`,
               );
             }
           }
@@ -2027,12 +2038,16 @@ export class CrmService {
         reminder.scheduledAt,
       )}`;
 
-    return this.sendPushNotification(recipientUserId, {
-      title: notificationTitle,
-      body: notificationBody,
-      type: 'follow-up-reminder',
-      data: reminder as any,
-    }, { organizationId });
+    return this.sendPushNotification(
+      recipientUserId,
+      {
+        title: notificationTitle,
+        body: notificationBody,
+        type: 'follow-up-reminder',
+        data: reminder as any,
+      },
+      { organizationId },
+    );
   }
 
   private magicBricksPublicApiBaseUrl() {
@@ -2486,11 +2501,7 @@ export class CrmService {
   private coalesceMagicBricksPayload(body: Body) {
     return {
       apiKey:
-        body.ApiKey ??
-        body.api_key ??
-        body.apikey ??
-        body.APIKey ??
-        body.Key,
+        body.ApiKey ?? body.api_key ?? body.apikey ?? body.APIKey ?? body.Key,
       firstName:
         body.FirstName ??
         body.first_name ??
@@ -2509,12 +2520,14 @@ export class CrmService {
       createdDate: body.CreatedDate ?? body.created_date ?? body.createdDate,
       email: body.Email ?? body.email,
       remark: body.Remark ?? body.remark ?? body.remarks ?? body.Remarks,
-      hasVisitScheduled:
-        body.HasVisitScheduled ?? body.has_visit_scheduled,
+      hasVisitScheduled: body.HasVisitScheduled ?? body.has_visit_scheduled,
       source: body.Source ?? body.source ?? 'MagicBricks',
       visitDate: body.VisitDate ?? body.visit_date,
       projectName:
-        body.ProjectName ?? body.project_name ?? body.projectName ?? body.Project,
+        body.ProjectName ??
+        body.project_name ??
+        body.projectName ??
+        body.Project,
       city: body.City ?? body.city,
       locality: body.Locality ?? body.locality,
       budget: body.Budget ?? body.budget,
@@ -2550,20 +2563,22 @@ export class CrmService {
       '';
 
     const projectName =
-      normalized.preferredProject ??
-      payload.projectName ??
-      undefined;
+      normalized.preferredProject ?? payload.projectName ?? undefined;
 
     const matchedProject = projectName
-      ? await this.db().project.findFirst({
-          where: {
-            OR: [
-              { name: { equals: String(projectName), mode: 'insensitive' } },
-              { name: { contains: String(projectName), mode: 'insensitive' } },
-            ],
-          },
-          select: { id: true, name: true, location: true },
-        }).catch(() => null)
+      ? await this.db()
+          .project.findFirst({
+            where: {
+              OR: [
+                { name: { equals: String(projectName), mode: 'insensitive' } },
+                {
+                  name: { contains: String(projectName), mode: 'insensitive' },
+                },
+              ],
+            },
+            select: { id: true, name: true, location: true },
+          })
+          .catch(() => null)
       : null;
 
     const [magicBricksSource, newLeadStatus] = await Promise.all([
@@ -2603,13 +2618,20 @@ export class CrmService {
       fieldMapping,
       normalizedLead: {
         leadName: String(leadName).trim(),
-        mobileNumber: String(normalized.mobileNumber ?? payload.mobile ?? '').trim(),
-        emailAddress: String(normalized.emailAddress ?? payload.email ?? '').trim(),
+        mobileNumber: String(
+          normalized.mobileNumber ?? payload.mobile ?? '',
+        ).trim(),
+        emailAddress: String(
+          normalized.emailAddress ?? payload.email ?? '',
+        ).trim(),
         preferredProjectId: matchedProject?.id,
         preferredProjectName:
           matchedProject?.name ?? (projectName ? String(projectName) : ''),
         preferredLocation:
-          normalized.preferredLocation ?? matchedProject?.location ?? payload.locality ?? '',
+          normalized.preferredLocation ??
+          matchedProject?.location ??
+          payload.locality ??
+          '',
         leadSourceName: magicBricksSource?.name ?? magicBricksDisplayName,
         leadSourceId: magicBricksSource?.id,
         leadStatusId: newLeadStatus?.id,
@@ -2732,7 +2754,9 @@ export class CrmService {
       actorUserId,
       orgId,
     );
-    const stats = await this.getMagicBricksLeadStats(integration.organizationId);
+    const stats = await this.getMagicBricksLeadStats(
+      integration.organizationId,
+    );
     const manual = await this.buildMagicBricksManual(integration);
     const apiKey = this.buildMagicBricksApiKey(integration.webhookKeyId);
     const mapping = this.getMagicBricksFieldMapping(integration.fieldMapping);
@@ -2793,14 +2817,13 @@ export class CrmService {
         : {}),
       notes:
         body.notes === undefined ? integration.notes : String(body.notes ?? ''),
-      status:
-        isPaused
-          ? 'Paused'
-          : body.status
-          ? String(body.status)
-          : integration.status === 'Draft' || integration.status === 'Paused'
-          ? 'Configured'
-          : integration.status,
+      status: isPaused
+        ? 'Paused'
+        : body.status
+        ? String(body.status)
+        : integration.status === 'Draft' || integration.status === 'Paused'
+        ? 'Configured'
+        : integration.status,
       updatedById: actorUserId,
     });
     await this.audit(
@@ -3035,7 +3058,8 @@ export class CrmService {
       );
       return {
         success: false,
-        message: 'Failure: MagicBricks Push API is paused. Lead was not created.',
+        message:
+          'Failure: MagicBricks Push API is paused. Lead was not created.',
         status: 'PAUSED',
       };
     }
@@ -3273,12 +3297,11 @@ export class CrmService {
       actorUserId,
       organizationId,
     );
-    const integration = await this.ensure99AcresIntegration(
-      actorUserId,
-      orgId,
-    );
+    const integration = await this.ensure99AcresIntegration(actorUserId, orgId);
     const stats = await this.get99AcresLeadStats(integration.organizationId);
-    const webhookUrl = `${this.acres99PublicApiBaseUrl()}/public/webhooks/99acres/${integration.webhookKeyId}`;
+    const webhookUrl = `${this.acres99PublicApiBaseUrl()}/public/webhooks/99acres/${
+      integration.webhookKeyId
+    }`;
     const mapping = this.get99AcresFieldMapping(integration.fieldMapping);
 
     return {
@@ -3312,10 +3335,7 @@ export class CrmService {
       actorUserId,
       organizationId,
     );
-    const integration = await this.ensure99AcresIntegration(
-      actorUserId,
-      orgId,
-    );
+    const integration = await this.ensure99AcresIntegration(actorUserId, orgId);
     const isPaused = requestedIntegrationPauseState(body, integration);
     const isActive = !isPaused;
     await this.portalIntegrationUpdate(integration.id, {
@@ -3330,14 +3350,13 @@ export class CrmService {
           : integration.credentials,
       notes:
         body.notes === undefined ? integration.notes : String(body.notes ?? ''),
-      status:
-        isPaused
-          ? 'Paused'
-          : body.status
-          ? String(body.status)
-          : integration.status === 'Draft' || integration.status === 'Paused'
-          ? 'Configured'
-          : integration.status,
+      status: isPaused
+        ? 'Paused'
+        : body.status
+        ? String(body.status)
+        : integration.status === 'Draft' || integration.status === 'Paused'
+        ? 'Configured'
+        : integration.status,
       updatedById: actorUserId,
     });
     await this.audit(
@@ -3349,18 +3368,12 @@ export class CrmService {
     return this.get99AcresIntegration(actorUserId, orgId);
   }
 
-  async regenerate99AcresApiKey(
-    actorUserId?: string,
-    organizationId?: string,
-  ) {
+  async regenerate99AcresApiKey(actorUserId?: string, organizationId?: string) {
     const orgId = await this.resolveTenantOrganizationId(
       actorUserId,
       organizationId,
     );
-    const integration = await this.ensure99AcresIntegration(
-      actorUserId,
-      orgId,
-    );
+    const integration = await this.ensure99AcresIntegration(actorUserId, orgId);
     await this.portalIntegrationUpdate(integration.id, {
       webhookKeyId: randomBytes(12).toString('hex'),
       updatedById: actorUserId,
@@ -3385,10 +3398,7 @@ export class CrmService {
       actorUserId,
       organizationId,
     );
-    const integration = await this.ensure99AcresIntegration(
-      actorUserId,
-      orgId,
-    );
+    const integration = await this.ensure99AcresIntegration(actorUserId, orgId);
     const mapping = this.get99AcresFieldMapping(body.fieldMapping);
     await this.portalIntegrationUpdate(integration.id, {
       fieldMapping: mapping,
@@ -3419,10 +3429,7 @@ export class CrmService {
       actorUserId,
       organizationId,
     );
-    const integration = await this.ensure99AcresIntegration(
-      actorUserId,
-      orgId,
-    );
+    const integration = await this.ensure99AcresIntegration(actorUserId, orgId);
     const samplePayload = {
       name: 'Rahul Sharma',
       phone: '9876543210',
@@ -3503,8 +3510,14 @@ export class CrmService {
     }
 
     const payload = body || {};
-    const name = payload.Name || payload.name || payload.FullName || payload.fullName || '99Acres Lead';
-    const mobile = payload.Mobile || payload.mobile || payload.Phone || payload.phone;
+    const name =
+      payload.Name ||
+      payload.name ||
+      payload.FullName ||
+      payload.fullName ||
+      '99Acres Lead';
+    const mobile =
+      payload.Mobile || payload.mobile || payload.Phone || payload.phone;
     const email = payload.Email || payload.email;
 
     if (!mobile && !email) {
@@ -3546,10 +3559,12 @@ export class CrmService {
       mobile: mobile ? String(mobile).trim() : undefined,
       email: email ? String(email).trim() : undefined,
       sourceId: sourceMaster?.id,
-      preferredLocation: payload.Location || payload.location || payload.City || payload.city,
+      preferredLocation:
+        payload.Location || payload.location || payload.City || payload.city,
       propertyType: payload.PropertyType || payload.propertyType,
       budgetRange: payload.Budget || payload.budget,
-      remarks: payload.Remarks || payload.remarks || payload.Query || payload.query,
+      remarks:
+        payload.Remarks || payload.remarks || payload.Query || payload.query,
     });
 
     await this.portalIntegrationUpdate(integration.id, {
@@ -4368,7 +4383,8 @@ export class CrmService {
       if (existingAfterWait) {
         return {
           success: true,
-          message: 'Website lead captured successfully into Truroot Realty CRM.',
+          message:
+            'Website lead captured successfully into Truroot Realty CRM.',
           leadId: existingAfterWait.id,
           displayId: existingAfterWait.displayId,
         };
@@ -4407,8 +4423,7 @@ export class CrmService {
       if (
         name &&
         name !== 'Website Lead' &&
-        (!existingRecentLead.name ||
-          existingRecentLead.name === 'Website Lead')
+        (!existingRecentLead.name || existingRecentLead.name === 'Website Lead')
       ) {
         await this.db()
           .lead.update({
@@ -4972,11 +4987,13 @@ export class CrmService {
     );
   }
 
-  private async getMetaLeadStats(settings?: ReturnType<typeof this.getMetaSettings>) {
+  private async getMetaLeadStats(
+    settings?: ReturnType<typeof this.getMetaSettings>,
+  ) {
     const metaSource = await this.getMetaAdsSourceMaster();
     const mappedSourceIds = settings?.pageSourceMappings
-      ? Object.values(settings.pageSourceMappings).filter(
-          (id): id is string => Boolean(id),
+      ? Object.values(settings.pageSourceMappings).filter((id): id is string =>
+          Boolean(id),
         )
       : [];
 
@@ -5229,7 +5246,8 @@ export class CrmService {
         stats,
         lastTestedAt: integration.lastTestedAt,
         lastTestStatus: integration.lastTestStatus,
-        lastLeadReceivedAt: integration.lastLeadReceivedAt ?? stats.lastImportedAt,
+        lastLeadReceivedAt:
+          integration.lastLeadReceivedAt ?? stats.lastImportedAt,
         totalLeadsReceived: integration.totalLeadsReceived,
         notes: integration.notes ?? '',
       },
@@ -5405,7 +5423,6 @@ export class CrmService {
     );
     url.searchParams.set('client_id', appId);
     url.searchParams.set('redirect_uri', this.metaOAuthCallbackUrl());
-    url.searchParams.set('scope', permissions.join(','));
     const overrideDefaultResponseType =
       (settings as any).overrideDefaultResponseType ??
       process.env.META_OVERRIDE_DEFAULT_RESPONSE_TYPE ??
@@ -5415,6 +5432,8 @@ export class CrmService {
       if (String(overrideDefaultResponseType).toLowerCase() !== 'false') {
         url.searchParams.set('override_default_response_type', 'true');
       }
+    } else {
+      url.searchParams.set('scope', permissions.join(','));
     }
     const normalizedReconnectAccountId = String(
       reconnectAccountId ?? '',
@@ -5522,7 +5541,9 @@ export class CrmService {
         const data = Array.isArray(response.data) ? response.data : [];
         results.push(...data);
 
-        const nextUrl = response.paging?.next ? String(response.paging.next).trim() : null;
+        const nextUrl = response.paging?.next
+          ? String(response.paging.next).trim()
+          : null;
         currentUrl = nextUrl && nextUrl !== currentUrl ? nextUrl : null;
       } catch {
         break;
@@ -5542,7 +5563,10 @@ export class CrmService {
     const directAccountsUrl = new URL(
       `https://graph.facebook.com/${graphApiVersion}/me/accounts`,
     );
-    directAccountsUrl.searchParams.set('fields', 'id,name,category,access_token');
+    directAccountsUrl.searchParams.set(
+      'fields',
+      'id,name,category,access_token',
+    );
     directAccountsUrl.searchParams.set('limit', '100');
     directAccountsUrl.searchParams.set('access_token', userAccessToken);
 
@@ -5585,7 +5609,9 @@ export class CrmService {
 
           // Fetch Owned Pages for Portfolio
           const ownedUrl = new URL(
-            `https://graph.facebook.com/${graphApiVersion}/${encodeURIComponent(bizId)}/owned_pages`,
+            `https://graph.facebook.com/${graphApiVersion}/${encodeURIComponent(
+              bizId,
+            )}/owned_pages`,
           );
           ownedUrl.searchParams.set('fields', 'id,name,category,access_token');
           ownedUrl.searchParams.set('limit', '100');
@@ -5593,15 +5619,23 @@ export class CrmService {
 
           // Fetch Client Pages for Portfolio
           const clientUrl = new URL(
-            `https://graph.facebook.com/${graphApiVersion}/${encodeURIComponent(bizId)}/client_pages`,
+            `https://graph.facebook.com/${graphApiVersion}/${encodeURIComponent(
+              bizId,
+            )}/client_pages`,
           );
           clientUrl.searchParams.set('fields', 'id,name,category,access_token');
           clientUrl.searchParams.set('limit', '100');
           clientUrl.searchParams.set('access_token', userAccessToken);
 
           const [ownedPages, clientPages] = await Promise.all([
-            this.fetchMetaPaginatedData(ownedUrl, `Meta Owned Pages (${bizId})`).catch(() => []),
-            this.fetchMetaPaginatedData(clientUrl, `Meta Client Pages (${bizId})`).catch(() => []),
+            this.fetchMetaPaginatedData(
+              ownedUrl,
+              `Meta Owned Pages (${bizId})`,
+            ).catch(() => []),
+            this.fetchMetaPaginatedData(
+              clientUrl,
+              `Meta Client Pages (${bizId})`,
+            ).catch(() => []),
           ]);
 
           ownedPages.forEach((page: Body) => {
@@ -5643,7 +5677,9 @@ export class CrmService {
         if (id && !currentToken) {
           try {
             const pageUrl = new URL(
-              `https://graph.facebook.com/${graphApiVersion}/${encodeURIComponent(id)}`,
+              `https://graph.facebook.com/${graphApiVersion}/${encodeURIComponent(
+                id,
+              )}`,
             );
             pageUrl.searchParams.set('fields', 'access_token');
             pageUrl.searchParams.set('access_token', userAccessToken);
@@ -6192,7 +6228,9 @@ export class CrmService {
         pausedAccountIds.push(targetAccountId);
       }
     } else {
-      pausedAccountIds = pausedAccountIds.filter((id) => id !== targetAccountId);
+      pausedAccountIds = pausedAccountIds.filter(
+        (id) => id !== targetAccountId,
+      );
     }
 
     await this.portalIntegrationUpdate(integration.id, {
@@ -6865,11 +6903,25 @@ export class CrmService {
     const rawFieldData = Array.isArray(lead.field_data) ? lead.field_data : [];
     const mappedSourceFields = new Set(Object.keys(fieldMapping));
     const standardMetaFields = new Set([
-      'first_name', 'firstname', 'last_name', 'lastname', 'full_name', 'name',
-      'phone_number', 'phone', 'mobile', 'mobile_number',
-      'email', 'email_address',
-      'remarks', 'remark', 'message', 'comments',
-      'project_name', 'project', 'preferred_project',
+      'first_name',
+      'firstname',
+      'last_name',
+      'lastname',
+      'full_name',
+      'name',
+      'phone_number',
+      'phone',
+      'mobile',
+      'mobile_number',
+      'email',
+      'email_address',
+      'remarks',
+      'remark',
+      'message',
+      'comments',
+      'project_name',
+      'project',
+      'preferred_project',
     ]);
     const formResponses: string[] = [];
     for (const field of rawFieldData) {
@@ -6931,7 +6983,9 @@ export class CrmService {
   async receiveMetaWebhook(body: Body, ip?: string, userAgent?: string) {
     const integration = await this.ensureMetaIntegration();
     if (!integration.isActive || integration.status === 'Paused') {
-      this.logger.warn('[MetaWebhook] skipped: integration is inactive or paused');
+      this.logger.warn(
+        '[MetaWebhook] skipped: integration is inactive or paused',
+      );
       await this.audit(
         undefined,
         'META_LEAD_SKIPPED',
@@ -7001,7 +7055,10 @@ export class CrmService {
         const eventAccountId = matchedPage
           ? String(matchedPage.accountId ?? '')
           : '';
-        if (eventAccountId && settings.pausedAccountIds.includes(eventAccountId)) {
+        if (
+          eventAccountId &&
+          settings.pausedAccountIds.includes(eventAccountId)
+        ) {
           this.logger.warn(
             `[MetaWebhook] skipped leadgenId=${event.leadgenId}: Account ${eventAccountId} is currently paused`,
           );
@@ -7417,15 +7474,18 @@ export class CrmService {
         details: { ...reminderPayload, assignedToId: recipient.id },
       },
       reminderPayload,
-    )
-      .catch(() => undefined);
+    ).catch(() => undefined);
 
-    await this.sendPushNotification(recipient.id, {
-      title: notificationContent.title,
-      body: notificationContent.description || notificationContent.message,
-      type: notificationContent.type,
-      data: reminderPayload as any,
-    }, { organizationId: lead.organizationId }).catch(() => undefined);
+    await this.sendPushNotification(
+      recipient.id,
+      {
+        title: notificationContent.title,
+        body: notificationContent.description || notificationContent.message,
+        type: notificationContent.type,
+        data: reminderPayload as any,
+      },
+      { organizationId: lead.organizationId },
+    ).catch(() => undefined);
   }
 
   private async ensureMasters(categoryCode: string, defaults: Body[]) {
@@ -7531,7 +7591,13 @@ export class CrmService {
 
   async listLeads(query: Query, user?: Body) {
     const { page, limit, skip } = pageMeta(query);
-    const where: Body = { deletedAt: null };
+    const activeTenantId =
+      this.tenantAccess.selectedOrganizationId ||
+      this.tenantContext.getTenantId();
+    const where: Body = {
+      deletedAt: null,
+      ...(activeTenantId ? { organizationId: activeTenantId } : {}),
+    };
     const segment = String(query.segment ?? '').toLowerCase();
     const ownerIds = parseMultiQueryValues(query.ownerId);
     const managerIds = parseMultiQueryValues(query.managerId);
@@ -8116,8 +8182,12 @@ export class CrmService {
     query: Query,
     userIds: string[],
   ): Prisma.LeadWhereInput {
+    const activeTenantId =
+      this.tenantAccess.selectedOrganizationId ||
+      this.tenantContext.getTenantId();
     const where: Prisma.LeadWhereInput = {
       deletedAt: null,
+      ...(activeTenantId ? { organizationId: activeTenantId } : {}),
       AND: [this.teamLeadAssignmentScope(userIds)],
     };
     const sourceIds = parseMultiQueryValues(query.sourceId);
@@ -9030,13 +9100,22 @@ export class CrmService {
       ? baseWhere
       : { ...whereWithoutStatus, status: { not: 'ARCHIVED' } };
 
-    const [total, cold, interested, notInterested, converted] = await Promise.all([
-      this.db().contactLead.count({ where: baseCondition }),
-      this.db().contactLead.count({ where: { ...whereWithoutStatus, status: 'COLD' } }),
-      this.db().contactLead.count({ where: { ...whereWithoutStatus, status: 'INTERESTED' } }),
-      this.db().contactLead.count({ where: { ...whereWithoutStatus, status: 'NOT_INTERESTED' } }),
-      this.db().contactLead.count({ where: { ...whereWithoutStatus, status: 'CONVERTED' } }),
-    ]);
+    const [total, cold, interested, notInterested, converted] =
+      await Promise.all([
+        this.db().contactLead.count({ where: baseCondition }),
+        this.db().contactLead.count({
+          where: { ...whereWithoutStatus, status: 'COLD' },
+        }),
+        this.db().contactLead.count({
+          where: { ...whereWithoutStatus, status: 'INTERESTED' },
+        }),
+        this.db().contactLead.count({
+          where: { ...whereWithoutStatus, status: 'NOT_INTERESTED' },
+        }),
+        this.db().contactLead.count({
+          where: { ...whereWithoutStatus, status: 'CONVERTED' },
+        }),
+      ]);
 
     return {
       data: {
@@ -9497,14 +9576,18 @@ export class CrmService {
     actorUserId?: string,
     actorRole?: string,
   ) {
-    const requestedRole = String(body.role ?? '').trim().toUpperCase();
+    const requestedRole = String(body.role ?? '')
+      .trim()
+      .toUpperCase();
     const canManageRole = ['SUPER_ADMIN', 'ADMIN'].includes(
       String(actorRole ?? '').toUpperCase(),
     );
     const role =
       requestedRole && canManageRole
         ? requestedRole
-        : String(actorRole ?? '').trim().toUpperCase();
+        : String(actorRole ?? '')
+            .trim()
+            .toUpperCase();
     const preferenceRole = leadListConfigurableRoles.includes(role)
       ? role
       : undefined;
@@ -9670,8 +9753,12 @@ export class CrmService {
             ...(lead.sourceId ? [{ id: String(lead.sourceId) }] : []),
             ...(lead.source
               ? [
-                  { name: { equals: String(lead.source), mode: 'insensitive' } },
-                  { code: { equals: String(lead.source), mode: 'insensitive' } },
+                  {
+                    name: { equals: String(lead.source), mode: 'insensitive' },
+                  },
+                  {
+                    code: { equals: String(lead.source), mode: 'insensitive' },
+                  },
                 ]
               : []),
           ],
@@ -10054,18 +10141,47 @@ export class CrmService {
       }),
     ]);
     if (nextUserId) {
-      this.sendPushNotification(String(nextUserId), {
-        title: 'Lead Transferred to You (SLA Breach)',
-        body: `Lead ${lead.name} was auto-transferred to you due to uncontacted SLA expiration.`,
-        type: 'sla-breach-transferred',
-        data: {
-          leadName: lead.name,
-          ...this.buildNotificationNavigationPayload(null, 'all-leads', {
+      const navigation = this.buildNotificationNavigationPayload(
+        null,
+        'all-leads',
+        {
+          leadId: lead.id,
+          leadDisplayId: lead.displayId ?? lead.id,
+        },
+      );
+      const notificationPayload = await this.createNotificationWithNavigation(
+        {
+          organizationId: lead.organizationId ?? null,
+          userId: String(nextUserId),
+          type: 'sla-breach-transferred',
+          title: 'Lead transferred to you after SLA breach',
+          description: `Lead ${lead.name} was auto-transferred to you because the previous assignment exceeded its action SLA.`,
+          badge: 'auto-assignment',
+          entityType: 'Lead',
+          entityId: lead.id,
+          details: {
             leadId: lead.id,
             leadDisplayId: lead.displayId ?? lead.id,
-          }),
+            leadName: lead.name,
+            ruleId: rule.id,
+            previousUserId,
+          },
         },
-      }, { organizationId: lead.organizationId }).catch((err) =>
+        navigation,
+      );
+      this.sendPushNotification(
+        String(nextUserId),
+        {
+          title: 'Lead Transferred to You (SLA Breach)',
+          body: `Lead ${lead.name} was auto-transferred to you due to uncontacted SLA expiration.`,
+          type: 'sla-breach-transferred',
+          data: {
+            leadName: lead.name,
+            ...notificationPayload,
+          },
+        },
+        { organizationId: lead.organizationId },
+      ).catch((err) =>
         this.logger.warn(`Push notify error on SLA transfer: ${err?.message}`),
       );
     }
@@ -10113,14 +10229,18 @@ export class CrmService {
       skipDuplicates: true,
     });
     admins.forEach((admin: Body) => {
-      this.sendPushNotification(admin.id, {
-        title: 'SLA Exhausted Alert',
-        body: `Lead ${
-          lead.displayId ?? lead.name
-        } reached the end of its SLA transfer sequence.`,
-        type: 'sla-exhausted',
-        data: navigation,
-      }, { organizationId: lead.organizationId }).catch((err) =>
+      this.sendPushNotification(
+        admin.id,
+        {
+          title: 'SLA Exhausted Alert',
+          body: `Lead ${
+            lead.displayId ?? lead.name
+          } reached the end of its SLA transfer sequence.`,
+          type: 'sla-exhausted',
+          data: navigation,
+        },
+        { organizationId: lead.organizationId },
+      ).catch((err) =>
         this.logger.warn(`Push notify error on SLA exhausted: ${err?.message}`),
       );
     });
@@ -10742,17 +10862,21 @@ export class CrmService {
         assignmentNavigation,
       ).catch(() => undefined);
 
-      this.sendPushNotification(recipient.id, {
-        title: 'New lead assigned',
-        body: `${lead.name} (${
-          lead.displayId ?? lead.id
-        }) has been assigned to you.`,
-        type: 'lead-assigned',
-        data: {
-          leadName: lead.name,
-          ...assignmentPushPayload,
+      this.sendPushNotification(
+        recipient.id,
+        {
+          title: 'New lead assigned',
+          body: `${lead.name} (${
+            lead.displayId ?? lead.id
+          }) has been assigned to you.`,
+          type: 'lead-assigned',
+          data: {
+            leadName: lead.name,
+            ...assignmentPushPayload,
+          },
         },
-      }, { organizationId: effectiveOrgId }).catch((err) =>
+        { organizationId: effectiveOrgId },
+      ).catch((err) =>
         this.logger.warn(
           `Push notify error on lead create assign: ${err?.message}`,
         ),
@@ -10970,7 +11094,9 @@ export class CrmService {
       preferredProjectId: prefProjectId,
       projectName: resolvedProjName,
       projectArea:
-        preferredProject?.location ?? lead.requirement?.preferredLocation ?? null,
+        preferredProject?.location ??
+        lead.requirement?.preferredLocation ??
+        null,
       project: preferredProject
         ? {
             id: preferredProject.id,
@@ -12240,8 +12366,7 @@ export class CrmService {
         where: { id: bookingId },
         data: {
           projectId: body.projectId ?? undefined,
-          unitId:
-            body.unitId !== undefined ? nextUnitId ?? null : undefined,
+          unitId: body.unitId !== undefined ? nextUnitId ?? null : undefined,
           bookingAmount: bookingAmount ?? undefined,
           agreementValue: agreementValue ?? undefined,
           bookingDate: bookingDate ?? undefined,
@@ -13816,7 +13941,8 @@ export class CrmService {
 
     const remarksChanged =
       body.remarks !== undefined &&
-      String(body.remarks ?? '').trim() !== String(current.remarks ?? '').trim();
+      String(body.remarks ?? '').trim() !==
+        String(current.remarks ?? '').trim();
 
     if (allowFollowUp && (statusChanged || remarksChanged)) {
       const incomingFollowUpDate = normalizeDate(
@@ -13982,7 +14108,11 @@ export class CrmService {
       .catch(() => undefined);
 
     this.logger.log(
-      `[BACKEND_LEAD_UPDATE_START] Target Lead ID: ${id} | Input StatusId: ${body.statusId ?? body.leadStatus ?? 'unchanged'} | Remarks: "${body.remarks ?? 'N/A'}" | Input PreferredProject: "${incomingProjectId ?? 'unchanged'}" | Actor: ${actorUserId ?? 'System'}`,
+      `[BACKEND_LEAD_UPDATE_START] Target Lead ID: ${id} | Input StatusId: ${
+        body.statusId ?? body.leadStatus ?? 'unchanged'
+      } | Remarks: "${body.remarks ?? 'N/A'}" | Input PreferredProject: "${
+        incomingProjectId ?? 'unchanged'
+      }" | Actor: ${actorUserId ?? 'System'}`,
     );
 
     await this.recordLeadRemark(
@@ -14015,7 +14145,10 @@ export class CrmService {
 
       if (!existingActiveFollowUp) {
         const assignedToId =
-          lead.telecallerId ?? lead.fieldExecutiveId ?? lead.ownerId ?? actorUserId;
+          lead.telecallerId ??
+          lead.fieldExecutiveId ??
+          lead.ownerId ??
+          actorUserId;
         await this.db().followUp.create({
           data: {
             leadId: lead.id,
@@ -14039,7 +14172,13 @@ export class CrmService {
       : null;
 
     this.logger.log(
-      `[BACKEND_LEAD_UPDATE_SUCCESS] Saved Lead ID: ${lead.id} (${lead.name}) | StatusID: ${lead.statusId ?? 'None'} | Linked Project Name: "${leadProject?.name ?? 'Not Linked'}" (ID: ${lead.requirement?.preferredProjectId ?? 'None'}) | NextFollowUpAt: ${lead.nextFollowUpAt?.toISOString() ?? 'None'}`,
+      `[BACKEND_LEAD_UPDATE_SUCCESS] Saved Lead ID: ${lead.id} (${
+        lead.name
+      }) | StatusID: ${lead.statusId ?? 'None'} | Linked Project Name: "${
+        leadProject?.name ?? 'Not Linked'
+      }" (ID: ${
+        lead.requirement?.preferredProjectId ?? 'None'
+      }) | NextFollowUpAt: ${lead.nextFollowUpAt?.toISOString() ?? 'None'}`,
     );
 
     return this.getLead(lead.id, actor);
@@ -14833,18 +14972,24 @@ export class CrmService {
       assignmentNavigation,
     );
     if (targetUser?.id) {
-      this.sendPushNotification(targetUser.id, {
-        title: isReassignment ? 'Lead reassigned to you' : 'New lead assigned',
-        body: `${current.name} (${
-          current.displayId ?? current.id
-        }) has been ${isReassignment ? 'reassigned' : 'assigned'} to you.`,
-        type: isReassignment ? 'lead-reassigned' : 'lead-assigned',
-        data: {
-          leadName: current.name,
-          assigneeType,
-          ...assignmentPushPayload,
+      this.sendPushNotification(
+        targetUser.id,
+        {
+          title: isReassignment
+            ? 'Lead reassigned to you'
+            : 'New lead assigned',
+          body: `${current.name} (${
+            current.displayId ?? current.id
+          }) has been ${isReassignment ? 'reassigned' : 'assigned'} to you.`,
+          type: isReassignment ? 'lead-reassigned' : 'lead-assigned',
+          data: {
+            leadName: current.name,
+            assigneeType,
+            ...assignmentPushPayload,
+          },
         },
-      }, { organizationId: current.organizationId }).catch((err) =>
+        { organizationId: current.organizationId },
+      ).catch((err) =>
         this.logger.warn(`Push notify error on lead assign: ${err?.message}`),
       );
     }
@@ -14930,7 +15075,9 @@ export class CrmService {
     if (!text) return null;
 
     this.logger.log(
-      `[BACKEND_RECORD_REMARK] Lead ID: ${leadId} | Remark: "${text}" | Author: ${authorId ?? 'System'}`,
+      `[BACKEND_RECORD_REMARK] Lead ID: ${leadId} | Remark: "${text}" | Author: ${
+        authorId ?? 'System'
+      }`,
     );
 
     // The remark dialog posts a Note before creating its optional reminder.
@@ -15065,13 +15212,14 @@ export class CrmService {
     const nextAction =
       optionalString(body.nextAction) ?? followUpRemark ?? 'Follow-up';
 
-    const existingActiveFollowUps = (await this.db().followUp.findMany?.({
-      where: {
-        leadId: lead.id,
-        completedAt: null,
-      },
-      orderBy: { createdAt: 'desc' },
-    })) ?? [];
+    const existingActiveFollowUps =
+      (await this.db().followUp.findMany?.({
+        where: {
+          leadId: lead.id,
+          completedAt: null,
+        },
+        orderBy: { createdAt: 'desc' },
+      })) ?? [];
 
     let followUp;
     if (existingActiveFollowUps.length > 0) {
@@ -15855,7 +16003,9 @@ export class CrmService {
       if (pendingForLead.length > 1) {
         const [, ...olderIds] = pendingForLead;
         await this.db().followUp.updateMany({
-          where: { id: { in: olderIds.map((item: { id: string }) => item.id) } },
+          where: {
+            id: { in: olderIds.map((item: { id: string }) => item.id) },
+          },
           data: {
             completedAt: new Date(),
             statusId: 'Completed',
@@ -15890,7 +16040,9 @@ export class CrmService {
         const leadKey =
           item.leadId ||
           item.lead?.id ||
-          (item.lead?.mobile ? String(item.lead.mobile).replace(/\D/g, '') : '') ||
+          (item.lead?.mobile
+            ? String(item.lead.mobile).replace(/\D/g, '')
+            : '') ||
           item.id;
         const existing = leadMap.get(leadKey);
         if (!existing) {
@@ -16070,9 +16222,13 @@ export class CrmService {
         allowFollowUp:
           body.allowFollowUp === undefined ? true : Boolean(body.allowFollowUp),
         showInStatsCard:
-          body.showInStatsCard === undefined ? true : Boolean(body.showInStatsCard),
+          body.showInStatsCard === undefined
+            ? true
+            : Boolean(body.showInStatsCard),
         showInFilterBar:
-          body.showInFilterBar === undefined ? true : Boolean(body.showInFilterBar),
+          body.showInFilterBar === undefined
+            ? true
+            : Boolean(body.showInFilterBar),
         followUpNotificationEnabled,
         followUpRenotifyMinutes,
       },
@@ -16177,11 +16333,7 @@ export class CrmService {
     return value;
   }
 
-  async deleteMaster(
-    categoryCode: string,
-    id: string,
-    actorUserId?: string,
-  ) {
+  async deleteMaster(categoryCode: string, id: string, actorUserId?: string) {
     const current = await this.db().leadMasterValue.findUnique({
       where: { id },
       include: { categoryRef: { select: { code: true } } },
@@ -16289,15 +16441,22 @@ export class CrmService {
       highlights: asArray(project.highlights),
       imageGallery: asArray(project.imageGallery),
       videoGallery: asArray(
-        project.videoUrls ?? project.videos ?? (project.videoUrl ? [project.videoUrl] : []),
+        project.videoUrls ??
+          project.videos ??
+          (project.videoUrl ? [project.videoUrl] : []),
       ),
       videoUrls: asArray(
-        project.videoUrls ?? project.videos ?? (project.videoUrl ? [project.videoUrl] : []),
+        project.videoUrls ??
+          project.videos ??
+          (project.videoUrl ? [project.videoUrl] : []),
       ),
       videos: asArray(
-        project.videoUrls ?? project.videos ?? (project.videoUrl ? [project.videoUrl] : []),
+        project.videoUrls ??
+          project.videos ??
+          (project.videoUrl ? [project.videoUrl] : []),
       ),
-      videoUrl: project.videoUrl ?? asArray(project.videoUrls ?? project.videos)[0],
+      videoUrl:
+        project.videoUrl ?? asArray(project.videoUrls ?? project.videos)[0],
       brochures,
       brochureUrl: project.brochureUrl ?? brochures[0]?.url,
       brochureStorageKey:
@@ -16355,7 +16514,11 @@ export class CrmService {
     });
 
     if (!project) {
-      const slugTarget = idOrSlug.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-');
+      const slugTarget = idOrSlug
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/[\s_-]+/g, '-');
       const allProjects = await this.db().project.findMany({
         include: {
           units: { include: { _count: { select: { siteVisits: true } } } },
@@ -16364,7 +16527,11 @@ export class CrmService {
       project =
         allProjects.find((p) => {
           if (!p.name) return false;
-          const pSlug = p.name.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-');
+          const pSlug = p.name
+            .toLowerCase()
+            .trim()
+            .replace(/[^\w\s-]/g, '')
+            .replace(/[\s_-]+/g, '-');
           return pSlug === slugTarget || p.id === idOrSlug;
         }) ?? null;
     }
@@ -16378,7 +16545,9 @@ export class CrmService {
     const name = String(body.name ?? 'Public Visitor').trim();
     const phone = String(body.phone ?? '').trim();
     const email = body.email ? String(body.email).trim() : undefined;
-    const preferredConfiguration = body.configuration ? String(body.configuration) : undefined;
+    const preferredConfiguration = body.configuration
+      ? String(body.configuration)
+      : undefined;
     if (!phone) throw new BadRequestException('Phone number is required');
 
     const existing = await this.db().lead.findFirst({
@@ -16460,8 +16629,7 @@ export class CrmService {
         videoUrl:
           body.videoUrl ??
           (Array.isArray(body.videoUrls) ? body.videoUrls[0] : null),
-        videoUrls:
-          body.videoUrls ?? (body.videoUrl ? [body.videoUrl] : []),
+        videoUrls: body.videoUrls ?? (body.videoUrl ? [body.videoUrl] : []),
         brochureUrl: primaryBrochure?.url ?? body.brochureUrl,
         brochureStorageKey:
           primaryBrochure?.storageKey ?? body.brochureStorageKey,
@@ -17226,7 +17394,9 @@ export class CrmService {
         })
       : null;
     if (actorUserId && !actor) {
-      throw new ForbiddenException('An active user is required to schedule a site visit');
+      throw new ForbiddenException(
+        'An active user is required to schedule a site visit',
+      );
     }
     const lead = await db.lead.findFirst({
       where: {
@@ -17307,7 +17477,8 @@ export class CrmService {
             assignedExecutiveId,
             meetingPoint: body.meetingPoint,
             transportMode: body.transportMode,
-            visitorCount: Number(body.visitorCount ?? body.visitors) || undefined,
+            visitorCount:
+              Number(body.visitorCount ?? body.visitors) || undefined,
             specialRequest: body.specialRequest,
             notes: body.notes,
             reminderEnabled: body.reminderEnabled ?? false,
@@ -17318,7 +17489,9 @@ export class CrmService {
       } catch (err: any) {
         if (err?.code === 'P2002' && !body.displayId) {
           attempts++;
-          const num = parseInt(String(displayId).replace(/^SV-/i, ''), 10) || attempts + 1;
+          const num =
+            parseInt(String(displayId).replace(/^SV-/i, ''), 10) ||
+            attempts + 1;
           displayId = `SV-${String(num + 1).padStart(4, '0')}`;
         } else {
           throw err;
@@ -17383,16 +17556,20 @@ export class CrmService {
             navigation,
           )
         : navigation;
-      this.sendPushNotification(assignedExecutiveId, {
-        title: 'New Site Visit Scheduled',
-        body: `Site visit scheduled with ${leadName} for ${scheduledTimeStr}`,
-        type: 'site-visit-scheduled',
-        data: {
-          leadName,
-          scheduledAt: visit.scheduledAt,
-          ...pushPayload,
+      this.sendPushNotification(
+        assignedExecutiveId,
+        {
+          title: 'New Site Visit Scheduled',
+          body: `Site visit scheduled with ${leadName} for ${scheduledTimeStr}`,
+          type: 'site-visit-scheduled',
+          data: {
+            leadName,
+            scheduledAt: visit.scheduledAt,
+            ...pushPayload,
+          },
         },
-      }, { organizationId: lead?.organizationId }).catch((err) =>
+        { organizationId: lead?.organizationId },
+      ).catch((err) =>
         this.logger.warn(
           `Push notify error on site visit schedule: ${err?.message}`,
         ),
@@ -17410,9 +17587,12 @@ export class CrmService {
     if (
       (body.assignedExecutiveId !== undefined &&
         body.assignedExecutiveId !== existing.assignedExecutiveId) ||
-      (body.assigneeId !== undefined && body.assigneeId !== existing.assignedExecutiveId)
+      (body.assigneeId !== undefined &&
+        body.assigneeId !== existing.assignedExecutiveId)
     ) {
-      throw new BadRequestException('The assigned executive cannot be changed on a site visit.');
+      throw new BadRequestException(
+        'The assigned executive cannot be changed on a site visit.',
+      );
     }
 
     const updateData: Record<string, any> = {};
@@ -17421,16 +17601,23 @@ export class CrmService {
     if (body.scheduledAt !== undefined && body.scheduledAt !== null) {
       updateData.scheduledAt = normalizeDate(body.scheduledAt);
     }
-    if (body.durationMinutes !== undefined) updateData.durationMinutes = body.durationMinutes;
+    if (body.durationMinutes !== undefined)
+      updateData.durationMinutes = body.durationMinutes;
     if (body.feedback !== undefined) updateData.feedback = body.feedback;
     if (body.rating !== undefined) updateData.rating = body.rating;
     if (body.notes !== undefined) updateData.notes = body.notes;
-    if (body.meetingPoint !== undefined) updateData.meetingPoint = body.meetingPoint;
-    if (body.transportMode !== undefined) updateData.transportMode = body.transportMode;
-    if (body.visitorCount !== undefined) updateData.visitorCount = body.visitorCount;
-    if (body.specialRequest !== undefined) updateData.specialRequest = body.specialRequest;
+    if (body.meetingPoint !== undefined)
+      updateData.meetingPoint = body.meetingPoint;
+    if (body.transportMode !== undefined)
+      updateData.transportMode = body.transportMode;
+    if (body.visitorCount !== undefined)
+      updateData.visitorCount = body.visitorCount;
+    if (body.specialRequest !== undefined)
+      updateData.specialRequest = body.specialRequest;
     if (body.reminderAt !== undefined) {
-      updateData.reminderAt = body.reminderAt ? normalizeDate(body.reminderAt) : null;
+      updateData.reminderAt = body.reminderAt
+        ? normalizeDate(body.reminderAt)
+        : null;
     }
 
     const visit = await this.db().siteVisit.update({
@@ -17469,7 +17656,9 @@ export class CrmService {
                   ? 'site-visit-cancelled'
                   : 'site-visit-updated',
               title: `Site Visit ${visit.status || 'Updated'}`,
-              description: `Site visit for ${leadName} has been updated (${visit.status || 'Updated'})`,
+              description: `Site visit for ${leadName} has been updated (${
+                visit.status || 'Updated'
+              })`,
               badge: this.roleLabel(recipient.role),
               message: 'Open Site Visits to review the latest update.',
               entityType: 'SiteVisit',
@@ -17479,26 +17668,36 @@ export class CrmService {
             navigation,
           )
         : navigation;
-      this.sendPushNotification(visit.assignedExecutiveId, {
-        title: `Site Visit ${visit.status || 'Updated'}`,
-        body: `Site visit for ${leadName} has been updated (${
-          visit.status || 'Updated'
-        })`,
-        type:
-          visit.status === 'Cancelled'
-            ? 'site-visit-cancelled'
-            : 'site-visit-updated',
-        data: {
-          status: visit.status,
-          ...pushPayload,
+      this.sendPushNotification(
+        visit.assignedExecutiveId,
+        {
+          title: `Site Visit ${visit.status || 'Updated'}`,
+          body: `Site visit for ${leadName} has been updated (${
+            visit.status || 'Updated'
+          })`,
+          type:
+            visit.status === 'Cancelled'
+              ? 'site-visit-cancelled'
+              : 'site-visit-updated',
+          data: {
+            status: visit.status,
+            ...pushPayload,
+          },
         },
-      }, { organizationId: lead?.organizationId }).catch((err) =>
+        { organizationId: lead?.organizationId },
+      ).catch((err) =>
         this.logger.warn(
           `Push notify error on site visit update: ${err?.message}`,
         ),
       );
     }
-    await this.audit(actorUserId, 'SITE_VISIT_UPDATED', 'SiteVisit', existing.id, body);
+    await this.audit(
+      actorUserId,
+      'SITE_VISIT_UPDATED',
+      'SiteVisit',
+      existing.id,
+      body,
+    );
     const activityType =
       body.status === 'Completed'
         ? 'SITE_VISIT_COMPLETED'
@@ -17553,7 +17752,9 @@ export class CrmService {
     let scheduledFollowUp: Date | null = null;
     if (rawFollowUpDate) {
       if (followUpTimeStr) {
-        scheduledFollowUp = normalizeDate(`${String(rawFollowUpDate).slice(0, 10)} ${followUpTimeStr}`);
+        scheduledFollowUp = normalizeDate(
+          `${String(rawFollowUpDate).slice(0, 10)} ${followUpTimeStr}`,
+        );
       }
       if (!scheduledFollowUp) {
         scheduledFollowUp = normalizeDate(rawFollowUpDate);
@@ -17573,7 +17774,9 @@ export class CrmService {
         .catch(() => null);
     }
 
-    const remarkText = String(body.feedback ?? body.remarks ?? body.notes ?? '').trim();
+    const remarkText = String(
+      body.feedback ?? body.remarks ?? body.notes ?? '',
+    ).trim();
 
     if (scheduledFollowUp) {
       const assignedToId = visit.assignedExecutiveId ?? actorUserId;
@@ -18101,10 +18304,15 @@ export class CrmService {
     }
 
     const metaStats = await this.getMetaLeadStats();
-    const magicBricksIntegration = await this.getMagicBricksIntegration().catch(() => null);
-    const websiteIntegration = await this.getWebsiteIntegration().catch(() => null);
+    const magicBricksIntegration = await this.getMagicBricksIntegration().catch(
+      () => null,
+    );
+    const websiteIntegration = await this.getWebsiteIntegration().catch(
+      () => null,
+    );
 
-    const magicBricksTotal = magicBricksIntegration?.data?.totalLeadsReceived || 0;
+    const magicBricksTotal =
+      magicBricksIntegration?.data?.totalLeadsReceived || 0;
     const websiteTotal = websiteIntegration?.data?.totalLeadsReceived || 0;
     const sourceCounts: Record<string, number> = {
       magicbricks: 0,
@@ -18127,7 +18335,10 @@ export class CrmService {
         sourceCounts.magicbricks += count;
       } else if (lowerName.includes('99acres') || lowerCode.includes('99')) {
         sourceCounts['99acres'] += count;
-      } else if (lowerName.includes('housing') || lowerCode.includes('housing')) {
+      } else if (
+        lowerName.includes('housing') ||
+        lowerCode.includes('housing')
+      ) {
         sourceCounts.housing += count;
       } else if (lowerName.includes('google') || lowerCode.includes('google')) {
         sourceCounts.google += count;
@@ -18141,11 +18352,20 @@ export class CrmService {
         lowerCode.includes('ig')
       ) {
         sourceCounts.meta += count;
-      } else if (lowerName.includes('justdial') || lowerCode.includes('justdial')) {
+      } else if (
+        lowerName.includes('justdial') ||
+        lowerCode.includes('justdial')
+      ) {
         sourceCounts.justdial += count;
-      } else if (lowerName.includes('website') || lowerCode.includes('website')) {
+      } else if (
+        lowerName.includes('website') ||
+        lowerCode.includes('website')
+      ) {
         sourceCounts.website += count;
-      } else if (lowerName.includes('referral') || lowerCode.includes('referral')) {
+      } else if (
+        lowerName.includes('referral') ||
+        lowerCode.includes('referral')
+      ) {
         sourceCounts.referral += count;
       } else if (
         lowerName.includes('walk-in') ||
@@ -18729,146 +18949,146 @@ export class CrmService {
       if (!followUp.assignedToId) continue;
       try {
         const reminder = await this.prisma.$transaction(async (tx) => {
-        const current = await tx.followUp.findUnique({
-          where: { id: followUp.id },
-          select: {
-            id: true,
-            assignedToId: true,
-            completedAt: true,
-            reminderSentAt: true,
-            scheduledAt: true,
-            typeId: true,
-            lead: {
-              select: {
-                id: true,
-                displayId: true,
-                name: true,
-                organizationId: true,
-                statusId: true,
-                updatedAt: true,
-                deletedAt: true,
+          const current = await tx.followUp.findUnique({
+            where: { id: followUp.id },
+            select: {
+              id: true,
+              assignedToId: true,
+              completedAt: true,
+              reminderSentAt: true,
+              scheduledAt: true,
+              typeId: true,
+              lead: {
+                select: {
+                  id: true,
+                  displayId: true,
+                  name: true,
+                  organizationId: true,
+                  statusId: true,
+                  updatedAt: true,
+                  deletedAt: true,
+                },
               },
-            },
-          },
-        });
-        if (
-          !current?.assignedToId ||
-          current.completedAt ||
-          current.scheduledAt > now ||
-          current.lead?.deletedAt
-        ) {
-          return null;
-        }
-        const status = current.lead?.statusId
-          ? await tx.leadMasterValue.findUnique({
-              where: { id: current.lead.statusId },
-              select: {
-                followUpNotificationEnabled: true,
-                followUpRenotifyMinutes: true,
-              },
-            })
-          : null;
-        if (status?.followUpNotificationEnabled === false) {
-          return null;
-        }
-        const renotifyMinutes = Number(status?.followUpRenotifyMinutes ?? 0);
-        if (current.reminderSentAt) {
-          const canRenotify =
-            Number.isFinite(renotifyMinutes) && renotifyMinutes > 0;
-          const nextReminderAt = new Date(
-            current.reminderSentAt.getTime() + renotifyMinutes * 60 * 1000,
-          );
-          if (!canRenotify || nextReminderAt > now) {
-            return null;
-          }
-        }
-        const organizationId = current.lead?.organizationId;
-        if (!organizationId) return null;
-        const recipient = await tx.user.findFirst({
-          where: {
-            id: current.assignedToId,
-            isActive: true,
-            role: { not: 'SUPER_ADMIN' },
-            organizationMemberships: {
-              some: { organizationId, isActive: true },
-              none: { organizationId: { not: organizationId } },
-            },
-          },
-          select: { id: true, role: true, fullName: true },
-        });
-        if (!recipient?.id) return null;
-
-        const lead = current.lead ?? followUp.lead;
-        const claim = await tx.followUp.updateMany({
-          where: {
-            id: current.id,
-            completedAt: null,
-            assignedToId: current.assignedToId,
-            reminderSentAt: current.reminderSentAt,
-            scheduledAt: { lte: now },
-          },
-          data: { reminderSentAt: now },
-        });
-        if (claim.count !== 1) return null;
-
-        const notificationId = randomUUID();
-        const notificationDescription = `${lead.name} (${
-          lead.displayId ?? lead.id
-        }) is due now.`;
-        const reminderPayload = this.buildFollowUpReminderPayload(
-          recipient.role,
-          lead,
-          current,
-        );
-        await tx.notification.create({
-          data: {
-            id: notificationId,
-            organizationId,
-            userId: recipient.id,
-            type: 'follow-up-reminder',
-            title: 'Follow-up reminder',
-            description: notificationDescription,
-            badge: this.roleLabel(recipient.role),
-            message: `${String(
-              current.typeId ?? 'Follow-up',
-            )} is scheduled for ${this.formatFollowUpSchedule(
-              current.scheduledAt,
-            )}.`,
-            entityType: 'Lead',
-            entityId: lead.id,
-            details: { ...reminderPayload, notificationId },
-          },
-        });
-        const whatsappEnabled =
-          await this.notificationSettings.isChannelEnabled(
-            organizationId,
-            'whatsapp',
-            'follow-up-reminder',
-          );
-        if (whatsappEnabled) {
-          await this.whatsappDispatches.enqueueWithClient(tx, {
-            organizationId,
-            notificationId,
-            recipientUserId: recipient.id,
-            eventKey: 'follow-up-reminder',
-            context: {
-              recipientName: recipient.fullName || 'Team member',
-              title: 'Follow-up reminder',
-              body: notificationDescription,
-              leadName: lead.name,
-              leadReference: lead.displayId ?? lead.id,
-              scheduledAt: current.scheduledAt,
             },
           });
-        }
-        return {
-          organizationId,
-          recipientId: recipient.id,
-          role: recipient.role,
-          lead,
-          followUp: current,
-        };
-      });
+          if (
+            !current?.assignedToId ||
+            current.completedAt ||
+            current.scheduledAt > now ||
+            current.lead?.deletedAt
+          ) {
+            return null;
+          }
+          const status = current.lead?.statusId
+            ? await tx.leadMasterValue.findUnique({
+                where: { id: current.lead.statusId },
+                select: {
+                  followUpNotificationEnabled: true,
+                  followUpRenotifyMinutes: true,
+                },
+              })
+            : null;
+          if (status?.followUpNotificationEnabled === false) {
+            return null;
+          }
+          const renotifyMinutes = Number(status?.followUpRenotifyMinutes ?? 0);
+          if (current.reminderSentAt) {
+            const canRenotify =
+              Number.isFinite(renotifyMinutes) && renotifyMinutes > 0;
+            const nextReminderAt = new Date(
+              current.reminderSentAt.getTime() + renotifyMinutes * 60 * 1000,
+            );
+            if (!canRenotify || nextReminderAt > now) {
+              return null;
+            }
+          }
+          const organizationId = current.lead?.organizationId;
+          if (!organizationId) return null;
+          const recipient = await tx.user.findFirst({
+            where: {
+              id: current.assignedToId,
+              isActive: true,
+              role: { not: 'SUPER_ADMIN' },
+              organizationMemberships: {
+                some: { organizationId, isActive: true },
+                none: { organizationId: { not: organizationId } },
+              },
+            },
+            select: { id: true, role: true, fullName: true },
+          });
+          if (!recipient?.id) return null;
+
+          const lead = current.lead ?? followUp.lead;
+          const claim = await tx.followUp.updateMany({
+            where: {
+              id: current.id,
+              completedAt: null,
+              assignedToId: current.assignedToId,
+              reminderSentAt: current.reminderSentAt,
+              scheduledAt: { lte: now },
+            },
+            data: { reminderSentAt: now },
+          });
+          if (claim.count !== 1) return null;
+
+          const notificationId = randomUUID();
+          const notificationDescription = `${lead.name} (${
+            lead.displayId ?? lead.id
+          }) is due now.`;
+          const reminderPayload = this.buildFollowUpReminderPayload(
+            recipient.role,
+            lead,
+            current,
+          );
+          await tx.notification.create({
+            data: {
+              id: notificationId,
+              organizationId,
+              userId: recipient.id,
+              type: 'follow-up-reminder',
+              title: 'Follow-up reminder',
+              description: notificationDescription,
+              badge: this.roleLabel(recipient.role),
+              message: `${String(
+                current.typeId ?? 'Follow-up',
+              )} is scheduled for ${this.formatFollowUpSchedule(
+                current.scheduledAt,
+              )}.`,
+              entityType: 'Lead',
+              entityId: lead.id,
+              details: { ...reminderPayload, notificationId },
+            },
+          });
+          const whatsappEnabled =
+            await this.notificationSettings.isChannelEnabled(
+              organizationId,
+              'whatsapp',
+              'follow-up-reminder',
+            );
+          if (whatsappEnabled) {
+            await this.whatsappDispatches.enqueueWithClient(tx, {
+              organizationId,
+              notificationId,
+              recipientUserId: recipient.id,
+              eventKey: 'follow-up-reminder',
+              context: {
+                recipientName: recipient.fullName || 'Team member',
+                title: 'Follow-up reminder',
+                body: notificationDescription,
+                leadName: lead.name,
+                leadReference: lead.displayId ?? lead.id,
+                scheduledAt: current.scheduledAt,
+              },
+            });
+          }
+          return {
+            organizationId,
+            recipientId: recipient.id,
+            role: recipient.role,
+            lead,
+            followUp: current,
+          };
+        });
 
         if (!reminder) continue;
         processedCount += 1;
@@ -18901,7 +19121,7 @@ export class CrmService {
     if (user?.sub) where.userId = user.sub;
     if (query.type) where.type = String(query.type);
     if (query.read === 'false') where.readAt = null;
-    const [items, total] = await Promise.all([
+    const [items, total, unreadCount] = await Promise.all([
       this.db().notification.findMany({
         where,
         skip,
@@ -18909,8 +19129,9 @@ export class CrmService {
         orderBy: { createdAt: 'desc' },
       }),
       this.db().notification.count({ where }),
+      this.db().notification.count({ where: { ...where, readAt: null } }),
     ]);
-    return { data: items, meta: { page, limit, total } };
+    return { data: items, meta: { page, limit, total }, unreadCount };
   }
 
   async markNotificationRead(id: string, user?: Body) {
@@ -19064,10 +19285,7 @@ export class CrmService {
     let whatsappQueuedCount = 0;
     await this.db().$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.notification.createMany({ data: createData });
-      if (
-        sendWhatsApp &&
-        SUPPORTED_WHATSAPP_EVENT_SET.has(notificationType)
-      ) {
+      if (sendWhatsApp && SUPPORTED_WHATSAPP_EVENT_SET.has(notificationType)) {
         for (const [index, recipient] of recipients.entries()) {
           const queued = await this.whatsappDispatches.enqueueWithClient(tx, {
             organizationId,
@@ -19086,7 +19304,10 @@ export class CrmService {
     });
 
     const notificationPayload = {
-      title, body: message, type: notificationType, data: navigation,
+      title,
+      body: message,
+      type: notificationType,
+      data: navigation,
     };
     let pushCount = 0;
     if (sendPush) {
@@ -19176,7 +19397,10 @@ export class CrmService {
     notifications.forEach((item: any) => {
       const details = (item.details as any) ?? {};
       const key =
-        details.broadcastGroupId || `${item.title}_${item.message}_${item.createdAt.toISOString().slice(0, 16)}`;
+        details.broadcastGroupId ||
+        `${item.title}_${item.message}_${item.createdAt
+          .toISOString()
+          .slice(0, 16)}`;
       if (!groupedMap.has(key)) {
         groupedMap.set(key, {
           id: item.id,
@@ -20437,7 +20661,9 @@ export class CrmService {
     return this.getBookingDetails(bookingId, actorUser);
   }
 
-  private async buildMobileUserScope(user?: Body): Promise<Record<string, any>> {
+  private async buildMobileUserScope(
+    user?: Body,
+  ): Promise<Record<string, any>> {
     const scope: Record<string, any> = {};
     if (!user) return scope;
     const userAssignmentScope =
@@ -20508,11 +20734,15 @@ export class CrmService {
         where: { code: { in: ['status', 'lead_status', 'lead-status'] } },
       }),
       this.db().leadMasterCategory.findFirst({
-        where: { code: { in: ['temperature', 'lead_temperature', 'lead-temperature'] } },
+        where: {
+          code: { in: ['temperature', 'lead_temperature', 'lead-temperature'] },
+        },
       }),
     ]);
 
-    const categoryIds = [statusCategory?.id, tempCategory?.id].filter(Boolean) as string[];
+    const categoryIds = [statusCategory?.id, tempCategory?.id].filter(
+      Boolean,
+    ) as string[];
     const masterValues = categoryIds.length
       ? await this.db().leadMasterValue.findMany({
           where: {
@@ -20668,7 +20898,10 @@ export class CrmService {
         where: {
           ...followUpWhere,
           completedAt: null,
-          scheduledAt: { gte: now, lte: new Date(now.getTime() + 60 * 60 * 1000) },
+          scheduledAt: {
+            gte: now,
+            lte: new Date(now.getTime() + 60 * 60 * 1000),
+          },
         },
       }),
       this.db().followUp.count({
@@ -20725,16 +20958,24 @@ export class CrmService {
     const temperatureIds = parseMultiQueryValues(query.temperatureId);
     if (temperatureIds.length) where.temperatureId = { in: temperatureIds };
 
-    const projectIds = parseMultiQueryValues(query.projectId ?? query['projectId[]']);
+    const projectIds = parseMultiQueryValues(
+      query.projectId ?? query['projectId[]'],
+    );
     const configurations = parseMultiQueryValues(query.configuration);
     const propertyTypes = parseMultiQueryValues(query.propertyType);
 
     if (projectIds.length || configurations.length || propertyTypes.length) {
       where.requirement = {
         is: {
-          ...(projectIds.length ? { preferredProjectId: { in: projectIds } } : {}),
-          ...(configurations.length ? { configuration: { in: configurations } } : {}),
-          ...(propertyTypes.length ? { propertyType: { in: propertyTypes } } : {}),
+          ...(projectIds.length
+            ? { preferredProjectId: { in: projectIds } }
+            : {}),
+          ...(configurations.length
+            ? { configuration: { in: configurations } }
+            : {}),
+          ...(propertyTypes.length
+            ? { propertyType: { in: propertyTypes } }
+            : {}),
         },
       };
     }
@@ -20771,19 +21012,25 @@ export class CrmService {
 
     const masterIds = Array.from(
       new Set(
-        rawItems.flatMap((l: Body) => [l.statusId, l.temperatureId, l.sourceId]).filter(Boolean),
+        rawItems
+          .flatMap((l: Body) => [l.statusId, l.temperatureId, l.sourceId])
+          .filter(Boolean),
       ),
     ) as string[];
 
     const reqProjectIds = Array.from(
       new Set(
-        rawItems.map((l: Body) => l.requirement?.preferredProjectId).filter(Boolean),
+        rawItems
+          .map((l: Body) => l.requirement?.preferredProjectId)
+          .filter(Boolean),
       ),
     ) as string[];
 
     const userIds = Array.from(
       new Set(
-        rawItems.flatMap((l: Body) => [l.ownerId, l.telecallerId, l.fieldExecutiveId]).filter(Boolean),
+        rawItems
+          .flatMap((l: Body) => [l.ownerId, l.telecallerId, l.fieldExecutiveId])
+          .filter(Boolean),
       ),
     ) as string[];
 
@@ -20811,17 +21058,23 @@ export class CrmService {
             where: { id: { in: reqProjectIds } },
             select: { id: true, name: true, location: true },
           })
-        : Promise.resolve([] as Array<{ id: string; name: string; location: string }>),
+        : Promise.resolve(
+            [] as Array<{ id: string; name: string; location: string }>,
+          ),
       userIds.length
         ? this.db().user.findMany({
             where: { id: { in: userIds } },
             select: { id: true, fullName: true, role: true },
           })
-        : Promise.resolve([] as Array<{ id: string; fullName: string; role: string }>),
+        : Promise.resolve(
+            [] as Array<{ id: string; fullName: string; role: string }>,
+          ),
     ]);
 
     const masterMap = new Map<string, any>(masters.map((m: any) => [m.id, m]));
-    const projectMap = new Map<string, any>(projects.map((p: any) => [p.id, p]));
+    const projectMap = new Map<string, any>(
+      projects.map((p: any) => [p.id, p]),
+    );
     const userMap = new Map<string, any>(users.map((u: any) => [u.id, u]));
 
     const now = new Date();
@@ -20839,7 +21092,9 @@ export class CrmService {
     };
 
     const getInitials = (name: string) => {
-      const parts = String(name || '').trim().split(/\s+/);
+      const parts = String(name || '')
+        .trim()
+        .split(/\s+/);
       if (!parts.length || !parts[0]) return 'L';
       if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
       return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
@@ -20847,7 +21102,9 @@ export class CrmService {
 
     const items = rawItems.map((lead: Body) => {
       const status = lead.statusId ? masterMap.get(lead.statusId) : null;
-      const temperature = lead.temperatureId ? masterMap.get(lead.temperatureId) : null;
+      const temperature = lead.temperatureId
+        ? masterMap.get(lead.temperatureId)
+        : null;
       const project = lead.requirement?.preferredProjectId
         ? projectMap.get(lead.requirement.preferredProjectId)
         : null;
@@ -20939,14 +21196,18 @@ export class CrmService {
         where: { code: { in: ['status', 'lead_status', 'lead-status'] } },
       }),
       this.db().leadMasterCategory.findFirst({
-        where: { code: { in: ['temperature', 'lead_temperature', 'lead-temperature'] } },
+        where: {
+          code: { in: ['temperature', 'lead_temperature', 'lead-temperature'] },
+        },
       }),
       this.db().leadMasterCategory.findFirst({
         where: { code: { in: ['source', 'lead_source', 'lead-source'] } },
       }),
     ]);
 
-    const catIds = [statusCat?.id, tempCat?.id, srcCat?.id].filter(Boolean) as string[];
+    const catIds = [statusCat?.id, tempCat?.id, srcCat?.id].filter(
+      Boolean,
+    ) as string[];
 
     const [allMasters, projects, users] = await Promise.all([
       catIds.length
@@ -21057,11 +21318,13 @@ export class CrmService {
         todayCount: summaryResult.data.quickStats.todayFollowUps,
         overdueCount: summaryResult.data.quickStats.overdueFollowUps,
         upcomingCount: summaryResult.data.quickStats.upcomingFollowUps,
-        completedTodayCount: summaryResult.data.quickStats.completedTodayFollowUps,
+        completedTodayCount:
+          summaryResult.data.quickStats.completedTodayFollowUps,
         pendingCount: summaryResult.data.quickStats.pendingQueueCount,
         breachedCount: summaryResult.data.queueSla.breachedCount,
         dueNextHourCount: summaryResult.data.queueSla.dueNextHourCount,
-        managerAttentionCount: summaryResult.data.queueSla.managerAttentionCount,
+        managerAttentionCount:
+          summaryResult.data.queueSla.managerAttentionCount,
       },
       meta: followUpsResult.meta,
     };

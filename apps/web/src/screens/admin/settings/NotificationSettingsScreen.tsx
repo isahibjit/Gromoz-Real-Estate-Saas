@@ -275,8 +275,21 @@ function errorMessage(error: unknown, fallback: string): string {
 }
 
 export function NotificationSettingsScreen() {
-  const queryClient = useQueryClient();
   const organizationId = currentOrganizationId() ?? "unscoped";
+  return (
+    <TenantNotificationSettingsScreen
+      key={organizationId}
+      organizationId={organizationId}
+    />
+  );
+}
+
+function TenantNotificationSettingsScreen({
+  organizationId,
+}: {
+  organizationId: string;
+}) {
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [whatsAppProviderReady, setWhatsAppProviderReady] = useState(false);
 
@@ -737,6 +750,7 @@ export function NotificationSettingsScreen() {
       </div>
 
       <WhatsAppSettingsPanel
+        key={organizationId}
         organizationId={organizationId}
         onReadinessChange={setWhatsAppProviderReady}
       />

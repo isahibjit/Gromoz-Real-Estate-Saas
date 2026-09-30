@@ -129,6 +129,19 @@ export class AuthService {
             employeeProfile: {
               select: { phone: true, employeeCode: true, designation: true },
             },
+            organizationMemberships: {
+              where: { isActive: true },
+              include: {
+                organization: {
+                  select: {
+                    id: true,
+                    name: true,
+                    status: true,
+                    setupFeePaid: true,
+                  },
+                },
+              },
+            },
           },
         })
       : await this.findUserByLoginMobile(normalizedMobile);
@@ -176,6 +189,33 @@ export class AuthService {
       throw new UnauthorizedException(
         'Your account is deactivated. Please contact an administrator to reactivate your ID.',
       );
+    }
+
+    if (user.role !== 'SUPER_ADMIN' && user.organizationMemberships?.length) {
+      const hasActiveOrg = user.organizationMemberships.some(
+        (m) =>
+          m.organization.status === 'ACTIVE' && m.organization.setupFeePaid,
+      );
+
+      if (!hasActiveOrg) {
+        const pendingOrg = user.organizationMemberships[0]?.organization;
+        if (
+          pendingOrg?.status === 'SETUP_PENDING' ||
+          !pendingOrg?.setupFeePaid
+        ) {
+          throw new UnauthorizedException(
+            'Your organization setup payment is pending. Please complete payment to activate your workspace before logging in.',
+          );
+        }
+        if (
+          pendingOrg?.status === 'SUSPENDED' ||
+          pendingOrg?.status === 'CANCELLED'
+        ) {
+          throw new UnauthorizedException(
+            'Your organization workspace has been suspended or disabled. Please contact support.',
+          );
+        }
+      }
     }
 
     let isPasswordValid = false;
@@ -536,6 +576,33 @@ export class AuthService {
       request,
     });
 
+    if (user.role !== 'SUPER_ADMIN' && user.organizationMemberships?.length) {
+      const hasActiveOrg = user.organizationMemberships.some(
+        (m) =>
+          m.organization.status === 'ACTIVE' && m.organization.setupFeePaid,
+      );
+
+      if (!hasActiveOrg) {
+        const pendingOrg = user.organizationMemberships[0]?.organization;
+        if (
+          pendingOrg?.status === 'SETUP_PENDING' ||
+          !pendingOrg?.setupFeePaid
+        ) {
+          throw new UnauthorizedException(
+            'Your organization setup payment is pending. Please complete payment to activate your workspace before logging in.',
+          );
+        }
+        if (
+          pendingOrg?.status === 'SUSPENDED' ||
+          pendingOrg?.status === 'CANCELLED'
+        ) {
+          throw new UnauthorizedException(
+            'Your organization workspace has been suspended or disabled. Please contact support.',
+          );
+        }
+      }
+    }
+
     const tokens = await this.generateTokens(user);
     await this.storeRefreshToken(user.id, tokens.refreshToken);
     await this.markUserLoginSuccess(user.id);
@@ -555,7 +622,24 @@ export class AuthService {
     if (!normalizedMobile) return null;
     const candidates = await this.prisma.user.findMany({
       where: { employeeProfile: { isNot: null } },
-      include: { employeeProfile: { select: { phone: true } } },
+      include: {
+        employeeProfile: {
+          select: { phone: true, employeeCode: true, designation: true },
+        },
+        organizationMemberships: {
+          where: { isActive: true },
+          include: {
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                status: true,
+                setupFeePaid: true,
+              },
+            },
+          },
+        },
+      },
     });
     const matchedUsers = candidates.filter((candidate) => {
       const phone = candidate.employeeProfile?.phone;
@@ -588,14 +672,44 @@ export class AuthService {
     if (identifier.type === 'email') {
       return this.prisma.user.findUnique({
         where: { email: identifier.normalized },
-        include: { employeeProfile: { select: { phone: true } } },
+        include: {
+          employeeProfile: { select: { phone: true } },
+          organizationMemberships: {
+            where: { isActive: true },
+            include: {
+              organization: {
+                select: {
+                  id: true,
+                  name: true,
+                  status: true,
+                  setupFeePaid: true,
+                },
+              },
+            },
+          },
+        },
       });
     }
 
     if (!identifier.normalized) return null;
     const candidates = await this.prisma.user.findMany({
       where: { employeeProfile: { isNot: null } },
-      include: { employeeProfile: { select: { phone: true } } },
+      include: {
+        employeeProfile: { select: { phone: true } },
+        organizationMemberships: {
+          where: { isActive: true },
+          include: {
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                status: true,
+                setupFeePaid: true,
+              },
+            },
+          },
+        },
+      },
     });
     const matchedUsers = candidates.filter((candidate) => {
       const phone = candidate.employeeProfile?.phone;
@@ -1332,7 +1446,11 @@ export class AuthService {
       ];
       const userName = user.fullName || user.email;
 
-      for (const organizationId of organizationIds) {
+      // Shared identities are quarantined from tenant workspaces until their
+      // legacy global HR profile is split into tenant-owned records.
+      for (const organizationId of organizationIds.length === 1
+        ? organizationIds
+        : []) {
         const admins = await this.prisma.organizationMember.findMany({
           where: {
             organizationId,

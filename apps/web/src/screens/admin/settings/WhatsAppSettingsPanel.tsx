@@ -219,6 +219,9 @@ export function WhatsAppSettingsPanel({
     },
     onSuccess: (updated) => {
       queryClient.setQueryData(configKey, updated);
+      void queryClient.invalidateQueries({
+        queryKey: ["notification-settings", organizationId],
+      });
       toast.success("WhatsApp provider settings saved");
     },
     onError: (error: unknown) => {

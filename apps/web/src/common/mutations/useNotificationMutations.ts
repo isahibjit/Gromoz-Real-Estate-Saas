@@ -1,10 +1,14 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
+import { currentOrganizationId } from "../tenantRequestScope";
 
 export function useNotificationMutations() {
   const queryClient = useQueryClient();
+  const organizationId = currentOrganizationId() ?? "unscoped";
   const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    void queryClient.invalidateQueries({
+      queryKey: ["notifications", organizationId],
+    });
   };
 
   return {

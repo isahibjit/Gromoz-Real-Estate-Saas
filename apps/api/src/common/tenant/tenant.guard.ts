@@ -56,7 +56,9 @@ export class TenantGuard implements CanActivate {
     }
 
     if (account.role === 'SUPER_ADMIN') {
-      if (!targetId) throw new ForbiddenException('Select a tenant workspace');
+      if (!targetId) {
+        throw new ForbiddenException('Select a tenant workspace');
+      }
       const organization = await this.prisma.organization.findUnique({
         where: { id: targetId },
       });
@@ -96,6 +98,22 @@ export class TenantGuard implements CanActivate {
     if (membership.role === 'SUPER_ADMIN') {
       throw new ForbiddenException(
         'Platform privileges cannot be granted by tenant membership',
+      );
+    }
+    if (
+      membership.organization.status !== 'ACTIVE' ||
+      !membership.organization.setupFeePaid
+    ) {
+      if (
+        membership.organization.status === 'SETUP_PENDING' ||
+        !membership.organization.setupFeePaid
+      ) {
+        throw new ForbiddenException(
+          'Your organization setup payment is pending. Please complete payment to activate your workspace.',
+        );
+      }
+      throw new ForbiddenException(
+        'Your organization workspace is not active.',
       );
     }
     request.user.role = membership.role;

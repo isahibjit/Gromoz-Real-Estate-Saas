@@ -41,15 +41,6 @@ export function buildWhatsAppTemplate(
       name = 'trueroot_follow_up_reminder';
       values = [context.recipientName, lead, schedule];
       break;
-    case 'site-visit-reminder':
-      name = 'trueroot_site_visit_reminder';
-      values = [
-        context.recipientName,
-        lead,
-        context.projectName || '',
-        schedule,
-      ];
-      break;
     case 'site-visit-scheduled':
     case 'site-visit-updated':
       if (context.status === 'Cancelled') {
@@ -60,7 +51,7 @@ export function buildWhatsAppTemplate(
           context.projectName || '',
           schedule,
         ];
-      } else if (['Scheduled', 'Rescheduled'].includes(context.status || '')) {
+      } else if (context.status?.trim()) {
         name = 'trueroot_site_visit_update';
         values = [
           context.recipientName,

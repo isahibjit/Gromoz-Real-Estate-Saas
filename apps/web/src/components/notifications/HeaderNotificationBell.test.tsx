@@ -1,10 +1,10 @@
-import { render, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { render, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 
-import { api } from '../../common/api';
-import { HeaderNotificationBell } from './HeaderNotificationBell';
+import { api } from "../../common/api";
+import { HeaderNotificationBell } from "./HeaderNotificationBell";
 
-jest.mock('../../common/api', () => ({
+jest.mock("../../common/api", () => ({
   api: {
     get: jest.fn(),
     patch: jest.fn(),
@@ -13,9 +13,9 @@ jest.mock('../../common/api', () => ({
 
 const mockedApi = api as jest.Mocked<typeof api>;
 
-test('loads the notification feed from the registered notifications endpoint', async () => {
+test("loads the notification feed from the registered notifications endpoint", async () => {
   mockedApi.get.mockResolvedValue({
-    data: { unreadCount: 0, notifications: [] },
+    data: { unreadCount: 0, data: [], meta: { page: 1, limit: 10, total: 0 } },
   });
 
   render(
@@ -27,6 +27,6 @@ test('loads the notification feed from the registered notifications endpoint', a
   );
 
   await waitFor(() => {
-    expect(mockedApi.get).toHaveBeenCalledWith('/notifications');
+    expect(mockedApi.get).toHaveBeenCalledWith("/notifications");
   });
 });

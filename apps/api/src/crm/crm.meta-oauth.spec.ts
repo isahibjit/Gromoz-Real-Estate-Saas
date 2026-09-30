@@ -2,10 +2,14 @@ import { CrmService } from './crm.service';
 
 export async function runMetaOAuthVerification() {
   console.log('Running Meta OAuth Authorization URL Verification Test...');
-  const service = new CrmService({} as any, {} as any, {} as any);
+  const service = new (CrmService as any)({} as any, {} as any, {} as any);
   (service as any).ensureMetaIntegration = async () => ({
     id: 'integration-1',
-    settings: { configId: '1381302940097054' },
+    settings: {
+      configId: '1381302940097054',
+      useConfigId: true,
+      overrideDefaultResponseType: true,
+    },
     credentials: { accounts: [] },
   });
   (service as any).configuredMetaAppId = () => '2074437443204093';
@@ -15,6 +19,7 @@ export async function runMetaOAuthVerification() {
   (service as any).encodeMetaOAuthState = () => 'mock-state-token';
 
   process.env.META_BUSINESS_LOGIN_CONFIG_ID = '1381302940097054';
+  process.env.USE_META_CONFIG_ID = 'true';
 
   const result = await service.startMetaOAuth('user-1');
   const authUrl = result.data.authUrl;
@@ -37,10 +42,10 @@ export async function runMetaOAuthVerification() {
   if (parsedUrl.searchParams.get('response_type') !== 'code') {
     throw new Error('FAILED: response_type missing or incorrect');
   }
-  if (
-    parsedUrl.searchParams.get('override_default_response_type') !== 'true'
-  ) {
-    throw new Error('FAILED: override_default_response_type=true missing or incorrect');
+  if (parsedUrl.searchParams.get('override_default_response_type') !== 'true') {
+    throw new Error(
+      'FAILED: override_default_response_type=true missing or incorrect',
+    );
   }
   if (parsedUrl.searchParams.get('state') !== 'mock-state-token') {
     throw new Error('FAILED: state missing or incorrect');
@@ -53,7 +58,9 @@ export async function runMetaOAuthVerification() {
 
   console.log('✅ ALL CHECKS PASSED:');
   console.log('  1. client_id is present: 2074437443204093');
-  console.log('  2. redirect_uri is present: https://crmtrueroot.com/api/integrations/meta/oauth/callback');
+  console.log(
+    '  2. redirect_uri is present: https://crmtrueroot.com/api/integrations/meta/oauth/callback',
+  );
   console.log('  3. config_id is present: 1381302940097054');
   console.log('  4. response_type is present: code');
   console.log('  5. override_default_response_type is present: true');

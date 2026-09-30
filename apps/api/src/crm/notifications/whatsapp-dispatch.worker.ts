@@ -22,6 +22,7 @@ export class WhatsAppDispatchWorker implements OnModuleInit, OnModuleDestroy {
     const interval =
       this.config.get<number>('WHATSAPP_DISPATCH_INTERVAL_MS') ?? 1000;
     this.timer = setInterval(() => void this.tick(), interval);
+    this.timer.unref();
     void this.tick();
   }
 

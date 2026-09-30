@@ -37,6 +37,7 @@ export class TenantNotificationService {
   ) {}
 
   async getSettings(tenant: TenantContextPayload) {
+    this.assertCanView(tenant);
     const settings = await this.getOrCreateSettings(tenant.organizationId);
     return {
       id: settings.id,
@@ -66,6 +67,18 @@ export class TenantNotificationService {
           );
         }
         if (!value || typeof value !== 'object' || Array.isArray(value)) {
+          throw new BadRequestException(`Invalid notification event: ${key}`);
+        }
+        const unsupportedFields = Object.keys(value).filter(
+          (field) => field !== 'fcmEnabled' && field !== 'whatsappEnabled',
+        );
+        if (
+          unsupportedFields.length > 0 ||
+          (value.fcmEnabled !== undefined &&
+            typeof value.fcmEnabled !== 'boolean') ||
+          (value.whatsappEnabled !== undefined &&
+            typeof value.whatsappEnabled !== 'boolean')
+        ) {
           throw new BadRequestException(`Invalid notification event: ${key}`);
         }
         const currentValue = eventSettings[key];
@@ -157,6 +170,7 @@ export class TenantNotificationService {
   }
 
   async getWhatsAppConfig(tenant: TenantContextPayload) {
+    this.assertCanView(tenant);
     const row = await this.prisma.organizationWhatsAppConfig.findUnique({
       where: { organizationId: tenant.organizationId },
     });
@@ -205,7 +219,7 @@ export class TenantNotificationService {
       ? null
       : existing?.encryptedCustomApiKey ?? null;
 
-    const row = await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       const updated = await tx.organizationWhatsAppConfig.upsert({
         where: { organizationId: tenant.organizationId },
         create: {
@@ -227,6 +241,13 @@ export class TenantNotificationService {
           updatedById: tenant.userId ?? null,
         },
       });
+      const readiness = this.readiness(updated.providerMode, updated);
+      if (!readiness.ready) {
+        await tx.notificationSetting.updateMany({
+          where: { organizationId: tenant.organizationId },
+          data: { globalWhatsAppEnabled: false },
+        });
+      }
       await tx.auditLog.create({
         data: {
           organizationId: tenant.organizationId,
@@ -274,13 +295,19 @@ export class TenantNotificationService {
     }
 
     const apiUrl = String(
-      this.config.get<string>('WHATSAPP_PLATFORM_API_URL') ?? '',
+      this.config.get<string>('WHATSAPP_PLATFORM_API_URL') ??
+        this.config.get<string>('WHATSAPP_API_URL') ??
+        '',
     ).trim();
     const apiKey = String(
-      this.config.get<string>('WHATSAPP_PLATFORM_API_KEY') ?? '',
+      this.config.get<string>('WHATSAPP_PLATFORM_API_KEY') ??
+        this.config.get<string>('WHATSAPP_API_KEY') ??
+        '',
     ).trim();
     const senderNumber = String(
-      this.config.get<string>('WHATSAPP_PLATFORM_WABA_NUMBER') ?? '',
+      this.config.get<string>('WHATSAPP_PLATFORM_WABA_NUMBER') ??
+        this.config.get<string>('WHATSAPP_WABA_NUMBER') ??
+        '',
     ).trim();
     if (!apiUrl || !apiKey || !senderNumber) return null;
     return {
@@ -291,6 +318,7 @@ export class TenantNotificationService {
       templateLanguage:
         String(
           this.config.get<string>('WHATSAPP_PLATFORM_TEMPLATE_LANGUAGE') ??
+            this.config.get<string>('WHATSAPP_TEMPLATE_LANGUAGE') ??
             'en',
         ).trim() || 'en',
     };
@@ -308,7 +336,9 @@ export class TenantNotificationService {
     }
     return (
       String(
-        this.config.get<string>('WHATSAPP_PLATFORM_TEMPLATE_LANGUAGE') ?? 'en',
+        this.config.get<string>('WHATSAPP_PLATFORM_TEMPLATE_LANGUAGE') ??
+          this.config.get<string>('WHATSAPP_TEMPLATE_LANGUAGE') ??
+          'en',
       ).trim() || 'en'
     );
   }
@@ -317,6 +347,7 @@ export class TenantNotificationService {
     tenant: TenantContextPayload,
     query: WhatsAppDeliveriesQueryDto,
   ) {
+    this.assertCanView(tenant);
     const page = query.page || 1;
     const limit = query.limit || 20;
     const where: Prisma.WhatsAppDispatchWhereInput = {
@@ -360,6 +391,14 @@ export class TenantNotificationService {
     if (!this.canManage(tenant)) {
       throw new ForbiddenException(
         'Tenant owners and administrators control notification settings',
+      );
+    }
+  }
+
+  private assertCanView(tenant: TenantContextPayload): void {
+    if (tenant.role !== 'SUPER_ADMIN' && !this.canManage(tenant)) {
+      throw new ForbiddenException(
+        'Tenant owners and administrators can view notification settings',
       );
     }
   }
@@ -456,13 +495,19 @@ export class TenantNotificationService {
     }
     const ready = Boolean(
       String(
-        this.config.get<string>('WHATSAPP_PLATFORM_API_URL') ?? '',
+        this.config.get<string>('WHATSAPP_PLATFORM_API_URL') ??
+          this.config.get<string>('WHATSAPP_API_URL') ??
+          '',
       ).trim() &&
         String(
-          this.config.get<string>('WHATSAPP_PLATFORM_API_KEY') ?? '',
+          this.config.get<string>('WHATSAPP_PLATFORM_API_KEY') ??
+            this.config.get<string>('WHATSAPP_API_KEY') ??
+            '',
         ).trim() &&
         String(
-          this.config.get<string>('WHATSAPP_PLATFORM_WABA_NUMBER') ?? '',
+          this.config.get<string>('WHATSAPP_PLATFORM_WABA_NUMBER') ??
+            this.config.get<string>('WHATSAPP_WABA_NUMBER') ??
+            '',
         ).trim(),
     );
     return {

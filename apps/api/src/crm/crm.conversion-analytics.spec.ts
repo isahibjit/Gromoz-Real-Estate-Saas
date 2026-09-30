@@ -53,9 +53,18 @@ describe('Lead conversion analytics', () => {
         { provide: RealtimeService, useValue: {} },
         { provide: LeadVisibilityService, useValue: {} },
         { provide: TenantAccessService, useValue: {} },
-        { provide: TenantContextService, useValue: { getTenantId: () => undefined } },
-        { provide: TenantNotificationService, useValue: { isChannelEnabled: jest.fn().mockResolvedValue(false) } },
-        { provide: WhatsAppDispatchService, useValue: { enqueueWithClient: jest.fn() } },
+        {
+          provide: TenantContextService,
+          useValue: { getTenantId: () => undefined },
+        },
+        {
+          provide: TenantNotificationService,
+          useValue: { isChannelEnabled: jest.fn().mockResolvedValue(false) },
+        },
+        {
+          provide: WhatsAppDispatchService,
+          useValue: { enqueueWithClient: jest.fn() },
+        },
       ],
     }).compile();
 

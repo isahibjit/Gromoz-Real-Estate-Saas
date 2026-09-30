@@ -81,9 +81,18 @@ describe('MagicBricks pause enforcement', () => {
         { provide: RealtimeService, useValue: {} },
         { provide: LeadVisibilityService, useValue: {} },
         { provide: TenantAccessService, useValue: {} },
-        { provide: TenantContextService, useValue: { getTenantId: () => 'tenant-a' } },
-        { provide: TenantNotificationService, useValue: { isChannelEnabled: jest.fn().mockResolvedValue(false) } },
-        { provide: WhatsAppDispatchService, useValue: { enqueueWithClient: jest.fn() } },
+        {
+          provide: TenantContextService,
+          useValue: { getTenantId: () => 'tenant-a' },
+        },
+        {
+          provide: TenantNotificationService,
+          useValue: { isChannelEnabled: jest.fn().mockResolvedValue(false) },
+        },
+        {
+          provide: WhatsAppDispatchService,
+          useValue: { enqueueWithClient: jest.fn() },
+        },
       ],
     }).compile();
     service = module.get(CrmService);

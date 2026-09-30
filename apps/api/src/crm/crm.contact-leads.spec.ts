@@ -55,9 +55,18 @@ describe('Contact lead conversion', () => {
         { provide: RealtimeService, useValue: {} },
         { provide: LeadVisibilityService, useValue: {} },
         { provide: TenantAccessService, useValue: {} },
-        { provide: TenantContextService, useValue: { getTenantId: () => undefined } },
-        { provide: TenantNotificationService, useValue: { isChannelEnabled: jest.fn().mockResolvedValue(false) } },
-        { provide: WhatsAppDispatchService, useValue: { enqueueWithClient: jest.fn() } },
+        {
+          provide: TenantContextService,
+          useValue: { getTenantId: () => undefined },
+        },
+        {
+          provide: TenantNotificationService,
+          useValue: { isChannelEnabled: jest.fn().mockResolvedValue(false) },
+        },
+        {
+          provide: WhatsAppDispatchService,
+          useValue: { enqueueWithClient: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -99,9 +108,13 @@ describe('Contact lead conversion', () => {
       convertedLeadId: 'already-converted',
     });
 
-    await expect(service.convertContactLead(contactLead.id, 'admin-1')).resolves.toEqual({
+    await expect(
+      service.convertContactLead(contactLead.id, 'admin-1'),
+    ).resolves.toEqual({
       leadId: 'already-converted',
-      contact: expect.objectContaining({ convertedLeadId: 'already-converted' }),
+      contact: expect.objectContaining({
+        convertedLeadId: 'already-converted',
+      }),
     });
     expect(service.createLead).not.toHaveBeenCalled();
   });
