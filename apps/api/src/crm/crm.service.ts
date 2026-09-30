@@ -4,13 +4,13 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
 import { buildWhatsAppTemplate } from './whatsapp-template';
 import { dispatchNotificationChannels } from './dispatch-notification-channels';
 import PDFDocument from 'pdfkit';
 import { createHmac, createSign, randomBytes } from 'crypto';
-import * as nodemailer from 'nodemailer';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { getUserRoleLabel } from '../common/role-labels';
 import { RealtimeService } from '../realtime/realtime.service';
@@ -1222,12 +1222,14 @@ export class CrmService {
     entityType?: string,
     entityId?: string,
     metadata?: Body,
+    organizationId?: string,
   ) {
     await this.db()
       .auditLog.create({
         data: {
           actorUserId,
           action,
+          organizationId,
           entityType,
           entityId,
           metadata,
@@ -1635,7 +1637,7 @@ export class CrmService {
       'task-assigned': { fcmEnabled: true, whatsappEnabled: true },
       'task-updated': { fcmEnabled: true, whatsappEnabled: true },
       'booking-created': { fcmEnabled: true, whatsappEnabled: true },
-      'announcement': { fcmEnabled: true, whatsappEnabled: true },
+      announcement: { fcmEnabled: true, whatsappEnabled: true },
     };
 
     let settings = await (this.prisma as any).notificationSetting.findUnique({
@@ -1697,11 +1699,11 @@ export class CrmService {
           fcmEnabled:
             typeof val?.fcmEnabled === 'boolean'
               ? val.fcmEnabled
-              : (mergedEventSettings[key]?.fcmEnabled ?? true),
+              : mergedEventSettings[key]?.fcmEnabled ?? true,
           whatsappEnabled:
             typeof val?.whatsappEnabled === 'boolean'
               ? val.whatsappEnabled
-              : (mergedEventSettings[key]?.whatsappEnabled ?? true),
+              : mergedEventSettings[key]?.whatsappEnabled ?? true,
         };
       }
     }
@@ -2255,18 +2257,39 @@ export class CrmService {
     actorUserId?: string,
     explicitOrgId?: string,
   ): Promise<string | undefined> {
-    if (explicitOrgId) return explicitOrgId;
-    if (actorUserId) {
-      const membership = await this.db()
-        .organizationMember.findFirst({
-          where: { userId: actorUserId, isActive: true },
-          select: { organizationId: true },
-          orderBy: { createdAt: 'asc' },
-        })
-        .catch(() => null);
-      if (membership?.organizationId) return membership.organizationId;
+    if (!actorUserId) {
+      if (explicitOrgId)
+        throw new ForbiddenException('Authenticated tenant selection required');
+      return undefined;
     }
-    return undefined;
+    const account = await this.prisma.user.findUnique({
+      where: { id: actorUserId },
+      select: { role: true, isActive: true },
+    });
+    if (!account?.isActive)
+      throw new ForbiddenException('Active account required');
+    if (explicitOrgId && account.role === 'SUPER_ADMIN') {
+      const organization = await this.prisma.organization.findUnique({
+        where: { id: explicitOrgId },
+        select: { id: true },
+      });
+      if (!organization)
+        throw new ForbiddenException('Invalid tenant selection');
+      return organization.id;
+    }
+    const memberships = await this.prisma.organizationMember.findMany({
+      where: {
+        userId: actorUserId,
+        isActive: true,
+        ...(explicitOrgId ? { organizationId: explicitOrgId } : {}),
+      },
+      select: { organizationId: true },
+      take: 2,
+    });
+    if (memberships.length !== 1) {
+      throw new ForbiddenException('Select an active tenant workspace');
+    }
+    return memberships[0].organizationId;
   }
 
   private portalIntegrationDelegate() {
@@ -2324,6 +2347,13 @@ export class CrmService {
     provider: string,
     organizationId?: string,
   ) {
+    // A missing connection means this tenant needs its own connection. Never
+    // fall back to another tenant's (or a legacy unowned) credentials.
+    if (organizationId) {
+      return this.prisma.portalIntegration.findFirst({
+        where: { provider, organizationId },
+      });
+    }
     const delegate = this.portalIntegrationDelegate();
     if (delegate) {
       try {
@@ -2359,23 +2389,9 @@ export class CrmService {
   }
 
   private async portalIntegrationFindByWebhookKeyId(webhookKeyId: string) {
-    const delegate = this.portalIntegrationDelegate();
-    if (delegate) {
-      try {
-        const found = await delegate.findFirst({
-          where: { webhookKeyId },
-        });
-        if (found) return found;
-      } catch {
-        // Fall back to raw SQL
-      }
-    }
-    await this.ensurePortalIntegrationTable();
-    const rows = (await this.db().$queryRawUnsafe(
-      `SELECT * FROM "PortalIntegration" WHERE "webhookKeyId" = $1 LIMIT 1`,
-      webhookKeyId,
-    )) as Body[];
-    return rows[0] ?? null;
+    return this.prisma.portalIntegration.findUnique({
+      where: { webhookKeyId },
+    });
   }
 
   private async portalIntegrationCreate(data: Body) {
@@ -3158,7 +3174,11 @@ export class CrmService {
     const integration = await this.portalIntegrationFindByWebhookKeyId(
       webhookKeyId,
     );
-    if (!integration) {
+    if (
+      !integration ||
+      integration.provider !== magicBricksProvider ||
+      !integration.organizationId
+    ) {
       return {
         success: false,
         message: 'Failure: MagicBricks integration not found for this API key',
@@ -3232,8 +3252,25 @@ export class CrmService {
       };
     }
 
+    const currentIntegration = await this.portalIntegrationFindByWebhookKeyId(
+      webhookKeyId,
+    );
+    if (
+      !currentIntegration ||
+      currentIntegration.organizationId !== integration.organizationId
+    ) {
+      return { success: false, message: 'Failure: Invalid API key' };
+    }
+    if (isIntegrationPaused(currentIntegration)) {
+      return {
+        success: false,
+        status: 'PAUSED',
+        message:
+          'Failure: MagicBricks Push API is paused. Lead was not created.',
+      };
+    }
     const lead = await this.createLead({
-      organizationId: integration.organizationId ?? undefined,
+      organizationId: integration.organizationId,
       name: preview.normalizedLead.leadName,
       mobile: preview.normalizedLead.mobileNumber,
       email: preview.normalizedLead.emailAddress || undefined,
@@ -3606,7 +3643,11 @@ export class CrmService {
     const integration = await this.portalIntegrationFindByWebhookKeyId(
       String(key),
     );
-    if (!integration) {
+    if (
+      !integration ||
+      integration.provider !== acres99Provider ||
+      !integration.organizationId
+    ) {
       return {
         success: false,
         message: 'Failure: 99Acres integration not found for this key',
@@ -3698,39 +3739,95 @@ export class CrmService {
     return `${this.websitePublicApiBaseUrl()}/integrations/website/leads`;
   }
 
-  private async ensureWebsiteIntegration(actorUserId?: string) {
-    const existing = await this.portalIntegrationFindByProvider('website');
-    if (existing) {
-      return this.portalIntegrationUpdate(existing.id, {
-        displayName: existing.displayName || 'Website Leads',
-        updatedById: actorUserId,
-      });
-    }
-    return this.portalIntegrationCreate({
-      provider: 'website',
-      displayName: 'Website Leads',
-      webhookKeyId: randomBytes(12).toString('hex'),
-      isActive: true,
-      status: 'Configured',
-      createdById: actorUserId,
-      updatedById: actorUserId,
-      fieldMapping: {
-        connectedWebsites: [
-          {
-            id: 'site_1',
-            url: 'https://jpnorthgarden.projectmiraroad.com/',
-            name: 'JP North Garden Mira Road',
-            addedAt: new Date().toISOString(),
-            leadsCount: 12,
+  private async assertLeadRoutingInOrganization(
+    organizationId: string,
+    routing: Record<string, unknown>,
+  ): Promise<void> {
+    const reference = (key: string): string | undefined => {
+      const value = routing[key];
+      if (value === undefined || value === null || value === '')
+        return undefined;
+      if (typeof value !== 'string' || !value.trim()) {
+        throw new BadRequestException(`Invalid ${key}`);
+      }
+      return value.trim();
+    };
+    const projectId = reference('projectId');
+    const teamId = reference('teamId');
+    const userIds = [
+      ...new Set(
+        ['ownerId', 'managerId', 'telecallerId', 'fieldExecutiveId']
+          .map(reference)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    if (
+      projectId &&
+      !(await this.prisma.project.findFirst({
+        where: { id: projectId, organizationId },
+        select: { id: true },
+      }))
+    )
+      throw new NotFoundException('Project not found in this workspace');
+    if (
+      teamId &&
+      !(await this.prisma.team.findFirst({
+        where: { id: teamId, organizationId },
+        select: { id: true },
+      }))
+    )
+      throw new NotFoundException('Team not found in this workspace');
+    if (userIds.length) {
+      const count = await this.prisma.user.count({
+        where: {
+          id: { in: userIds },
+          isActive: true,
+          role: { not: 'SUPER_ADMIN' },
+          organizationMemberships: {
+            some: { organizationId, isActive: true },
+            none: { organizationId: { not: organizationId } },
           },
-        ],
-        mapping: {
-          name: 'leadName',
-          mobile: 'mobileNumber',
-          email: 'emailAddress',
-          configuration: 'configuration',
-          project: 'preferredProject',
-          remarks: 'remarks',
+        },
+      });
+      if (count !== userIds.length) {
+        throw new NotFoundException('Assignee not found in this workspace');
+      }
+    }
+  }
+
+  private async ensureWebsiteIntegration(
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    const orgId = await this.resolveTenantOrganizationId(
+      actorUserId,
+      organizationId,
+    );
+    if (!orgId) throw new ForbiddenException('Select a tenant workspace');
+    return this.prisma.portalIntegration.upsert({
+      where: {
+        organizationId_provider: { organizationId: orgId, provider: 'website' },
+      },
+      update: {},
+      create: {
+        provider: 'website',
+        organizationId: orgId,
+        displayName: 'Website Leads',
+        webhookKeyId: randomBytes(12).toString('hex'),
+        isActive: true,
+        status: 'Configured',
+        createdById: actorUserId,
+        updatedById: actorUserId,
+        fieldMapping: {
+          connectedWebsites: [],
+          mapping: {
+            name: 'leadName',
+            mobile: 'mobileNumber',
+            email: 'emailAddress',
+            configuration: 'configuration',
+            project: 'preferredProject',
+            remarks: 'remarks',
+          },
         },
       },
     });
@@ -3773,8 +3870,11 @@ export class CrmService {
     return websiteSource;
   }
 
-  async getWebsiteIntegration(actorUserId?: string) {
-    const integration = await this.ensureWebsiteIntegration(actorUserId);
+  async getWebsiteIntegration(actorUserId?: string, organizationId?: string) {
+    const integration = await this.ensureWebsiteIntegration(
+      actorUserId,
+      organizationId,
+    );
     const rawMapping = (integration.fieldMapping as any) ?? {};
     const connectedWebsites = Array.isArray(rawMapping.connectedWebsites)
       ? rawMapping.connectedWebsites
@@ -3852,8 +3952,15 @@ export class CrmService {
     };
   }
 
-  async saveWebsiteIntegration(body: Body, actorUserId?: string) {
-    const integration = await this.ensureWebsiteIntegration(actorUserId);
+  async saveWebsiteIntegration(
+    body: Body,
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    const integration = await this.ensureWebsiteIntegration(
+      actorUserId,
+      organizationId,
+    );
     const isPaused = requestedIntegrationPauseState(body, integration);
     await this.portalIntegrationUpdate(integration.id, {
       isActive: !isPaused,
@@ -3862,11 +3969,18 @@ export class CrmService {
       status: isPaused ? 'Paused' : 'Configured',
       updatedById: actorUserId,
     });
-    return this.getWebsiteIntegration(actorUserId);
+    return this.getWebsiteIntegration(actorUserId, organizationId);
   }
 
-  async addWebsiteUrl(body: Body, actorUserId?: string) {
-    const integration = await this.ensureWebsiteIntegration(actorUserId);
+  async addWebsiteUrl(
+    body: Body,
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    const integration = await this.ensureWebsiteIntegration(
+      actorUserId,
+      organizationId,
+    );
     const rawMapping = (integration.fieldMapping as any) ?? {};
     const connectedWebsites = Array.isArray(rawMapping.connectedWebsites)
       ? [...rawMapping.connectedWebsites]
@@ -3892,11 +4006,18 @@ export class CrmService {
       },
       updatedById: actorUserId,
     });
-    return this.getWebsiteIntegration(actorUserId);
+    return this.getWebsiteIntegration(actorUserId, organizationId);
   }
 
-  async deleteWebsiteUrl(websiteId: string, actorUserId?: string) {
-    const integration = await this.ensureWebsiteIntegration(actorUserId);
+  async deleteWebsiteUrl(
+    websiteId: string,
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    const integration = await this.ensureWebsiteIntegration(
+      actorUserId,
+      organizationId,
+    );
     const rawMapping = (integration.fieldMapping as any) ?? {};
     const connectedWebsites = (rawMapping.connectedWebsites ?? []).filter(
       (site: any) => site.id !== websiteId,
@@ -3908,15 +4029,23 @@ export class CrmService {
       },
       updatedById: actorUserId,
     });
-    return this.getWebsiteIntegration(actorUserId);
+    return this.getWebsiteIntegration(actorUserId, organizationId);
   }
 
   async saveWebsiteRouting(
     websiteId: string,
     body: Body,
     actorUserId?: string,
+    organizationId?: string,
   ) {
-    const integration = await this.ensureWebsiteIntegration(actorUserId);
+    const integration = await this.ensureWebsiteIntegration(
+      actorUserId,
+      organizationId,
+    );
+    await this.assertLeadRoutingInOrganization(
+      integration.organizationId,
+      body,
+    );
     const rawMapping = (integration.fieldMapping as any) ?? {};
     const connectedWebsites = (rawMapping.connectedWebsites ?? []).map(
       (site: any) => {
@@ -3939,20 +4068,30 @@ export class CrmService {
       },
       updatedById: actorUserId,
     });
-    return this.getWebsiteIntegration(actorUserId);
+    return this.getWebsiteIntegration(actorUserId, organizationId);
   }
 
-  async regenerateWebsiteApiKey(actorUserId?: string) {
-    const integration = await this.ensureWebsiteIntegration(actorUserId);
+  async regenerateWebsiteApiKey(actorUserId?: string, organizationId?: string) {
+    const integration = await this.ensureWebsiteIntegration(
+      actorUserId,
+      organizationId,
+    );
     await this.portalIntegrationUpdate(integration.id, {
       webhookKeyId: randomBytes(12).toString('hex'),
       updatedById: actorUserId,
     });
-    return this.getWebsiteIntegration(actorUserId);
+    return this.getWebsiteIntegration(actorUserId, organizationId);
   }
 
-  async saveWebsiteFieldMapping(body: Body, actorUserId?: string) {
-    const integration = await this.ensureWebsiteIntegration(actorUserId);
+  async saveWebsiteFieldMapping(
+    body: Body,
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    const integration = await this.ensureWebsiteIntegration(
+      actorUserId,
+      organizationId,
+    );
     const rawMapping = (integration.fieldMapping as any) ?? {};
     await this.portalIntegrationUpdate(integration.id, {
       fieldMapping: {
@@ -3961,7 +4100,7 @@ export class CrmService {
       },
       updatedById: actorUserId,
     });
-    return this.getWebsiteIntegration(actorUserId);
+    return this.getWebsiteIntegration(actorUserId, organizationId);
   }
 
   async testWebsiteIntegration(
@@ -3969,8 +4108,12 @@ export class CrmService {
     actorUserId?: string,
     ip?: string,
     userAgent?: string,
+    organizationId?: string,
   ) {
-    const integration = await this.ensureWebsiteIntegration(actorUserId);
+    const integration = await this.ensureWebsiteIntegration(
+      actorUserId,
+      organizationId,
+    );
     if (isIntegrationPaused(integration)) {
       await this.portalIntegrationUpdate(integration.id, {
         lastTestedAt: new Date(),
@@ -4009,6 +4152,7 @@ export class CrmService {
 
     const sourceMaster = await this.getWebsiteSourceMaster();
     const lead = await this.createLead({
+      organizationId: integration.organizationId,
       name: samplePayload.name,
       mobile: samplePayload.mobile,
       email: samplePayload.email,
@@ -4022,8 +4166,6 @@ export class CrmService {
       lastLeadReceivedAt: new Date(),
       totalLeadsReceived: { increment: 1 },
     });
-
-    await this.sendWebsiteLeadEmailNotification(lead, samplePayload);
 
     return {
       data: {
@@ -4051,23 +4193,6 @@ export class CrmService {
     ip?: string,
     userAgent?: string,
   ) {
-    const integration = await this.ensureWebsiteIntegration();
-    if (isIntegrationPaused(integration)) {
-      await this.audit(
-        undefined,
-        'WEBSITE_WEBHOOK_PAUSED',
-        'PortalIntegration',
-        integration.id,
-        { ip, userAgent },
-      ).catch(() => undefined);
-
-      return {
-        success: false,
-        message: 'Failure: Website Integration is paused. Lead was not created.',
-        status: 'PAUSED',
-      };
-    }
-
     // Handle raw string, Buffer, JSON string, or urlencoded body types
     let rawBody: Record<string, any> = {};
     if (typeof body === 'string') {
@@ -4105,11 +4230,37 @@ export class CrmService {
       rawBody = { ...body };
     }
 
-    this.logger.log(
-      `[WebsiteWebhook DEBUG] Received body (type=${typeof body}): ${JSON.stringify(
-        body,
-      )} | Parsed payload: ${JSON.stringify(rawBody)}`,
-    );
+    const suppliedKey = String(
+      apiKey ?? rawBody.apiKey ?? rawBody.api_key ?? rawBody.ApiKey ?? '',
+    ).trim();
+    const keyId = suppliedKey.replace(/^truroot_web_/, '');
+    if (!keyId) throw new UnauthorizedException('Website API key is required');
+    const integration = await this.portalIntegrationFindByWebhookKeyId(keyId);
+    if (
+      !integration ||
+      integration.provider !== 'website' ||
+      !integration.organizationId
+    ) {
+      throw new UnauthorizedException('Invalid website API key');
+    }
+    const organizationId = integration.organizationId;
+    if (isIntegrationPaused(integration)) {
+      await this.audit(
+        undefined,
+        'WEBSITE_WEBHOOK_PAUSED',
+        'PortalIntegration',
+        integration.id,
+        { ip, userAgent },
+        organizationId,
+      ).catch(() => undefined);
+
+      return {
+        success: false,
+        message:
+          'Failure: Website Integration is paused. Lead was not created.',
+        status: 'PAUSED',
+      };
+    }
 
     // Flatten Google Ads user_column_data, Elementor form_fields, WPForms, CF7, and nested objects
     const extractedFields: Record<string, string> = {};
@@ -4352,7 +4503,8 @@ export class CrmService {
     // 3. Robust Deduplication Guard (Last 10 digits match + 24 hour window + Concurrency Lock)
     const cleanDigits = mobile.replace(/\D/g, '').slice(-10);
     const recentDuplicateWindow = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24-hour window
-    const lockKey = cleanDigits && cleanDigits.length >= 10 ? cleanDigits : mobile;
+    const phoneKey = cleanDigits.length >= 10 ? cleanDigits : mobile;
+    const lockKey = `${organizationId}:${phoneKey}`;
 
     // Clean stale locks (> 15 seconds old)
     const lockNow = Date.now();
@@ -4367,7 +4519,8 @@ export class CrmService {
       await new Promise((resolve) => setTimeout(resolve, 800));
       const existingAfterWait = await this.db().lead.findFirst({
         where: {
-          OR: [{ mobile: { contains: lockKey } }, { mobile: mobile }],
+          organizationId,
+          OR: [{ mobile: { contains: phoneKey } }, { mobile: mobile }],
           createdAt: { gte: recentDuplicateWindow },
         },
         orderBy: { createdAt: 'desc' },
@@ -4389,6 +4542,7 @@ export class CrmService {
       if (cleanDigits.length >= 10) {
         existingRecentLead = await this.db().lead.findFirst({
           where: {
+            organizationId,
             OR: [{ mobile: { contains: cleanDigits } }, { mobile: mobile }],
             createdAt: { gte: recentDuplicateWindow },
           },
@@ -4397,6 +4551,7 @@ export class CrmService {
       } else {
         existingRecentLead = await this.db().lead.findFirst({
           where: {
+            organizationId,
             mobile,
             createdAt: { gte: recentDuplicateWindow },
           },
@@ -4439,6 +4594,7 @@ export class CrmService {
           reason: 'Duplicate submission deduplicated within 24 hours',
           outcome: `Reused existing lead ${existingRecentLead.displayId}`,
         },
+        organizationId,
       ).catch(() => undefined);
       return {
         success: true,
@@ -4508,7 +4664,7 @@ export class CrmService {
     if (!effectiveProjectId && project) {
       const projects = await this.db()
         .project.findMany({
-          where: { status: 'Active' },
+          where: { status: 'Active', organizationId },
           select: { id: true, name: true },
         })
         .catch(() => []);
@@ -4521,6 +4677,7 @@ export class CrmService {
     }
 
     const lead = await this.createLead({
+      organizationId,
       name,
       mobile,
       email,
@@ -4538,13 +4695,20 @@ export class CrmService {
       `[WebsiteWebhook] created website lead as ${lead.displayId} (${lead.id}) for ${name} (${mobile})`,
     );
 
-    await this.audit(undefined, 'WEBSITE_LEAD_RECEIVED', 'Lead', lead.id, {
-      displayId: lead.displayId,
-      name,
-      mobile,
-      websiteUrl: incomingUrl || matchedWebsite?.url || 'Website Form',
-      outcome: `Website lead ${lead.displayId} created successfully`,
-    }).catch(() => undefined);
+    await this.audit(
+      undefined,
+      'WEBSITE_LEAD_RECEIVED',
+      'Lead',
+      lead.id,
+      {
+        displayId: lead.displayId,
+        name,
+        mobile,
+        websiteUrl: incomingUrl || matchedWebsite?.url || 'Website Form',
+        outcome: `Website lead ${lead.displayId} created successfully`,
+      },
+      organizationId,
+    ).catch(() => undefined);
 
     // Update connectedWebsites lead counter so website screen reflects captured lead count
     if (matchedWebsiteIndex !== -1 && connectedWebsites[matchedWebsiteIndex]) {
@@ -4565,147 +4729,12 @@ export class CrmService {
       },
     });
 
-    // Send instant automated HTML email notification to bigbosscrm184@gmail.com
-    await this.sendWebsiteLeadEmailNotification(lead, {
-      name,
-      mobile,
-      email,
-      configuration,
-      project,
-    });
-
     return {
       success: true,
       message: 'Website lead captured successfully into Truroot Realty CRM.',
       leadId: lead.id,
       displayId: lead.displayId,
     };
-  }
-
-  private async sendWebsiteLeadEmailNotification(
-    lead: any,
-    payload: {
-      name: string;
-      mobile: string;
-      email?: string;
-      configuration?: string;
-      project?: string;
-    },
-  ) {
-    try {
-      let connector = await this.db().emailConnector.findFirst({
-        where: { isDefault: true, isActive: true },
-      });
-      if (!connector) {
-        connector = await this.db().emailConnector.findFirst({
-          where: { isActive: true },
-        });
-      }
-
-      const user =
-        connector?.username ||
-        process.env.SMTP_USER ||
-        'crmbigboss184@gmail.com';
-      const pass = (
-        connector?.password ||
-        process.env.SMTP_PASS ||
-        ''
-      ).replace(/\s+/g, '');
-      const host = connector?.host || process.env.SMTP_HOST || 'smtp.gmail.com';
-      const port = connector?.port || Number(process.env.SMTP_PORT || 465);
-      const secure = connector?.secure ?? port === 465;
-      const fromEmail = connector?.fromEmail || user;
-      const fromName = connector?.fromName || 'Truroot Realty CRM';
-
-      if (!user || !pass) return;
-
-      const transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure,
-        auth: { user, pass },
-        tls: { rejectUnauthorized: false },
-      });
-
-      const leadDisplayId = lead?.displayId ?? lead?.id ?? 'NEW_LEAD';
-      const htmlContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
-          <div style="background-color: #780037; padding: 15px; border-radius: 6px 6px 0 0; text-align: center;">
-            <h2 style="color: #ffffff; margin: 0; font-size: 20px;">New Website Lead Captured!</h2>
-          </div>
-          <div style="padding: 20px;">
-            <p style="font-size: 14px; color: #4a5568;">A new lead has been submitted on your website landing page and automatically created in <strong>Truroot Realty CRM</strong>.</p>
-            
-            <table style="width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px;">
-              <tr style="border-bottom: 1px solid #edf2f7;">
-                <td style="padding: 10px; font-weight: bold; color: #4a5568; width: 140px;">Lead ID:</td>
-                <td style="padding: 10px; color: #1a202c; font-weight: bold;">${leadDisplayId}</td>
-              </tr>
-              <tr style="border-bottom: 1px solid #edf2f7;">
-                <td style="padding: 10px; font-weight: bold; color: #4a5568;">Full Name:</td>
-                <td style="padding: 10px; color: #1a202c;">${payload.name}</td>
-              </tr>
-              <tr style="border-bottom: 1px solid #edf2f7;">
-                <td style="padding: 10px; font-weight: bold; color: #4a5568;">Mobile Number:</td>
-                <td style="padding: 10px; font-weight: bold; color: #780037;">${
-                  payload.mobile
-                }</td>
-              </tr>
-              ${
-                payload.email
-                  ? `<tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 10px; font-weight: bold; color: #4a5568;">Email:</td><td style="padding: 10px; color: #1a202c;">${payload.email}</td></tr>`
-                  : ''
-              }
-              ${
-                payload.configuration
-                  ? `<tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 10px; font-weight: bold; color: #4a5568;">Configuration:</td><td style="padding: 10px; color: #1a202c;">${payload.configuration}</td></tr>`
-                  : ''
-              }
-              ${
-                payload.project
-                  ? `<tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 10px; font-weight: bold; color: #4a5568;">Project:</td><td style="padding: 10px; color: #1a202c;">${payload.project}</td></tr>`
-                  : ''
-              }
-            </table>
-
-            <div style="margin-top: 25px; text-align: center;">
-              <a href="https://crmtrueroot.com/leads" style="background-color: #780037; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">View Lead in CRM</a>
-            </div>
-          </div>
-          <div style="border-top: 1px solid #edf2f7; padding: 15px; text-align: center; font-size: 12px; color: #a0aec0;">
-            Truroot Realty Real Estate CRM • Automatic Website Lead Alert
-          </div>
-        </div>
-      `;
-
-      await transporter.sendMail({
-        from: `"${fromName}" <${fromEmail}>`,
-        to: fromEmail,
-        subject: `🚨 New Website Lead: ${payload.name} (${payload.mobile})`,
-        html: htmlContent,
-      });
-
-      if (connector?.id) {
-        await this.db().emailLog.create({
-          data: {
-            connectorId: connector.id,
-            recipient: fromEmail,
-            subject: `New Website Lead: ${payload.name} (${payload.mobile})`,
-            status: 'Sent',
-            entityType: 'Lead',
-            entityId: lead?.id,
-          },
-        });
-      }
-
-      this.logger.log(
-        `Instant email alert sent for new website lead ${leadDisplayId} to ${fromEmail}`,
-      );
-    } catch (err: any) {
-      this.logger.warn(
-        `Website lead captured into CRM successfully (email alert notification warning: ${err?.message})`,
-      );
-    }
   }
 
   private metaPublicApiBaseUrl() {
@@ -6204,13 +6233,21 @@ export class CrmService {
     };
   }
 
-  async listWebsiteDeliveryLogs(query: Body, actorUserId?: string) {
-    await this.ensureWebsiteIntegration(actorUserId);
+  async listWebsiteDeliveryLogs(
+    query: Body,
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    const integration = await this.ensureWebsiteIntegration(
+      actorUserId,
+      organizationId,
+    );
     const page = Math.max(1, Number(query.page ?? 1) || 1);
     const limit = Math.min(50, Math.max(5, Number(query.limit ?? 10) || 10));
     const [logs, total] = await Promise.all([
       this.db().auditLog.findMany({
         where: {
+          organizationId: integration.organizationId,
           action: {
             in: [
               'WEBSITE_WEBHOOK_RECEIVED',
@@ -6234,6 +6271,7 @@ export class CrmService {
       }),
       this.db().auditLog.count({
         where: {
+          organizationId: integration.organizationId,
           action: {
             in: [
               'WEBSITE_WEBHOOK_RECEIVED',
@@ -8770,20 +8808,28 @@ export class CrmService {
           .filter(Boolean)
           .join(' '),
         projectName: lead.requirement?.preferredProjectId
-          ? (projectMap.get(lead.requirement.preferredProjectId)?.name ?? lead.requirement?.preferredLocation ?? null)
-          : (lead.requirement?.preferredLocation ?? null),
+          ? projectMap.get(lead.requirement.preferredProjectId)?.name ??
+            lead.requirement?.preferredLocation ??
+            null
+          : lead.requirement?.preferredLocation ?? null,
         projectArea: lead.requirement?.preferredProjectId
-          ? (projectMap.get(lead.requirement.preferredProjectId)?.location ?? lead.requirement?.preferredLocation ?? null)
-          : (lead.requirement?.preferredLocation ?? null),
+          ? projectMap.get(lead.requirement.preferredProjectId)?.location ??
+            lead.requirement?.preferredLocation ??
+            null
+          : lead.requirement?.preferredLocation ?? null,
         projectId: lead.requirement?.preferredProjectId ?? null,
         preferredProjectId: lead.requirement?.preferredProjectId ?? null,
         project: lead.requirement?.preferredProjectId
           ? {
               id: lead.requirement.preferredProjectId,
-              name: projectMap.get(lead.requirement.preferredProjectId)?.name ?? null,
-              location: projectMap.get(lead.requirement.preferredProjectId)?.location ?? null,
+              name:
+                projectMap.get(lead.requirement.preferredProjectId)?.name ??
+                null,
+              location:
+                projectMap.get(lead.requirement.preferredProjectId)?.location ??
+                null,
             }
-          : (lead.requirement?.preferredLocation ?? null),
+          : lead.requirement?.preferredLocation ?? null,
         deletedAt: lead.deletedAt,
         deletedById: lead.deletedById,
         deletedByName: lead.deletedById
@@ -9774,6 +9820,9 @@ export class CrmService {
     lead: Body,
     preferredTeamId?: string,
   ) {
+    // These legacy rules and transfer recipients have no tenant ownership.
+    // Keep tenant leads unassigned until tenant-owned rules are migrated.
+    if (lead.organizationId) return null;
     if (lead.sourceId || lead.source) {
       const sourceMaster = await this.db().leadMasterValue.findFirst({
         where: {
@@ -9981,6 +10030,13 @@ export class CrmService {
           })
         : Promise.resolve(null),
     ]);
+    if (lead?.organizationId) {
+      await this.db().autoAssignmentEvent.update({
+        where: { id: event.id },
+        data: { status: 'STOPPED', lastCheckedAt: new Date() },
+      });
+      return;
+    }
     if (!lead || !rule || !rule.isEnabled) {
       await this.db().autoAssignmentEvent.update({
         where: { id: event.id },
@@ -10577,7 +10633,18 @@ export class CrmService {
       explicitFieldExecutiveId ?? defaultFieldExecutiveId;
     const managerId = explicitManagerId;
     const ownerId =
-      explicitOwnerId ?? telecallerId ?? fieldExecutiveId ?? managerId ?? actorUserId;
+      explicitOwnerId ??
+      telecallerId ??
+      fieldExecutiveId ??
+      managerId ??
+      (actorRole === 'SUPER_ADMIN' ? undefined : actorUserId);
+
+    const effectiveOrgId = actorUserId
+      ? await this.resolveTenantOrganizationId(
+          actorUserId,
+          optionalId(body.organizationId),
+        )
+      : optionalId(body.organizationId);
 
     let rawProjectInput =
       body.preferredProjectId ??
@@ -10602,6 +10669,7 @@ export class CrmService {
         const matchedProject = await this.db()
           .project.findFirst({
             where: {
+              ...(effectiveOrgId ? { organizationId: effectiveOrgId } : {}),
               OR: [
                 { id: trimmed },
                 { name: { equals: trimmed, mode: 'insensitive' } },
@@ -10616,12 +10684,22 @@ export class CrmService {
       }
     }
 
-    const effectiveOrgId = body.organizationId ?? (await this.resolveTenantOrganizationId(actorUserId)) ?? undefined;
+    if (effectiveOrgId) {
+      await this.assertLeadRoutingInOrganization(effectiveOrgId, {
+        projectId: effectiveProjId,
+        teamId: body.autoAssignmentTeamId,
+        ownerId,
+        managerId,
+        telecallerId,
+        fieldExecutiveId,
+      });
+    }
 
     const createLeadRecord = (displayId: string) =>
       this.db().$transaction(async (tx: Prisma.TransactionClient) => {
         const createdLead = await tx.lead.create({
           data: {
+            organizationId: effectiveOrgId,
             displayId,
             name: body.name ?? body.leadName,
             email: body.email ?? body.emailAddress,
@@ -10846,16 +10924,22 @@ export class CrmService {
           },
         })
       : null;
-    const initialStatusScoreMetadata =
-      await this.buildLeadStatusScoreMetadata(
-        lead,
-        Boolean(initialStatusMaster),
-        initialStatusMaster,
-      );
+    const initialStatusScoreMetadata = await this.buildLeadStatusScoreMetadata(
+      lead,
+      Boolean(initialStatusMaster),
+      initialStatusMaster,
+    );
 
-    await this.audit(actorUserId, 'LEAD_CREATED', 'Lead', lead.id, {
-      displayId,
-    });
+    await this.audit(
+      actorUserId,
+      'LEAD_CREATED',
+      'Lead',
+      lead.id,
+      {
+        displayId,
+      },
+      effectiveOrgId,
+    );
     await this.db()
       .activity.create({
         data: {
@@ -10960,12 +11044,16 @@ export class CrmService {
         lead.managerId,
         lead.telecallerId,
         lead.fieldExecutiveId,
-        ...((lead.followUps || []).map((item: Body) => item.assignedToId)),
-        ...((lead.tasks || []).map((item: Body) => item.assignedToId)),
-        ...((lead.notes || []).map((item: Body) => item.authorId)),
-        ...((lead.siteVisits || []).map((item: Body) => item.assignedExecutiveId)),
-        ...((lead.bookings || []).map((item: Body) => item.salesExecutiveId)),
-        ...((lead.projectInterests || []).map((item: Body) => item.salesExecutiveId)),
+        ...(lead.followUps || []).map((item: Body) => item.assignedToId),
+        ...(lead.tasks || []).map((item: Body) => item.assignedToId),
+        ...(lead.notes || []).map((item: Body) => item.authorId),
+        ...(lead.siteVisits || []).map(
+          (item: Body) => item.assignedExecutiveId,
+        ),
+        ...(lead.bookings || []).map((item: Body) => item.salesExecutiveId),
+        ...(lead.projectInterests || []).map(
+          (item: Body) => item.salesExecutiveId,
+        ),
       ]),
     ).filter(Boolean) as string[];
 
@@ -10977,7 +11065,7 @@ export class CrmService {
         lead.priorityId,
         lead.campaignId,
         lead.temperatureId,
-        ...((lead.followUps || []).map((item: Body) => item.typeId)),
+        ...(lead.followUps || []).map((item: Body) => item.typeId),
       ]),
     ).filter(Boolean) as string[];
 
@@ -13888,7 +13976,8 @@ export class CrmService {
     }
 
     const calculatedNextFollowUpAt = allowFollowUp
-      ? (normalizeDate(body.nextFollowUpAt ?? body.followUpDate) ?? current.nextFollowUpAt)
+      ? normalizeDate(body.nextFollowUpAt ?? body.followUpDate) ??
+        current.nextFollowUpAt
       : null;
 
     const incomingProjectId =
@@ -14611,7 +14700,9 @@ export class CrmService {
 
     const allowFollowUp = status.allowFollowUp ?? true;
     const calculatedNextFollowUpAt = allowFollowUp
-      ? (normalizeDate(body.nextFollowUpAt ?? body.followUpDate ?? body.scheduledAt) ?? current.nextFollowUpAt)
+      ? normalizeDate(
+          body.nextFollowUpAt ?? body.followUpDate ?? body.scheduledAt,
+        ) ?? current.nextFollowUpAt
       : null;
 
     const result = await this.db().$transaction(async (tx: any) => {
@@ -20498,8 +20589,12 @@ export class CrmService {
         })
       : [];
 
-    const statusMasters = masterValues.filter(m => m.categoryId === statusCategory?.id);
-    const tempMasters = masterValues.filter(m => m.categoryId === tempCategory?.id);
+    const statusMasters = masterValues.filter(
+      (m) => m.categoryId === statusCategory?.id,
+    );
+    const tempMasters = masterValues.filter(
+      (m) => m.categoryId === tempCategory?.id,
+    );
 
     // Build filter pills
     const filterPills: Array<{
@@ -20524,16 +20619,18 @@ export class CrmService {
       },
     ];
 
-    const hasFilterBarFlag = masterValues.some(m => m.showInFilterBar === true);
+    const hasFilterBarFlag = masterValues.some(
+      (m) => m.showInFilterBar === true,
+    );
     const filterBarItems = hasFilterBarFlag
-      ? masterValues.filter(m => m.showInFilterBar)
+      ? masterValues.filter((m) => m.showInFilterBar)
       : statusMasters;
 
     for (const item of filterBarItems) {
       const isStatus = item.categoryId === statusCategory?.id;
       const count = isStatus
-        ? (statusCountMap.get(item.id) ?? 0)
-        : (tempCountMap.get(item.id) ?? 0);
+        ? statusCountMap.get(item.id) ?? 0
+        : tempCountMap.get(item.id) ?? 0;
       filterPills.push({
         id: item.id,
         name: item.name,
@@ -20547,23 +20644,25 @@ export class CrmService {
     }
 
     // Build stats cards for mobile dashboard
-    const hasStatsFlag = masterValues.some(m => m.showInStatsCard === true);
+    const hasStatsFlag = masterValues.some((m) => m.showInStatsCard === true);
     const statsCardMasters = hasStatsFlag
-      ? masterValues.filter(m => m.showInStatsCard)
+      ? masterValues.filter((m) => m.showInStatsCard)
       : statusMasters;
 
-    const statsCards = statsCardMasters.map(item => {
+    const statsCards = statsCardMasters.map((item) => {
       const isStatus = item.categoryId === statusCategory?.id;
       const count = isStatus
-        ? (statusCountMap.get(item.id) ?? 0)
-        : (tempCountMap.get(item.id) ?? 0);
+        ? statusCountMap.get(item.id) ?? 0
+        : tempCountMap.get(item.id) ?? 0;
       return {
         id: item.id,
         key: item.code,
         title: item.name,
         count,
         color: item.displayColor || (isStatus ? '#0284C7' : '#EF4444'),
-        category: (isStatus ? 'status' : 'temperature') as 'status' | 'temperature',
+        category: (isStatus ? 'status' : 'temperature') as
+          | 'status'
+          | 'temperature',
         filterKey: isStatus ? 'statusId' : 'temperatureId',
         filterValue: item.id,
         sortOrder: item.sortOrder,
@@ -20758,9 +20857,21 @@ export class CrmService {
       masterIds.length
         ? this.db().leadMasterValue.findMany({
             where: { id: { in: masterIds } },
-            select: { id: true, name: true, displayColor: true, allowFollowUp: true },
+            select: {
+              id: true,
+              name: true,
+              displayColor: true,
+              allowFollowUp: true,
+            },
           })
-        : Promise.resolve([] as Array<{ id: string; name: string; displayColor: string | null; allowFollowUp: boolean }>),
+        : Promise.resolve(
+            [] as Array<{
+              id: string;
+              name: string;
+              displayColor: string | null;
+              allowFollowUp: boolean;
+            }>,
+          ),
       reqProjectIds.length
         ? this.db().project.findMany({
             where: { id: { in: reqProjectIds } },
@@ -20923,8 +21034,8 @@ export class CrmService {
     ]);
 
     const statuses = allMasters
-      .filter(m => m.categoryId === statusCat?.id)
-      .map(m => ({
+      .filter((m) => m.categoryId === statusCat?.id)
+      .map((m) => ({
         id: m.id,
         name: m.name,
         code: m.code,
@@ -20936,8 +21047,8 @@ export class CrmService {
       }));
 
     const temperatures = allMasters
-      .filter(m => m.categoryId === tempCat?.id)
-      .map(m => ({
+      .filter((m) => m.categoryId === tempCat?.id)
+      .map((m) => ({
         id: m.id,
         name: m.name,
         code: m.code,
@@ -20946,8 +21057,8 @@ export class CrmService {
       }));
 
     const sources = allMasters
-      .filter(m => m.categoryId === srcCat?.id)
-      .map(m => ({
+      .filter((m) => m.categoryId === srcCat?.id)
+      .map((m) => ({
         id: m.id,
         name: m.name,
         code: m.code,
@@ -20977,7 +21088,7 @@ export class CrmService {
         statuses,
         temperatures,
         sources,
-        projects: projects.map(p => ({
+        projects: projects.map((p) => ({
           id: p.id,
           name: p.name,
           location: p.location,
@@ -20992,7 +21103,7 @@ export class CrmService {
           '3 Cr+',
         ],
         propertyTypes: ['Apartment', 'Villa', 'Plot', 'Commercial'],
-        assignees: users.map(u => ({
+        assignees: users.map((u) => ({
           id: u.id,
           name: u.fullName,
           email: u.email,

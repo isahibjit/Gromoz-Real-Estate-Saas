@@ -8,6 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '../auth/guards/auth.guard';
+import { TenantGuard } from '../common/tenant/tenant.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { PermissionGuard } from '../access/permission.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -15,14 +16,10 @@ import { RequirePermission } from '../common/decorators/require-permission.decor
 import { HousingIntegrationsService } from './housing-integrations.service';
 
 const userFrom = (req: any) => req.user ?? {};
-const orgIdFrom = (req: any) =>
-  req.tenant?.organizationId ||
-  req.user?.organizationId ||
-  req.headers['x-organization-id'] ||
-  req.headers['x-tenant-id'];
+const orgIdFrom = (req: { tenant?: { organizationId: string } }) => req.tenant?.organizationId;
 
 @Controller('housing-integrations')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 export class HousingIntegrationsController {
   constructor(
     private readonly housingService: HousingIntegrationsService,

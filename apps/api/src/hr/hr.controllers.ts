@@ -18,6 +18,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { PermissionGuard } from '../access/permission.guard';
 import { HrService } from './hr.service';
+import { TenantGuard } from '../common/tenant/tenant.guard';
 
 const adminRoles = ['SUPER_ADMIN', 'ADMIN', 'HR', 'SALES_MANAGER'] as const;
 const employeeRoles = [
@@ -35,7 +36,7 @@ const employeeRoles = [
 const actor = (req: any) => req.user as { sub: string; role: string };
 
 @Controller('employees')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 export class EmployeesController {
   constructor(private readonly hr: HrService) {}
 

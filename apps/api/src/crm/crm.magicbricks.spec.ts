@@ -10,6 +10,8 @@ describe('MagicBricks pause enforcement', () => {
   const payload = { FirstName: 'Test', LastName: 'Lead', Mobile: '9876543210' };
   let integration: {
     id: string;
+    organizationId: string;
+    provider: string;
     isActive: boolean;
     status: string;
     webhookKeyId: string;
@@ -19,7 +21,13 @@ describe('MagicBricks pause enforcement', () => {
   let service: CrmService;
   let apiKey: string;
   const db = {
-    portalIntegration: { findUnique: jest.fn(), update: jest.fn() },
+    portalIntegration: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
+    user: { findUnique: jest.fn() },
+    organizationMember: { findMany: jest.fn() },
     lead: { findFirst: jest.fn(), count: jest.fn() },
     project: { findFirst: jest.fn() },
     leadMasterCategory: { upsert: jest.fn() },
@@ -31,6 +39,8 @@ describe('MagicBricks pause enforcement', () => {
     jest.resetAllMocks();
     integration = {
       id: 'magicbricks-integration',
+      organizationId: 'tenant-a',
+      provider: 'magicbricks',
       isActive: true,
       status: 'Connected',
       webhookKeyId: 'test-key-id',
@@ -40,6 +50,13 @@ describe('MagicBricks pause enforcement', () => {
     db.portalIntegration.findUnique.mockImplementation(async () => ({
       ...integration,
     }));
+    db.portalIntegration.findFirst.mockImplementation(async () => ({
+      ...integration,
+    }));
+    db.user.findUnique.mockResolvedValue({ role: 'ADMIN', isActive: true });
+    db.organizationMember.findMany.mockResolvedValue([
+      { organizationId: 'tenant-a' },
+    ]);
     db.portalIntegration.update.mockImplementation(async () => ({
       ...integration,
     }));
@@ -101,7 +118,7 @@ describe('MagicBricks pause enforcement', () => {
     integration.isActive = false;
     expect(await service.receiveMagicBricksLead(payload, 'invalid')).toEqual({
       success: false,
-      message: 'Failure: Invalid API key',
+      message: 'Failure: Invalid API key format or signature',
     });
     expect(service.createLead).not.toHaveBeenCalled();
     expect(db.auditLog.create).not.toHaveBeenCalled();
@@ -152,14 +169,22 @@ describe('MagicBricks pause enforcement', () => {
   });
 
   it('persists pause and permits explicit activation', async () => {
-    await service.saveMagicBricksIntegration({ isActive: false });
+    await service.saveMagicBricksIntegration(
+      { isActive: false },
+      'user-a',
+      'tenant-a',
+    );
     expect(db.portalIntegration.update).toHaveBeenLastCalledWith({
       where: { id: integration.id },
       data: expect.objectContaining({ isActive: false, status: 'Paused' }),
     });
     integration.isActive = false;
     integration.status = 'Paused';
-    await service.saveMagicBricksIntegration({ isActive: true });
+    await service.saveMagicBricksIntegration(
+      { isActive: true },
+      'user-a',
+      'tenant-a',
+    );
     expect(db.portalIntegration.update).toHaveBeenLastCalledWith({
       where: { id: integration.id },
       data: expect.objectContaining({ isActive: true, status: 'Configured' }),
@@ -169,20 +194,28 @@ describe('MagicBricks pause enforcement', () => {
   it('keeps pause when saving settings or field mapping', async () => {
     integration.isActive = false;
     integration.status = 'Paused';
-    await service.saveMagicBricksIntegration({
-      notes: 'Keep paused',
-      status: 'Configured',
-    });
+    await service.saveMagicBricksIntegration(
+      {
+        notes: 'Keep paused',
+        status: 'Configured',
+      },
+      'user-a',
+      'tenant-a',
+    );
     expect(db.portalIntegration.update).toHaveBeenLastCalledWith({
       where: { id: integration.id },
       data: expect.objectContaining({ status: 'Paused' }),
     });
-    expect(
-      db.portalIntegration.update.mock.calls[0][0].data,
-    ).toEqual(expect.objectContaining({ isActive: false, status: 'Paused' }));
-    await service.saveMagicBricksFieldMapping({
-      fieldMapping: integration.fieldMapping,
-    });
+    expect(db.portalIntegration.update.mock.calls[0][0].data).toEqual(
+      expect.objectContaining({ isActive: false, status: 'Paused' }),
+    );
+    await service.saveMagicBricksFieldMapping(
+      {
+        fieldMapping: integration.fieldMapping,
+      },
+      'user-a',
+      'tenant-a',
+    );
     expect(db.portalIntegration.update).toHaveBeenLastCalledWith({
       where: { id: integration.id },
       data: expect.objectContaining({ status: 'Paused' }),
@@ -191,9 +224,15 @@ describe('MagicBricks pause enforcement', () => {
 
   it('does not report a paused test payload as creatable', async () => {
     integration.isActive = false;
-    const result = await service.testMagicBricksIntegration({
-      samplePayload: payload,
-    });
+    const result = await service.testMagicBricksIntegration(
+      {
+        samplePayload: payload,
+      },
+      'user-a',
+      undefined,
+      undefined,
+      'tenant-a',
+    );
     expect(result.data.wouldCreateLead).toBe(false);
     expect(result.data.errors).toContain('MagicBricks Push API is paused');
     expect(service.createLead).not.toHaveBeenCalled();

@@ -12,6 +12,7 @@ type TransactionClient = {
 };
 
 type ManagerTeamAssignmentHarness = {
+  tenants: { organizationId: string; employeeWhere: () => { organizationMemberships: { some: { organizationId: string } } } };
   prisma: {
     $transaction: (
       operation: (transaction: TransactionClient) => Promise<void>,
@@ -29,6 +30,10 @@ function createHarness(transaction: TransactionClient) {
   ) as ManagerTeamAssignmentHarness;
   service.prisma = {
     $transaction: async (operation) => operation(transaction),
+  };
+  service.tenants = {
+    organizationId: 'tenant-a',
+    employeeWhere: () => ({ organizationMemberships: { some: { organizationId: 'tenant-a' } } }),
   };
   return service;
 }
@@ -90,6 +95,9 @@ describe('HrService manager team assignment', () => {
       'team-kept',
       'team-new',
     ]);
+    expect(transaction.team.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: { in: ['team-kept', 'team-new'] }, organizationId: 'tenant-a' },
+    }));
 
     expect(transaction.employeeProfile.updateMany).toHaveBeenNthCalledWith(1, {
       where: { userId: { in: ['leader-old'] } },

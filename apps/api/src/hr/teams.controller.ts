@@ -5,13 +5,14 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { PermissionGuard } from '../access/permission.guard';
 import { TeamsService } from './teams.service';
+import { TenantGuard } from '../common/tenant/tenant.guard';
 
 const adminRoles = ['SUPER_ADMIN', 'ADMIN', 'HR', 'SALES_MANAGER'] as const;
 const employeeRoles = ['SUPER_ADMIN', 'ADMIN', 'HR', 'SALES_MANAGER', 'TEAM_LEADER', 'MANAGER', 'TELECALLER', 'SALES_AGENT', 'MARKETING', 'BACKEND'] as const;
 const actor = (req: any) => req.user as { sub: string; role: string };
 
 @Controller('teams')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 export class TeamsController {
   constructor(private readonly teams: TeamsService) {}
 

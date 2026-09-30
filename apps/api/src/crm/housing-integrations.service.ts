@@ -72,34 +72,21 @@ export class HousingIntegrationsService {
   }
 
   async ensureHousingIntegration(actorUserId?: string, organizationId?: string) {
-    await this.ensureHousingIntegrationTable();
     const orgId =
       organizationId ||
       (await this.crm.resolveTenantOrganizationId(actorUserId));
-
-    let integration = orgId
-      ? await this.db().housingIntegration.findFirst({
-          where: { organizationId: orgId },
-        })
-      : await this.db().housingIntegration.findFirst();
-
-    if (!integration) {
-      integration = await this.db().housingIntegration.create({
-        data: {
-          organizationId: orgId ?? null,
+    if (!orgId) throw new BadRequestException('Select a tenant workspace');
+    return this.prisma.housingIntegration.upsert({
+      where: { organizationId: orgId },
+      update: {},
+      create: {
+          organizationId: orgId,
           webhookKeyId: randomBytes(12).toString('hex'),
           isActive: true,
           fieldMapping: defaultHousingFieldMapping,
           createdById: actorUserId,
-        },
-      });
-    } else if (orgId && !integration.organizationId) {
-      integration = await this.db().housingIntegration.update({
-        where: { id: integration.id },
-        data: { organizationId: orgId },
-      });
-    }
-    return integration;
+      },
+    });
   }
 
   async getHousingIntegration(actorUserId?: string, organizationId?: string) {
@@ -201,7 +188,7 @@ export class HousingIntegrationsService {
       where: { webhookKeyId: keyId },
     });
 
-    if (!integration) {
+    if (!integration || !integration.organizationId) {
       throw new NotFoundException('Housing.com webhook endpoint not found');
     }
 

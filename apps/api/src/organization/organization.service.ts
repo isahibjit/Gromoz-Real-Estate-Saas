@@ -583,6 +583,27 @@ export class OrganizationService {
   }
 
   async inviteMember(orgId: string, currentUserId: string, dto: InviteMemberDto) {
+    const actor = await this.prisma.user.findUnique({
+      where: { id: currentUserId },
+      select: { role: true, isActive: true },
+    });
+    if (!actor?.isActive) throw new ForbiddenException('Active administrator required');
+    if (actor.role !== 'SUPER_ADMIN') {
+      const membership = await this.prisma.organizationMember.findUnique({
+        where: { organizationId_userId: { organizationId: orgId, userId: currentUserId } },
+        select: { isActive: true, isOwner: true, role: true },
+      });
+      if (!membership?.isActive || (!membership.isOwner && membership.role !== 'ADMIN')) {
+        throw new ForbiddenException('Only workspace administrators can invite members');
+      }
+    }
+    if (typeof dto.email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dto.email.trim())) {
+      throw new BadRequestException('A valid email address is required');
+    }
+    const targetRole = dto.role ?? 'SALES_AGENT';
+    if (!Object.values(Role).includes(targetRole) || targetRole === 'SUPER_ADMIN') {
+      throw new BadRequestException('Invalid workspace role');
+    }
     const org = await this.prisma.organization.findUnique({
       where: { id: orgId },
     });
@@ -606,10 +627,9 @@ export class OrganizationService {
     }
 
     const email = dto.email.toLowerCase().trim();
-    const targetRole = dto.role || 'SALES_AGENT';
-
-    let user = await this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { email },
+      select: { id: true },
     });
 
     if (user) {
@@ -626,20 +646,10 @@ export class OrganizationService {
         throw new ConflictException('This user is already a member of this organization.');
       }
 
-      await this.prisma.organizationMember.create({
-        data: {
-          organizationId: orgId,
-          userId: user.id,
-          role: targetRole,
-          isActive: true,
-        },
-      });
-
-      return {
-        message: 'Member added to organization successfully',
-        type: 'EXISTING_USER_ADDED',
-        user: { id: user.id, email: user.email, fullName: user.fullName },
-      };
+      // A tenant must not acquire access to a global account's HR profile just
+      // by knowing its email. Re-enable only with verified acceptance and
+      // membership-owned HR/permission records.
+      throw new ConflictException('Existing accounts cannot be added directly. Verified invitation acceptance is required.');
     }
 
     const token = crypto.randomBytes(32).toString('hex');

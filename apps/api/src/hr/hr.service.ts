@@ -22,6 +22,7 @@ import { RedisService } from '../redis/redis.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { REDIS_KEY_AUTH_DEACTIVATED_PREFIX } from '../auth/guards/auth.guard';
 import { getUserRoleLabel } from '../common/role-labels';
+import { TenantAccessService } from '../common/tenant/tenant-access.service';
 
 type Actor = { sub: string; role: string };
 type ManagedTeamSummary = {
@@ -247,6 +248,7 @@ export class HrService {
     private readonly accessService: AccessService,
     private readonly redisService: RedisService,
     private readonly realtimeService: RealtimeService,
+    private readonly tenants: TenantAccessService,
   ) {}
 
   private async employeeJustificationMultiplierMap(userIds: string[]) {
@@ -376,6 +378,7 @@ export class HrService {
     const role = query.role === 'FIELD_EXECUTIVE' ? 'SALES_AGENT' : query.role;
     const scopedEmployeeIds = await this.resolveVisibleEmployeeIds(actor);
     const where: Prisma.UserWhereInput = {
+      AND: [this.tenants.employeeWhere()],
       ...(scopedEmployeeIds ? { id: { in: scopedEmployeeIds } } : {}),
       ...(role ? { role: role as any } : {}),
       ...(query.status ? { isActive: query.status === 'Active' } : {}),
@@ -434,16 +437,18 @@ export class HrService {
           employeeProfile: {
             include: {
               team: {
+                where: { organizationId: this.tenants.organizationId },
                 select: {
                   id: true,
                   name: true,
-                  leader: { select: { id: true, fullName: true } },
+                  leader: { where: this.tenants.employeeWhere(), select: { id: true, fullName: true } },
                 },
               },
               shift: true,
             },
           },
           ledTeams: {
+            where: { organizationId: this.tenants.organizationId },
             select: {
               id: true,
               name: true,
@@ -451,12 +456,14 @@ export class HrService {
           },
           modulePermissions: true,
           rankingTeamAccesses: {
+            where: { team: { organizationId: this.tenants.organizationId } },
             select: {
               teamId: true,
               team: { select: { id: true, name: true } },
             },
           },
           teamLeaderVisibilityGrants: {
+            where: this.tenants.visibilityGrantWhere(),
             select: {
               teamId: true,
               userId: true,
@@ -465,6 +472,7 @@ export class HrService {
             },
           },
           leadVisibilityOverrides: {
+            where: { target: this.tenants.employeeWhere() },
             select: {
               accessType: true,
               targetUserId: true,
@@ -480,7 +488,7 @@ export class HrService {
             },
           },
           attendanceRecords: {
-            where: { attendanceDate: today },
+            where: { attendanceDate: today, organizationId: this.tenants.organizationId },
             select: { status: true, checkInAt: true },
           },
         },
@@ -506,6 +514,7 @@ export class HrService {
   }
 
   async getEmployee(id: string, actor: Actor) {
+    await this.tenants.assertEmployee(id);
     await this.assertCanViewEmployee(id, actor);
     const user = await this.prisma.user.findUnique({
       where: { id },
@@ -523,16 +532,18 @@ export class HrService {
         employeeProfile: {
           include: {
             team: {
+              where: { organizationId: this.tenants.organizationId },
               select: {
                 id: true,
                 name: true,
-                leader: { select: { id: true, fullName: true } },
+                leader: { where: this.tenants.employeeWhere(), select: { id: true, fullName: true } },
               },
             },
             shift: true,
           },
         },
         ledTeams: {
+          where: { organizationId: this.tenants.organizationId },
           select: {
             id: true,
             name: true,
@@ -540,12 +551,14 @@ export class HrService {
         },
         modulePermissions: true,
         rankingTeamAccesses: {
+          where: { team: { organizationId: this.tenants.organizationId } },
           select: {
             teamId: true,
             team: { select: { id: true, name: true } },
           },
         },
         teamLeaderVisibilityGrants: {
+          where: this.tenants.visibilityGrantWhere(),
           select: {
             teamId: true,
             userId: true,
@@ -554,6 +567,7 @@ export class HrService {
           },
         },
         leadVisibilityOverrides: {
+          where: { target: this.tenants.employeeWhere() },
           select: {
             accessType: true,
             targetUserId: true,
@@ -598,6 +612,8 @@ export class HrService {
   }
 
   async createEmployee(body: Record<string, unknown>, actor: Actor) {
+    const organizationId = this.tenants.organizationId;
+    await this.tenants.validateEmployeeReferences(body);
     const email =
       typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
     const fullName =
@@ -630,6 +646,7 @@ export class HrService {
         email,
         fullName,
         role,
+        organizationMemberships: { create: { organizationId, role } },
         passwordHash: encryptPassword(password),
         isActive: true,
         twoFactorEnabled: body.twoFactorEnabled === true,
@@ -657,16 +674,18 @@ export class HrService {
         employeeProfile: {
           include: {
             team: {
+              where: { organizationId: this.tenants.organizationId },
               select: {
                 id: true,
                 name: true,
-                leader: { select: { id: true, fullName: true } },
+                leader: { where: this.tenants.employeeWhere(), select: { id: true, fullName: true } },
               },
             },
             shift: true,
           },
         },
         ledTeams: {
+          where: { organizationId: this.tenants.organizationId },
           select: {
             id: true,
             name: true,
@@ -674,12 +693,14 @@ export class HrService {
         },
         modulePermissions: true,
         rankingTeamAccesses: {
+          where: { team: { organizationId: this.tenants.organizationId } },
           select: {
             teamId: true,
             team: { select: { id: true, name: true } },
           },
         },
         teamLeaderVisibilityGrants: {
+          where: this.tenants.visibilityGrantWhere(),
           select: {
             teamId: true,
             userId: true,
@@ -743,6 +764,7 @@ export class HrService {
     actor: Actor,
   ) {
     this.assertSelfOrAdmin(id, actor);
+    await this.tenants.assertEmployee(id);
 
     let sanitizedBody = body;
     const isAdmin = ADMIN_ROLES.has(actor.role);
@@ -756,6 +778,7 @@ export class HrService {
       }
     }
 
+    await this.tenants.validateEmployeeReferences(sanitizedBody);
     const current = await this.prisma.user.findUnique({
       where: { id },
       include: {
@@ -838,6 +861,14 @@ export class HrService {
           ? { email: sanitizedBody.email.trim().toLowerCase() }
           : {}),
         ...(sanitizedBody.role ? { role: nextRole } : {}),
+        ...(sanitizedBody.role ? {
+          organizationMemberships: {
+            update: {
+              where: { organizationId_userId: { organizationId: this.tenants.organizationId, userId: id } },
+              data: { role: nextRole },
+            },
+          },
+        } : {}),
         ...(typeof sanitizedBody.isActive === 'boolean'
           ? { isActive: sanitizedBody.isActive }
           : {}),
@@ -941,16 +972,18 @@ export class HrService {
         employeeProfile: {
           include: {
             team: {
+              where: { organizationId: this.tenants.organizationId },
               select: {
                 id: true,
                 name: true,
-                leader: { select: { id: true, fullName: true } },
+                leader: { where: this.tenants.employeeWhere(), select: { id: true, fullName: true } },
               },
             },
             shift: true,
           },
         },
         ledTeams: {
+          where: { organizationId: this.tenants.organizationId },
           select: {
             id: true,
             name: true,
@@ -958,6 +991,7 @@ export class HrService {
         },
         modulePermissions: true,
         rankingTeamAccesses: {
+          where: { team: { organizationId: this.tenants.organizationId } },
           select: {
             teamId: true,
             team: { select: { id: true, name: true } },
@@ -1047,6 +1081,7 @@ export class HrService {
   }
 
   async deleteEmployee(id: string, actor: Actor) {
+    await this.tenants.assertEmployee(id);
     if (actor.role !== 'SUPER_ADMIN' && actor.role !== 'ADMIN') {
       throw new ForbiddenException(
         'Only admins can permanently delete employees',
@@ -3638,16 +3673,18 @@ export class HrService {
         employeeProfile: {
           include: {
             team: {
+              where: { organizationId: this.tenants.organizationId },
               select: {
                 id: true,
                 name: true,
-                leader: { select: { id: true, fullName: true } },
+                leader: { where: this.tenants.employeeWhere(), select: { id: true, fullName: true } },
               },
             },
             shift: true,
           },
         },
         ledTeams: {
+          where: { organizationId: this.tenants.organizationId },
           select: {
             id: true,
             name: true,
@@ -3655,12 +3692,14 @@ export class HrService {
         },
         modulePermissions: true,
         rankingTeamAccesses: {
+          where: { team: { organizationId: this.tenants.organizationId } },
           select: {
             teamId: true,
             team: { select: { id: true, name: true } },
           },
         },
         leadVisibilityOverrides: {
+          where: { target: this.tenants.employeeWhere() },
           select: {
             accessType: true,
             targetUserId: true,
@@ -4358,6 +4397,7 @@ export class HrService {
       where: {
         reportingToId: managerUserId,
         user: {
+          AND: [this.tenants.employeeWhere()],
           isActive: true,
           role: 'TEAM_LEADER',
         },
@@ -4371,12 +4411,12 @@ export class HrService {
             email: true,
             avatarStorageKey: true,
             ledTeams: {
-              where: { isActive: true },
+              where: { isActive: true, organizationId: this.tenants.organizationId },
               select: {
                 id: true,
                 name: true,
                 code: true,
-                members: { select: { userId: true } },
+                members: { where: { user: this.tenants.employeeWhere() }, select: { userId: true } },
               },
             },
           },
@@ -4421,6 +4461,7 @@ export class HrService {
       where: {
         reportingToId: { in: managerUserIds },
         user: {
+          AND: [this.tenants.employeeWhere()],
           isActive: true,
           role: 'TEAM_LEADER',
         },
@@ -4432,7 +4473,7 @@ export class HrService {
             id: true,
             fullName: true,
             ledTeams: {
-              where: { isActive: true },
+              where: { isActive: true, organizationId: this.tenants.organizationId },
               select: { id: true, name: true, code: true, leaderId: true },
             },
           },
@@ -4530,7 +4571,7 @@ export class HrService {
     await this.prisma.$transaction(async (tx) => {
       if (!leaderOfTeamId) {
         await tx.team.updateMany({
-          where: { leaderId: employeeId },
+          where: { organizationId: this.tenants.organizationId, leaderId: employeeId },
           data: { leaderId: null },
         });
         return;
@@ -4559,7 +4600,7 @@ export class HrService {
       }
 
       await tx.team.updateMany({
-        where: { leaderId: employeeId, id: { not: leaderOfTeamId } },
+        where: { organizationId: this.tenants.organizationId, leaderId: employeeId, id: { not: leaderOfTeamId } },
         data: { leaderId: null },
       });
       await tx.team.update({
@@ -4605,14 +4646,14 @@ export class HrService {
       const currentReports = await tx.employeeProfile.findMany({
         where: {
           reportingToId: managerUserId,
-          user: { role: 'TEAM_LEADER' },
+          user: { AND: [this.tenants.employeeWhere()], role: 'TEAM_LEADER' },
         },
         select: {
           userId: true,
           user: {
             select: {
               ledTeams: {
-                where: { isActive: true },
+                where: { isActive: true, organizationId: this.tenants.organizationId },
                 select: { id: true },
               },
             },
@@ -4632,13 +4673,14 @@ export class HrService {
 
       const selectedTeams = teamIds.length
         ? await tx.team.findMany({
-            where: { id: { in: teamIds } },
+            where: { id: { in: teamIds }, organizationId: this.tenants.organizationId },
             select: {
               id: true,
               name: true,
               isActive: true,
               leaderId: true,
               leader: {
+                where: this.tenants.employeeWhere(),
                 select: {
                   id: true,
                   role: true,
@@ -4719,6 +4761,7 @@ export class HrService {
       : null;
     await this.prisma.auditLog.create({
       data: {
+        organizationId: this.tenants.selectedOrganizationId,
         actorUserId: actorExists?.id ?? null,
         action,
         entityType,

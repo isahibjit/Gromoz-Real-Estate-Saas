@@ -18,13 +18,14 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
+import { TenantGuard } from '../common/tenant/tenant.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { PermissionGuard } from '../access/permission.guard';
 import { CrmService } from './crm.service';
 
 const userFrom = (req: any) => req.user ?? {};
-const orgIdFrom = (req: any) => req.tenant?.organizationId || req.user?.organizationId || req.headers['x-organization-id'] || req.headers['x-tenant-id'];
+const orgIdFrom = (req: { tenant?: { organizationId: string } }) => req.tenant?.organizationId;
 const leadReadRoles = [
   'SUPER_ADMIN',
   'ADMIN',
@@ -1107,7 +1108,7 @@ export class LeadImportsController {
 }
 
 @Controller('integrations/magicbricks')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('leads')
 export class MagicBricksIntegrationsController {
   constructor(private readonly crm: CrmService) {}
@@ -1150,7 +1151,7 @@ export class MagicBricksIntegrationsController {
 }
 
 @Controller('integrations/99acres')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('leads')
 export class Acres99IntegrationsController {
   constructor(private readonly crm: CrmService) {}
@@ -1242,33 +1243,33 @@ export class Public99AcresWebhookController {
 }
 
 @Controller('integrations/website')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('leads')
 export class WebsiteIntegrationsController {
   constructor(private readonly crm: CrmService) {}
 
   @Get()
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
-  getConfig() {
-    return this.crm.getWebsiteIntegration();
+  getConfig(@Req() req: any) {
+    return this.crm.getWebsiteIntegration(userFrom(req).sub, orgIdFrom(req));
   }
 
   @Patch()
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
   saveConfig(@Body() body: Record<string, any>, @Req() req: any) {
-    return this.crm.saveWebsiteIntegration(body, userFrom(req).sub);
+    return this.crm.saveWebsiteIntegration(body, userFrom(req).sub, orgIdFrom(req));
   }
 
   @Post('websites')
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
   addWebsite(@Body() body: Record<string, any>, @Req() req: any) {
-    return this.crm.addWebsiteUrl(body, userFrom(req).sub);
+    return this.crm.addWebsiteUrl(body, userFrom(req).sub, orgIdFrom(req));
   }
 
   @Delete('websites/:websiteId')
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
   deleteWebsite(@Param('websiteId') websiteId: string, @Req() req: any) {
-    return this.crm.deleteWebsiteUrl(websiteId, userFrom(req).sub);
+    return this.crm.deleteWebsiteUrl(websiteId, userFrom(req).sub, orgIdFrom(req));
   }
 
   @Patch('websites/:websiteId/routing')
@@ -1278,19 +1279,19 @@ export class WebsiteIntegrationsController {
     @Body() body: Record<string, any>,
     @Req() req: any,
   ) {
-    return this.crm.saveWebsiteRouting(websiteId, body, userFrom(req).sub);
+    return this.crm.saveWebsiteRouting(websiteId, body, userFrom(req).sub, orgIdFrom(req));
   }
 
   @Post('generate-api-key')
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
   regenerateApiKey(@Req() req: any) {
-    return this.crm.regenerateWebsiteApiKey(userFrom(req).sub);
+    return this.crm.regenerateWebsiteApiKey(userFrom(req).sub, orgIdFrom(req));
   }
 
   @Patch('field-mapping')
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
   saveFieldMapping(@Body() body: Record<string, any>, @Req() req: any) {
-    return this.crm.saveWebsiteFieldMapping(body, userFrom(req).sub);
+    return this.crm.saveWebsiteFieldMapping(body, userFrom(req).sub, orgIdFrom(req));
   }
 
   @Post('test')
@@ -1301,13 +1302,14 @@ export class WebsiteIntegrationsController {
       userFrom(req).sub,
       req.ip,
       req.headers['user-agent'],
+      orgIdFrom(req),
     );
   }
 
   @Get('delivery-logs')
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
   deliveryLogs(@Query() query: Record<string, string>, @Req() req: any) {
-    return this.crm.listWebsiteDeliveryLogs(query, userFrom(req).sub);
+    return this.crm.listWebsiteDeliveryLogs(query, userFrom(req).sub, orgIdFrom(req));
   }
 }
 

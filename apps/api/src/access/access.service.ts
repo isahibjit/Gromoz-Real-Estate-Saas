@@ -8,6 +8,7 @@ import {
 import { Prisma, type Role } from '@prisma/client';
 
 import { PrismaService } from '../persistence/prisma/prisma.service';
+import { TenantAccessService } from '../common/tenant/tenant-access.service';
 import {
   ACCESS_MODULE_KEYS,
   ACCESS_MODULES,
@@ -255,7 +256,7 @@ export class AccessService implements OnModuleInit {
   private defaultTemplatesInitialized = false;
   private initializationPromise: Promise<void> | null = null;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly tenants: TenantAccessService) {}
 
   async onModuleInit() {
     try {
@@ -373,8 +374,8 @@ export class AccessService implements OnModuleInit {
     ).map(([role, permissions]) => ({
       role,
       permissions,
-      isEditable: role !== 'SUPER_ADMIN',
-      isSystemLocked: role === 'SUPER_ADMIN',
+      isEditable: !this.tenants.selectedOrganizationId && role !== 'SUPER_ADMIN',
+      isSystemLocked: Boolean(this.tenants.selectedOrganizationId) || role === 'SUPER_ADMIN',
       systemDefaultPermissions:
         role in DEFAULT_ROLE_PERMISSIONS
           ? DEFAULT_ROLE_PERMISSIONS[role as Role]
@@ -390,6 +391,11 @@ export class AccessService implements OnModuleInit {
     body: Record<string, unknown>,
     actor: Actor,
   ) {
+    // These templates still apply platform-wide; tenant edits would alter every
+    // customer's permissions. Use employee overrides until templates are migrated.
+    if (this.tenants.selectedOrganizationId) {
+      throw new ForbiddenException('Role templates are platform-wide. Use employee-specific permissions in this workspace.');
+    }
     if (!['SUPER_ADMIN', 'ADMIN'].includes(actor.role)) {
       throw new ForbiddenException('Only admins can update role templates');
     }
@@ -425,6 +431,7 @@ export class AccessService implements OnModuleInit {
   }
 
   async getUserAccess(userId: string) {
+    await this.tenants.assertEmployee(userId);
     await this.ensureDefaultTemplates();
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -435,6 +442,7 @@ export class AccessService implements OnModuleInit {
         role: true,
         modulePermissions: true,
         rankingTeamAccesses: {
+          where: { team: { organizationId: this.tenants.organizationId } },
           select: {
             teamId: true,
             team: { select: { id: true, name: true } },
@@ -442,6 +450,7 @@ export class AccessService implements OnModuleInit {
           orderBy: { teamId: 'asc' },
         },
         teamLeaderVisibilityGrants: {
+          where: this.tenants.visibilityGrantWhere(),
           select: {
             teamId: true,
             userId: true,
@@ -500,6 +509,8 @@ export class AccessService implements OnModuleInit {
     body: Record<string, unknown>,
     actor: Actor,
   ) {
+    await this.tenants.assertEmployee(userId);
+    await this.tenants.validateEmployeeReferences(body);
     const target = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -589,6 +600,7 @@ export class AccessService implements OnModuleInit {
   }
 
   async resetUserAccess(userId: string, actor: Actor) {
+    await this.tenants.assertEmployee(userId);
     const target = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { id: true },
@@ -613,6 +625,7 @@ export class AccessService implements OnModuleInit {
     actor: Actor,
   ) {
     if (permissionsInput === undefined) return;
+    await this.tenants.assertEmployee(userId);
     const permissions = this.normalizePermissions(
       permissionsInput,
       normalizeRole(targetRole),
@@ -627,6 +640,7 @@ export class AccessService implements OnModuleInit {
     actor: Actor,
   ) {
     if (rankingTeamIdsInput === undefined) return;
+    await this.tenants.assertEmployee(userId);
     await this.assertCanManageAccess(actor);
     const rankingTeamIds = normalizeTeamIds(rankingTeamIdsInput);
     await this.replaceUserRankingTeamAccess(userId, rankingTeamIds, actor.sub);
@@ -836,6 +850,7 @@ export class AccessService implements OnModuleInit {
     rankingTeamIds: string[],
     updatedById: string,
   ) {
+    await this.tenants.assertTeams(rankingTeamIds);
     if (rankingTeamIds.length) {
       const existingCount = await this.prisma.team.count({
         where: { id: { in: rankingTeamIds }, isActive: true },
@@ -866,6 +881,9 @@ export class AccessService implements OnModuleInit {
     monitorUserIds: string[],
     updatedById: string,
   ) {
+    await this.tenants.assertEmployee(leaderUserId);
+    await this.tenants.assertTeams(monitorTeamIds);
+    await this.tenants.assertEmployees(monitorUserIds);
     const normalizedTeamIds = normalizeIdList(monitorTeamIds, 'monitorTeamIds');
     const normalizedUserIds = normalizeIdList(
       monitorUserIds,
@@ -929,6 +947,8 @@ export class AccessService implements OnModuleInit {
     blockedUserIds: string[],
     updatedById: string,
   ) {
+    await this.tenants.assertEmployee(viewerUserId);
+    await this.tenants.assertEmployees([...allowedUserIds, ...blockedUserIds]);
     const targetUserIds = [...allowedUserIds, ...blockedUserIds];
     if (targetUserIds.length) {
       const validUsers = await this.prisma.user.findMany({
@@ -1014,6 +1034,7 @@ export class AccessService implements OnModuleInit {
   ) {
     await this.prisma.auditLog.create({
       data: {
+        organizationId: this.tenants.selectedOrganizationId,
         actorUserId,
         action,
         entityType: 'AccessControl',

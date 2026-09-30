@@ -171,13 +171,25 @@ export class LeadVisibilityService {
     const lead = await this.prisma.lead.findFirst({
       where: { id: leadId, deletedAt: null },
       select: {
+        organizationId: true,
         ownerId: true,
         managerId: true,
         telecallerId: true,
         fieldExecutiveId: true,
       },
     });
-    if (!lead) return [];
+    if (!lead?.organizationId) return [];
+
+    // Realtime currently uses user rooms, so only exclusively tenant-owned
+    // identities are safe until workspace-specific rooms are implemented.
+    const tenantUserWhere: Prisma.UserWhereInput = {
+      isActive: true,
+      role: { not: 'SUPER_ADMIN' },
+      organizationMemberships: {
+        some: { organizationId: lead.organizationId, isActive: true },
+        none: { organizationId: { not: lead.organizationId } },
+      },
+    };
 
     const globalViewerRoles: Role[] = [
       'SUPER_ADMIN',
@@ -187,7 +199,20 @@ export class LeadVisibilityService {
       'MARKETING',
     ];
     const globalUsers = await this.prisma.user.findMany({
-      where: { isActive: true, role: { in: globalViewerRoles } },
+      where: {
+        AND: [
+          tenantUserWhere,
+          {
+            organizationMemberships: {
+              some: {
+                organizationId: lead.organizationId,
+                isActive: true,
+                role: { in: globalViewerRoles },
+              },
+            },
+          },
+        ],
+      },
       select: { id: true },
     });
     const assignedUserIds = [
@@ -200,6 +225,7 @@ export class LeadVisibilityService {
       assignedUserIds.length
         ? this.prisma.team.findMany({
             where: {
+              organizationId: lead.organizationId,
               isActive: true,
               leaderId: { not: null },
               members: { some: { userId: { in: assignedUserIds } } },
@@ -230,17 +256,25 @@ export class LeadVisibilityService {
     if (!candidateIds.length) return [];
 
     const candidates = await this.prisma.user.findMany({
-      where: { id: { in: candidateIds }, isActive: true },
-      select: { id: true, role: true },
+      where: { AND: [tenantUserWhere, { id: { in: candidateIds } }] },
+      select: {
+        id: true,
+        organizationMemberships: {
+          where: { organizationId: lead.organizationId, isActive: true },
+          select: { role: true },
+        },
+      },
     });
     const visible = await Promise.all(
       candidates.map(async (user) => ({
         id: user.id,
-        canView: await this.access.hasPermission(
-          { sub: user.id, role: user.role },
-          'leads',
-          'view',
-        ),
+        canView:
+          user.organizationMemberships.length === 1 &&
+          (await this.access.hasPermission(
+            { sub: user.id, role: user.organizationMemberships[0].role },
+            'leads',
+            'view',
+          )),
       })),
     );
     return visible.filter((user) => user.canView).map((user) => user.id);

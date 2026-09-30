@@ -6,12 +6,13 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { PermissionGuard } from './permission.guard';
 import { AccessService } from './access.service';
+import { TenantGuard } from '../common/tenant/tenant.guard';
 
 const accessRoles = ['SUPER_ADMIN', 'ADMIN', 'HR'] as const;
 const actor = (req: any) => req.user as { sub: string; role: string };
 
 @Controller('access')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('access_control')
 export class AccessController {
   constructor(private readonly access: AccessService) {}

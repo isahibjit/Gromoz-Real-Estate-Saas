@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { AsyncLocalStorage } from 'async_hooks';
 
 export interface TenantContextPayload {
@@ -31,7 +31,9 @@ export class TenantContextService {
   getRequiredTenantId(): string {
     const id = this.getTenantId();
     if (!id) {
-      throw new Error('Tenant context is required but was not found for this operation.');
+      throw new ForbiddenException(
+        'Select a tenant workspace before performing this operation.',
+      );
     }
     return id;
   }

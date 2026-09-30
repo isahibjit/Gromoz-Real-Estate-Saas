@@ -5,10 +5,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../persistence/prisma/prisma.service';
+import { TenantAccessService } from '../common/tenant/tenant-access.service';
 
 @Injectable()
 export class TeamsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly tenants: TenantAccessService) {}
 
   async listTeams(actor: { sub: string; role: string }) {
     const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'HR', 'SALES_MANAGER'].includes(
@@ -36,9 +37,10 @@ export class TeamsService {
         };
 
     const teams = await this.prisma.team.findMany({
-      where,
+      where: { AND: [where, { organizationId: this.tenants.organizationId }] },
       include: {
         leader: {
+          where: this.tenants.employeeWhere(),
           select: {
             id: true,
             fullName: true,
@@ -49,6 +51,7 @@ export class TeamsService {
           },
         },
         members: {
+          where: { user: this.tenants.employeeWhere() },
           include: {
             user: {
               select: {
@@ -70,10 +73,11 @@ export class TeamsService {
   }
 
   async getTeam(id: string, actor: { sub: string; role: string }) {
-    const team = await this.prisma.team.findUnique({
-      where: { id },
+    const team = await this.prisma.team.findFirst({
+      where: { id, organizationId: this.tenants.organizationId },
       include: {
         leader: {
+          where: this.tenants.employeeWhere(),
           select: {
             id: true,
             fullName: true,
@@ -84,6 +88,7 @@ export class TeamsService {
           },
         },
         members: {
+          where: { user: this.tenants.employeeWhere() },
           include: {
             user: {
               select: {
@@ -126,6 +131,7 @@ export class TeamsService {
   }
 
   async createTeam(body: Record<string, any>) {
+    const organizationId = this.tenants.organizationId;
     const name = typeof body.name === 'string' ? body.name.trim() : '';
     const code =
       typeof body.code === 'string' ? body.code.trim().toUpperCase() : '';
@@ -138,6 +144,7 @@ export class TeamsService {
 
     const leaderId = body.leaderId || null;
     if (leaderId) {
+      await this.tenants.assertEmployee(leaderId);
       const leaderExists = await this.prisma.user.findUnique({
         where: { id: leaderId },
       });
@@ -156,6 +163,7 @@ export class TeamsService {
     return this.prisma.$transaction(async (tx) => {
       const team = await tx.team.create({
         data: {
+          organizationId,
           name,
           code,
           description: body.description || null,
@@ -176,12 +184,14 @@ export class TeamsService {
   }
 
   async updateTeam(id: string, body: Record<string, any>) {
+    await this.tenants.assertTeams([id]);
     const team = await this.prisma.team.findUnique({ where: { id } });
     if (!team) throw new NotFoundException('Team not found');
 
     let leaderId = body.leaderId;
     if (leaderId !== undefined) {
       if (leaderId) {
+        await this.tenants.assertEmployee(leaderId);
         const leaderExists = await this.prisma.user.findUnique({
           where: { id: leaderId },
         });
@@ -228,6 +238,8 @@ export class TeamsService {
   }
 
   async addMember(teamId: string, memberUserId: string) {
+    await this.tenants.assertTeams([teamId]);
+    await this.tenants.assertEmployee(memberUserId);
     const team = await this.prisma.team.findUnique({ where: { id: teamId } });
     if (!team) throw new NotFoundException('Team not found');
     if (team.leaderId === memberUserId) {
@@ -249,6 +261,8 @@ export class TeamsService {
   }
 
   async removeMember(teamId: string, memberUserId: string) {
+    await this.tenants.assertTeams([teamId]);
+    await this.tenants.assertEmployee(memberUserId);
     const memberProfile = await this.prisma.employeeProfile.findUnique({
       where: { userId: memberUserId },
     });

@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { isCancel } from "axios";
 import type { InternalAxiosRequestConfig } from "axios";
 
 import store from "../store";
@@ -11,15 +11,24 @@ import {
 } from "./authSession";
 
 import toast from "react-hot-toast";
+import {
+  ACTIVE_ORGANIZATION_KEY,
+  assertCurrentOrganization,
+  currentOrganizationId,
+} from "./tenantRequestScope";
 
 interface RetryableRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
+  _organizationId?: string | null;
 }
 
 const getEnvVar = (key: string): string | undefined => {
   try {
     if (key === "VITE_API_URL") {
-      return (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) || process.env.VITE_API_URL;
+      return (
+        (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
+        process.env.VITE_API_URL
+      );
     }
     return process.env[key];
   } catch {
@@ -35,24 +44,37 @@ export const api = axios.create({
 let refreshRequest: Promise<string | null> | null = null;
 
 api.interceptors.request.use((config) => {
+  const scopedConfig = config as RetryableRequestConfig;
+  assertCurrentOrganization(scopedConfig._organizationId);
+  if (scopedConfig._organizationId === undefined) {
+    scopedConfig._organizationId = currentOrganizationId();
+  }
   const accessToken = store.getState().auth.accessToken;
 
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }
 
-  const activeOrgId = localStorage.getItem("active_organization_id");
+  const activeOrgId = scopedConfig._organizationId;
   if (activeOrgId) {
     config.headers["x-organization-id"] = activeOrgId;
+  } else {
+    config.headers.delete("x-organization-id");
   }
 
   return config;
 });
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    assertCurrentOrganization(
+      (response.config as RetryableRequestConfig)._organizationId,
+    );
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config as RetryableRequestConfig | undefined;
+    assertCurrentOrganization(originalRequest?._organizationId);
     const status = error.response?.status;
     const requestUrl = originalRequest?.url ?? "";
     const errorMessage = error.response?.data?.message;
@@ -62,7 +84,7 @@ api.interceptors.response.use(
       !requestUrl.includes("/auth/login") &&
       typeof errorMessage === "string" &&
       (errorMessage.toLowerCase().includes("account is deactivated") ||
-       errorMessage.toLowerCase().includes("account has been deactivated"))
+        errorMessage.toLowerCase().includes("account has been deactivated"))
     ) {
       clearStoredRefreshToken();
       store.dispatch(clearCredentials());
@@ -99,6 +121,7 @@ api.interceptors.response.use(
         return tokens.accessToken;
       })
       .catch((refreshError) => {
+        if (isCancel(refreshError)) throw refreshError;
         clearStoredRefreshToken();
         store.dispatch(clearCredentials());
         throw refreshError;
@@ -108,6 +131,7 @@ api.interceptors.response.use(
       });
 
     const accessToken = await refreshRequest;
+    assertCurrentOrganization(originalRequest._organizationId);
 
     if (accessToken) {
       originalRequest.headers.Authorization = `Bearer ${accessToken}`;
@@ -116,3 +140,15 @@ api.interceptors.response.use(
     return api(originalRequest);
   },
 );
+
+// Tenant changes in another tab invalidate all in-memory query/UI state here.
+// In this tab, the existing workspace-entry/exit handlers already hard-navigate.
+window.addEventListener("storage", (event) => {
+  if (
+    (event.key === ACTIVE_ORGANIZATION_KEY &&
+      event.oldValue !== event.newValue) ||
+    event.key === null
+  ) {
+    window.location.reload();
+  }
+});
