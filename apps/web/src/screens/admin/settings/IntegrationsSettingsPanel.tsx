@@ -155,8 +155,8 @@ export function IntegrationsSettingsPanel({
       <Card className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         <div className="flex flex-col gap-4 border-b border-border/70 p-6 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-              <MapPinned className="size-5" />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+              <MapPinned className="h-5 w-5" />
             </span>
             <div>
               <div className="flex flex-wrap items-center gap-2">
@@ -181,7 +181,7 @@ export function IntegrationsSettingsPanel({
                 size="sm"
                 onClick={() => setRemoveOpen(true)}
               >
-                <Trash2 className="size-3.5" />
+                <Trash2 className="h-3.5 w-3.5" />
                 Remove
               </Button>
             ) : null}
@@ -190,7 +190,7 @@ export function IntegrationsSettingsPanel({
               size="sm"
               onClick={() => setConfigureOpen(true)}
             >
-              <KeyRound className="size-3.5" />
+              <KeyRound className="h-3.5 w-3.5" />
               {mapsConfigured ? "Replace key" : "Configure Maps"}
             </Button>
           </div>
@@ -204,7 +204,7 @@ export function IntegrationsSettingsPanel({
         ) : mapsQuery.isError ? (
           <div className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3 text-sm text-destructive">
-              <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <span>Google Maps configuration could not be loaded.</span>
             </div>
             <Button
@@ -226,7 +226,7 @@ export function IntegrationsSettingsPanel({
                 {mapsQuery.data?.keyHint ?? "No tenant key saved"}
               </p>
               <p className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                <Clock3 className="size-3.5" />
+                <Clock3 className="h-3.5 w-3.5" />
                 {mapsQuery.data?.updatedAt
                   ? `Updated ${formatDate(mapsQuery.data.updatedAt)}`
                   : "Configuration has not been saved yet"}
@@ -234,7 +234,7 @@ export function IntegrationsSettingsPanel({
             </div>
             <div className="rounded-lg border border-border bg-muted/20 p-4">
               <div className="flex items-start gap-3">
-                <ShieldCheck className="mt-0.5 size-5 shrink-0 text-emerald-600" />
+                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
                 <div>
                   <p className="text-sm font-bold text-foreground">
                     Restrict this key in Google Cloud
@@ -260,8 +260,8 @@ export function IntegrationsSettingsPanel({
       <Card className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         <div className="flex flex-col gap-4 border-b border-border/70 p-6 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
-              <PlugZap className="size-5" />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+              <PlugZap className="h-5 w-5" />
             </span>
             <div>
               <h2 className="text-base font-bold text-foreground">
@@ -280,7 +280,7 @@ export function IntegrationsSettingsPanel({
             onClick={() => navigate("/leads/import")}
           >
             Open Portal Integrations
-            <ExternalLink className="size-3.5" />
+            <ExternalLink className="h-3.5 w-3.5" />
           </Button>
         </div>
 
@@ -296,7 +296,7 @@ export function IntegrationsSettingsPanel({
         ) : leadStatsQuery.isError ? (
           <div className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3 text-sm text-destructive">
-              <AlertCircle className="mt-0.5 size-4 shrink-0" />
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <span>Lead-source status could not be loaded.</span>
             </div>
             <Button
@@ -348,7 +348,7 @@ export function IntegrationsSettingsPanel({
                       onClick={() => navigate(connector.route)}
                     >
                       {state === "NOT_CONFIGURED" ? "Configure" : "Manage"}
-                      <ExternalLink className="size-3.5" />
+                      <ExternalLink className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                   <p
@@ -422,9 +422,9 @@ export function IntegrationsSettingsPanel({
               disabled={apiKey.trim().length < 20 || saveMaps.isPending}
             >
               {saveMaps.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <KeyRound className="size-4" />
+                <KeyRound className="h-4 w-4" />
               )}
               {saveMaps.isPending ? "Saving..." : "Save key"}
             </Button>

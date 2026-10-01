@@ -91,7 +91,7 @@ export function LeadSourceConnectorMark({
 }) {
   if (connector.id === "magicbricks") {
     return (
-      <span className="flex size-11 items-center justify-center rounded-lg bg-red-600 text-3xl font-extrabold leading-none text-white">
+      <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-red-600 text-3xl font-extrabold leading-none text-white">
         m
       </span>
     );
@@ -99,7 +99,7 @@ export function LeadSourceConnectorMark({
 
   if (connector.id === "housing") {
     return (
-      <span className="flex size-11 flex-col items-center justify-center rounded-lg bg-violet-700 text-white">
+      <span className="flex h-11 w-11 flex-col items-center justify-center rounded-lg bg-violet-700 text-white">
         <span className="text-xl font-extrabold leading-none">H</span>
         <span className="text-[7px] font-bold uppercase tracking-wider">
           Housing
@@ -110,7 +110,7 @@ export function LeadSourceConnectorMark({
 
   if (connector.id === "99acres") {
     return (
-      <span className="flex size-11 flex-col items-center justify-center rounded-lg bg-sky-500 text-white">
+      <span className="flex h-11 w-11 flex-col items-center justify-center rounded-lg bg-sky-500 text-white">
         <span className="text-2xl font-extrabold leading-none">99</span>
         <span className="text-[8px] font-bold leading-none">acres</span>
       </span>
@@ -140,11 +140,11 @@ export function LeadSourceConnectorMark({
   return (
     <span
       className={cn(
-        "flex size-11 items-center justify-center rounded-lg border border-slate-200",
+        "flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200",
         connector.tone,
       )}
     >
-      <Icon className="size-6" />
+      <Icon className="h-6 w-6" />
     </span>
   );
 }
