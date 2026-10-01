@@ -1,22 +1,16 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   Building2,
   Globe,
-  Sliders,
   Shield,
-  Lock,
-  MapPin,
-  Check,
   Languages,
-  Banknote,
   Settings,
   Plug,
   AlertCircle,
   RotateCcw,
   Save,
-  CheckCircle2,
   Upload,
   Trash2,
   Edit3,
@@ -27,44 +21,19 @@ import {
   Badge,
   Button,
   Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Checkbox,
   Input,
   Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "ui";
 import { api } from "../../../common/api";
 import {
   LoginPageCmsModal,
   LoginPageCmsData,
-  defaultLoginPageCms,
 } from "./LoginPageCmsModal";
 import { SidebarLogoCustomizerModal } from "../../../components/ui/SidebarLogoCustomizerModal";
-
-const COUNTRY_OPTIONS = [
-  { value: "India", label: "India" },
-  { value: "United States", label: "United States" },
-  { value: "United Arab Emirates", label: "United Arab Emirates" },
-  { value: "United Kingdom", label: "United Kingdom" },
-  { value: "Singapore", label: "Singapore" },
-  { value: "Australia", label: "Australia" },
-  { value: "Other", label: "Other" },
-];
-
-const STATE_OPTIONS = [
-  { value: "Maharashtra", label: "Maharashtra" },
-  { value: "Delhi", label: "Delhi" },
-  { value: "Karnataka", label: "Karnataka" },
-  { value: "Tamil Nadu", label: "Tamil Nadu" },
-  { value: "Gujarat", label: "Gujarat" },
-  { value: "Rajasthan", label: "Rajasthan" },
-  { value: "Uttar Pradesh", label: "Uttar Pradesh" },
-  { value: "Telangana", label: "Telangana" },
-  { value: "West Bengal", label: "West Bengal" },
-  { value: "Haryana", label: "Haryana" },
-  { value: "Other", label: "Other" },
-];
 
 const INDUSTRY_OPTIONS = [
   { value: "Real Estate & Construction", label: "Real Estate & Construction" },
@@ -112,18 +81,6 @@ const NUMBER_FORMAT_OPTIONS = [
   { value: "standard", label: "123,456.78 (International Standard)" },
 ];
 
-const CURRENCY_OPTIONS = [
-  { value: "INR", label: "INR (₹ - Indian Rupee)" },
-  { value: "USD", label: "USD ($ - US Dollar)" },
-  { value: "AED", label: "AED (AED - UAE Dirham)" },
-  { value: "GBP", label: "GBP (£ - British Pound)" },
-];
-
-const FY_START_OPTIONS = [
-  { value: "April", label: "April (Apr 1 - Mar 31)" },
-  { value: "January", label: "January (Jan 1 - Dec 31)" },
-];
-
 const LANDING_PAGE_OPTIONS = [
   { value: "/dashboard", label: "Executive Dashboard" },
   { value: "/leads/all", label: "All Leads Pipeline" },
@@ -156,9 +113,59 @@ const MAX_ATTEMPTS_OPTIONS = [
   { value: "10", label: "10 Failed Attempts" },
 ];
 
+interface SettingsSelectOption {
+  readonly value: string;
+  readonly label: string;
+}
+
+interface SettingsSelectProps {
+  readonly id: string;
+  readonly value: string;
+  readonly options: readonly SettingsSelectOption[];
+  readonly placeholder: string;
+  readonly onValueChange: (value: string) => void;
+}
+
+function SettingsSelect({
+  id,
+  value,
+  options,
+  placeholder,
+  onValueChange,
+}: SettingsSelectProps) {
+  return (
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger id={id} aria-label={placeholder}>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent position="popper">
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+const WORKSPACE_SETTINGS_TABS = [
+  { id: "profile", label: "Workspace Profile & Domains" },
+  { id: "login-cms", label: "Login Page CMS" },
+  { id: "localization", label: "Localization" },
+  { id: "preferences", label: "Preferences" },
+  { id: "security", label: "Policies & Security" },
+  { id: "integrations", label: "Integrations & APIs" },
+] as const;
+
 export function WorkspaceSettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get("tab") || "profile";
+  const requestedTab = searchParams.get("tab");
+  const activeTab = WORKSPACE_SETTINGS_TABS.some(
+    (tab) => tab.id === requestedTab,
+  )
+    ? requestedTab
+    : "profile";
   const [isLoading, setIsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [verifyingDomain, setVerifyingDomain] = useState(false);
@@ -209,15 +216,6 @@ export function WorkspaceSettingsPage() {
     language: "en-US",
     weekStart: "Monday",
     numberFormat: "lakhs",
-  });
-
-  const [financialForm, setFinancialForm] = useState({
-    currency: "INR",
-    fyStart: "April",
-    gstNumber: "27AAAAA0000A1Z5",
-    panNumber: "ABCDE1234F",
-    billingAddress: "Suite 402, Business Park",
-    autoInvoice: true,
   });
 
   const [preferencesForm, setPreferencesForm] = useState({
@@ -290,7 +288,6 @@ export function WorkspaceSettingsPage() {
       }
 
       if (d.localization) setLocalizationForm(d.localization);
-      if (d.financial) setFinancialForm(d.financial);
       if (d.preferences) setPreferencesForm(d.preferences);
       if (d.security) setSecurityForm(d.security);
       if (d.integrations) setIntegrationsForm(d.integrations);
@@ -400,7 +397,6 @@ export function WorkspaceSettingsPage() {
         ...form,
         loginCms: loginCms,
         localization: localizationForm,
-        financial: financialForm,
         preferences: preferencesForm,
         security: securityForm,
         integrations: integrationsForm,
@@ -439,7 +435,6 @@ export function WorkspaceSettingsPage() {
         ...form,
         loginCms: updatedCms,
         localization: localizationForm,
-        financial: financialForm,
         preferences: preferencesForm,
         security: securityForm,
         integrations: integrationsForm,
@@ -487,16 +482,6 @@ export function WorkspaceSettingsPage() {
   const setTab = (tab: string) => {
     setSearchParams({ tab });
   };
-
-  const tabs = [
-    { id: "profile", label: "Workspace Profile & Domains" },
-    { id: "login-cms", label: "Login Page CMS" },
-    { id: "localization", label: "Localization" },
-    { id: "financial", label: "Business & Financial" },
-    { id: "preferences", label: "Preferences" },
-    { id: "security", label: "Policies & Security" },
-    { id: "integrations", label: "Integrations & APIs" },
-  ];
 
   if (isLoading) {
     return (
@@ -632,7 +617,7 @@ export function WorkspaceSettingsPage() {
 
       {/* Tabs */}
       <div className="flex items-center gap-6 border-b border-border overflow-x-auto">
-        {tabs.map((tab) => (
+        {WORKSPACE_SETTINGS_TABS.map((tab) => (
           <button
             key={tab.id}
             type="button"
@@ -916,11 +901,13 @@ export function WorkspaceSettingsPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">Industry</label>
-                  <Select
+                  <label htmlFor="workspace-industry" className="text-xs font-semibold text-foreground">Industry</label>
+                  <SettingsSelect
+                    id="workspace-industry"
                     value={form.industry}
-                    onChange={(e) => handleFieldChange("industry", e.target.value)}
+                    onValueChange={(value) => handleFieldChange("industry", value)}
                     options={INDUSTRY_OPTIONS}
+                    placeholder="Select industry"
                   />
                 </div>
 
@@ -979,7 +966,7 @@ export function WorkspaceSettingsPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-bold text-foreground">Login Page Visual CMS & Support Center</h3>
-                    <Badge variant="primary" className="text-[10px]">
+                    <Badge variant="info" className="text-[10px]">
                       Live multi-tenant
                     </Badge>
                   </div>
@@ -1209,106 +1196,63 @@ export function WorkspaceSettingsPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Timezone</label>
-              <Select
+              <label htmlFor="workspace-timezone" className="text-xs font-semibold text-foreground">Timezone</label>
+              <SettingsSelect
+                id="workspace-timezone"
                 value={localizationForm.timezone}
-                onChange={(e) => setLocalizationForm({ ...localizationForm, timezone: e.target.value })}
+                onValueChange={(value) => setLocalizationForm({ ...localizationForm, timezone: value })}
                 options={TIMEZONE_OPTIONS}
+                placeholder="Select timezone"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Date Format</label>
-              <Select
+              <label htmlFor="workspace-date-format" className="text-xs font-semibold text-foreground">Date Format</label>
+              <SettingsSelect
+                id="workspace-date-format"
                 value={localizationForm.dateFormat}
-                onChange={(e) => setLocalizationForm({ ...localizationForm, dateFormat: e.target.value })}
+                onValueChange={(value) => setLocalizationForm({ ...localizationForm, dateFormat: value })}
                 options={DATE_FORMAT_OPTIONS}
+                placeholder="Select date format"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Time Format</label>
-              <Select
+              <label htmlFor="workspace-time-format" className="text-xs font-semibold text-foreground">Time Format</label>
+              <SettingsSelect
+                id="workspace-time-format"
                 value={localizationForm.timeFormat}
-                onChange={(e) => setLocalizationForm({ ...localizationForm, timeFormat: e.target.value })}
+                onValueChange={(value) => setLocalizationForm({ ...localizationForm, timeFormat: value })}
                 options={TIME_FORMAT_OPTIONS}
+                placeholder="Select time format"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Language</label>
-              <Select
+              <label htmlFor="workspace-language" className="text-xs font-semibold text-foreground">Language</label>
+              <SettingsSelect
+                id="workspace-language"
                 value={localizationForm.language}
-                onChange={(e) => setLocalizationForm({ ...localizationForm, language: e.target.value })}
+                onValueChange={(value) => setLocalizationForm({ ...localizationForm, language: value })}
                 options={LANGUAGE_OPTIONS}
+                placeholder="Select language"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Week Start Day</label>
-              <Select
+              <label htmlFor="workspace-week-start" className="text-xs font-semibold text-foreground">Week Start Day</label>
+              <SettingsSelect
+                id="workspace-week-start"
                 value={localizationForm.weekStart}
-                onChange={(e) => setLocalizationForm({ ...localizationForm, weekStart: e.target.value })}
+                onValueChange={(value) => setLocalizationForm({ ...localizationForm, weekStart: value })}
                 options={WEEK_START_OPTIONS}
+                placeholder="Select week start"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Number Format</label>
-              <Select
+              <label htmlFor="workspace-number-format" className="text-xs font-semibold text-foreground">Number Format</label>
+              <SettingsSelect
+                id="workspace-number-format"
                 value={localizationForm.numberFormat}
-                onChange={(e) => setLocalizationForm({ ...localizationForm, numberFormat: e.target.value })}
+                onValueChange={(value) => setLocalizationForm({ ...localizationForm, numberFormat: value })}
                 options={NUMBER_FORMAT_OPTIONS}
-              />
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Tab: Business & Financial */}
-      {activeTab === "financial" && (
-        <Card className="border border-border bg-card shadow-sm rounded-xl p-6 space-y-5">
-          <div className="flex items-center gap-2 border-b border-border/60 pb-3">
-            <Banknote className="h-4 w-4 text-primary shrink-0" />
-            <div>
-              <h3 className="text-sm font-bold text-foreground">Financial & Tax Profile</h3>
-              <p className="text-xs text-muted-foreground">Currency standards, GST/PAN IDs, and billing address.</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Base Currency</label>
-              <Select
-                value={financialForm.currency}
-                onChange={(e) => setFinancialForm({ ...financialForm, currency: e.target.value })}
-                options={CURRENCY_OPTIONS}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Financial Year Start</label>
-              <Select
-                value={financialForm.fyStart}
-                onChange={(e) => setFinancialForm({ ...financialForm, fyStart: e.target.value })}
-                options={FY_START_OPTIONS}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">GST / Tax ID</label>
-              <Input
-                value={financialForm.gstNumber}
-                onChange={(e) => setFinancialForm({ ...financialForm, gstNumber: e.target.value })}
-                placeholder="27AAAAA0000A1Z5"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">PAN Number</label>
-              <Input
-                value={financialForm.panNumber}
-                onChange={(e) => setFinancialForm({ ...financialForm, panNumber: e.target.value })}
-                placeholder="ABCDE1234F"
-              />
-            </div>
-            <div className="sm:col-span-2 space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Registered Billing Address</label>
-              <Input
-                value={financialForm.billingAddress}
-                onChange={(e) => setFinancialForm({ ...financialForm, billingAddress: e.target.value })}
-                placeholder="Suite, Building, City, PIN"
+                placeholder="Select number format"
               />
             </div>
           </div>
@@ -1327,19 +1271,23 @@ export function WorkspaceSettingsPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Default Landing Screen</label>
-              <Select
+              <label htmlFor="workspace-default-screen" className="text-xs font-semibold text-foreground">Default Landing Screen</label>
+              <SettingsSelect
+                id="workspace-default-screen"
                 value={preferencesForm.defaultLandingPage}
-                onChange={(e) => setPreferencesForm({ ...preferencesForm, defaultLandingPage: e.target.value })}
+                onValueChange={(value) => setPreferencesForm({ ...preferencesForm, defaultLandingPage: value })}
                 options={LANDING_PAGE_OPTIONS}
+                placeholder="Select landing screen"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Session Timeout</label>
-              <Select
+              <label htmlFor="workspace-session-timeout" className="text-xs font-semibold text-foreground">Session Timeout</label>
+              <SettingsSelect
+                id="workspace-session-timeout"
                 value={preferencesForm.sessionTimeout}
-                onChange={(e) => setPreferencesForm({ ...preferencesForm, sessionTimeout: e.target.value })}
+                onValueChange={(value) => setPreferencesForm({ ...preferencesForm, sessionTimeout: value })}
                 options={SESSION_TIMEOUT_OPTIONS}
+                placeholder="Select session timeout"
               />
             </div>
           </div>
@@ -1358,27 +1306,33 @@ export function WorkspaceSettingsPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Min Password Length</label>
-              <Select
+              <label htmlFor="workspace-password-length" className="text-xs font-semibold text-foreground">Min Password Length</label>
+              <SettingsSelect
+                id="workspace-password-length"
                 value={securityForm.passwordMinLength}
-                onChange={(e) => setSecurityForm({ ...securityForm, passwordMinLength: e.target.value })}
+                onValueChange={(value) => setSecurityForm({ ...securityForm, passwordMinLength: value })}
                 options={PASSWORD_LENGTH_OPTIONS}
+                placeholder="Select minimum length"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Password Expiry</label>
-              <Select
+              <label htmlFor="workspace-password-expiry" className="text-xs font-semibold text-foreground">Password Expiry</label>
+              <SettingsSelect
+                id="workspace-password-expiry"
                 value={securityForm.passwordExpiry}
-                onChange={(e) => setSecurityForm({ ...securityForm, passwordExpiry: e.target.value })}
+                onValueChange={(value) => setSecurityForm({ ...securityForm, passwordExpiry: value })}
                 options={PASSWORD_EXPIRY_OPTIONS}
+                placeholder="Select password expiry"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Max Login Attempts</label>
-              <Select
+              <label htmlFor="workspace-login-attempts" className="text-xs font-semibold text-foreground">Max Login Attempts</label>
+              <SettingsSelect
+                id="workspace-login-attempts"
                 value={securityForm.maxLoginAttempts}
-                onChange={(e) => setSecurityForm({ ...securityForm, maxLoginAttempts: e.target.value })}
+                onValueChange={(value) => setSecurityForm({ ...securityForm, maxLoginAttempts: value })}
                 options={MAX_ATTEMPTS_OPTIONS}
+                placeholder="Select maximum attempts"
               />
             </div>
           </div>
