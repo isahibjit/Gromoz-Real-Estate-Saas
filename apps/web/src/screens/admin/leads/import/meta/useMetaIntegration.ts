@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../../../../../common/api";
+import { currentOrganizationId } from "../../../../../common/tenantRequestScope";
 
 export interface MetaFieldOption {
   value: string;
@@ -119,11 +120,14 @@ export interface MetaDeliveryLog {
   eventCount?: number;
 }
 
-const integrationQueryKey = ["lead-imports", "meta"] as const;
+const integrationQueryKey = (organizationId: string) =>
+  ["lead-imports", organizationId, "meta"] as const;
 
 export function useMetaIntegration() {
+  const organizationId = currentOrganizationId() ?? "unscoped";
+
   return useQuery({
-    queryKey: integrationQueryKey,
+    queryKey: integrationQueryKey(organizationId),
     queryFn: async () => {
       const { data } = await api.get("/integrations/meta");
       return data.data as MetaIntegrationConfig;
@@ -133,10 +137,15 @@ export function useMetaIntegration() {
 
 export function useMetaIntegrationMutations() {
   const queryClient = useQueryClient();
+  const organizationId = currentOrganizationId() ?? "unscoped";
 
   const invalidate = async () => {
-    await queryClient.invalidateQueries({ queryKey: integrationQueryKey });
-    await queryClient.invalidateQueries({ queryKey: ["lead-imports"] });
+    await queryClient.invalidateQueries({
+      queryKey: integrationQueryKey(organizationId),
+    });
+    await queryClient.invalidateQueries({
+      queryKey: ["lead-import-stats", organizationId],
+    });
   };
 
   return {
@@ -271,7 +280,11 @@ export function useMetaIntegrationMutations() {
         );
         if (payload.pageId) {
           await queryClient.invalidateQueries({
-            queryKey: [...integrationQueryKey, "forms", payload.pageId],
+            queryKey: [
+              ...integrationQueryKey(organizationId),
+              "forms",
+              payload.pageId,
+            ],
           });
         }
         return data.data as MetaIntegrationConfig;
@@ -282,8 +295,10 @@ export function useMetaIntegrationMutations() {
 }
 
 export function useMetaLeadForms(pageId: string) {
+  const organizationId = currentOrganizationId() ?? "unscoped";
+
   return useQuery({
-    queryKey: [...integrationQueryKey, "forms", pageId],
+    queryKey: [...integrationQueryKey(organizationId), "forms", pageId],
     enabled: Boolean(pageId),
     queryFn: async () => {
       const { data } = await api.get("/integrations/meta/forms", {
@@ -295,8 +310,14 @@ export function useMetaLeadForms(pageId: string) {
 }
 
 export function useMetaDeliveryLogs(page: number) {
+  const organizationId = currentOrganizationId() ?? "unscoped";
+
   return useQuery({
-    queryKey: [...integrationQueryKey, "delivery-logs", page],
+    queryKey: [
+      ...integrationQueryKey(organizationId),
+      "delivery-logs",
+      page,
+    ],
     queryFn: async () => {
       const { data } = await api.get("/integrations/meta/delivery-logs", {
         params: { page, limit: 8 },

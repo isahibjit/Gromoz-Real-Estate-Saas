@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../../../../../common/api";
+import { currentOrganizationId } from "../../../../../common/tenantRequestScope";
 
 export interface MagicBricksFieldOption {
   value: string;
@@ -97,11 +98,14 @@ export interface MagicBricksTestResult {
   };
 }
 
-const integrationQueryKey = ["lead-imports", "magicbricks"] as const;
+const integrationQueryKey = (organizationId: string) =>
+  ["lead-imports", organizationId, "magicbricks"] as const;
 
 export function useMagicBricksIntegration() {
+  const organizationId = currentOrganizationId() ?? "unscoped";
+
   return useQuery({
-    queryKey: integrationQueryKey,
+    queryKey: integrationQueryKey(organizationId),
     queryFn: async () => {
       const { data } = await api.get("/integrations/magicbricks");
       return data.data as MagicBricksIntegrationConfig;
@@ -111,10 +115,15 @@ export function useMagicBricksIntegration() {
 
 export function useMagicBricksIntegrationMutations() {
   const queryClient = useQueryClient();
+  const organizationId = currentOrganizationId() ?? "unscoped";
 
   const invalidate = async () => {
-    await queryClient.invalidateQueries({ queryKey: integrationQueryKey });
-    await queryClient.invalidateQueries({ queryKey: ["lead-imports"] });
+    await queryClient.invalidateQueries({
+      queryKey: integrationQueryKey(organizationId),
+    });
+    await queryClient.invalidateQueries({
+      queryKey: ["lead-import-stats", organizationId],
+    });
   };
 
   return {

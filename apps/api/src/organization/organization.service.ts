@@ -15,12 +15,7 @@ import { PrismaService } from '../persistence/prisma/prisma.service';
 import { BillingService } from '../billing/billing.service';
 import { Role, OrganizationStatus } from '@prisma/client';
 
-import {
-  IsEmail,
-  IsNumber,
-  IsOptional,
-  IsString,
-} from 'class-validator';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 
 const resolveCnameAsync = promisify(dns.resolveCname);
 
@@ -120,7 +115,6 @@ export class UpdateWorkspaceSettingsDto {
   financial?: any;
   preferences?: any;
   security?: any;
-  integrations?: any;
   loginCms?: any;
 }
 
@@ -320,13 +314,6 @@ export class OrganizationService {
         geoFenceAttendance: true,
         forceLogoutOnInactivity: false,
       },
-      integrations: customSettings.integrations || {
-        googleMapsApiKey: '••••••••••••••••••••••••••••••••',
-        whatsappWebhookUrl: 'https://api.yourcrm.com/webhooks/whatsapp',
-        enableWebhooks: true,
-        enableMetaLeadsSync: true,
-        enableIndiamartSync: true,
-      },
       loginCms: customSettings.loginCms || {
         heroHeadlinePrefix: "Welcome to",
         heroHeadlineHighlight: org.name || "Trueroot Realty CRM",
@@ -406,7 +393,6 @@ export class OrganizationService {
       ...(dto.financial && { financial: dto.financial }),
       ...(dto.preferences && { preferences: dto.preferences }),
       ...(dto.security && { security: dto.security }),
-      ...(dto.integrations && { integrations: dto.integrations }),
       ...(dto.loginCms && { loginCms: dto.loginCms }),
     };
 

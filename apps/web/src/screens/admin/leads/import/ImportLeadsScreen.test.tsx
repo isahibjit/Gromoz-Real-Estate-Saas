@@ -2,6 +2,7 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Provider } from "react-redux";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
@@ -11,6 +12,11 @@ import { addLeadSidebarItems } from "../add/addLeadData";
 import { assignLeadsSidebarItems } from "../assignment/leadAssignmentData";
 import { sidebarItems } from "../../dashboard/dashboardData";
 import { ImportLeadsScreen } from "./ImportLeadsScreen";
+
+const apiGet = jest.fn();
+jest.mock("../../../../common/api", () => ({
+  api: { get: (...args: unknown[]) => apiGet(...args) },
+}));
 
 let consoleWarnSpy: jest.SpyInstance;
 let consoleErrorSpy: jest.SpyInstance;
@@ -35,6 +41,42 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
+  apiGet.mockImplementation(async (url: string) => {
+    if (url === "/lead-imports/stats") {
+      return {
+        data: {
+          sourceCounts: {},
+          connectors: [],
+          totalLeads: 0,
+          newLeads: 0,
+          duplicates: 0,
+          totalImports: 1,
+        },
+      };
+    }
+    return {
+      data: {
+        data: [
+          {
+            id: "import-1",
+            source: "MagicBricks",
+            targetType: "LEAD",
+            fileName: "MagicBricks_20May.xlsx",
+            totalRecords: 1,
+            newLeads: 1,
+            updatedLeads: 0,
+            duplicates: 0,
+            errors: 0,
+            status: "Completed",
+            progress: 100,
+            importedByName: "Admin User",
+            createdAt: "2026-05-20T10:00:00.000Z",
+          },
+        ],
+        meta: { total: 1 },
+      },
+    };
+  });
   consoleWarnSpy = jest
     .spyOn(console, "warn")
     .mockImplementation(() => undefined);
@@ -59,6 +101,9 @@ function flattenLabels(
 
 function renderImport(initialEntry = "/leads/import") {
   const store = makeStore();
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   store.dispatch(
     setCredentials({
       accessToken: "access-token",
@@ -72,17 +117,19 @@ function renderImport(initialEntry = "/leads/import") {
   );
 
   return render(
-    <Provider store={store}>
-      <MemoryRouter initialEntries={[initialEntry]}>
-        <Routes>
-          <Route path="/leads/import" element={<ImportLeadsScreen />} />
-          <Route
-            path="/leads/import/connect/magicbricks"
-            element={<div>MagicBricks connector route</div>}
-          />
-        </Routes>
-      </MemoryRouter>
-    </Provider>,
+    <QueryClientProvider client={queryClient}>
+      <Provider store={store}>
+        <MemoryRouter initialEntries={[initialEntry]}>
+          <Routes>
+            <Route path="/leads/import" element={<ImportLeadsScreen />} />
+            <Route
+              path="/leads/import/connect/magicbricks"
+              element={<div>MagicBricks connector route</div>}
+            />
+          </Routes>
+        </MemoryRouter>
+      </Provider>
+    </QueryClientProvider>,
   );
 }
 
@@ -129,10 +176,10 @@ test("excel csv method renders the existing upload workflow", async () => {
   expect(
     screen.getByRole("heading", { name: "Excel / CSV Upload" }),
   ).toBeInTheDocument();
-  expect(screen.getByText("Map Your Columns")).toBeInTheDocument();
-  expect(screen.getByText("Validation Errors")).toBeInTheDocument();
-  expect(screen.getByText("Duplicate Records")).toBeInTheDocument();
-  expect(screen.getByText("Import Summary")).toBeInTheDocument();
+  expect(
+    screen.getByText("Drag & drop your file here or"),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Choose File" })).toBeInTheDocument();
 });
 
 test("history method renders import status table and filters", async () => {

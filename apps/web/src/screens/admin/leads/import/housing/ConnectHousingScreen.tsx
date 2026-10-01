@@ -9,12 +9,6 @@ import {
   Check,
   Eye,
   EyeOff,
-  FileText,
-  Key,
-  LifeBuoy,
-  Lock,
-  Mail,
-  Phone,
   RefreshCw,
   Shield,
   Loader2,
@@ -29,8 +23,10 @@ import {
 } from "ui";
 
 import { api } from "../../../../../common/api";
+import { currentOrganizationId } from "../../../../../common/tenantRequestScope";
 import { DashboardSidebar } from "../../../dashboard/DashboardSidebar";
 import { assignLeadsSidebarItems } from "../../assignment/leadAssignmentData";
+import { housingIntegrationQueryKey } from "./housingIntegrationQuery";
 
 type HousingIntegrationResponse = {
   id: string;
@@ -52,9 +48,11 @@ export function ConnectHousingScreen() {
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [copied, setCopied] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const organizationId = currentOrganizationId() ?? "unscoped";
+  const queryKey = housingIntegrationQueryKey(organizationId);
 
   const integrationQuery = useQuery<HousingIntegrationResponse>({
-    queryKey: ["housing-integration"],
+    queryKey,
     queryFn: async () => {
       const response = await api.get("/housing-integrations");
       return response.data;
@@ -67,7 +65,10 @@ export function ConnectHousingScreen() {
     },
     onSuccess: () => {
       toast.success("Housing.com integration settings updated");
-      queryClient.invalidateQueries({ queryKey: ["housing-integration"] });
+      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({
+        queryKey: ["lead-import-stats", organizationId],
+      });
     },
   });
 
@@ -77,7 +78,10 @@ export function ConnectHousingScreen() {
     },
     onSuccess: () => {
       toast.success("New Webhook Key generated");
-      queryClient.invalidateQueries({ queryKey: ["housing-integration"] });
+      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({
+        queryKey: ["lead-import-stats", organizationId],
+      });
     },
   });
 
@@ -87,7 +91,10 @@ export function ConnectHousingScreen() {
     },
     onSuccess: (data) => {
       toast.success(data.message || "Test lead ingested successfully!");
-      queryClient.invalidateQueries({ queryKey: ["housing-integration"] });
+      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({
+        queryKey: ["lead-import-stats", organizationId],
+      });
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.message || "Test ingestion failed");
@@ -359,7 +366,7 @@ export function ConnectHousingScreen() {
                     <div>
                       <p className="font-extrabold text-secondary">Verify & Test Connection</p>
                       <p className="text-[11px] text-muted-foreground mt-0.5">
-                        Click "Test Lead Ingestion" to verify auto-creation and field mappings in Truroot CRM.
+                        Click &quot;Test Lead Ingestion&quot; to verify auto-creation and field mappings in Truroot CRM.
                       </p>
                     </div>
                   </div>

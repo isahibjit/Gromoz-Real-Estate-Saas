@@ -33,6 +33,7 @@ export interface EnvironmentVariables {
   RAZORPAY_KEY_ID?: string;
   RAZORPAY_KEY_SECRET?: string;
   RAZORPAY_WEBHOOK_SECRET?: string;
+  INTEGRATION_CREDENTIAL_ENCRYPTION_KEY?: string;
   WHATSAPP_PLATFORM_API_URL?: string;
   WHATSAPP_PLATFORM_API_KEY?: string;
   WHATSAPP_PLATFORM_WABA_NUMBER?: string;
@@ -62,7 +63,10 @@ export const validationSchemaForEnv = Joi.object<EnvironmentVariables, true>({
   AWS_SECRET_ACCESS_KEY: Joi.string().allow('').optional(),
   AWS_S3_PUBLIC_BASE_URL: Joi.string().uri().allow('').optional(),
   FCM_SERVER_KEY: Joi.string().allow('').optional(),
-  FOLLOW_UP_REMINDER_INTERVAL_MS: Joi.number().integer().positive().default(30000),
+  FOLLOW_UP_REMINDER_INTERVAL_MS: Joi.number()
+    .integer()
+    .positive()
+    .default(30000),
   REALTIME_ALLOWED_ORIGINS: Joi.string().allow('').optional(),
   REALTIME_OUTBOX_INTERVAL_MS: Joi.number().integer().min(500).default(1000),
   SMS_PROVIDER_URL: Joi.string().uri().allow('').optional(),
@@ -75,6 +79,10 @@ export const validationSchemaForEnv = Joi.object<EnvironmentVariables, true>({
   RAZORPAY_KEY_ID: Joi.string().allow('').optional(),
   RAZORPAY_KEY_SECRET: Joi.string().allow('').optional(),
   RAZORPAY_WEBHOOK_SECRET: Joi.string().allow('').optional(),
+  INTEGRATION_CREDENTIAL_ENCRYPTION_KEY: Joi.string()
+    .pattern(/^(?:[A-Fa-f0-9]{64}|[A-Za-z0-9+/]{43}=)$/)
+    .allow('')
+    .optional(),
   WHATSAPP_PLATFORM_API_URL: Joi.string()
     .uri({ scheme: ['https'] })
     .allow('')
@@ -94,8 +102,5 @@ export const validationSchemaForEnv = Joi.object<EnvironmentVariables, true>({
   WHATSAPP_CUSTOM_API_HOST_ALLOWLIST: Joi.string().default(
     'partnersv1.pinbot.ai',
   ),
-  WHATSAPP_DISPATCH_INTERVAL_MS: Joi.number()
-    .integer()
-    .min(500)
-    .default(1000),
+  WHATSAPP_DISPATCH_INTERVAL_MS: Joi.number().integer().min(500).default(1000),
 });

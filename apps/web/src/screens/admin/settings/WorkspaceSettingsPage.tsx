@@ -7,7 +7,6 @@ import {
   Shield,
   Languages,
   Settings,
-  Plug,
   AlertCircle,
   RotateCcw,
   Save,
@@ -34,6 +33,7 @@ import {
   LoginPageCmsData,
 } from "./LoginPageCmsModal";
 import { SidebarLogoCustomizerModal } from "../../../components/ui/SidebarLogoCustomizerModal";
+import { IntegrationsSettingsPanel } from "./IntegrationsSettingsPanel";
 
 const INDUSTRY_OPTIONS = [
   { value: "Real Estate & Construction", label: "Real Estate & Construction" },
@@ -237,14 +237,6 @@ export function WorkspaceSettingsPage() {
     forceLogoutOnInactivity: false,
   });
 
-  const [integrationsForm, setIntegrationsForm] = useState({
-    googleMapsApiKey: "••••••••••••••••••••••••••••••••",
-    whatsappWebhookUrl: "https://api.yourcrm.com/webhooks/whatsapp",
-    enableWebhooks: true,
-    enableMetaLeadsSync: true,
-    enableIndiamartSync: true,
-  });
-
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
@@ -290,7 +282,6 @@ export function WorkspaceSettingsPage() {
       if (d.localization) setLocalizationForm(d.localization);
       if (d.preferences) setPreferencesForm(d.preferences);
       if (d.security) setSecurityForm(d.security);
-      if (d.integrations) setIntegrationsForm(d.integrations);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Failed to load workspace settings");
     } finally {
@@ -399,7 +390,6 @@ export function WorkspaceSettingsPage() {
         localization: localizationForm,
         preferences: preferencesForm,
         security: securityForm,
-        integrations: integrationsForm,
       });
 
       const activeOrgId = localStorage.getItem("active_organization_id") || "default";
@@ -437,7 +427,6 @@ export function WorkspaceSettingsPage() {
         localization: localizationForm,
         preferences: preferencesForm,
         security: securityForm,
-        integrations: integrationsForm,
       });
 
       setLoginCms(updatedCms);
@@ -599,16 +588,18 @@ export function WorkspaceSettingsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleSaveProfile}
-            disabled={saving}
-            className="gap-1.5 font-bold shadow-xs"
-          >
-            <Save className="h-4 w-4" />
-            {saving ? "Saving..." : "Save Workspace Changes"}
-          </Button>
+          {activeTab !== "integrations" ? (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSaveProfile}
+              disabled={saving}
+              className="gap-1.5 font-bold shadow-xs"
+            >
+              <Save className="h-4 w-4" />
+              {saving ? "Saving..." : "Save Workspace Changes"}
+            </Button>
+          ) : null}
           <Button variant="outline" size="sm" onClick={fetchSettings} className="gap-1.5">
             <RotateCcw className="h-3.5 w-3.5" /> Refresh
           </Button>
@@ -1341,34 +1332,11 @@ export function WorkspaceSettingsPage() {
 
       {/* Tab: Integrations */}
       {activeTab === "integrations" && (
-        <Card className="border border-border bg-card shadow-sm rounded-xl p-6 space-y-5">
-          <div className="flex items-center gap-2 border-b border-border/60 pb-3">
-            <Plug className="h-4 w-4 text-primary shrink-0" />
-            <div>
-              <h3 className="text-sm font-bold text-foreground">Integrations & API Connectors</h3>
-              <p className="text-xs text-muted-foreground">Google Maps, WhatsApp webhooks, and Lead Ads sync.</p>
-            </div>
-          </div>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Google Maps API Key</label>
-              <Input
-                type="password"
-                value={integrationsForm.googleMapsApiKey}
-                onChange={(e) => setIntegrationsForm({ ...integrationsForm, googleMapsApiKey: e.target.value })}
-                placeholder="AIzaSy..."
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">WhatsApp Business Webhook URL</label>
-              <Input
-                value={integrationsForm.whatsappWebhookUrl}
-                onChange={(e) => setIntegrationsForm({ ...integrationsForm, whatsappWebhookUrl: e.target.value })}
-                placeholder="https://api.yourdomain.com/webhooks/whatsapp"
-              />
-            </div>
-          </div>
-        </Card>
+        <IntegrationsSettingsPanel
+          subdomain={form.subdomain}
+          customDomain={form.customDomain}
+          customDomainVerified={form.customDomainVerified}
+        />
       )}
 
       {/* Login Page Visual CMS Modal */}

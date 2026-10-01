@@ -6,6 +6,7 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { api } from "../../../../../common/api";
+import { currentOrganizationId } from "../../../../../common/tenantRequestScope";
 
 export interface WebsiteFieldOption {
   value: string;
@@ -133,14 +134,17 @@ export interface WebsiteIntegrationMutations {
   >;
 }
 
-const integrationQueryKey = ["lead-imports", "website"] as const;
+const integrationQueryKey = (organizationId: string) =>
+  ["lead-imports", organizationId, "website"] as const;
 
 export function useWebsiteIntegration(): UseQueryResult<
   WebsiteIntegrationConfig,
   Error
 > {
+  const organizationId = currentOrganizationId() ?? "unscoped";
+
   return useQuery({
-    queryKey: integrationQueryKey,
+    queryKey: integrationQueryKey(organizationId),
     queryFn: async () => {
       const { data } = await api.get("/integrations/website");
       return data.data as WebsiteIntegrationConfig;
@@ -150,10 +154,15 @@ export function useWebsiteIntegration(): UseQueryResult<
 
 export function useWebsiteIntegrationMutations(): WebsiteIntegrationMutations {
   const queryClient = useQueryClient();
+  const organizationId = currentOrganizationId() ?? "unscoped";
 
   const invalidate = async () => {
-    await queryClient.invalidateQueries({ queryKey: integrationQueryKey });
-    await queryClient.invalidateQueries({ queryKey: ["lead-imports"] });
+    await queryClient.invalidateQueries({
+      queryKey: integrationQueryKey(organizationId),
+    });
+    await queryClient.invalidateQueries({
+      queryKey: ["lead-import-stats", organizationId],
+    });
   };
 
   return {
@@ -251,8 +260,14 @@ export interface WebsiteDeliveryLog {
 }
 
 export function useWebsiteDeliveryLogs(page: number) {
+  const organizationId = currentOrganizationId() ?? "unscoped";
+
   return useQuery({
-    queryKey: [...integrationQueryKey, "delivery-logs", page],
+    queryKey: [
+      ...integrationQueryKey(organizationId),
+      "delivery-logs",
+      page,
+    ],
     queryFn: async () => {
       const { data } = await api.get("/integrations/website/delivery-logs", {
         params: { page, limit: 8 },

@@ -16,17 +16,24 @@ describe('Portal connection tenant isolation', () => {
     organization: { findUnique: jest.fn() },
     project: { findFirst: jest.fn() },
     team: { findFirst: jest.fn() },
-    lead: { findUnique: jest.fn() },
+    lead: {
+      findUnique: jest.fn(),
+      groupBy: jest.fn(),
+      count: jest.fn(),
+    },
+    leadMasterValue: { findMany: jest.fn(), findFirst: jest.fn() },
+    leadImport: { count: jest.fn() },
     autoAssignmentRule: { findFirst: jest.fn(), findUnique: jest.fn() },
     autoAssignmentEvent: { update: jest.fn() },
     $transaction: jest.fn(),
     organizationMember: { findMany: jest.fn() },
     portalIntegration: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
     },
-    housingIntegration: { upsert: jest.fn() },
+    housingIntegration: { upsert: jest.fn(), findUnique: jest.fn() },
     $executeRawUnsafe: jest.fn(),
     $queryRawUnsafe: jest.fn(),
   };
@@ -163,6 +170,83 @@ describe('Portal connection tenant isolation', () => {
       }),
     });
     expect(prisma.$executeRawUnsafe).not.toHaveBeenCalled();
+  });
+
+  it('returns read-only connector summaries scoped to the active tenant', async () => {
+    prisma.leadMasterValue.findMany.mockResolvedValue([
+      { id: 'source-magic', name: 'MagicBricks', code: 'magicbricks' },
+      { id: 'source-website', name: 'Website', code: 'website' },
+    ]);
+    prisma.leadMasterValue.findFirst.mockResolvedValue(null);
+    prisma.lead.groupBy.mockResolvedValue([
+      { sourceId: 'source-magic', _count: { _all: 1 } },
+      { sourceId: 'source-website', _count: { _all: 2 } },
+    ]);
+    prisma.lead.count.mockResolvedValue(3);
+    prisma.leadImport.count.mockResolvedValue(2);
+    prisma.portalIntegration.findMany.mockResolvedValue([
+      {
+        provider: 'magicbricks',
+        status: 'Connected',
+        isActive: false,
+        lastTestStatus: 'Failed',
+        lastLeadReceivedAt: new Date('2026-09-30T10:00:00.000Z'),
+      },
+      {
+        provider: '99acres',
+        status: 'Draft',
+        isActive: true,
+        lastTestStatus: 'Failed',
+        lastLeadReceivedAt: null,
+      },
+      {
+        provider: 'meta_lead_ads',
+        status: 'Connected',
+        isActive: true,
+        lastTestStatus: 'Success',
+        lastLeadReceivedAt: null,
+      },
+      {
+        provider: 'website',
+        status: 'Draft',
+        isActive: true,
+        lastTestStatus: null,
+        lastLeadReceivedAt: null,
+      },
+    ]);
+    prisma.housingIntegration.findUnique.mockResolvedValue({
+      isActive: true,
+      lastWebhookReceivedAt: null,
+    });
+
+    const result = await service.getLeadImportStats();
+
+    expect(prisma.lead.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { organizationId: 'tenant-a', deletedAt: null },
+      }),
+    );
+    expect(prisma.portalIntegration.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ organizationId: 'tenant-a' }),
+      }),
+    );
+    expect(prisma.housingIntegration.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { organizationId: 'tenant-a' } }),
+    );
+    expect(result.connectors).toEqual([
+      expect.objectContaining({ id: 'magicbricks', state: 'PAUSED' }),
+      expect.objectContaining({ id: '99acres', state: 'ERROR' }),
+      expect.objectContaining({ id: 'housing', state: 'CONFIGURED' }),
+      expect.objectContaining({ id: 'meta', state: 'ACTIVE' }),
+      expect.objectContaining({
+        id: 'website',
+        state: 'ACTIVE',
+        leadCount: 2,
+      }),
+    ]);
+    expect(prisma.portalIntegration.create).not.toHaveBeenCalled();
+    expect(prisma.housingIntegration.upsert).not.toHaveBeenCalled();
   });
 
   it.each(['ownerId', 'managerId', 'telecallerId', 'fieldExecutiveId'])(

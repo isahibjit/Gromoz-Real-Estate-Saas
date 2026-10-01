@@ -22,6 +22,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { APIProvider, Map, AdvancedMarker, useMap } from "@vis.gl/react-google-maps";
+import { useGoogleMapsRuntimeConfig } from "../../../common/queries/useGoogleMapsIntegration";
 import {
   CartesianGrid,
   Cell,
@@ -60,12 +61,13 @@ const defaultCenter = { lat: 19.076, lng: 72.8777 };
 
 function MapUpdater({ center, zoom }: { center: { lat: number; lng: number }; zoom: number }) {
   const map = useMap();
+  const { lat, lng } = center;
   useEffect(() => {
     if (map) {
-      map.panTo(center);
+      map.panTo({ lat, lng });
       map.setZoom(zoom);
     }
-  }, [map, center.lat, center.lng, zoom]);
+  }, [lat, lng, map, zoom]);
   return null;
 }
 
@@ -305,9 +307,7 @@ function LiveExecutiveMap({
   rows: LiveFieldExecutiveLocation[];
   selectedId: string | null;
 }) {
-  const apiKey = (
-    import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
-  )?.trim();
+  const { apiKey, isLoading, isError } = useGoogleMapsRuntimeConfig();
   const selectedExecutive =
     rows.find((row) => row.id === selectedId) ?? rows[0] ?? null;
   const center =
@@ -319,17 +319,35 @@ function LiveExecutiveMap({
         }
       : defaultCenter;
 
+  if (isLoading) {
+    return (
+      <DashboardEmptyState
+        title="Loading map configuration"
+        description="Checking this workspace's Google Maps configuration."
+      />
+    );
+  }
+
+  if (isError) {
+    return (
+      <DashboardEmptyState
+        title="Google Maps could not be loaded"
+        description="The workspace map configuration request failed. Refresh the page to try again."
+      />
+    );
+  }
+
   if (!apiKey) {
     return (
       <DashboardEmptyState
         title="Google Maps is not configured"
-        description="Set VITE_GOOGLE_MAPS_API_KEY to enable live executive tracking on the dashboard."
+        description="Configure Google Maps in Workspace Settings to enable live executive tracking."
       />
     );
   }
 
   return (
-    <APIProvider apiKey={apiKey}>
+    <APIProvider key={apiKey} apiKey={apiKey}>
       <div className="dashboard-live-map min-w-0 overflow-hidden rounded-lg border border-border">
         <Map
           defaultCenter={center}

@@ -18245,7 +18245,8 @@ export class CrmService {
 
   async listLeadImports(query: Query) {
     const { page, limit, skip } = pageMeta(query);
-    const where: Body = {};
+    const organizationId = this.tenantAccess.organizationId;
+    const where: Body = { organizationId };
     if (query.targetType)
       where.targetType = String(query.targetType).toUpperCase();
     const [items, total] = await Promise.all([
@@ -18285,6 +18286,7 @@ export class CrmService {
   }
 
   async getLeadImportStats() {
+    const organizationId = this.tenantAccess.organizationId;
     const sources = await this.db().leadMasterValue.findMany({
       where: { categoryRef: { code: 'source' } },
       select: { id: true, name: true, code: true },
@@ -18293,7 +18295,7 @@ export class CrmService {
     const leadCounts = await this.db().lead.groupBy({
       by: ['sourceId'],
       _count: { _all: true },
-      where: { deletedAt: null },
+      where: { organizationId, deletedAt: null },
     });
 
     const countMap: Record<string, number> = {};
@@ -18303,17 +18305,6 @@ export class CrmService {
       }
     }
 
-    const metaStats = await this.getMetaLeadStats();
-    const magicBricksIntegration = await this.getMagicBricksIntegration().catch(
-      () => null,
-    );
-    const websiteIntegration = await this.getWebsiteIntegration().catch(
-      () => null,
-    );
-
-    const magicBricksTotal =
-      magicBricksIntegration?.data?.totalLeadsReceived || 0;
-    const websiteTotal = websiteIntegration?.data?.totalLeadsReceived || 0;
     const sourceCounts: Record<string, number> = {
       magicbricks: 0,
       '99acres': 0,
@@ -18387,18 +18378,108 @@ export class CrmService {
       select: { id: true },
     });
 
-    const [totalLeads, newLeads, totalImports] = await Promise.all([
-      this.db().lead.count({ where: { deletedAt: null } }),
+    const [
+      totalLeads,
+      newLeads,
+      totalImports,
+      portalIntegrations,
+      housingIntegration,
+    ] = await Promise.all([
+      this.db().lead.count({ where: { organizationId, deletedAt: null } }),
       newStatusMaster?.id
         ? this.db().lead.count({
-            where: { deletedAt: null, statusId: newStatusMaster.id },
+            where: {
+              organizationId,
+              deletedAt: null,
+              statusId: newStatusMaster.id,
+            },
           })
         : Promise.resolve(0),
-      this.db().leadImport.count(),
+      this.db().leadImport.count({ where: { organizationId } }),
+      this.db().portalIntegration.findMany({
+        where: {
+          organizationId,
+          provider: {
+            in: [magicBricksProvider, acres99Provider, metaProvider, 'website'],
+          },
+        },
+        select: {
+          provider: true,
+          status: true,
+          isActive: true,
+          lastTestStatus: true,
+          lastLeadReceivedAt: true,
+        },
+      }),
+      this.db().housingIntegration.findUnique({
+        where: { organizationId },
+        select: {
+          isActive: true,
+          lastWebhookReceivedAt: true,
+        },
+      }),
     ]);
+
+    const portalByProvider = new Map(
+      portalIntegrations.map((integration: Body) => [
+        integration.provider,
+        integration,
+      ]),
+    );
+    const normalizeState = (integration?: Body | null) => {
+      if (!integration) return 'NOT_CONFIGURED';
+      if (integration.isActive === false) return 'PAUSED';
+      if (/failed|error/i.test(String(integration.lastTestStatus ?? ''))) {
+        return 'ERROR';
+      }
+      if (
+        integration.lastLeadReceivedAt ||
+        /connected|active/i.test(String(integration.status ?? ''))
+      ) {
+        return 'ACTIVE';
+      }
+      return 'CONFIGURED';
+    };
+    const connector = (
+      id: 'magicbricks' | '99acres' | 'housing' | 'meta' | 'website',
+      integration?: Body | null,
+    ) => {
+      const leadCount = sourceCounts[id] ?? 0;
+      const normalizedState = normalizeState(integration);
+      return {
+        id,
+        state:
+          normalizedState === 'CONFIGURED' && leadCount > 0
+            ? 'ACTIVE'
+            : normalizedState,
+        leadCount,
+        lastLeadReceivedAt:
+          integration?.lastLeadReceivedAt?.toISOString?.() ?? null,
+        lastTestStatus: integration?.lastTestStatus ?? null,
+      };
+    };
+    const connectors = [
+      connector('magicbricks', portalByProvider.get(magicBricksProvider)),
+      connector('99acres', portalByProvider.get(acres99Provider)),
+      connector(
+        'housing',
+        housingIntegration
+          ? {
+              isActive: housingIntegration.isActive,
+              lastLeadReceivedAt: housingIntegration.lastWebhookReceivedAt,
+              status: housingIntegration.lastWebhookReceivedAt
+                ? 'Connected'
+                : 'Configured',
+            }
+          : null,
+      ),
+      connector('meta', portalByProvider.get(metaProvider)),
+      connector('website', portalByProvider.get('website')),
+    ];
 
     return {
       sourceCounts,
+      connectors,
       totalLeads,
       newLeads,
       duplicates: 0,
@@ -18544,6 +18625,7 @@ export class CrmService {
   }
 
   async createLeadImport(body: Body, actorUserId?: string) {
+    const organizationId = this.tenantAccess.organizationId;
     const rawRows = Array.isArray(body.rows) ? body.rows : [];
     const targetType =
       String(body.targetType ?? 'LEAD').toUpperCase() === 'CONTACT_LEAD'
@@ -18810,6 +18892,7 @@ export class CrmService {
     ).length;
     const record = await this.db().leadImport.create({
       data: {
+        organizationId,
         source: body.source ?? 'Excel/CSV',
         targetType,
         fileName: body.fileName,
@@ -18833,6 +18916,7 @@ export class CrmService {
       'LeadImport',
       record.id,
       { targetType, importedCount, updatedCount, duplicates, errors },
+      organizationId,
     );
     return record;
   }

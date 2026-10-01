@@ -28,7 +28,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Switch,
   TablePageSizeOptions,
   Tabs,
   TabsList,
@@ -37,6 +36,7 @@ import {
 } from "ui";
 
 import { api } from "../../../../common/api";
+import { currentOrganizationId } from "../../../../common/tenantRequestScope";
 import { DashboardHeader } from "../../dashboard/DashboardHeader";
 import { DashboardSidebar } from "../../dashboard/DashboardSidebar";
 import { assignLeadsSidebarItems } from "../assignment/leadAssignmentData";
@@ -49,6 +49,14 @@ import {
   importTips,
 } from "./importLeadsData";
 import type { DonutSegment, ImportStatus } from "./importLeadsTypes";
+import {
+  CONNECTOR_STATE_LABEL,
+  LEAD_SOURCE_CONNECTORS,
+  LeadSourceConnectorMark,
+  type ConnectorState,
+  type ConnectorSummary,
+} from "./leadSourceRegistry";
+import { useLeadImportStats } from "./useLeadImportStats";
 
 type ImportMethod = "connectors" | "excel-csv" | "history";
 type ImportTarget = "lead" | "contact";
@@ -96,212 +104,39 @@ function Panel({
   );
 }
 
-function BrandLogo({ source }: { source: (typeof importSources)[number] }) {
-  if (source.id === "magicbricks") {
-    return (
-      <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#e71921] text-3xl font-extrabold leading-none text-white">
-        m
-      </span>
-    );
-  }
+const connectorStatusTone: Record<ConnectorState, string> = {
+  NOT_CONFIGURED: "border-slate-200 bg-slate-50 text-slate-600",
+  CONFIGURED: "border-blue-200 bg-blue-50 text-blue-700",
+  ACTIVE: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  PAUSED: "border-amber-200 bg-amber-50 text-amber-700",
+  ERROR: "border-red-200 bg-red-50 text-red-700",
+};
 
-  if (source.id === "housing") {
-    return (
-      <span className="flex h-11 w-11 flex-col items-center justify-center rounded-lg bg-[#453580] text-white">
-        <span className="text-xl font-extrabold leading-none tracking-tight">
-          H
-        </span>
-        <span className="text-[7px] font-bold uppercase tracking-wider">
-          Housing
-        </span>
-      </span>
-    );
-  }
-
-  if (source.id === "99acres") {
-    return (
-      <span className="flex h-11 w-11 flex-col items-center justify-center rounded-lg bg-[#1597d4] text-white">
-        <span className="text-2xl font-extrabold leading-none">99</span>
-        <span className="text-[8px] font-bold leading-none">acres</span>
-      </span>
-    );
-  }
-
-  if (source.id === "google") {
-    return (
-      <span className="relative h-11 w-11">
-        <span className="absolute left-[18px] top-[5px] h-8 w-3 rotate-[32deg] rounded-full bg-[#4285f4]" />
-        <span className="absolute left-[8px] top-[18px] h-8 w-3 -rotate-[32deg] rounded-full bg-[#34a853]" />
-        <span className="absolute left-[18px] top-[26px] h-3 w-4 rounded-full bg-[#fbbc04]" />
-      </span>
-    );
-  }
-
-  if (source.id === "meta") {
-    return (
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 72 44"
-        className="h-11 w-14 text-[#0866ff]"
-      >
-        <path
-          d="M8 32c4-14 10-24 17-24 5 0 9 4 13 11 4-7 8-11 13-11 8 0 14 8 14 18 0 7-4 12-10 12-7 0-12-6-17-15-5 9-10 15-17 15-7 0-13-2-13-6Z"
-          fill="none"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="7"
-        />
-      </svg>
-    );
-  }
-
-  if (source.id === "justdial") {
-    return (
-      <span className="flex h-11 w-11 items-end justify-center gap-0.5 rounded-lg bg-white text-[28px] font-extrabold leading-none">
-        <span className="text-[#1267d8]">J</span>
-        <span className="text-[#f97316]">d</span>
-      </span>
-    );
-  }
-
-  const Icon = source.icon;
-  return (
-    <span
-      className={cn(
-        "flex h-11 w-11 items-center justify-center rounded-md",
-        source.tone,
-      )}
-    >
-      <Icon className="h-7 w-7" />
-    </span>
-  );
+function formatConnectorActivity(value: string | null | undefined) {
+  if (!value) return "No leads received yet";
+  return `Last lead ${new Date(value).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })}`;
 }
-
-import toast from "react-hot-toast";
 
 function SourceCards({
   onUploadClick,
   contactMode,
-  sourceCounts,
+  connectors,
+  isLoading,
+  isError,
+  onRetry,
 }: {
   onUploadClick: () => void;
   contactMode: boolean;
-  sourceCounts?: Record<string, number>;
+  connectors?: ConnectorSummary[];
+  isLoading: boolean;
+  isError: boolean;
+  onRetry: () => void;
 }) {
   const navigate = useNavigate();
-  const [pausedConnectors, setPausedConnectors] = useState<
-    Record<string, boolean>
-  >(() => {
-    try {
-      const stored = localStorage.getItem("crm_paused_connectors");
-      return stored ? JSON.parse(stored) : {};
-    } catch {
-      return {};
-    }
-  });
-
-  useEffect(() => {
-    let isMounted = true;
-    async function syncBackendStatus() {
-      try {
-        const [mbRes, webRes, housingRes, acresRes] = await Promise.allSettled([
-          api.get("/integrations/magicbricks"),
-          api.get("/integrations/website"),
-          api.get("/housing-integrations"),
-          api.get("/integrations/99acres"),
-        ]);
-        if (!isMounted) return;
-
-        setPausedConnectors((current) => {
-          const next: Record<string, boolean> = { ...current };
-          if (mbRes.status === "fulfilled" && mbRes.value?.data?.data) {
-            const d = mbRes.value.data.data;
-            next.magicbricks =
-              d.isPaused === true ||
-              d.isActive === false ||
-              String(d.status ?? "").toLowerCase() === "paused";
-          }
-          if (webRes.status === "fulfilled" && webRes.value?.data?.data) {
-            const d = webRes.value.data.data;
-            next.website =
-              d.isPaused === true ||
-              d.isActive === false ||
-              String(d.status ?? "").toLowerCase() === "paused";
-          }
-          if (housingRes.status === "fulfilled" && housingRes.value?.data) {
-            const d = housingRes.value.data;
-            next.housing =
-              d.isPaused === true ||
-              d.isActive === false ||
-              String(d.status ?? "").toLowerCase() === "paused";
-          }
-          if (acresRes.status === "fulfilled" && acresRes.value?.data?.data) {
-            const d = acresRes.value.data.data;
-            next["99acres"] =
-              d.isPaused === true ||
-              d.isActive === false ||
-              String(d.status ?? "").toLowerCase() === "paused";
-          }
-          try {
-            localStorage.setItem("crm_paused_connectors", JSON.stringify(next));
-          } catch {
-            // Ignore
-          }
-          return next;
-        });
-      } catch {
-        // Ignore
-      }
-    }
-    syncBackendStatus();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const toggleConnector = async (sourceId: string, sourceName: string) => {
-    const isCurrentlyPaused = Boolean(pausedConnectors[sourceId]);
-    const nextIsPaused = !isCurrentlyPaused;
-
-    // Update UI state immediately
-    setPausedConnectors((current) => {
-      const next = { ...current, [sourceId]: nextIsPaused };
-      try {
-        localStorage.setItem("crm_paused_connectors", JSON.stringify(next));
-      } catch {
-        // Ignore
-      }
-      return next;
-    });
-
-    if (nextIsPaused) {
-      toast(`${sourceName} connector paused`, { icon: "⏸️" });
-    } else {
-      toast.success(`${sourceName} connector enabled`);
-    }
-
-    // Dispatch backend API request to update server database state
-    try {
-      const payload = {
-        isPaused: nextIsPaused,
-        isActive: !nextIsPaused,
-        status: nextIsPaused ? "Paused" : "Configured",
-      };
-
-      if (sourceId === "magicbricks") {
-        await api.patch("/integrations/magicbricks", payload);
-      } else if (sourceId === "website") {
-        await api.patch("/integrations/website", payload);
-      } else if (sourceId === "housing") {
-        await api.post("/housing-integrations", payload).catch(() => undefined);
-      } else if (sourceId === "99acres") {
-        await api.patch("/integrations/99acres", payload).catch(() => undefined);
-      }
-    } catch {
-      toast.error(`Failed to update ${sourceName} status on server`);
-    }
-  };
 
   if (contactMode) {
     return (
@@ -329,133 +164,60 @@ function SourceCards({
     );
   }
 
+  const connectorById = new Map(
+    (connectors ?? []).map((connector) => [connector.id, connector]),
+  );
+
   return (
     <Card className="rounded-md border border-slate-200 bg-white p-3 shadow-card">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-10">
-        {importSources.map((source) => {
-          const liveCount = sourceCounts?.[source.id] ?? 0;
-          const isMeta = source.id === "meta";
-          const isPaused = !isMeta && Boolean(pausedConnectors[source.id]);
-          const isNavigable =
-            source.id === "magicbricks" ||
-            source.id === "99acres" ||
-            source.id === "housing" ||
-            source.id === "meta" ||
-            source.id === "website";
-
+      {isError ? (
+        <div className="flex min-h-32 flex-col items-center justify-center gap-3 p-4 text-center">
+          <p className="text-sm font-semibold text-destructive">
+            Connector status could not be loaded.
+          </p>
+          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+            Retry
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+        {LEAD_SOURCE_CONNECTORS.map((connector) => {
+          const summary = connectorById.get(connector.id);
+          const state = summary?.state ?? "NOT_CONFIGURED";
           return (
-            <div
-              key={source.id}
-              role={isNavigable ? "button" : undefined}
-              tabIndex={isNavigable ? 0 : -1}
-              onClick={(e) => {
-                if (
-                  (e.target as HTMLElement).closest(
-                    "[role='switch'], button, .no-nav-toggle",
-                  )
-                ) {
-                  return;
-                }
-                if (isPaused) {
-                  toast.error(
-                    `${source.name} connector is currently paused. Enable it to configure.`,
-                  );
-                  return;
-                }
-                if (source.id === "magicbricks") {
-                  navigate("/leads/import/connect/magicbricks");
-                } else if (source.id === "99acres") {
-                  navigate("/leads/import/connect/99acres");
-                } else if (source.id === "housing") {
-                  navigate("/leads/import/connect/housing");
-                } else if (source.id === "meta") {
-                  navigate("/leads/import/connect/meta");
-                } else if (source.id === "website") {
-                  navigate("/leads/import/connect/website");
-                }
-              }}
-              className={cn(
-                "group relative flex min-h-[148px] flex-col justify-between rounded-xl border bg-white p-2.5 text-center transition-all duration-200 shadow-2xs hover:shadow-md",
-                isPaused
-                  ? "border-amber-200/90 bg-amber-50/20 opacity-80"
-                  : isNavigable
-                  ? "border-slate-200 hover:border-blue-400 hover:bg-blue-50/20 cursor-pointer"
-                  : "border-slate-200 opacity-70 cursor-not-allowed",
-              )}
+            <button
+              key={connector.id}
+              type="button"
+              onClick={() => navigate(connector.route)}
+              disabled={isLoading}
+              className="group flex min-h-44 flex-col rounded-xl border border-slate-200 bg-white p-3 text-left transition-colors hover:border-blue-400 hover:bg-blue-50/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
             >
-              {/* Top status bar */}
-              <div className="flex w-full items-center justify-between gap-1 pb-1">
-                {isMeta ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200/80 bg-blue-50 px-2 py-0.5 text-[9px] font-extrabold text-blue-700">
-                    <span className="size-1.5 rounded-full bg-blue-600 animate-pulse" />
-                    Connected
-                  </span>
-                ) : (
-                  <span
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-extrabold border transition-colors",
-                      isPaused
-                        ? "border-amber-200 bg-amber-50 text-amber-700"
-                        : "border-emerald-200 bg-emerald-50 text-emerald-700",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "size-1.5 rounded-full",
-                        isPaused
-                          ? "bg-amber-500"
-                          : "bg-emerald-500 animate-pulse",
-                      )}
-                    />
-                    {isPaused ? "Paused" : "Active"}
-                  </span>
-                )}
-
-                {!isMeta && (
-                  <div
-                    className="no-nav-toggle cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                    }}
-                  >
-                    <Switch
-                      checked={!isPaused}
-                      aria-label={`Enable ${source.name} connector`}
-                      className="shrink-0 cursor-pointer"
-                      title={
-                        isPaused
-                          ? `Enable ${source.name}`
-                          : `Pause ${source.name}`
-                      }
-                      onCheckedChange={() =>
-                        toggleConnector(source.id, source.name)
-                      }
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Brand Logo & Name */}
-              <div className="flex flex-col items-center gap-1 my-auto">
-                <BrandLogo source={source} />
-                <span className="text-xs font-extrabold text-secondary leading-tight line-clamp-1 mt-0.5">
-                  {source.name}
+              <div className="flex w-full items-start justify-between gap-2">
+                <LeadSourceConnectorMark connector={connector} />
+                <span
+                  className={cn(
+                    "rounded-full border px-2 py-1 text-[10px] font-extrabold",
+                    connectorStatusTone[state],
+                  )}
+                >
+                  {isLoading ? "Loading" : CONNECTOR_STATE_LABEL[state]}
                 </span>
               </div>
-
-              {/* Counts */}
-              <div className="flex flex-col items-center pt-1 border-t border-slate-100">
-                <span className="text-base font-black text-secondary leading-none">
-                  {liveCount.toLocaleString()}
+              <span className="mt-3 text-sm font-extrabold text-secondary">
+                {connector.name}
+              </span>
+              <span className="mt-1 text-xs leading-5 text-muted-foreground">
+                {isLoading
+                  ? "Reading workspace status..."
+                  : formatConnectorActivity(summary?.lastLeadReceivedAt)}
+              </span>
+              <span className="mt-auto border-t border-slate-100 pt-3 text-lg font-black tabular-nums text-secondary">
+                {(summary?.leadCount ?? 0).toLocaleString("en-IN")}
+                <span className="ml-1 text-[10px] font-bold text-muted-foreground">
+                  leads
                 </span>
-                <span className="text-[10px] font-bold text-muted-foreground mt-0.5">
-                  Leads
-                </span>
-              </div>
-            </div>
+              </span>
+            </button>
           );
         })}
         <Button
@@ -475,7 +237,8 @@ function SourceCards({
             Bulk Import
           </span>
         </Button>
-      </div>
+        </div>
+      )}
     </Card>
   );
 }
@@ -611,8 +374,9 @@ function ActionButtons({ row }: { row: { status: ImportStatus } }) {
 function ImportsTable({ target }: { target: ImportTarget }) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const organizationId = currentOrganizationId() ?? "unscoped";
   const importsQuery = useQuery({
-    queryKey: ["lead-imports", target, page, pageSize],
+    queryKey: ["lead-imports", organizationId, target, page, pageSize],
     queryFn: async () =>
       (
         await api.get<LeadImportListResponse>("/lead-imports", {
@@ -1016,19 +780,7 @@ export function ImportLeadsScreen() {
     setSearchParams(next);
   };
 
-  const statsQuery = useQuery({
-    queryKey: ["lead-import-stats"],
-    queryFn: async () => {
-      const response = await api.get<{
-        sourceCounts: Record<string, number>;
-        totalLeads: number;
-        newLeads: number;
-        duplicates: number;
-        totalImports: number;
-      }>("/lead-imports/stats");
-      return response.data;
-    },
-  });
+  const statsQuery = useLeadImportStats();
 
   return (
     <div className="min-h-screen bg-background lg:flex">
@@ -1134,7 +886,10 @@ export function ImportLeadsScreen() {
               <div className="space-y-5">
                 <SourceCards
                   contactMode={isContactMode}
-                  sourceCounts={statsQuery.data?.sourceCounts}
+                  connectors={statsQuery.data?.connectors}
+                  isLoading={statsQuery.isLoading}
+                  isError={statsQuery.isError}
+                  onRetry={() => void statsQuery.refetch()}
                   onUploadClick={() => setImportMethod("excel-csv")}
                 />
                 {isContactMode ? null : <StatRow stats={statsQuery.data} />}

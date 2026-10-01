@@ -16,8 +16,10 @@ import {
 } from "ui";
 
 import { api } from "../../../../../common/api";
+import { currentOrganizationId } from "../../../../../common/tenantRequestScope";
 import { DashboardSidebar } from "../../../dashboard/DashboardSidebar";
 import { assignLeadsSidebarItems } from "../../assignment/leadAssignmentData";
+import { housingIntegrationQueryKey } from "./housingIntegrationQuery";
 
 const samplePayloadJson = JSON.stringify(
   {
@@ -43,6 +45,7 @@ export function TestHousingConnectionScreen() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [payloadText, setPayloadText] = useState(samplePayloadJson);
   const [lastResult, setLastResult] = useState<any>(null);
+  const organizationId = currentOrganizationId() ?? "unscoped";
 
   const testMutation = useMutation({
     mutationFn: async (payload: any) => {
@@ -51,7 +54,12 @@ export function TestHousingConnectionScreen() {
     onSuccess: (data) => {
       setLastResult(data);
       toast.success("Housing.com test lead ingested successfully!");
-      queryClient.invalidateQueries({ queryKey: ["housing-integration"] });
+      queryClient.invalidateQueries({
+        queryKey: housingIntegrationQueryKey(organizationId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["lead-import-stats", organizationId],
+      });
     },
     onError: (err: any) => {
       setLastResult({
@@ -192,7 +200,7 @@ export function TestHousingConnectionScreen() {
                   <Play className="size-10 text-slate-300 mb-2" />
                   <p className="text-xs font-extrabold text-secondary">No Webhook Dispatched Yet</p>
                   <p className="text-[11px] font-semibold text-muted-foreground mt-0.5">
-                    Click "Dispatch Webhook Request" on the left to test the ingestion pipeline.
+                    Click &quot;Dispatch Webhook Request&quot; on the left to test the ingestion pipeline.
                   </p>
                 </div>
               )}

@@ -1,11 +1,9 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
-  CheckCircle2,
-  Crown,
   Sparkles,
   Loader2,
 } from "lucide-react";
@@ -19,12 +17,13 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  cn,
 } from "ui";
 
 import { api } from "../../../../../common/api";
+import { currentOrganizationId } from "../../../../../common/tenantRequestScope";
 import { DashboardSidebar } from "../../../dashboard/DashboardSidebar";
 import { assignLeadsSidebarItems } from "../../assignment/leadAssignmentData";
+import { housingIntegrationQueryKey } from "./housingIntegrationQuery";
 
 const crmTargetFields = [
   { key: "name", label: "Full Name" },
@@ -57,6 +56,7 @@ export function MapHousingFieldsScreen() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mappings, setMappings] = useState(initialHousingMappings);
+  const organizationId = currentOrganizationId() ?? "unscoped";
 
   const saveMappingMutation = useMutation({
     mutationFn: async (fieldMapping: any) => {
@@ -64,7 +64,12 @@ export function MapHousingFieldsScreen() {
     },
     onSuccess: () => {
       toast.success("Housing.com field mapping saved successfully!");
-      queryClient.invalidateQueries({ queryKey: ["housing-integration"] });
+      queryClient.invalidateQueries({
+        queryKey: housingIntegrationQueryKey(organizationId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["lead-import-stats", organizationId],
+      });
       navigate("/leads/import/test/housing");
     },
     onError: () => {

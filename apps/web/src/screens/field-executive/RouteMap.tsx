@@ -6,6 +6,7 @@ import {
   useMap,
   useMapsLibrary,
 } from "@vis.gl/react-google-maps";
+import { useGoogleMapsRuntimeConfig } from "../../common/queries/useGoogleMapsIntegration";
 
 declare let google: any;
 
@@ -117,24 +118,43 @@ export function RouteMap({
   routeStarted: boolean;
   origin: RouteOrigin | null;
 }) {
-  const apiKey = (
-    import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
-  )?.trim();
+  const { apiKey, isLoading, isError, refetch } =
+    useGoogleMapsRuntimeConfig();
+
+  if (isLoading) {
+    return (
+      <div className="flex h-72 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-6 text-center text-sm font-semibold text-muted-foreground">
+        Loading map configuration...
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm font-semibold text-muted-foreground">
+        <span>Map configuration could not be loaded.</span>
+        <button
+          type="button"
+          className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-secondary"
+          onClick={() => void refetch()}
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   if (!apiKey) {
     return (
       <div className="flex h-72 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm font-semibold text-muted-foreground">
-        Configure{" "}
-        <code className="mx-1 rounded bg-white px-1.5 py-0.5 text-secondary">
-          VITE_GOOGLE_MAPS_API_KEY
-        </code>{" "}
-        to enable the live route map.
+        Ask a workspace administrator to configure Google Maps to enable the
+        live route map.
       </div>
     );
   }
 
   return (
-    <APIProvider apiKey={apiKey} libraries={["routes"]}>
+    <APIProvider key={apiKey} apiKey={apiKey} libraries={["routes"]}>
       <div className="h-72 overflow-hidden rounded-lg border border-slate-200">
         <Map
           defaultCenter={defaultCenter}

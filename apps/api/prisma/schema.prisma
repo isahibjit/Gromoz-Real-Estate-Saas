@@ -78,6 +78,7 @@ model Organization {
   invitations             OrganizationInvitation[]
   billingTransactions     BillingTransaction[]
   leads                   Lead[]
+  leadImports             LeadImport[]
   projects                Project[]
   teams                   Team[]
   attendanceRecords       AttendanceRecord[]
@@ -86,6 +87,7 @@ model Organization {
   auditLogs               AuditLog[]
   portalIntegrations      PortalIntegration[]
   housingIntegrations     HousingIntegration[]
+  googleMapsConfig        OrganizationGoogleMapsConfig?
   notificationSettings    NotificationSetting[]
   notifications           Notification[]
   whatsappConfig          OrganizationWhatsAppConfig?
@@ -211,6 +213,7 @@ model User {
   extraIncentivesCreated      BookingExtraIncentive[]      @relation("ExtraIncentiveCreator")
   loginOtpChallenges          LoginOtpChallenge[]
   twoFactorRoleSettingUpdates RoleTwoFactorSetting[]       @relation("RoleTwoFactorSettingUpdater")
+  googleMapsConfigUpdates      OrganizationGoogleMapsConfig[] @relation("GoogleMapsConfigUpdater")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1292,6 +1295,8 @@ model CallLog {
 
 model LeadImport {
   id           String          @id @default(uuid())
+  organizationId String?
+  organization Organization?   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   source       String
   targetType   String          @default("LEAD")
   fileName     String?
@@ -1308,6 +1313,7 @@ model LeadImport {
   updatedAt    DateTime        @updatedAt
 
   @@index([targetType, createdAt])
+  @@index([organizationId, targetType, createdAt])
 }
 
 model LeadImportRow {
@@ -1527,6 +1533,20 @@ model HousingIntegration {
 
   @@unique([organizationId])
   @@index([organizationId, isActive])
+}
+
+model OrganizationGoogleMapsConfig {
+  id              String       @id @default(uuid())
+  organizationId  String       @unique
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  encryptedApiKey String
+  keyLastFour     String
+  updatedById     String?
+  updatedBy       User?        @relation("GoogleMapsConfigUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([updatedById])
 }
 
 model NotificationSetting {
