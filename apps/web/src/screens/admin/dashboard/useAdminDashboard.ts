@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../../../common/api";
+import { currentOrganizationId } from "../../../common/tenantRequestScope";
 
 export type AdminDashboardRange = "today" | "week" | "month";
 
@@ -160,8 +161,9 @@ export interface AdminDashboardData {
 }
 
 export const useAdminDashboard = (range: AdminDashboardRange) => {
+  const organizationId = currentOrganizationId() ?? "unscoped";
   return useQuery<AdminDashboardData>({
-    queryKey: ["dashboard", "admin", range],
+    queryKey: ["dashboard", "admin", organizationId, range],
     queryFn: async () => {
       const { data } = await api.get("/dashboard/admin", {
         params: { range },

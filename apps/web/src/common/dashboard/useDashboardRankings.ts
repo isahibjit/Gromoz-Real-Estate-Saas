@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api";
+import { currentOrganizationId } from "../tenantRequestScope";
 
 export type DashboardRankingRange =
   | "monthly"
@@ -70,7 +71,12 @@ export interface DashboardRankingsResponse {
   teamRankings: DashboardTeamRanking[];
   filters: {
     canViewAll: boolean;
-    users: Array<{ id: string; name: string; role: string; teamId?: string | null }>;
+    users: Array<{
+      id: string;
+      name: string;
+      role: string;
+      teamId?: string | null;
+    }>;
     teams: Array<{ id: string; name: string }>;
   };
 }
@@ -87,8 +93,9 @@ export interface DashboardRankingParams {
 
 export function useDashboardRankings(params: DashboardRankingParams) {
   const { enabled = true, ...queryParams } = params;
+  const organizationId = currentOrganizationId() ?? "unscoped";
   return useQuery<DashboardRankingsResponse>({
-    queryKey: ["dashboard", "rankings", queryParams],
+    queryKey: ["dashboard", "rankings", organizationId, queryParams],
     queryFn: async () => {
       const { data } = await api.get<DashboardRankingsResponse>(
         "/dashboard/rankings",

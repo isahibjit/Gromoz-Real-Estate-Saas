@@ -18,7 +18,6 @@ import {
 import * as XLSX from "xlsx";
 import toast from "react-hot-toast";
 import {
-  CalendarDays,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -31,7 +30,6 @@ import {
   Search,
   Timer,
   TrendingUp,
-  UsersRound,
 } from "lucide-react";
 import {
   Avatar,
@@ -58,6 +56,7 @@ import {
 } from "ui";
 
 import { api } from "../../../common/api";
+import { currentOrganizationId } from "../../../common/tenantRequestScope";
 import { useAppSelector } from "../../../store";
 import { DashboardHeader } from "../dashboard/DashboardHeader";
 import { DashboardSidebar } from "../dashboard/DashboardSidebar";
@@ -88,7 +87,6 @@ interface CallingMetrics {
   leadContextCount: number;
   latestCallAt?: string | null;
 }
-
 interface CallingUserRow extends CallingMetrics {
   id: string;
   name: string;
@@ -233,6 +231,7 @@ function ChartCard({
 }
 
 export function AdminCallingPerformanceScreen() {
+  const organizationId = currentOrganizationId() ?? "unscoped";
   const currentUser = useAppSelector((state) => state.auth.user);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -281,7 +280,7 @@ export function AdminCallingPerformanceScreen() {
   );
 
   const reportQuery = useQuery({
-    queryKey: ["admin-calling-performance", queryParams],
+    queryKey: ["admin-calling-performance", organizationId, queryParams],
     queryFn: async () =>
       (
         await api.get<CallingPerformanceResponse>(

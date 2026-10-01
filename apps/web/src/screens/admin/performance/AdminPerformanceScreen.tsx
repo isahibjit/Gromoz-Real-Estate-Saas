@@ -38,6 +38,7 @@ import {
 } from "ui";
 
 import { api } from "../../../common/api";
+import { currentOrganizationId } from "../../../common/tenantRequestScope";
 import { DashboardHeader } from "../dashboard/DashboardHeader";
 import { DashboardSidebar } from "../dashboard/DashboardSidebar";
 import { sidebarItems } from "../dashboard/dashboardData";
@@ -73,7 +74,6 @@ interface PerformanceUserRow {
   bookingsDone: number;
   latestActivityAt?: string | null;
 }
-
 interface PerformanceActivityRow {
   id: string;
   actorId: string;
@@ -199,6 +199,7 @@ function StatCard({
 }
 
 export function AdminPerformanceScreen() {
+  const organizationId = currentOrganizationId() ?? "unscoped";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState(formatDateInput(monthStart));
@@ -226,7 +227,7 @@ export function AdminPerformanceScreen() {
   );
 
   const performanceQuery = useQuery({
-    queryKey: ["admin-performance", queryParams],
+    queryKey: ["admin-performance", organizationId, queryParams],
     queryFn: async () =>
       (
         await api.get<PerformanceResponse>("/dashboard/admin/performance", {

@@ -18,7 +18,6 @@ import {
 import * as XLSX from "xlsx";
 import toast from "react-hot-toast";
 import {
-  BarChart3,
   BriefcaseBusiness,
   CalendarCheck,
   CheckCircle2,
@@ -30,7 +29,6 @@ import {
   HeartOff,
   Search,
   Target,
-  TrendingUp,
   UserPlus,
   UsersRound,
 } from "lucide-react";
@@ -59,6 +57,7 @@ import {
 } from "ui";
 
 import { api } from "../../../common/api";
+import { currentOrganizationId } from "../../../common/tenantRequestScope";
 import { DashboardHeader } from "../dashboard/DashboardHeader";
 import { DashboardSidebar } from "../dashboard/DashboardSidebar";
 import { sidebarItems } from "../dashboard/dashboardData";
@@ -90,7 +89,6 @@ interface LeadPerformanceMetrics {
   leadBookingDoneRate: number;
   latestActivityAt?: string | null;
 }
-
 interface LeadUserRow extends LeadPerformanceMetrics {
   id: string;
   name: string;
@@ -269,6 +267,7 @@ function ChartCard({
 }
 
 export function AdminLeadPerformanceScreen() {
+  const organizationId = currentOrganizationId() ?? "unscoped";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [preset, setPreset] = useState<LeadPreset>("this_month");
@@ -304,7 +303,7 @@ export function AdminLeadPerformanceScreen() {
   );
 
   const reportQuery = useQuery({
-    queryKey: ["admin-lead-performance", queryParams],
+    queryKey: ["admin-lead-performance", organizationId, queryParams],
     queryFn: async () =>
       (
         await api.get<LeadPerformanceResponse>(

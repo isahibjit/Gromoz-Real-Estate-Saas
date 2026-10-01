@@ -1,6 +1,18 @@
 import { DashboardService } from './dashboard.service';
 
 describe('Dashboard rankings', () => {
+  const tenantEmployeeScope = {
+    role: { not: 'SUPER_ADMIN' },
+    organizationMemberships: {
+      some: { organizationId: 'tenant-a' },
+      none: { organizationId: { not: 'tenant-a' } },
+    },
+  };
+  const tenantAccess = {
+    organizationId: 'tenant-a',
+    employeeWhere: jest.fn(() => tenantEmployeeScope),
+    assertEmployee: jest.fn(),
+  };
   const misbah = {
     id: 'misbah-user',
     fullName: 'Misbah Test',
@@ -27,7 +39,7 @@ describe('Dashboard rankings', () => {
     manualScore: 1,
   };
 
-  it('includes direct-created interested leads without duplicating tracked status points', async () => {
+  it('keeps a spectating platform admin inside the selected tenant ranking', async () => {
     const trackedActivity = {
       id: 'tracked-status-change',
       leadId: 'lead-1',
@@ -70,12 +82,7 @@ describe('Dashboard rankings', () => {
     }));
     const db = {
       user: {
-        findUnique: jest.fn().mockResolvedValue({
-          id: 'admin-user',
-          role: 'ADMIN',
-          employeeProfile: null,
-          rankingTeamAccesses: [],
-        }),
+        findFirst: jest.fn().mockResolvedValue(null),
         findMany: jest.fn().mockResolvedValue([misbah]),
       },
       leadMasterValue: {
@@ -106,7 +113,7 @@ describe('Dashboard rankings', () => {
           ]),
       },
     };
-    const service = new DashboardService(db as never);
+    const service = new DashboardService(db as never, tenantAccess as never);
 
     const result = await service.getDashboardRankings(
       {
@@ -115,7 +122,7 @@ describe('Dashboard rankings', () => {
         dateTo: '2026-09-30',
         mode: 'users',
       },
-      { sub: 'admin-user', role: 'ADMIN' },
+      { sub: 'platform-admin', role: 'SUPER_ADMIN' },
     );
 
     expect(result.userRankings).toHaveLength(1);
@@ -131,6 +138,34 @@ describe('Dashboard rankings', () => {
         },
       ],
     });
+    expect(result.userRankings).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ role: 'SUPER_ADMIN' }),
+      ]),
+    );
+    expect(db.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          AND: expect.arrayContaining([tenantEmployeeScope]),
+        }),
+      }),
+    );
+    expect(db.activity.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          AND: expect.arrayContaining([
+            { lead: { organizationId: 'tenant-a' } },
+          ]),
+        }),
+      }),
+    );
+    expect(db.team.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          AND: expect.arrayContaining([{ organizationId: 'tenant-a' }]),
+        }),
+      }),
+    );
   });
 
   it('recovers interested points when unrelated or zero-point history exists', async () => {
@@ -237,7 +272,7 @@ describe('Dashboard rankings', () => {
     }));
     const db = {
       user: {
-        findUnique: jest.fn().mockResolvedValue({
+        findFirst: jest.fn().mockResolvedValue({
           id: 'admin-user',
           role: 'ADMIN',
           employeeProfile: null,
@@ -278,7 +313,7 @@ describe('Dashboard rankings', () => {
           ]),
       },
     };
-    const service = new DashboardService(db as never);
+    const service = new DashboardService(db as never, tenantAccess as never);
 
     const result = await service.getDashboardRankings(
       {

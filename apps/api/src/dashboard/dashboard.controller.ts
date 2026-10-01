@@ -4,10 +4,11 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { PermissionGuard } from '../access/permission.guard';
+import { TenantGuard } from '../common/tenant/tenant.guard';
 import { DashboardService } from './dashboard.service';
 
 @Controller('dashboard')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
@@ -90,7 +91,9 @@ export class DashboardController {
     @Query() query: Record<string, string>,
     @Res() res: any,
   ) {
-    const report = await this.dashboardService.generateLeadPerformancePdf(query);
+    const report = await this.dashboardService.generateLeadPerformancePdf(
+      query,
+    );
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${report.filename}"`,
@@ -130,7 +133,14 @@ export class DashboardController {
   }
 
   @Get('rankings')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'HR', 'SALES_MANAGER', 'TELECALLER', 'SALES_AGENT')
+  @Roles(
+    'SUPER_ADMIN',
+    'ADMIN',
+    'HR',
+    'SALES_MANAGER',
+    'TELECALLER',
+    'SALES_AGENT',
+  )
   @RequirePermission('top_performers')
   async getRankings(@Query() query: Record<string, string>, @Req() req: any) {
     return this.dashboardService.getDashboardRankings(query, req.user);

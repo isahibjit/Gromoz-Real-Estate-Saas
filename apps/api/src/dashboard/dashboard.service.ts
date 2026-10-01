@@ -1,11 +1,18 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma, Role } from '@prisma/client';
 import PDFDocument from 'pdfkit';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { getUserRoleLabel } from '../common/role-labels';
+import { TenantAccessService } from '../common/tenant/tenant-access.service';
 
 type Query = Record<string, string | string[] | undefined>;
 type DashboardRange = 'today' | 'week' | 'month';
-type RankingRange = 'monthly' | 'quarterly' | 'half_yearly' | 'yearly' | 'custom';
+type RankingRange =
+  | 'monthly'
+  | 'quarterly'
+  | 'half_yearly'
+  | 'yearly'
+  | 'custom';
 type CallingPreset =
   | 'today'
   | 'yesterday'
@@ -22,20 +29,98 @@ type CallingReportContext = {
 };
 
 const rankingRoles = [
-  'SUPER_ADMIN',
-  'ADMIN',
-  'HR',
-  'SALES_MANAGER',
-  'SALES_AGENT',
-  'TELECALLER',
-  'MARKETING',
+  Role.ADMIN,
+  Role.HR,
+  Role.SALES_MANAGER,
+  Role.SALES_AGENT,
+  Role.TELECALLER,
+  Role.MARKETING,
 ];
 
 const adminRankingRoles = ['SUPER_ADMIN', 'ADMIN', 'HR', 'SALES_MANAGER'];
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenantAccess: TenantAccessService,
+  ) {}
+
+  private get organizationId(): string {
+    return this.tenantAccess.organizationId;
+  }
+
+  private tenantUserWhere(
+    where: Prisma.UserWhereInput = {},
+  ): Prisma.UserWhereInput {
+    return {
+      AND: [
+        this.tenantAccess.employeeWhere(),
+        {
+          OR: [
+            { employeeProfile: { is: null } },
+            { employeeProfile: { is: { teamId: null } } },
+            {
+              employeeProfile: {
+                is: { team: { organizationId: this.organizationId } },
+              },
+            },
+          ],
+        },
+        where,
+      ],
+    };
+  }
+
+  private tenantLeadWhere(
+    where: Prisma.LeadWhereInput = {},
+  ): Prisma.LeadWhereInput {
+    return { AND: [{ organizationId: this.organizationId }, where] };
+  }
+
+  private tenantTeamWhere(
+    where: Prisma.TeamWhereInput = {},
+  ): Prisma.TeamWhereInput {
+    return { AND: [{ organizationId: this.organizationId }, where] };
+  }
+
+  private tenantProjectWhere(
+    where: Prisma.ProjectWhereInput = {},
+  ): Prisma.ProjectWhereInput {
+    return { AND: [{ organizationId: this.organizationId }, where] };
+  }
+
+  private tenantFollowUpWhere(
+    where: Prisma.FollowUpWhereInput = {},
+  ): Prisma.FollowUpWhereInput {
+    return { AND: [{ lead: { organizationId: this.organizationId } }, where] };
+  }
+
+  private tenantSiteVisitWhere(
+    where: Prisma.SiteVisitWhereInput = {},
+  ): Prisma.SiteVisitWhereInput {
+    return { AND: [{ lead: { organizationId: this.organizationId } }, where] };
+  }
+
+  private tenantBookingWhere(
+    where: Prisma.BookingWhereInput = {},
+  ): Prisma.BookingWhereInput {
+    return { AND: [{ lead: { organizationId: this.organizationId } }, where] };
+  }
+
+  private tenantActivityWhere(
+    where: Prisma.ActivityWhereInput = {},
+  ): Prisma.ActivityWhereInput {
+    return { AND: [{ lead: { organizationId: this.organizationId } }, where] };
+  }
+
+  private normalizeTenantRoleFilter(value: unknown): Role | 'all' {
+    const role = String(value ?? 'all');
+    return role !== Role.SUPER_ADMIN &&
+      Object.values(Role).includes(role as Role)
+      ? (role as Role)
+      : 'all';
+  }
 
   private readonly chartColors = [
     '#082b55',
@@ -170,18 +255,27 @@ export class DashboardService {
         range,
         start,
         end,
-        label: `${start.toLocaleDateString('en-IN')} - ${end.toLocaleDateString('en-IN')}`,
+        label: `${start.toLocaleDateString('en-IN')} - ${end.toLocaleDateString(
+          'en-IN',
+        )}`,
       };
     }
 
     if (range === 'yearly') {
       const start = this.startOfDay(new Date(now.getFullYear(), 0, 1));
-      return { range, start, end: this.endOfDay(now), label: String(now.getFullYear()) };
+      return {
+        range,
+        start,
+        end: this.endOfDay(now),
+        label: String(now.getFullYear()),
+      };
     }
 
     if (range === 'half_yearly') {
       const halfStartMonth = now.getMonth() < 6 ? 0 : 6;
-      const start = this.startOfDay(new Date(now.getFullYear(), halfStartMonth, 1));
+      const start = this.startOfDay(
+        new Date(now.getFullYear(), halfStartMonth, 1),
+      );
       return {
         range,
         start,
@@ -203,12 +297,17 @@ export class DashboardService {
       };
     }
 
-    const start = this.startOfDay(new Date(now.getFullYear(), now.getMonth(), 1));
+    const start = this.startOfDay(
+      new Date(now.getFullYear(), now.getMonth(), 1),
+    );
     return {
       range,
       start,
       end: this.endOfDay(now),
-      label: now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
+      label: now.toLocaleDateString('en-IN', {
+        month: 'long',
+        year: 'numeric',
+      }),
     };
   }
 
@@ -241,7 +340,9 @@ export class DashboardService {
         preset,
         start,
         end,
-        label: `${start.toLocaleDateString('en-IN')} - ${end.toLocaleDateString('en-IN')}`,
+        label: `${start.toLocaleDateString('en-IN')} - ${end.toLocaleDateString(
+          'en-IN',
+        )}`,
       };
     }
 
@@ -302,7 +403,9 @@ export class DashboardService {
   }
 
   private normalizeCallDirection(value?: string | null) {
-    const normalized = String(value ?? '').trim().toLowerCase();
+    const normalized = String(value ?? '')
+      .trim()
+      .toLowerCase();
     if (
       normalized === 'incoming' ||
       normalized === 'inbound' ||
@@ -314,7 +417,9 @@ export class DashboardService {
   }
 
   private classifyCallOutcome(value?: string | null) {
-    const normalized = String(value ?? '').trim().toLowerCase();
+    const normalized = String(value ?? '')
+      .trim()
+      .toLowerCase();
     if (!normalized) return 'not_connected';
     if (
       ['connected', 'interested', 'callback requested', 'not interested'].some(
@@ -381,7 +486,9 @@ export class DashboardService {
       ...metrics,
       callsPerHour: Number((metrics.totalCalls / hours).toFixed(2)),
       answerRate: metrics.totalCalls
-        ? Number(((metrics.connectedCalls / metrics.totalCalls) * 100).toFixed(1))
+        ? Number(
+            ((metrics.connectedCalls / metrics.totalCalls) * 100).toFixed(1),
+          )
         : 0,
       leadContextCount: leadIds?.size ?? metrics.leadContextCount,
     };
@@ -432,8 +539,7 @@ export class DashboardService {
       role?: string | null;
     } | null;
   }): CallingReportContext {
-    const generatedByName =
-      generatedBy?.fullName ?? generatedBy?.email ?? null;
+    const generatedByName = generatedBy?.fullName ?? generatedBy?.email ?? null;
 
     if (selectedUserId && selectedUserId !== 'all') {
       const user = users.find((item: any) => item.id === selectedUserId);
@@ -456,7 +562,9 @@ export class DashboardService {
         reportForLabel: 'Team',
         reportForName: team?.name ?? 'Selected team',
         reportForMeta: team?.leader
-          ? `Leader: ${team.leader.fullName ?? team.leader.email ?? 'Unassigned'}`
+          ? `Leader: ${
+              team.leader.fullName ?? team.leader.email ?? 'Unassigned'
+            }`
           : '',
         generatedByName,
       };
@@ -465,9 +573,7 @@ export class DashboardService {
     return {
       reportForLabel: scope === 'team' ? 'Teams' : 'Employees',
       reportForName:
-        scope === 'team'
-          ? 'All visible teams'
-          : 'All visible employees',
+        scope === 'team' ? 'All visible teams' : 'All visible employees',
       reportForMeta: 'Filtered calling performance report',
       generatedByName,
     };
@@ -475,25 +581,31 @@ export class DashboardService {
 
   async getAdminCallingPerformanceData(
     query: Query = {},
-    actor?: { sub?: string; fullName?: string | null; email?: string | null; role?: string | null },
+    actor?: {
+      sub?: string;
+      fullName?: string | null;
+      email?: string | null;
+      role?: string | null;
+    },
   ) {
     const db = this.prisma as any;
     const { preset, start, end, label } = this.resolveCallingWindow(query);
     const page = this.numberQuery(query.page, 1);
     const limit = Math.min(this.numberQuery(query.limit, 10), 100);
-    const selectedRole = String(query.role ?? 'all');
+    const selectedRole = this.normalizeTenantRoleFilter(query.role);
     let selectedUserId = String(query.userId ?? 'all');
     let selectedTeamId = String(query.teamId ?? 'all');
     const scope = String(query.scope ?? 'user') === 'team' ? 'team' : 'user';
-    const search = String(query.search ?? '').trim().toLowerCase();
+    const search = String(query.search ?? '')
+      .trim()
+      .toLowerCase();
     const operationalRoles = [
-      'SUPER_ADMIN',
-      'ADMIN',
-      'HR',
-      'SALES_MANAGER',
-      'TELECALLER',
-      'SALES_AGENT',
-      'MARKETING',
+      Role.ADMIN,
+      Role.HR,
+      Role.SALES_MANAGER,
+      Role.TELECALLER,
+      Role.SALES_AGENT,
+      Role.MARKETING,
     ];
     const adminReportRoles = [
       'SUPER_ADMIN',
@@ -505,27 +617,25 @@ export class DashboardService {
     ];
     const actorRole = actor?.role ?? '';
     const isAdminReportActor = adminReportRoles.includes(actorRole);
+    const reportRole = !isAdminReportActor
+      ? this.normalizeTenantRoleFilter(actorRole)
+      : selectedRole;
     if (!isAdminReportActor && actor?.sub) {
       selectedUserId = actor.sub;
       selectedTeamId = 'all';
     }
 
     const users = await db.user.findMany({
-      where: {
+      where: this.tenantUserWhere({
         isActive: true,
-        role:
-          !isAdminReportActor && actorRole
-            ? actorRole
-            : selectedRole && selectedRole !== 'all'
-            ? selectedRole
-            : { in: operationalRoles },
+        role: reportRole !== 'all' ? reportRole : { in: operationalRoles },
         ...(selectedUserId && selectedUserId !== 'all'
           ? { id: selectedUserId }
           : {}),
         ...(selectedTeamId && selectedTeamId !== 'all'
           ? { employeeProfile: { teamId: selectedTeamId } }
           : {}),
-      },
+      }),
       select: {
         id: true,
         fullName: true,
@@ -574,33 +684,41 @@ export class DashboardService {
           })
         : Promise.resolve([]),
       db.team.findMany({
-        where: {
+        where: this.tenantTeamWhere({
           isActive: true,
           ...(selectedTeamId && selectedTeamId !== 'all'
             ? { id: selectedTeamId }
             : {}),
-        },
+        }),
         select: {
           id: true,
           name: true,
           leader: { select: { id: true, fullName: true, email: true } },
-          members: { select: { id: true } },
+          members: { select: { userId: true } },
         },
         orderBy: { name: 'asc' },
       }),
       actor?.sub
-        ? db.user.findUnique({
-            where: { id: actor.sub },
+        ? db.user.findFirst({
+            where: this.tenantUserWhere({ id: actor.sub }),
             select: { fullName: true, email: true, role: true },
           })
         : Promise.resolve(null),
     ]);
+    const scopedTeams = teams.map((team: any) => ({
+      ...team,
+      leader:
+        team.leader?.id && userMap.has(team.leader.id) ? team.leader : null,
+      members: (team.members ?? []).filter((member: any) =>
+        userMap.has(member.userId),
+      ),
+    }));
     const reportContext = this.buildCallingReportContext({
       scope,
       selectedUserId,
       selectedTeamId,
       users,
-      teams,
+      teams: scopedTeams,
       generatedBy: generatedByUser ?? actor ?? null,
     });
 
@@ -644,12 +762,11 @@ export class DashboardService {
     });
 
     const teamRows = new Map<string, any>();
-    teams.forEach((team: any) => {
+    scopedTeams.forEach((team: any) => {
       teamRows.set(team.id, {
         id: team.id,
         name: team.name,
-        leaderName:
-          team.leader?.fullName ?? team.leader?.email ?? 'Unassigned',
+        leaderName: team.leader?.fullName ?? team.leader?.email ?? 'Unassigned',
         memberCount: team.members?.length ?? 0,
         metrics: this.createEmptyCallMetrics(),
         leadIds: new Set<string>(),
@@ -701,7 +818,8 @@ export class DashboardService {
     });
 
     const rowSort = (left: any, right: any) => {
-      if (right.totalCalls !== left.totalCalls) return right.totalCalls - left.totalCalls;
+      if (right.totalCalls !== left.totalCalls)
+        return right.totalCalls - left.totalCalls;
       if (right.connectedCalls !== left.connectedCalls) {
         return right.connectedCalls - left.connectedCalls;
       }
@@ -722,7 +840,10 @@ export class DashboardService {
       .sort(rowSort);
     const allTeamRows = [...teamRows.values()]
       .map(finalizeTeamRow)
-      .filter((row: any) => row.id !== 'unassigned' || row.memberCount > 0 || row.totalCalls > 0)
+      .filter(
+        (row: any) =>
+          row.id !== 'unassigned' || row.memberCount > 0 || row.totalCalls > 0,
+      )
       .filter((row: any) => {
         if (!search) return true;
         return (
@@ -749,7 +870,10 @@ export class DashboardService {
     this.eachDay(start, end).forEach((day) => {
       dailyByKey.set(this.dateKey(day), {
         date: this.dateKey(day),
-        label: day.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+        label: day.toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+        }),
         total: 0,
         connected: 0,
         missed: 0,
@@ -786,7 +910,8 @@ export class DashboardService {
     });
 
     const startIndex = (page - 1) * limit;
-    const totalRows = scope === 'team' ? allTeamRows.length : allUserRows.length;
+    const totalRows =
+      scope === 'team' ? allTeamRows.length : allUserRows.length;
 
     return {
       meta: {
@@ -836,13 +961,21 @@ export class DashboardService {
 
   async generateCallingPerformancePdf(
     query: Query = {},
-    actor?: { sub?: string; fullName?: string | null; email?: string | null; role?: string | null },
+    actor?: {
+      sub?: string;
+      fullName?: string | null;
+      email?: string | null;
+      role?: string | null;
+    },
   ) {
-    const data = await this.getAdminCallingPerformanceData({
-      ...query,
-      page: '1',
-      limit: '100',
-    }, actor);
+    const data = await this.getAdminCallingPerformanceData(
+      {
+        ...query,
+        page: '1',
+        limit: '100',
+      },
+      actor,
+    );
     const scope = data.meta.scope;
     const rows = scope === 'team' ? data.teams : data.users;
     const filename = `calling-performance-${data.meta.label
@@ -851,7 +984,11 @@ export class DashboardService {
 
     const pdfBuffer = await new Promise<Buffer>((resolve, reject) => {
       try {
-        const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 28 });
+        const doc = new PDFDocument({
+          size: 'A4',
+          layout: 'landscape',
+          margin: 28,
+        });
         const chunks: Uint8Array[] = [];
         doc.on('data', (chunk) => chunks.push(chunk));
         doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -863,10 +1000,18 @@ export class DashboardService {
         const muted = '#64748b';
         const width = doc.page.width - 56;
         doc.font('Helvetica-Bold').fontSize(18).fillColor(navy);
-        doc.text('Calling Performance Report', 28, 28, { width, align: 'center' });
+        doc.text('Calling Performance Report', 28, 28, {
+          width,
+          align: 'center',
+        });
         doc.font('Helvetica').fontSize(9).fillColor(muted);
         doc.text(data.meta.label, 28, 52, { width, align: 'center' });
-        doc.moveTo(28, 70).lineTo(doc.page.width - 28, 70).lineWidth(2).strokeColor(orange).stroke();
+        doc
+          .moveTo(28, 70)
+          .lineTo(doc.page.width - 28, 70)
+          .lineWidth(2)
+          .strokeColor(orange)
+          .stroke();
         doc.font('Helvetica-Bold').fontSize(9).fillColor(navy);
         doc.text(
           `${data.meta.context.reportForLabel}: ${data.meta.context.reportForName}`,
@@ -875,9 +1020,14 @@ export class DashboardService {
           { width: width / 2 },
         );
         doc.font('Helvetica').fontSize(8).fillColor(muted);
-        doc.text(data.meta.context.reportForMeta || 'Selected report scope', 28, 92, {
-          width: width / 2,
-        });
+        doc.text(
+          data.meta.context.reportForMeta || 'Selected report scope',
+          28,
+          92,
+          {
+            width: width / 2,
+          },
+        );
         doc.text(
           `Generated by: ${data.meta.context.generatedByName ?? 'CRM user'}`,
           doc.page.width / 2,
@@ -903,28 +1053,62 @@ export class DashboardService {
         const statWidth = width / statColumns.length;
         statColumns.forEach(([label, value]) => {
           doc.rect(x, 118, statWidth - 6, 52).fillAndStroke('#f8fafc', border);
-          doc.font('Helvetica-Bold').fontSize(8).fillColor(muted).text(String(label), x + 8, 129, {
-            width: statWidth - 22,
-          });
-          doc.font('Helvetica-Bold').fontSize(15).fillColor(navy).text(String(value), x + 8, 146, {
-            width: statWidth - 22,
-          });
+          doc
+            .font('Helvetica-Bold')
+            .fontSize(8)
+            .fillColor(muted)
+            .text(String(label), x + 8, 129, {
+              width: statWidth - 22,
+            });
+          doc
+            .font('Helvetica-Bold')
+            .fontSize(15)
+            .fillColor(navy)
+            .text(String(value), x + 8, 146, {
+              width: statWidth - 22,
+            });
           x += statWidth;
         });
 
         const headers =
           scope === 'team'
-            ? ['Team', 'Leader', 'Members', 'Total', 'Connected', 'Missed', 'Incoming', 'Outgoing', 'Duration', 'Answer %']
-            : ['Employee', 'Role', 'Team', 'Total', 'Connected', 'Missed', 'Incoming', 'Outgoing', 'Duration', 'Answer %'];
+            ? [
+                'Team',
+                'Leader',
+                'Members',
+                'Total',
+                'Connected',
+                'Missed',
+                'Incoming',
+                'Outgoing',
+                'Duration',
+                'Answer %',
+              ]
+            : [
+                'Employee',
+                'Role',
+                'Team',
+                'Total',
+                'Connected',
+                'Missed',
+                'Incoming',
+                'Outgoing',
+                'Duration',
+                'Answer %',
+              ];
         const columnWidths = [128, 86, 120, 48, 58, 48, 52, 52, 66, 54];
         let y = 195;
         x = 28;
         headers.forEach((header, index) => {
           doc.rect(x, y, columnWidths[index], 24).fillAndStroke(navy, border);
-          doc.font('Helvetica-Bold').fontSize(7).fillColor('#ffffff').text(header, x + 4, y + 8, {
-            width: columnWidths[index] - 8,
-            align: 'center',
-          });
+          doc
+            .font('Helvetica-Bold')
+            .fontSize(7)
+            .fillColor('#ffffff')
+            .text(header, x + 4, y + 8, {
+              width: columnWidths[index] - 8,
+              align: 'center',
+            });
           x += columnWidths[index];
         });
         y += 24;
@@ -960,23 +1144,34 @@ export class DashboardService {
           values.forEach((value, index) => {
             doc
               .rect(x, y, columnWidths[index], 24)
-              .fillAndStroke(rowIndex % 2 === 0 ? '#ffffff' : '#f8fafc', border);
-            doc.font('Helvetica').fontSize(7).fillColor(navy).text(String(value ?? '-'), x + 4, y + 8, {
-              width: columnWidths[index] - 8,
-              align: index < 3 ? 'left' : 'center',
-              ellipsis: true,
-            });
+              .fillAndStroke(
+                rowIndex % 2 === 0 ? '#ffffff' : '#f8fafc',
+                border,
+              );
+            doc
+              .font('Helvetica')
+              .fontSize(7)
+              .fillColor(navy)
+              .text(String(value ?? '-'), x + 4, y + 8, {
+                width: columnWidths[index] - 8,
+                align: index < 3 ? 'left' : 'center',
+                ellipsis: true,
+              });
             x += columnWidths[index];
           });
           y += 24;
         });
 
-        doc.font('Helvetica').fontSize(8).fillColor(muted).text(
-          'Connected includes Connected, Interested, Callback Requested, and Not Interested. Missed includes No Answer, Busy, Switched Off, Failed, and Missed.',
-          28,
-          doc.page.height - 42,
-          { width },
-        );
+        doc
+          .font('Helvetica')
+          .fontSize(8)
+          .fillColor(muted)
+          .text(
+            'Connected includes Connected, Interested, Callback Requested, and Not Interested. Missed includes No Answer, Busy, Switched Off, Failed, and Missed.',
+            28,
+            doc.page.height - 42,
+            { width },
+          );
         doc.end();
       } catch (error) {
         reject(error);
@@ -1015,7 +1210,9 @@ export class DashboardService {
   }
 
   private normalizeText(value?: string | null) {
-    return String(value ?? '').trim().toLowerCase();
+    return String(value ?? '')
+      .trim()
+      .toLowerCase();
   }
 
   private statusNameForLead(
@@ -1024,15 +1221,18 @@ export class DashboardService {
     fallback = 'Not set',
   ) {
     return (
-      statusMap.get(String(lead.statusId ?? '')) ??
-      statusMap.get(String(lead.stageId ?? '')) ??
-      (lead.statusName ? String(lead.statusName) : '') ??
+      (statusMap.get(String(lead.statusId ?? '')) ??
+        statusMap.get(String(lead.stageId ?? '')) ??
+        (lead.statusName ? String(lead.statusName) : '') ??
+        fallback) ||
       fallback
-    ) || fallback;
+    );
   }
 
   private sourceNameForLead(lead: any, sourceMap: Map<string, string>) {
-    return sourceMap.get(String(lead.sourceId ?? '')) ?? lead.sourceId ?? 'Unknown';
+    return (
+      sourceMap.get(String(lead.sourceId ?? '')) ?? lead.sourceId ?? 'Unknown'
+    );
   }
 
   private primaryLeadUserId(lead: any) {
@@ -1060,7 +1260,10 @@ export class DashboardService {
     if (!value) return;
     const next = new Date(value);
     if (Number.isNaN(next.getTime())) return;
-    if (!metrics.latestActivityAt || next > new Date(metrics.latestActivityAt)) {
+    if (
+      !metrics.latestActivityAt ||
+      next > new Date(metrics.latestActivityAt)
+    ) {
       metrics.latestActivityAt = next;
     }
   }
@@ -1069,19 +1272,25 @@ export class DashboardService {
     const normalized = this.normalizeText(statusName);
     if (!normalized) return;
 
-    if (normalized.includes('new')) this.incrementLeadMetric(metrics, 'newLeads');
+    if (normalized.includes('new'))
+      this.incrementLeadMetric(metrics, 'newLeads');
     if (normalized.includes('not interested')) {
       this.incrementLeadMetric(metrics, 'notInterestedLeads');
     } else if (normalized.includes('interested')) {
       this.incrementLeadMetric(metrics, 'interestedLeads');
     }
-    if (normalized.includes('lost')) this.incrementLeadMetric(metrics, 'lostLeads');
+    if (normalized.includes('lost'))
+      this.incrementLeadMetric(metrics, 'lostLeads');
     if (normalized === 'cp' || normalized.includes('channel partner')) {
       this.incrementLeadMetric(metrics, 'cp');
     }
-    if (normalized.includes('obm')) this.incrementLeadMetric(metrics, 'obmDone');
+    if (normalized.includes('obm'))
+      this.incrementLeadMetric(metrics, 'obmDone');
     if (normalized.includes('eoi')) this.incrementLeadMetric(metrics, 'eoi');
-    if (normalized.includes('out station') || normalized.includes('outstation')) {
+    if (
+      normalized.includes('out station') ||
+      normalized.includes('outstation')
+    ) {
       this.incrementLeadMetric(metrics, 'outStationLead');
     }
     if (
@@ -1137,26 +1346,29 @@ export class DashboardService {
     const { preset, start, end, label } = this.resolveCallingWindow(query);
     const page = this.numberQuery(query.page, 1);
     const limit = Math.min(this.numberQuery(query.limit, 10), 100);
-    const selectedRole = String(query.role ?? 'all');
+    const selectedRole = this.normalizeTenantRoleFilter(query.role);
     const selectedUserId = String(query.userId ?? 'all');
     const selectedTeamId = String(query.teamId ?? 'all');
     const selectedProjectId = String(query.projectId ?? 'all');
     const selectedSourceId = String(query.sourceId ?? 'all');
-    const scope = this.normalizeLeadPerformanceScope(String(query.scope ?? 'user'));
-    const search = String(query.search ?? '').trim().toLowerCase();
+    const scope = this.normalizeLeadPerformanceScope(
+      String(query.scope ?? 'user'),
+    );
+    const search = String(query.search ?? '')
+      .trim()
+      .toLowerCase();
     const operationalRoles = [
-      'SUPER_ADMIN',
-      'ADMIN',
-      'HR',
-      'SALES_MANAGER',
-      'TELECALLER',
-      'SALES_AGENT',
-      'MARKETING',
+      Role.ADMIN,
+      Role.HR,
+      Role.SALES_MANAGER,
+      Role.TELECALLER,
+      Role.SALES_AGENT,
+      Role.MARKETING,
     ];
 
     const [users, teams, projects, statuses, sources] = await Promise.all([
       db.user.findMany({
-        where: {
+        where: this.tenantUserWhere({
           isActive: true,
           role:
             selectedRole && selectedRole !== 'all'
@@ -1168,7 +1380,7 @@ export class DashboardService {
           ...(selectedTeamId && selectedTeamId !== 'all'
             ? { employeeProfile: { teamId: selectedTeamId } }
             : {}),
-        },
+        }),
         select: {
           id: true,
           fullName: true,
@@ -1192,26 +1404,26 @@ export class DashboardService {
         orderBy: { fullName: 'asc' },
       }),
       db.team.findMany({
-        where: {
+        where: this.tenantTeamWhere({
           isActive: true,
           ...(selectedTeamId && selectedTeamId !== 'all'
             ? { id: selectedTeamId }
             : {}),
-        },
+        }),
         select: {
           id: true,
           name: true,
           leader: { select: { id: true, fullName: true, email: true } },
-          members: { select: { id: true } },
+          members: { select: { userId: true } },
         },
         orderBy: { name: 'asc' },
       }),
       db.project.findMany({
-        where: {
+        where: this.tenantProjectWhere({
           ...(selectedProjectId && selectedProjectId !== 'all'
             ? { id: selectedProjectId }
             : {}),
-        },
+        }),
         select: { id: true, name: true, location: true, status: true },
         orderBy: { name: 'asc' },
       }),
@@ -1226,7 +1438,9 @@ export class DashboardService {
     ]);
 
     const userIds = users.map((user: any) => user.id);
-    const userMap = new Map<string, any>(users.map((user: any) => [user.id, user]));
+    const userMap = new Map<string, any>(
+      users.map((user: any) => [user.id, user]),
+    );
     const projectMap = new Map<string, any>(
       projects.map((project: any) => [project.id, project]),
     );
@@ -1271,12 +1485,15 @@ export class DashboardService {
 
     const teamRows = new Map<string, any>();
     teams.forEach((team: any) => {
+      const leader =
+        team.leader?.id && userMap.has(team.leader.id) ? team.leader : null;
       teamRows.set(team.id, {
         id: team.id,
         name: team.name,
-        leaderName:
-          team.leader?.fullName ?? team.leader?.email ?? 'Unassigned',
-        memberCount: team.members?.length ?? 0,
+        leaderName: leader?.fullName ?? leader?.email ?? 'Unassigned',
+        memberCount: (team.members ?? []).filter((member: any) =>
+          userMap.has(member.userId),
+        ).length,
         metrics: this.createEmptyLeadPerformanceMetrics(),
       });
     });
@@ -1284,7 +1501,8 @@ export class DashboardService {
       id: 'unassigned',
       name: 'Unassigned',
       leaderName: 'Unassigned',
-      memberCount: users.filter((user: any) => !user.employeeProfile?.teamId).length,
+      memberCount: users.filter((user: any) => !user.employeeProfile?.teamId)
+        .length,
       metrics: this.createEmptyLeadPerformanceMetrics(),
     });
 
@@ -1325,6 +1543,7 @@ export class DashboardService {
     });
 
     const leadWhere: any = {
+      organizationId: this.organizationId,
       deletedAt: null,
       ...(selectedProjectId && selectedProjectId !== 'all'
         ? { requirement: { preferredProjectId: selectedProjectId } }
@@ -1360,10 +1579,10 @@ export class DashboardService {
 
     const [leads, followUps, siteVisits, bookings] = await Promise.all([
       db.lead.findMany({
-        where: {
+        where: this.tenantLeadWhere({
           ...leadWhere,
           createdAt: { gte: start, lte: end },
-        },
+        }),
         include: { requirement: true },
         orderBy: { createdAt: 'desc' },
       }),
@@ -1406,7 +1625,9 @@ export class DashboardService {
       const user = userMap.get(userId);
       const projectId = this.leadProjectKey(lead, projectMap);
       const sourceId =
-        lead.sourceId && sourceRows.has(lead.sourceId) ? lead.sourceId : 'unassigned';
+        lead.sourceId && sourceRows.has(lead.sourceId)
+          ? lead.sourceId
+          : 'unassigned';
       return {
         userId: userRows.has(userId) ? userId : 'unassigned',
         teamId: user?.employeeProfile?.teamId ?? 'unassigned',
@@ -1420,7 +1641,11 @@ export class DashboardService {
       this.addLeadPerformanceToMaps(maps, leadKeys(lead), (metrics) => {
         this.incrementLeadMetric(metrics, 'totalLeads');
         this.applyStatusBuckets(metrics, statusName);
-        if (lead.lostAt && new Date(lead.lostAt) >= start && new Date(lead.lostAt) <= end) {
+        if (
+          lead.lostAt &&
+          new Date(lead.lostAt) >= start &&
+          new Date(lead.lostAt) <= end
+        ) {
           this.incrementLeadMetric(metrics, 'lostLeads');
         }
         this.touchLeadMetric(metrics, lead.createdAt);
@@ -1428,10 +1653,14 @@ export class DashboardService {
     });
 
     followUps.forEach((followUp: any) => {
-      this.addLeadPerformanceToMaps(maps, leadKeys(followUp.lead), (metrics) => {
-        this.incrementLeadMetric(metrics, 'followUps');
-        this.touchLeadMetric(metrics, followUp.scheduledAt);
-      });
+      this.addLeadPerformanceToMaps(
+        maps,
+        leadKeys(followUp.lead),
+        (metrics) => {
+          this.incrementLeadMetric(metrics, 'followUps');
+          this.touchLeadMetric(metrics, followUp.scheduledAt);
+        },
+      );
     });
 
     siteVisits.forEach((visit: any) => {
@@ -1450,9 +1679,14 @@ export class DashboardService {
         { ...leadKeys(visit.lead), projectId },
         (metrics) => {
           this.incrementLeadMetric(metrics, 'siteVisitScheduled');
-          if (isDone && isReVisit) this.incrementLeadMetric(metrics, 'reVisitDone');
-          if (isDone && !isReVisit) this.incrementLeadMetric(metrics, 'siteVisitDone');
-          this.touchLeadMetric(metrics, visit.checkedOutAt ?? visit.scheduledAt);
+          if (isDone && isReVisit)
+            this.incrementLeadMetric(metrics, 'reVisitDone');
+          if (isDone && !isReVisit)
+            this.incrementLeadMetric(metrics, 'siteVisitDone');
+          this.touchLeadMetric(
+            metrics,
+            visit.checkedOutAt ?? visit.scheduledAt,
+          );
         },
       );
     });
@@ -1473,14 +1707,30 @@ export class DashboardService {
     });
 
     const rowSort = (left: any, right: any) => {
-      const leftTotal = left.totalLeads + left.followUps + left.siteVisitDone + left.bookingDone;
-      const rightTotal = right.totalLeads + right.followUps + right.siteVisitDone + right.bookingDone;
+      const leftTotal =
+        left.totalLeads +
+        left.followUps +
+        left.siteVisitDone +
+        left.bookingDone;
+      const rightTotal =
+        right.totalLeads +
+        right.followUps +
+        right.siteVisitDone +
+        right.bookingDone;
       if (rightTotal !== leftTotal) return rightTotal - leftTotal;
       return String(left.name).localeCompare(String(right.name));
     };
     const rowMatchesSearch = (row: any) => {
       if (!search) return true;
-      return [row.name, row.email, row.role, row.teamName, row.leaderName, row.location, row.code]
+      return [
+        row.name,
+        row.email,
+        row.role,
+        row.teamName,
+        row.leaderName,
+        row.location,
+        row.code,
+      ]
         .filter(Boolean)
         .some((value: any) => String(value).toLowerCase().includes(search));
     };
@@ -1491,7 +1741,14 @@ export class DashboardService {
           ...this.finalizeLeadPerformanceMetrics(row.metrics),
           metrics: undefined,
         }))
-        .filter((row) => row.id !== 'unassigned' || row.totalLeads > 0 || row.followUps > 0 || row.siteVisitScheduled > 0 || row.bookingDone > 0)
+        .filter(
+          (row) =>
+            row.id !== 'unassigned' ||
+            row.totalLeads > 0 ||
+            row.followUps > 0 ||
+            row.siteVisitScheduled > 0 ||
+            row.bookingDone > 0,
+        )
         .filter(rowMatchesSearch)
         .sort(rowSort);
 
@@ -1513,7 +1770,10 @@ export class DashboardService {
     this.eachDay(start, end).forEach((day) => {
       dailyByKey.set(this.dateKey(day), {
         date: this.dateKey(day),
-        label: day.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+        label: day.toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+        }),
         totalLeads: 0,
         interestedLeads: 0,
         bookingDone: 0,
@@ -1525,7 +1785,10 @@ export class DashboardService {
       day.totalLeads += 1;
       const statusName = this.statusNameForLead(lead, statusMap);
       const normalized = this.normalizeText(statusName);
-      if (normalized.includes('interested') && !normalized.includes('not interested')) {
+      if (
+        normalized.includes('interested') &&
+        !normalized.includes('not interested')
+      ) {
         day.interestedLeads += 1;
       }
     });
@@ -1596,14 +1859,19 @@ export class DashboardService {
 
   async getMyLeadPerformanceData(
     query: Query = {},
-    actor?: { sub?: string; fullName?: string | null; email?: string | null; role?: string | null },
+    actor?: {
+      sub?: string;
+      fullName?: string | null;
+      email?: string | null;
+      role?: string | null;
+    },
   ) {
     if (!actor?.sub) {
       throw new BadRequestException('Unable to resolve the current employee');
     }
 
-    const employee = await this.prisma.user.findUnique({
-      where: { id: actor.sub },
+    const employee = await this.prisma.user.findFirst({
+      where: this.tenantUserWhere({ id: actor.sub }),
       select: { id: true, fullName: true, email: true, role: true },
     });
     if (!employee?.role) {
@@ -1635,14 +1903,19 @@ export class DashboardService {
 
   async generateMyLeadPerformancePdf(
     query: Query = {},
-    actor?: { sub?: string; fullName?: string | null; email?: string | null; role?: string | null },
+    actor?: {
+      sub?: string;
+      fullName?: string | null;
+      email?: string | null;
+      role?: string | null;
+    },
   ) {
     if (!actor?.sub) {
       throw new BadRequestException('Unable to resolve the current employee');
     }
 
-    const employee = await this.prisma.user.findUnique({
-      where: { id: actor.sub },
+    const employee = await this.prisma.user.findFirst({
+      where: this.tenantUserWhere({ id: actor.sub }),
       select: { id: true, fullName: true, email: true, role: true },
     });
     if (!employee?.role) {
@@ -1691,7 +1964,11 @@ export class DashboardService {
 
     const pdfBuffer = await new Promise<Buffer>((resolve, reject) => {
       try {
-        const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 28 });
+        const doc = new PDFDocument({
+          size: 'A4',
+          layout: 'landscape',
+          margin: 28,
+        });
         const chunks: Uint8Array[] = [];
         doc.on('data', (chunk) => chunks.push(chunk));
         doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -1706,7 +1983,12 @@ export class DashboardService {
         doc.text('Lead Performance Report', 28, 28, { width, align: 'center' });
         doc.font('Helvetica').fontSize(9).fillColor(muted);
         doc.text(data.meta.label, 28, 52, { width, align: 'center' });
-        doc.moveTo(28, 70).lineTo(doc.page.width - 28, 70).lineWidth(2).strokeColor(orange).stroke();
+        doc
+          .moveTo(28, 70)
+          .lineTo(doc.page.width - 28, 70)
+          .lineWidth(2)
+          .strokeColor(orange)
+          .stroke();
 
         if (reportContext) {
           doc.font('Helvetica-Bold').fontSize(9).fillColor(navy);
@@ -1744,13 +2026,23 @@ export class DashboardService {
         let x = 28;
         const statWidth = width / statColumns.length;
         statColumns.forEach(([label, value]) => {
-          doc.rect(x, statsY, statWidth - 6, 52).fillAndStroke('#f8fafc', border);
-          doc.font('Helvetica-Bold').fontSize(8).fillColor(muted).text(String(label), x + 8, statsY + 11, {
-            width: statWidth - 22,
-          });
-          doc.font('Helvetica-Bold').fontSize(15).fillColor(navy).text(String(value), x + 8, statsY + 28, {
-            width: statWidth - 22,
-          });
+          doc
+            .rect(x, statsY, statWidth - 6, 52)
+            .fillAndStroke('#f8fafc', border);
+          doc
+            .font('Helvetica-Bold')
+            .fontSize(8)
+            .fillColor(muted)
+            .text(String(label), x + 8, statsY + 11, {
+              width: statWidth - 22,
+            });
+          doc
+            .font('Helvetica-Bold')
+            .fontSize(15)
+            .fillColor(navy)
+            .text(String(value), x + 8, statsY + 28, {
+              width: statWidth - 22,
+            });
           x += statWidth;
         });
 
@@ -1781,10 +2073,14 @@ export class DashboardService {
         x = 28;
         headers.forEach((header, index) => {
           doc.rect(x, y, columnWidths[index], 24).fillAndStroke(navy, border);
-          doc.font('Helvetica-Bold').fontSize(7).fillColor('#ffffff').text(header, x + 4, y + 8, {
-            width: columnWidths[index] - 8,
-            align: index === 0 ? 'left' : 'center',
-          });
+          doc
+            .font('Helvetica-Bold')
+            .fontSize(7)
+            .fillColor('#ffffff')
+            .text(header, x + 4, y + 8, {
+              width: columnWidths[index] - 8,
+              align: index === 0 ? 'left' : 'center',
+            });
           x += columnWidths[index];
         });
         y += 24;
@@ -1808,23 +2104,34 @@ export class DashboardService {
           values.forEach((value, index) => {
             doc
               .rect(x, y, columnWidths[index], 24)
-              .fillAndStroke(rowIndex % 2 === 0 ? '#ffffff' : '#f8fafc', border);
-            doc.font('Helvetica').fontSize(7).fillColor(navy).text(String(value ?? '-'), x + 4, y + 8, {
-              width: columnWidths[index] - 8,
-              align: index === 0 ? 'left' : 'center',
-              ellipsis: true,
-            });
+              .fillAndStroke(
+                rowIndex % 2 === 0 ? '#ffffff' : '#f8fafc',
+                border,
+              );
+            doc
+              .font('Helvetica')
+              .fontSize(7)
+              .fillColor(navy)
+              .text(String(value ?? '-'), x + 4, y + 8, {
+                width: columnWidths[index] - 8,
+                align: index === 0 ? 'left' : 'center',
+                ellipsis: true,
+              });
             x += columnWidths[index];
           });
           y += 24;
         });
 
-        doc.font('Helvetica').fontSize(8).fillColor(muted).text(
-          'Lead counts use created leads in range. Follow-ups, visits, and bookings use their scheduled or booking dates in range.',
-          28,
-          doc.page.height - 42,
-          { width },
-        );
+        doc
+          .font('Helvetica')
+          .fontSize(8)
+          .fillColor(muted)
+          .text(
+            'Lead counts use created leads in range. Follow-ups, visits, and bookings use their scheduled or booking dates in range.',
+            28,
+            doc.page.height - 42,
+            { width },
+          );
         doc.end();
       } catch (error) {
         reject(error);
@@ -1835,7 +2142,9 @@ export class DashboardService {
   }
 
   private activityMetadata(activity: any) {
-    return activity && typeof activity.metadata === 'object' && activity.metadata
+    return activity &&
+      typeof activity.metadata === 'object' &&
+      activity.metadata
       ? activity.metadata
       : {};
   }
@@ -1865,7 +2174,10 @@ export class DashboardService {
     return sourcePointsByValue;
   }
 
-  private getStatusScoreEarned(activity: any, statusScoreByValue: Map<string, any>) {
+  private getStatusScoreEarned(
+    activity: any,
+    statusScoreByValue: Map<string, any>,
+  ) {
     const metadata = this.activityMetadata(activity);
     if (activity.type === 'AUTO_ASSIGNMENT_MISSED') {
       return 0;
@@ -1908,34 +2220,36 @@ export class DashboardService {
       const leadActivities = Array.isArray(lead.activities)
         ? lead.activities
         : [];
-      const hasScoredCurrentStatusEvent = leadActivities.some((activity: any) => {
-        const metadata = this.activityMetadata(activity);
-        const fields = Array.isArray(metadata.fields) ? metadata.fields : [];
-        const isStatusEvent =
-          metadata.statusScoreEarned !== undefined ||
-          (activity.type === 'LEAD_UPDATED' && fields.includes('status'));
-        if (!isStatusEvent) return false;
+      const hasScoredCurrentStatusEvent = leadActivities.some(
+        (activity: any) => {
+          const metadata = this.activityMetadata(activity);
+          const fields = Array.isArray(metadata.fields) ? metadata.fields : [];
+          const isStatusEvent =
+            metadata.statusScoreEarned !== undefined ||
+            (activity.type === 'LEAD_UPDATED' && fields.includes('status'));
+          if (!isStatusEvent) return false;
 
-        const activityStatusValues = [metadata.statusId, metadata.statusName]
-          .filter(Boolean)
-          .map(String);
-        const matchesCurrentStatus = activityStatusValues.length
-          ? activityStatusValues.some(
-              (value) =>
-                currentStatusValues.has(value.toLowerCase()) ||
-                statusScoreByValue.get(value)?.id === status.id,
-            )
-          : activity.type === 'LEAD_UPDATED' && fields.includes('status');
-        if (!matchesCurrentStatus) return false;
-        if (metadata.sourcePointsEnabled === false) return true;
+          const activityStatusValues = [metadata.statusId, metadata.statusName]
+            .filter(Boolean)
+            .map(String);
+          const matchesCurrentStatus = activityStatusValues.length
+            ? activityStatusValues.some(
+                (value) =>
+                  currentStatusValues.has(value.toLowerCase()) ||
+                  statusScoreByValue.get(value)?.id === status.id,
+              )
+            : activity.type === 'LEAD_UPDATED' && fields.includes('status');
+          if (!matchesCurrentStatus) return false;
+          if (metadata.sourcePointsEnabled === false) return true;
 
-        return (
-          this.getStatusScoreEarned(
-            { ...activity, lead },
-            statusScoreByValue,
-          ) > 0
-        );
-      });
+          return (
+            this.getStatusScoreEarned(
+              { ...activity, lead },
+              statusScoreByValue,
+            ) > 0
+          );
+        },
+      );
       if (hasScoredCurrentStatusEvent) return [];
 
       const sourceId = String(lead.sourceId ?? '');
@@ -1983,7 +2297,7 @@ export class DashboardService {
         }),
         userIds.length
           ? db.lead.findMany({
-              where: {
+              where: this.tenantLeadWhere({
                 deletedAt: null,
                 statusId: { not: null },
                 createdAt: { gte: start, lte: end },
@@ -1992,7 +2306,7 @@ export class DashboardService {
                   { fieldExecutiveId: { in: userIds } },
                   { ownerId: { in: userIds } },
                 ],
-              },
+              }),
               select: {
                 id: true,
                 statusId: true,
@@ -2068,15 +2382,21 @@ export class DashboardService {
       }));
     }
     if (activity.lead?.ownerId) {
-      return [{ userId: String(activity.lead.ownerId), roleType: 'OWNER', points }];
+      return [
+        { userId: String(activity.lead.ownerId), roleType: 'OWNER', points },
+      ];
     }
     return [];
   }
 
-  private getStatusScoreName(activity: any, statusScoreByValue: Map<string, any>) {
+  private getStatusScoreName(
+    activity: any,
+    statusScoreByValue: Map<string, any>,
+  ) {
     const metadata = this.activityMetadata(activity);
     if (metadata.statusName) return String(metadata.statusName);
-    if (activity.type === 'AUTO_ASSIGNMENT_MISSED') return 'Missed auto handoff';
+    if (activity.type === 'AUTO_ASSIGNMENT_MISSED')
+      return 'Missed auto handoff';
     const status =
       statusScoreByValue.get(String(metadata.statusId ?? '')) ??
       statusScoreByValue.get(String(activity.lead?.statusId ?? ''));
@@ -2108,20 +2428,25 @@ export class DashboardService {
     }
   }
 
-  async getDashboardRankings(query: Query = {}, actor?: { sub?: string; role?: string }) {
+  async getDashboardRankings(
+    query: Query = {},
+    actor?: { sub?: string; role?: string },
+  ) {
     const db = this.prisma as any;
     const { range, start, end, label } = this.resolveRankingWindow(query);
     const selectedUserId = String(query.userId ?? 'all');
     const selectedTeamId = String(query.teamId ?? 'all');
-    const requestedMode = ['users', 'teams', 'both'].includes(String(query.mode ?? 'both'))
+    const requestedMode = ['users', 'teams', 'both'].includes(
+      String(query.mode ?? 'both'),
+    )
       ? String(query.mode ?? 'both')
       : 'both';
     const actorId = actor?.sub;
     const actorIsAdmin = this.isAdminRankingRole(actor?.role);
     const mode = actorIsAdmin ? requestedMode : 'users';
     const actorUser = actorId
-      ? await db.user.findUnique({
-          where: { id: actorId },
+      ? await db.user.findFirst({
+          where: this.tenantUserWhere({ id: actorId }),
           select: {
             id: true,
             role: true,
@@ -2132,6 +2457,7 @@ export class DashboardService {
               },
             },
             rankingTeamAccesses: {
+              where: { team: { organizationId: this.organizationId } },
               select: {
                 teamId: true,
                 team: { select: { id: true, name: true } },
@@ -2169,12 +2495,11 @@ export class DashboardService {
             'Unassigned'
           );
         });
-    const rankingScopeLabel =
-      actorIsAdmin
-        ? 'All teams'
-        : rankingScopeTeamNames.length
-        ? rankingScopeTeamNames.join(', ')
-        : 'Own profile only';
+    const rankingScopeLabel = actorIsAdmin
+      ? 'All teams'
+      : rankingScopeTeamNames.length
+      ? rankingScopeTeamNames.join(', ')
+      : 'Own profile only';
     const actorPeerRole =
       actor?.role === 'TELECALLER'
         ? 'TELECALLER'
@@ -2182,10 +2507,10 @@ export class DashboardService {
         ? 'SALES_AGENT'
         : null;
 
-    const userWhere: any = {
+    const userWhere: any = this.tenantUserWhere({
       isActive: true,
       role: { in: rankingRoles },
-    };
+    });
 
     if (actorIsAdmin) {
       if (selectedUserId !== 'all') userWhere.id = selectedUserId;
@@ -2239,17 +2564,12 @@ export class DashboardService {
     });
 
     const userIds = users.map((user: any) => user.id);
-    const [
-      statusScoreContext,
-      activities,
-      availableUsers,
-      availableTeams,
-    ] =
+    const [statusScoreContext, activities, availableUsers, availableTeams] =
       await Promise.all([
         this.loadStatusScoreContext(db, userIds, start, end),
         userIds.length
           ? db.activity.findMany({
-              where: {
+              where: this.tenantActivityWhere({
                 type: {
                   in: [
                     'LEAD_CREATED',
@@ -2258,7 +2578,7 @@ export class DashboardService {
                   ],
                 },
                 occurredAt: { gte: start, lte: end },
-              },
+              }),
               include: {
                 lead: {
                   select: {
@@ -2275,9 +2595,12 @@ export class DashboardService {
           : Promise.resolve([]),
         db.user.findMany({
           where: actorIsAdmin
-            ? { isActive: true, role: { in: rankingRoles } }
+            ? this.tenantUserWhere({
+                isActive: true,
+                role: { in: rankingRoles },
+              })
             : actorPeerRole
-            ? {
+            ? this.tenantUserWhere({
                 isActive: true,
                 role: actorPeerRole,
                 ...(rankingScopeTeamIds.length
@@ -2289,27 +2612,33 @@ export class DashboardService {
                   : actorId
                   ? { id: actorId }
                   : { id: '__no_actor__' }),
-              }
+              })
             : actorId
-            ? { id: actorId }
-            : { id: '__no_actor__' },
+            ? this.tenantUserWhere({ id: actorId })
+            : this.tenantUserWhere({ id: '__no_actor__' }),
           select: {
             id: true,
             fullName: true,
             email: true,
             role: true,
             employeeProfile: {
-              select: { teamId: true, team: { select: { id: true, name: true } } },
+              select: {
+                teamId: true,
+                team: { select: { id: true, name: true } },
+              },
             },
           },
           orderBy: { fullName: 'asc' },
         }),
         db.team.findMany({
           where: actorIsAdmin
-            ? { isActive: true }
+            ? this.tenantTeamWhere({ isActive: true })
             : rankingScopeTeamIds.length
-            ? { id: { in: rankingScopeTeamIds }, isActive: true }
-            : { id: '__no_team__' },
+            ? this.tenantTeamWhere({
+                id: { in: rankingScopeTeamIds },
+                isActive: true,
+              })
+            : this.tenantTeamWhere({ id: '__no_team__' }),
           select: { id: true, name: true, leaderId: true },
           orderBy: { name: 'asc' },
         }),
@@ -2317,10 +2646,7 @@ export class DashboardService {
 
     const { statusScoreByValue, initialStatusScoreActivities } =
       statusScoreContext;
-    const scoredActivities = [
-      ...activities,
-      ...initialStatusScoreActivities,
-    ];
+    const scoredActivities = [...activities, ...initialStatusScoreActivities];
     const userRows = new Map<string, any>(
       users.map((user: any) => [
         user.id,
@@ -2348,7 +2674,8 @@ export class DashboardService {
       ).filter((recipient: any) => userRows.has(recipient.userId));
       if (!recipients.length) return;
       const statusName =
-        this.getStatusScoreName(activity, statusScoreByValue) ?? 'Status update';
+        this.getStatusScoreName(activity, statusScoreByValue) ??
+        'Status update';
       const statusId = String(
         this.activityMetadata(activity).statusId ??
           this.activityMetadata(activity).type ??
@@ -2371,7 +2698,9 @@ export class DashboardService {
           !row.lastScoredActivityAt ||
           new Date(activity.occurredAt) > new Date(row.lastScoredActivityAt)
         ) {
-          row.lastScoredActivityAt = new Date(activity.occurredAt).toISOString();
+          row.lastScoredActivityAt = new Date(
+            activity.occurredAt,
+          ).toISOString();
         }
       });
     });
@@ -2453,7 +2782,8 @@ export class DashboardService {
       })
       .map((row: any, index: number) => ({ ...row, rank: index + 1 }));
 
-    const currentUser = userRankings.find((row: any) => row.userId === actorId) ?? null;
+    const currentUser =
+      userRankings.find((row: any) => row.userId === actorId) ?? null;
     const currentTeamId = actorTeamId ?? 'unassigned';
     const currentTeam =
       teamRankings.find((row: any) => row.teamId === currentTeamId) ?? null;
@@ -2489,7 +2819,10 @@ export class DashboardService {
         currentTeamPoints: currentTeam?.points ?? 0,
         topUser: userRankings[0] ?? null,
         topTeam: teamRankings[0] ?? null,
-        totalScore: userRankings.reduce((sum: number, row: any) => sum + row.points, 0),
+        totalScore: userRankings.reduce(
+          (sum: number, row: any) => sum + row.points,
+          0,
+        ),
       },
       userRankings: mode === 'teams' ? [] : userRankings,
       teamRankings: mode === 'users' ? [] : teamRankings,
@@ -2516,23 +2849,24 @@ export class DashboardService {
     const end = this.parseDateFilter(query.dateTo, this.endOfDay(now), true);
     const page = this.numberQuery(query.page, 1);
     const limit = Math.min(this.numberQuery(query.limit, 20), 100);
-    const selectedRole = String(query.role ?? 'all');
+    const selectedRole = this.normalizeTenantRoleFilter(query.role);
     const selectedUserId = String(query.userId ?? 'all');
     const selectedTeamId = String(query.teamId ?? 'all');
     const selectedActivityType = String(query.activityType ?? 'all');
-    const search = String(query.search ?? '').trim().toLowerCase();
+    const search = String(query.search ?? '')
+      .trim()
+      .toLowerCase();
     const operationalRoles = [
-      'SUPER_ADMIN',
-      'ADMIN',
-      'HR',
-      'SALES_MANAGER',
-      'TELECALLER',
-      'SALES_AGENT',
-      'MARKETING',
+      Role.ADMIN,
+      Role.HR,
+      Role.SALES_MANAGER,
+      Role.TELECALLER,
+      Role.SALES_AGENT,
+      Role.MARKETING,
     ];
 
     const users = await db.user.findMany({
-      where: {
+      where: this.tenantUserWhere({
         role:
           selectedRole && selectedRole !== 'all'
             ? selectedRole
@@ -2543,7 +2877,7 @@ export class DashboardService {
         ...(selectedTeamId && selectedTeamId !== 'all'
           ? { employeeProfile: { teamId: selectedTeamId } }
           : {}),
-      },
+      }),
       select: {
         id: true,
         fullName: true,
@@ -2614,11 +2948,24 @@ export class DashboardService {
       teams,
     ] = await Promise.all([
       db.lead.findMany({
-        where: { createdAt: dateBetween, createdById: { in: userIds } },
-        select: { id: true, name: true, displayId: true, createdById: true, createdAt: true },
+        where: this.tenantLeadWhere({
+          createdAt: dateBetween,
+          createdById: { in: userIds },
+        }),
+        select: {
+          id: true,
+          name: true,
+          displayId: true,
+          createdById: true,
+          createdAt: true,
+        },
       }),
       db.leadAssignment.findMany({
-        where: { assignedAt: dateBetween, toUserId: { in: userIds } },
+        where: {
+          assignedAt: dateBetween,
+          toUserId: { in: userIds },
+          lead: { organizationId: this.organizationId },
+        },
         select: {
           id: true,
           toUserId: true,
@@ -2629,54 +2976,82 @@ export class DashboardService {
       }),
       db.callLog.findMany({
         where: { startedAt: dateBetween, userId: { in: userIds } },
-        include: { lead: { select: { id: true, name: true, displayId: true } } },
+        include: {
+          lead: { select: { id: true, name: true, displayId: true } },
+        },
       }),
       db.followUp.findMany({
-        where: {
+        where: this.tenantFollowUpWhere({
           OR: [
             { createdAt: dateBetween },
             { completedAt: dateBetween },
             { scheduledAt: { lte: end } },
           ],
           assignedToId: { in: userIds },
+        }),
+        include: {
+          lead: { select: { id: true, name: true, displayId: true } },
         },
-        include: { lead: { select: { id: true, name: true, displayId: true } } },
       }),
       db.activity.findMany({
-        where: {
+        where: this.tenantActivityWhere({
           occurredAt: dateBetween,
           actorId: { in: userIds },
-          type: { in: ['FOLLOW_UP_CREATED', 'FOLLOW_UP_UPDATED', 'FOLLOW_UP_COMPLETED', 'FOLLOW_UP_REASSIGNED'] },
+          type: {
+            in: [
+              'FOLLOW_UP_CREATED',
+              'FOLLOW_UP_UPDATED',
+              'FOLLOW_UP_COMPLETED',
+              'FOLLOW_UP_REASSIGNED',
+            ],
+          },
+        }),
+        include: {
+          lead: { select: { id: true, name: true, displayId: true } },
         },
-        include: { lead: { select: { id: true, name: true, displayId: true } } },
       }),
       db.note.findMany({
-        where: { createdAt: dateBetween, authorId: { in: userIds } },
-        include: { lead: { select: { id: true, name: true, displayId: true } } },
+        where: {
+          createdAt: dateBetween,
+          authorId: { in: userIds },
+          lead: { organizationId: this.organizationId },
+        },
+        include: {
+          lead: { select: { id: true, name: true, displayId: true } },
+        },
       }),
       db.siteVisit.findMany({
-        where: {
+        where: this.tenantSiteVisitWhere({
           OR: [{ scheduledAt: dateBetween }, { updatedAt: dateBetween }],
           assignedExecutiveId: { in: userIds },
+        }),
+        include: {
+          lead: { select: { id: true, name: true, displayId: true } },
         },
-        include: { lead: { select: { id: true, name: true, displayId: true } } },
       }),
       db.task.findMany({
         where: { completedAt: dateBetween, assignedToId: { in: userIds } },
-        include: { lead: { select: { id: true, name: true, displayId: true } } },
+        include: {
+          lead: { select: { id: true, name: true, displayId: true } },
+        },
       }),
       db.booking.findMany({
-        where: { bookingDate: dateBetween, closedById: { in: userIds } },
-        include: { lead: { select: { id: true, name: true, displayId: true } } },
+        where: this.tenantBookingWhere({
+          bookingDate: dateBetween,
+          closedById: { in: userIds },
+        }),
+        include: {
+          lead: { select: { id: true, name: true, displayId: true } },
+        },
       }),
       db.activity.findMany({
-        where: {
+        where: this.tenantActivityWhere({
           occurredAt: dateBetween,
           OR: [
             { actorId: { in: userIds } },
             { type: { in: ['LEAD_CREATED', 'LEAD_UPDATED'] } },
           ],
-        },
+        }),
         include: {
           lead: {
             select: {
@@ -2694,18 +3069,15 @@ export class DashboardService {
       }),
       this.loadStatusScoreContext(db, userIds, start, end),
       db.team.findMany({
-        where: { isActive: true },
+        where: this.tenantTeamWhere({ isActive: true }),
         select: { id: true, name: true },
         orderBy: { name: 'asc' },
       }),
-      ]);
+    ]);
 
     const { statusScoreByValue, initialStatusScoreActivities } =
       statusScoreContext;
-    const scoredActivities = [
-      ...activities,
-      ...initialStatusScoreActivities,
-    ];
+    const scoredActivities = [...activities, ...initialStatusScoreActivities];
 
     leadsCreated.forEach((lead: any) => {
       this.addCount(rows, lead.createdById, 'leadsCreated');
@@ -2717,21 +3089,33 @@ export class DashboardService {
     });
     callLogs.forEach((log: any) => {
       this.addCount(rows, log.userId, 'calls');
-      if (String(log.outcome ?? '').toLowerCase().includes('connected')) {
+      if (
+        String(log.outcome ?? '')
+          .toLowerCase()
+          .includes('connected')
+      ) {
         this.addCount(rows, log.userId, 'connectedCalls');
       }
       this.touchLatest(rows, log.userId, log.startedAt);
     });
     followUpActivities.forEach((activity: any) => {
-      if (activity.type === 'FOLLOW_UP_CREATED') this.addCount(rows, activity.actorId, 'followUpsCreated');
+      if (activity.type === 'FOLLOW_UP_CREATED')
+        this.addCount(rows, activity.actorId, 'followUpsCreated');
       this.touchLatest(rows, activity.actorId, activity.occurredAt);
     });
     followUps.forEach((followUp: any) => {
-      if (followUp.completedAt && new Date(followUp.completedAt) >= start && new Date(followUp.completedAt) <= end) {
+      if (
+        followUp.completedAt &&
+        new Date(followUp.completedAt) >= start &&
+        new Date(followUp.completedAt) <= end
+      ) {
         this.addCount(rows, followUp.assignedToId, 'followUpsCompleted');
         this.touchLatest(rows, followUp.assignedToId, followUp.completedAt);
       }
-      if (!followUp.completedAt && new Date(followUp.scheduledAt) < this.startOfDay(now)) {
+      if (
+        !followUp.completedAt &&
+        new Date(followUp.scheduledAt) < this.startOfDay(now)
+      ) {
         this.addCount(rows, followUp.assignedToId, 'overdueFollowUps');
       }
     });
@@ -2740,13 +3124,20 @@ export class DashboardService {
       this.touchLatest(rows, note.authorId, note.createdAt);
     });
     siteVisits.forEach((visit: any) => {
-      if (new Date(visit.scheduledAt) >= start && new Date(visit.scheduledAt) <= end) {
+      if (
+        new Date(visit.scheduledAt) >= start &&
+        new Date(visit.scheduledAt) <= end
+      ) {
         this.addCount(rows, visit.assignedExecutiveId, 'siteVisitsScheduled');
       }
       if (visit.status === 'Completed' || visit.checkedOutAt) {
         this.addCount(rows, visit.assignedExecutiveId, 'siteVisitsCompleted');
       }
-      this.touchLatest(rows, visit.assignedExecutiveId, visit.updatedAt ?? visit.scheduledAt);
+      this.touchLatest(
+        rows,
+        visit.assignedExecutiveId,
+        visit.updatedAt ?? visit.scheduledAt,
+      );
     });
     tasksCompleted.forEach((task: any) => {
       this.addCount(rows, task.assignedToId, 'tasksCompleted');
@@ -2796,16 +3187,27 @@ export class DashboardService {
         statusScoreName: this.getStatusScoreName(activity, statusScoreByValue),
         id: `activity-${activity.id}`,
         actorId: activity.actorId,
-        actorName: userMap.get(activity.actorId)?.fullName ?? userMap.get(activity.actorId)?.email ?? 'Unknown user',
+        actorName:
+          userMap.get(activity.actorId)?.fullName ??
+          userMap.get(activity.actorId)?.email ??
+          'Unknown user',
         actorRole: userMap.get(activity.actorId)?.role ?? 'User',
         actorImage: userMap.get(activity.actorId)?.avatarStorageKey ?? null,
         type: activity.type,
         title: activity.title,
         description:
           this.getStatusScoreEarned(activity, statusScoreByValue) > 0
-            ? `${activity.description ?? activity.title} Status score earned: ${this.getStatusScoreEarned(activity, statusScoreByValue)}${
+            ? `${
+                activity.description ?? activity.title
+              } Status score earned: ${this.getStatusScoreEarned(
+                activity,
+                statusScoreByValue,
+              )}${
                 this.getStatusScoreName(activity, statusScoreByValue)
-                  ? ` (${this.getStatusScoreName(activity, statusScoreByValue)})`
+                  ? ` (${this.getStatusScoreName(
+                      activity,
+                      statusScoreByValue,
+                    )})`
                   : ''
               }.`
             : activity.description ?? activity.title,
@@ -2817,12 +3219,18 @@ export class DashboardService {
       ...callLogs.map((log: any) => ({
         id: `call-${log.id}`,
         actorId: log.userId,
-        actorName: userMap.get(log.userId)?.fullName ?? userMap.get(log.userId)?.email ?? 'Unknown user',
+        actorName:
+          userMap.get(log.userId)?.fullName ??
+          userMap.get(log.userId)?.email ??
+          'Unknown user',
         actorRole: userMap.get(log.userId)?.role ?? 'User',
         actorImage: userMap.get(log.userId)?.avatarStorageKey ?? null,
         type: 'CALL_LOG',
-        title: `${log.direction ?? 'Call'} call${log.outcome ? ` - ${log.outcome}` : ''}`,
-        description: log.notes ?? log.customerResponse ?? 'Call activity recorded',
+        title: `${log.direction ?? 'Call'} call${
+          log.outcome ? ` - ${log.outcome}` : ''
+        }`,
+        description:
+          log.notes ?? log.customerResponse ?? 'Call activity recorded',
         leadId: log.leadId,
         leadName: log.lead?.name ?? null,
         leadDisplayId: log.lead?.displayId ?? null,
@@ -2831,7 +3239,10 @@ export class DashboardService {
       ...notes.map((note: any) => ({
         id: `note-${note.id}`,
         actorId: note.authorId,
-        actorName: userMap.get(note.authorId)?.fullName ?? userMap.get(note.authorId)?.email ?? 'Unknown user',
+        actorName:
+          userMap.get(note.authorId)?.fullName ??
+          userMap.get(note.authorId)?.email ??
+          'Unknown user',
         actorRole: userMap.get(note.authorId)?.role ?? 'User',
         actorImage: userMap.get(note.authorId)?.avatarStorageKey ?? null,
         type: 'REMARK_ADDED',
@@ -2845,11 +3256,21 @@ export class DashboardService {
       ...siteVisits.map((visit: any) => ({
         id: `visit-${visit.id}`,
         actorId: visit.assignedExecutiveId,
-        actorName: userMap.get(visit.assignedExecutiveId)?.fullName ?? userMap.get(visit.assignedExecutiveId)?.email ?? 'Unknown user',
+        actorName:
+          userMap.get(visit.assignedExecutiveId)?.fullName ??
+          userMap.get(visit.assignedExecutiveId)?.email ??
+          'Unknown user',
         actorRole: userMap.get(visit.assignedExecutiveId)?.role ?? 'User',
-        actorImage: userMap.get(visit.assignedExecutiveId)?.avatarStorageKey ?? null,
-        type: visit.status === 'Completed' || visit.checkedOutAt ? 'SITE_VISIT_COMPLETED' : 'SITE_VISIT_SCHEDULED',
-        title: visit.status === 'Completed' || visit.checkedOutAt ? 'Site visit completed' : 'Site visit scheduled',
+        actorImage:
+          userMap.get(visit.assignedExecutiveId)?.avatarStorageKey ?? null,
+        type:
+          visit.status === 'Completed' || visit.checkedOutAt
+            ? 'SITE_VISIT_COMPLETED'
+            : 'SITE_VISIT_SCHEDULED',
+        title:
+          visit.status === 'Completed' || visit.checkedOutAt
+            ? 'Site visit completed'
+            : 'Site visit scheduled',
         description: visit.feedback ?? visit.notes ?? 'Site visit activity',
         leadId: visit.leadId,
         leadName: visit.lead?.name ?? null,
@@ -2859,7 +3280,10 @@ export class DashboardService {
       ...tasksCompleted.map((task: any) => ({
         id: `task-${task.id}`,
         actorId: task.assignedToId,
-        actorName: userMap.get(task.assignedToId)?.fullName ?? userMap.get(task.assignedToId)?.email ?? 'Unknown user',
+        actorName:
+          userMap.get(task.assignedToId)?.fullName ??
+          userMap.get(task.assignedToId)?.email ??
+          'Unknown user',
         actorRole: userMap.get(task.assignedToId)?.role ?? 'User',
         actorImage: userMap.get(task.assignedToId)?.avatarStorageKey ?? null,
         type: 'TASK_COMPLETED',
@@ -2873,7 +3297,10 @@ export class DashboardService {
       ...bookings.map((booking: any) => ({
         id: `booking-${booking.id}`,
         actorId: booking.closedById,
-        actorName: userMap.get(booking.closedById)?.fullName ?? userMap.get(booking.closedById)?.email ?? 'Unknown user',
+        actorName:
+          userMap.get(booking.closedById)?.fullName ??
+          userMap.get(booking.closedById)?.email ??
+          'Unknown user',
         actorRole: userMap.get(booking.closedById)?.role ?? 'User',
         actorImage: userMap.get(booking.closedById)?.avatarStorageKey ?? null,
         type: 'BOOKING_DONE',
@@ -2886,14 +3313,28 @@ export class DashboardService {
       })),
     ]
       .filter((event: any) => event.actorId && userMap.has(event.actorId))
-      .filter((event: any) => selectedActivityType === 'all' || event.type === selectedActivityType)
+      .filter(
+        (event: any) =>
+          selectedActivityType === 'all' || event.type === selectedActivityType,
+      )
       .filter((event: any) => {
         if (!search) return true;
-        return [event.actorName, event.actorRole, event.title, event.description, event.leadName, event.leadDisplayId]
+        return [
+          event.actorName,
+          event.actorRole,
+          event.title,
+          event.description,
+          event.leadName,
+          event.leadDisplayId,
+        ]
           .filter(Boolean)
           .some((value: any) => String(value).toLowerCase().includes(search));
       })
-      .sort((left: any, right: any) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime());
+      .sort(
+        (left: any, right: any) =>
+          new Date(right.occurredAt).getTime() -
+          new Date(left.occurredAt).getTime(),
+      );
 
     const scoreRankByUserId = new Map(
       [...rows.values()]
@@ -2921,8 +3362,16 @@ export class DashboardService {
           .some((value: any) => String(value).toLowerCase().includes(search));
       })
       .sort((left: any, right: any) => {
-        const leftScore = left.calls + left.followUpsCompleted + left.siteVisitsCompleted + left.bookingsDone;
-        const rightScore = right.calls + right.followUpsCompleted + right.siteVisitsCompleted + right.bookingsDone;
+        const leftScore =
+          left.calls +
+          left.followUpsCompleted +
+          left.siteVisitsCompleted +
+          left.bookingsDone;
+        const rightScore =
+          right.calls +
+          right.followUpsCompleted +
+          right.siteVisitsCompleted +
+          right.bookingsDone;
         return rightScore - leftScore;
       })
       .map((row: any) => ({
@@ -2934,14 +3383,38 @@ export class DashboardService {
       }));
 
     const summary = {
-      totalCalls: userRows.reduce((sum: number, row: any) => sum + row.calls, 0),
-      connectedCalls: userRows.reduce((sum: number, row: any) => sum + row.connectedCalls, 0),
-      followUpsCompleted: userRows.reduce((sum: number, row: any) => sum + row.followUpsCompleted, 0),
-      siteVisitsDone: userRows.reduce((sum: number, row: any) => sum + row.siteVisitsCompleted, 0),
-      remarksAdded: userRows.reduce((sum: number, row: any) => sum + row.remarksAdded, 0),
-      tasksCompleted: userRows.reduce((sum: number, row: any) => sum + row.tasksCompleted, 0),
-      bookingsDone: userRows.reduce((sum: number, row: any) => sum + row.bookingsDone, 0),
-      scoreEarned: userRows.reduce((sum: number, row: any) => sum + row.scoreEarned, 0),
+      totalCalls: userRows.reduce(
+        (sum: number, row: any) => sum + row.calls,
+        0,
+      ),
+      connectedCalls: userRows.reduce(
+        (sum: number, row: any) => sum + row.connectedCalls,
+        0,
+      ),
+      followUpsCompleted: userRows.reduce(
+        (sum: number, row: any) => sum + row.followUpsCompleted,
+        0,
+      ),
+      siteVisitsDone: userRows.reduce(
+        (sum: number, row: any) => sum + row.siteVisitsCompleted,
+        0,
+      ),
+      remarksAdded: userRows.reduce(
+        (sum: number, row: any) => sum + row.remarksAdded,
+        0,
+      ),
+      tasksCompleted: userRows.reduce(
+        (sum: number, row: any) => sum + row.tasksCompleted,
+        0,
+      ),
+      bookingsDone: userRows.reduce(
+        (sum: number, row: any) => sum + row.bookingsDone,
+        0,
+      ),
+      scoreEarned: userRows.reduce(
+        (sum: number, row: any) => sum + row.scoreEarned,
+        0,
+      ),
     };
 
     const activityStart = (page - 1) * limit;
@@ -2965,7 +3438,9 @@ export class DashboardService {
         })),
         teams,
         roles: operationalRoles,
-        activityTypes: Array.from(new Set(eventRows.map((event: any) => event.type))).sort(),
+        activityTypes: Array.from(
+          new Set(eventRows.map((event: any) => event.type)),
+        ).sort(),
       },
     };
   }
@@ -2980,7 +3455,7 @@ export class DashboardService {
     const tomorrowStart = new Date(todayStart);
     tomorrowStart.setDate(tomorrowStart.getDate() + 1);
     const activeVisitStatuses = ['Scheduled', 'Upcoming', 'Confirmed'];
-    const operationalRoles = ['TELECALLER', 'SALES_AGENT'];
+    const operationalRoles = [Role.TELECALLER, Role.SALES_AGENT];
 
     const [
       totalLeads,
@@ -3012,104 +3487,107 @@ export class DashboardService {
       previousWeekCompletedVisits,
       previousWeekBookedBookings,
     ] = await Promise.all([
-      db.lead.count().catch(() => 0),
+      db.lead.count({ where: this.tenantLeadWhere() }).catch(() => 0),
       db.followUp
         .count({
-          where: {
+          where: this.tenantFollowUpWhere({
             completedAt: null,
             scheduledAt: { gte: start, lte: end },
-          },
+          }),
         })
         .catch(() => 0),
       db.followUp
         .count({
-          where: {
+          where: this.tenantFollowUpWhere({
             completedAt: null,
             scheduledAt: { lt: todayStart },
-          },
+          }),
         })
         .catch(() => 0),
       db.siteVisit
         .count({
-          where: {
+          where: this.tenantSiteVisitWhere({
             scheduledAt: { gte: start, lte: end },
             status: { in: activeVisitStatuses },
             checkedOutAt: null,
-          },
+          }),
         })
         .catch(() => 0),
       db.siteVisit
         .count({
-          where: {
+          where: this.tenantSiteVisitWhere({
             scheduledAt: { gte: start, lte: end },
             OR: [{ status: 'Completed' }, { checkedOutAt: { not: null } }],
-          },
+          }),
         })
         .catch(() => 0),
       db.booking
         .count({
-          where: {
+          where: this.tenantBookingWhere({
             bookingDate: { gte: start, lte: end },
             status: { in: ['Booked', 'Completed', 'Converted'] },
-          },
+          }),
         })
         .catch(() => 0),
       db.followUp
         .count({
-          where: {
+          where: this.tenantFollowUpWhere({
             completedAt: null,
             scheduledAt: {
               gte: previousWindow.start,
               lte: previousWindow.end,
             },
-          },
+          }),
         })
         .catch(() => 0),
       db.followUp
         .count({
-          where: {
+          where: this.tenantFollowUpWhere({
             completedAt: null,
             scheduledAt: { lt: previousWindow.end },
-          },
+          }),
         })
         .catch(() => 0),
       db.siteVisit
         .count({
-          where: {
+          where: this.tenantSiteVisitWhere({
             scheduledAt: {
               gte: previousWindow.start,
               lte: previousWindow.end,
             },
             status: { in: activeVisitStatuses },
             checkedOutAt: null,
-          },
+          }),
         })
         .catch(() => 0),
       db.siteVisit
         .count({
-          where: {
+          where: this.tenantSiteVisitWhere({
             scheduledAt: {
               gte: previousWindow.start,
               lte: previousWindow.end,
             },
             OR: [{ status: 'Completed' }, { checkedOutAt: { not: null } }],
-          },
+          }),
         })
         .catch(() => 0),
       db.booking
         .count({
-          where: {
+          where: this.tenantBookingWhere({
             bookingDate: {
               gte: previousWindow.start,
               lte: previousWindow.end,
             },
             status: { in: ['Booked', 'Completed', 'Converted'] },
-          },
+          }),
         })
         .catch(() => 0),
       db.notification
         .findMany({
-          where: { createdAt: { gte: start, lte: end } },
+          where: {
+            organizationId: this.organizationId,
+            createdAt: { gte: start, lte: end },
+          },
           take: 5,
           orderBy: { createdAt: 'desc' },
         })
@@ -3117,20 +3595,24 @@ export class DashboardService {
       db.lead
         .groupBy({
           by: ['sourceId'],
-          where: { createdAt: { gte: start, lte: end } },
+          where: this.tenantLeadWhere({
+            createdAt: { gte: start, lte: end },
+          }),
           _count: { _all: true },
         })
         .catch(() => []),
       db.lead
         .groupBy({
           by: ['stageId'],
-          where: { createdAt: { gte: start, lte: end } },
+          where: this.tenantLeadWhere({
+            createdAt: { gte: start, lte: end },
+          }),
           _count: { _all: true },
         })
         .catch(() => []),
       db.team
         .findMany({
-          where: { isActive: true },
+          where: this.tenantTeamWhere({ isActive: true }),
           orderBy: { createdAt: 'asc' },
           select: {
             id: true,
@@ -3163,7 +3645,10 @@ export class DashboardService {
         .catch(() => []),
       db.user
         .findMany({
-          where: { role: { in: operationalRoles }, isActive: true },
+          where: this.tenantUserWhere({
+            role: { in: operationalRoles },
+            isActive: true,
+          }),
           select: {
             id: true,
             fullName: true,
@@ -3175,10 +3660,10 @@ export class DashboardService {
         .catch(() => []),
       db.followUp
         .findMany({
-          where: {
+          where: this.tenantFollowUpWhere({
             completedAt: null,
             scheduledAt: { lte: end },
-          },
+          }),
           take: 8,
           orderBy: [{ scheduledAt: 'asc' }],
           select: {
@@ -3199,9 +3684,9 @@ export class DashboardService {
         .catch(() => []),
       db.siteVisit
         .findMany({
-          where: {
+          where: this.tenantSiteVisitWhere({
             scheduledAt: { gte: start, lte: end },
-          },
+          }),
           take: 8,
           orderBy: [{ scheduledAt: 'asc' }],
           select: {
@@ -3231,11 +3716,11 @@ export class DashboardService {
         .catch(() => []),
       db.followUp
         .findMany({
-          where: {
+          where: this.tenantFollowUpWhere({
             completedAt: { not: null },
             assignedToId: { not: null },
             updatedAt: { gte: start, lte: end },
-          },
+          }),
           select: {
             id: true,
             assignedToId: true,
@@ -3245,9 +3730,9 @@ export class DashboardService {
         .catch(() => []),
       db.followUp
         .findMany({
-          where: {
+          where: this.tenantFollowUpWhere({
             scheduledAt: { gte: todayStart, lt: tomorrowStart },
-          },
+          }),
           take: 6,
           orderBy: [{ scheduledAt: 'asc' }],
           select: {
@@ -3268,9 +3753,9 @@ export class DashboardService {
         .catch(() => []),
       db.siteVisit
         .findMany({
-          where: {
+          where: this.tenantSiteVisitWhere({
             scheduledAt: { gte: todayStart, lt: tomorrowStart },
-          },
+          }),
           take: 6,
           orderBy: [{ scheduledAt: 'asc' }],
           select: {
@@ -3297,9 +3782,9 @@ export class DashboardService {
         .catch(() => []),
       db.siteVisit
         .findMany({
-          where: {
+          where: this.tenantSiteVisitWhere({
             scheduledAt: { gte: now },
-          },
+          }),
           take: 4,
           orderBy: [{ scheduledAt: 'asc' }],
           select: {
@@ -3326,10 +3811,10 @@ export class DashboardService {
         .catch(() => []),
       db.followUp
         .findMany({
-          where: {
+          where: this.tenantFollowUpWhere({
             completedAt: null,
             scheduledAt: { gte: todayStart },
-          },
+          }),
           take: 4,
           orderBy: [{ scheduledAt: 'asc' }],
           select: {
@@ -3348,7 +3833,7 @@ export class DashboardService {
         .catch(() => []),
       db.activity
         .findMany({
-          where: { occurredAt: { lte: end } },
+          where: this.tenantActivityWhere({ occurredAt: { lte: end } }),
           take: 6,
           orderBy: { occurredAt: 'desc' },
           select: {
@@ -3368,7 +3853,7 @@ export class DashboardService {
         .catch(() => []),
       db.siteVisit
         .findMany({
-          where: {
+          where: this.tenantSiteVisitWhere({
             scheduledAt: {
               gte: this.startOfDay(
                 new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000),
@@ -3376,7 +3861,7 @@ export class DashboardService {
               lt: tomorrowStart,
             },
             OR: [{ status: 'Completed' }, { checkedOutAt: { not: null } }],
-          },
+          }),
           select: {
             scheduledAt: true,
           },
@@ -3384,7 +3869,7 @@ export class DashboardService {
         .catch(() => []),
       db.booking
         .findMany({
-          where: {
+          where: this.tenantBookingWhere({
             bookingDate: {
               gte: this.startOfDay(
                 new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000),
@@ -3392,7 +3877,7 @@ export class DashboardService {
               lt: tomorrowStart,
             },
             status: { in: ['Booked', 'Completed', 'Converted'] },
-          },
+          }),
           select: {
             bookingDate: true,
           },
@@ -3400,7 +3885,7 @@ export class DashboardService {
         .catch(() => []),
       db.siteVisit
         .findMany({
-          where: {
+          where: this.tenantSiteVisitWhere({
             scheduledAt: {
               gte: this.startOfDay(
                 new Date(todayStart.getTime() - 13 * 24 * 60 * 60 * 1000),
@@ -3410,7 +3895,7 @@ export class DashboardService {
               ),
             },
             OR: [{ status: 'Completed' }, { checkedOutAt: { not: null } }],
-          },
+          }),
           select: {
             scheduledAt: true,
           },
@@ -3418,7 +3903,7 @@ export class DashboardService {
         .catch(() => []),
       db.booking
         .findMany({
-          where: {
+          where: this.tenantBookingWhere({
             bookingDate: {
               gte: this.startOfDay(
                 new Date(todayStart.getTime() - 13 * 24 * 60 * 60 * 1000),
@@ -3428,7 +3913,7 @@ export class DashboardService {
               ),
             },
             status: { in: ['Booked', 'Completed', 'Converted'] },
-          },
+          }),
           select: {
             bookingDate: true,
           },
@@ -3570,13 +4055,13 @@ export class DashboardService {
     const [leadAssignments, dueFollowUps, visitsToday] = await Promise.all([
       db.lead
         .findMany({
-          where: {
+          where: this.tenantLeadWhere({
             OR: [
               { telecallerId: { in: allRelevantUserIds } },
               { fieldExecutiveId: { in: allRelevantUserIds } },
               { ownerId: { in: allRelevantUserIds } },
             ],
-          },
+          }),
           select: {
             id: true,
             telecallerId: true,
@@ -3587,11 +4072,11 @@ export class DashboardService {
         .catch(() => []),
       db.followUp
         .findMany({
-          where: {
+          where: this.tenantFollowUpWhere({
             completedAt: null,
             assignedToId: { in: allRelevantUserIds },
             scheduledAt: { lte: end },
-          },
+          }),
           select: {
             id: true,
             assignedToId: true,
@@ -3601,10 +4086,10 @@ export class DashboardService {
         .catch(() => []),
       db.siteVisit
         .findMany({
-          where: {
+          where: this.tenantSiteVisitWhere({
             assignedExecutiveId: { in: allRelevantUserIds },
             scheduledAt: { gte: start, lte: end },
-          },
+          }),
           select: {
             id: true,
             assignedExecutiveId: true,
@@ -3619,23 +4104,20 @@ export class DashboardService {
     const teamBuckets = teams.map((team: any) => {
       const members = (team.members ?? [])
         .map((entry: any) => entry.user)
+        .map((member: any) => userMap.get(member?.id))
         .filter(Boolean);
       const combined = new Map<string, any>();
       members.forEach((member: any) => combined.set(member.id, member));
-      if (
-        team.leader?.id &&
-        operationalRoles.includes(String(team.leader.role ?? ''))
-      ) {
-        combined.set(team.leader.id, team.leader);
+      const leader = team.leader?.id ? userMap.get(team.leader.id) : null;
+      if (leader?.id && operationalRoles.some((role) => role === leader.role)) {
+        combined.set(leader.id, leader);
       }
       const allMembers = Array.from(combined.values());
       return {
         id: team.id,
         name: team.name,
         leaderName:
-          team.leader?.fullName?.trim() ||
-          team.leader?.email?.trim() ||
-          'No leader',
+          leader?.fullName?.trim() || leader?.email?.trim() || 'No leader',
         memberIds: allMembers.map((member: any) => member.id),
         telecallerIds: allMembers
           .filter((member: any) => member.role === 'TELECALLER')
@@ -3791,8 +4273,9 @@ export class DashboardService {
         assignedToName:
           assignee?.fullName?.trim() || assignee?.email?.trim() || 'Unassigned',
         assignedToImage: assignee?.avatarStorageKey ?? null,
-        assignedToRole:
-          assignee?.role ? getUserRoleLabel(assignee.role) : 'Sales',
+        assignedToRole: assignee?.role
+          ? getUserRoleLabel(assignee.role)
+          : 'Sales',
         scheduledAt: followUp.scheduledAt,
         dueLabel: formatDateTime(followUp.scheduledAt),
         nextAction: followUp.nextAction ?? 'Follow up',
@@ -4089,6 +4572,7 @@ export class DashboardService {
   }
 
   async getTelecallerDashboardData(userId: string) {
+    await this.tenantAccess.assertEmployee(userId);
     const db = this.prisma as any;
     const [
       totalAssignedLeads,
@@ -4106,59 +4590,64 @@ export class DashboardService {
       recentActivities,
       callLogs,
     ] = await Promise.all([
-      db.lead.count({ where: { telecallerId: userId } }).catch(() => 0),
+      db.lead
+        .count({ where: this.tenantLeadWhere({ telecallerId: userId }) })
+        .catch(() => 0),
       db.lead
         .count({
-          where: {
+          where: this.tenantLeadWhere({
             telecallerId: userId,
             createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-          },
+          }),
         })
         .catch(() => 0),
       db.followUp
         .count({
-          where: {
+          where: this.tenantFollowUpWhere({
             assignedToId: userId,
             scheduledAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-          },
+          }),
         })
         .catch(() => 0),
       db.followUp
         .count({
-          where: {
+          where: this.tenantFollowUpWhere({
             assignedToId: userId,
             scheduledAt: { lt: new Date() },
             completedAt: null,
-          },
+          }),
         })
         .catch(() => 0),
       db.lead
         .count({
-          where: {
+          where: this.tenantLeadWhere({
             telecallerId: userId,
             interestLevel: { in: ['Interested', 'High', 'Very High'] },
-          },
+          }),
         })
         .catch(() => 0),
       db.lead
         .count({
-          where: { telecallerId: userId, interestLevel: 'Not Interested' },
+          where: this.tenantLeadWhere({
+            telecallerId: userId,
+            interestLevel: 'Not Interested',
+          }),
         })
         .catch(() => 0),
       db.siteVisit
         .count({
-          where: {
+          where: this.tenantSiteVisitWhere({
             assignedExecutiveId: userId,
             status: { in: ['Scheduled', 'Upcoming'] },
-          },
+          }),
         })
         .catch(() => 0),
       db.booking
         .count({
-          where: {
+          where: this.tenantBookingWhere({
             status: 'Booked',
             lead: { telecallerId: userId },
-          },
+          }),
         })
         .catch(() => 0),
       db.callLog.count({ where: { userId } }).catch(() => 0),
@@ -4167,11 +4656,11 @@ export class DashboardService {
         .catch(() => 0),
       db.followUp
         .findMany({
-          where: {
+          where: this.tenantFollowUpWhere({
             assignedToId: userId,
             completedAt: null,
             scheduledAt: { gte: new Date() },
-          },
+          }),
           take: 5,
           orderBy: { scheduledAt: 'asc' },
           include: { lead: { include: { requirement: true } } },
@@ -4179,7 +4668,7 @@ export class DashboardService {
         .catch(() => []),
       db.followUp
         .findMany({
-          where: {
+          where: this.tenantFollowUpWhere({
             assignedToId: userId,
             completedAt: null,
             setReminder: true,
@@ -4187,7 +4676,7 @@ export class DashboardService {
               gte: new Date(new Date().setHours(0, 0, 0, 0)),
               lt: new Date(new Date().setHours(23, 59, 59, 999)),
             },
-          },
+          }),
           take: 10,
           orderBy: { scheduledAt: 'asc' },
           include: { lead: { include: { requirement: true } } },
@@ -4195,7 +4684,7 @@ export class DashboardService {
         .catch(() => []),
       db.activity
         .findMany({
-          where: { actorId: userId },
+          where: this.tenantActivityWhere({ actorId: userId }),
           take: 5,
           orderBy: { occurredAt: 'desc' },
         })
@@ -4232,7 +4721,11 @@ export class DashboardService {
     const contacted = await db.callLog
       .groupBy({
         by: ['leadId'],
-        where: { userId, leadId: { not: null } },
+        where: {
+          userId,
+          leadId: { not: null },
+          lead: { organizationId: this.organizationId },
+        },
       })
       .then((rows: any[]) => rows.length)
       .catch(() => 0);
@@ -4327,6 +4820,7 @@ export class DashboardService {
   }
 
   async getFieldExecutiveDashboardData(userId: string) {
+    await this.tenantAccess.assertEmployee(userId);
     const db = this.prisma as any;
     const now = new Date();
     const todayStart = new Date(now);
@@ -4334,7 +4828,7 @@ export class DashboardService {
     const tomorrowStart = new Date(todayStart);
     tomorrowStart.setDate(tomorrowStart.getDate() + 1);
     const activeStatuses = ['Scheduled', 'Upcoming', 'Confirmed'];
-    const visitWhere = {
+    const visitWhere: Prisma.SiteVisitWhereInput = {
       OR: [
         { assignedExecutiveId: userId },
         { createdById: userId },
@@ -4364,7 +4858,7 @@ export class DashboardService {
       activities,
     ] = await Promise.all([
       db.lead.count({
-        where: {
+        where: this.tenantLeadWhere({
           deletedAt: null,
           OR: [
             { ownerId: userId },
@@ -4375,75 +4869,95 @@ export class DashboardService {
             { siteVisits: { some: { assignedExecutiveId: userId } } },
             { followUps: { some: { assignedToId: userId } } },
           ],
-        },
+        }),
       }),
       db.siteVisit.count({
-        where: {
-          ...visitWhere,
-          scheduledAt: { gte: todayStart, lt: tomorrowStart },
-        },
-      }),
-      db.siteVisit.count({
-        where: {
-          ...visitWhere,
-          scheduledAt: { gte: now },
-          status: { in: activeStatuses },
-        },
-      }),
-      db.siteVisit.count({
-        where: {
-          ...visitWhere,
-          OR: [
-            { status: { in: ['Completed', 'Visited', 'Done'] } },
-            { checkedOutAt: { not: null } },
+        where: this.tenantSiteVisitWhere({
+          AND: [
+            visitWhere,
+            { scheduledAt: { gte: todayStart, lt: tomorrowStart } },
           ],
-        },
+        }),
+      }),
+      db.siteVisit.count({
+        where: this.tenantSiteVisitWhere({
+          AND: [
+            visitWhere,
+            { scheduledAt: { gte: now }, status: { in: activeStatuses } },
+          ],
+        }),
+      }),
+      db.siteVisit.count({
+        where: this.tenantSiteVisitWhere({
+          AND: [
+            visitWhere,
+            {
+              OR: [
+                { status: { in: ['Completed', 'Visited', 'Done'] } },
+                { checkedOutAt: { not: null } },
+              ],
+            },
+          ],
+        }),
       }),
       db.followUp.count({
-        where: {
+        where: this.tenantFollowUpWhere({
           assignedToId: userId,
           completedAt: null,
           scheduledAt: { gte: todayStart },
-        },
+        }),
       }),
       db.siteVisit.count({
-        where: {
-          ...visitWhere,
-          scheduledAt: { lt: now },
-          status: { in: activeStatuses },
-          checkedInAt: null,
-        },
+        where: this.tenantSiteVisitWhere({
+          AND: [
+            visitWhere,
+            {
+              scheduledAt: { lt: now },
+              status: { in: activeStatuses },
+              checkedInAt: null,
+            },
+          ],
+        }),
       }),
       db.siteVisit.count({
-        where: {
-          ...visitWhere,
-          scheduledAt: { gte: todayStart, lt: tomorrowStart },
-          checkedInAt: null,
-          status: { in: activeStatuses },
-        },
+        where: this.tenantSiteVisitWhere({
+          AND: [
+            visitWhere,
+            {
+              scheduledAt: { gte: todayStart, lt: tomorrowStart },
+              checkedInAt: null,
+              status: { in: activeStatuses },
+            },
+          ],
+        }),
       }),
       db.booking.count({
-        where: {
+        where: this.tenantBookingWhere({
           closedById: userId,
           status: { in: ['Booked', 'Completed', 'Converted'] },
-        },
+        }),
       }),
       db.siteVisit.findMany({
-        where: {
-          ...visitWhere,
-          scheduledAt: { gte: todayStart, lt: tomorrowStart },
-        },
+        where: this.tenantSiteVisitWhere({
+          AND: [
+            visitWhere,
+            { scheduledAt: { gte: todayStart, lt: tomorrowStart } },
+          ],
+        }),
         include: { lead: true, project: true, unit: true },
         orderBy: { scheduledAt: 'asc' },
       }),
       db.followUp.findMany({
-        where: { assignedToId: userId, completedAt: null },
+        where: this.tenantFollowUpWhere({
+          assignedToId: userId,
+          completedAt: null,
+        }),
         include: { lead: true },
         orderBy: { scheduledAt: 'asc' },
         take: 5,
       }),
       db.activity.findMany({
-        where: { actorId: userId },
+        where: this.tenantActivityWhere({ actorId: userId }),
         orderBy: { occurredAt: 'desc' },
         take: 6,
       }),
