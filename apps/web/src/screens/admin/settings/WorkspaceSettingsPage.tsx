@@ -1332,11 +1332,7 @@ export function WorkspaceSettingsPage() {
 
       {/* Tab: Integrations */}
       {activeTab === "integrations" && (
-        <IntegrationsSettingsPanel
-          subdomain={form.subdomain}
-          customDomain={form.customDomain}
-          customDomainVerified={form.customDomainVerified}
-        />
+        <IntegrationsSettingsPanel />
       )}
 
       {/* Login Page Visual CMS Modal */}

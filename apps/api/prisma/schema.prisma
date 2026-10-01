@@ -87,7 +87,6 @@ model Organization {
   auditLogs               AuditLog[]
   portalIntegrations      PortalIntegration[]
   housingIntegrations     HousingIntegration[]
-  googleMapsConfig        OrganizationGoogleMapsConfig?
   notificationSettings    NotificationSetting[]
   notifications           Notification[]
   whatsappConfig          OrganizationWhatsAppConfig?
@@ -213,7 +212,6 @@ model User {
   extraIncentivesCreated      BookingExtraIncentive[]      @relation("ExtraIncentiveCreator")
   loginOtpChallenges          LoginOtpChallenge[]
   twoFactorRoleSettingUpdates RoleTwoFactorSetting[]       @relation("RoleTwoFactorSettingUpdater")
-  googleMapsConfigUpdates      OrganizationGoogleMapsConfig[] @relation("GoogleMapsConfigUpdater")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1533,20 +1531,6 @@ model HousingIntegration {
 
   @@unique([organizationId])
   @@index([organizationId, isActive])
-}
-
-model OrganizationGoogleMapsConfig {
-  id              String       @id @default(uuid())
-  organizationId  String       @unique
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  encryptedApiKey String
-  keyLastFour     String
-  updatedById     String?
-  updatedBy       User?        @relation("GoogleMapsConfigUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-
-  @@index([updatedById])
 }
 
 model NotificationSetting {

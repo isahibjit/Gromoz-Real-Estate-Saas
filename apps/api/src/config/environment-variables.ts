@@ -33,7 +33,6 @@ export interface EnvironmentVariables {
   RAZORPAY_KEY_ID?: string;
   RAZORPAY_KEY_SECRET?: string;
   RAZORPAY_WEBHOOK_SECRET?: string;
-  INTEGRATION_CREDENTIAL_ENCRYPTION_KEY?: string;
   WHATSAPP_PLATFORM_API_URL?: string;
   WHATSAPP_PLATFORM_API_KEY?: string;
   WHATSAPP_PLATFORM_WABA_NUMBER?: string;
@@ -79,10 +78,6 @@ export const validationSchemaForEnv = Joi.object<EnvironmentVariables, true>({
   RAZORPAY_KEY_ID: Joi.string().allow('').optional(),
   RAZORPAY_KEY_SECRET: Joi.string().allow('').optional(),
   RAZORPAY_WEBHOOK_SECRET: Joi.string().allow('').optional(),
-  INTEGRATION_CREDENTIAL_ENCRYPTION_KEY: Joi.string()
-    .pattern(/^(?:[A-Fa-f0-9]{64}|[A-Za-z0-9+/]{43}=)$/)
-    .allow('')
-    .optional(),
   WHATSAPP_PLATFORM_API_URL: Joi.string()
     .uri({ scheme: ['https'] })
     .allow('')

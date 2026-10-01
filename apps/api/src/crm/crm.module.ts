@@ -45,9 +45,6 @@ import {
 } from './housing-integrations.controller';
 import { HousingIntegrationsService } from './housing-integrations.service';
 import { MobileLeadsController } from './mobile-leads.controller';
-import { GoogleMapsIntegrationController } from './google-maps-integration.controller';
-import { GoogleMapsCredentialService } from './google-maps-credential.service';
-import { GoogleMapsIntegrationService } from './google-maps-integration.service';
 import { PinbotWhatsAppService } from './notifications/pinbot-whatsapp.service';
 import { TenantNotificationService } from './notifications/tenant-notification.service';
 import { WhatsAppCredentialService } from './notifications/whatsapp-credential.service';
@@ -70,7 +67,6 @@ import { WhatsAppDispatchWorker } from './notifications/whatsapp-dispatch.worker
   ],
   controllers: [
     MobileLeadsController,
-    GoogleMapsIntegrationController,
     LeadsController,
     ContactLeadsController,
     LeadListColumnsController,
@@ -105,8 +101,6 @@ import { WhatsAppDispatchWorker } from './notifications/whatsapp-dispatch.worker
     CrmService,
     EmailConnectorsService,
     HousingIntegrationsService,
-    GoogleMapsCredentialService,
-    GoogleMapsIntegrationService,
     AutoAssignmentWorker,
     FollowUpReminderWorker,
     WhatsAppCredentialService,

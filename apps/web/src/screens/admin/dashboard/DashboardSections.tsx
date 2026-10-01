@@ -22,7 +22,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { APIProvider, Map, AdvancedMarker, useMap } from "@vis.gl/react-google-maps";
-import { useGoogleMapsRuntimeConfig } from "../../../common/queries/useGoogleMapsIntegration";
+import { usePlatformGoogleMaps } from "../../../common/queries/usePlatformGoogleMaps";
 import {
   CartesianGrid,
   Cell,
@@ -307,7 +307,7 @@ function LiveExecutiveMap({
   rows: LiveFieldExecutiveLocation[];
   selectedId: string | null;
 }) {
-  const { apiKey, isLoading, isError } = useGoogleMapsRuntimeConfig();
+  const { apiKey } = usePlatformGoogleMaps();
   const selectedExecutive =
     rows.find((row) => row.id === selectedId) ?? rows[0] ?? null;
   const center =
@@ -319,29 +319,11 @@ function LiveExecutiveMap({
         }
       : defaultCenter;
 
-  if (isLoading) {
-    return (
-      <DashboardEmptyState
-        title="Loading map configuration"
-        description="Checking this workspace's Google Maps configuration."
-      />
-    );
-  }
-
-  if (isError) {
-    return (
-      <DashboardEmptyState
-        title="Google Maps could not be loaded"
-        description="The workspace map configuration request failed. Refresh the page to try again."
-      />
-    );
-  }
-
   if (!apiKey) {
     return (
       <DashboardEmptyState
-        title="Google Maps is not configured"
-        description="Configure Google Maps in Workspace Settings to enable live executive tracking."
+        title="Live map unavailable"
+        description="The platform map service is currently unavailable. Contact platform support if the issue continues."
       />
     );
   }

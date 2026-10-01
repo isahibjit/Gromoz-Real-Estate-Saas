@@ -10,7 +10,7 @@ import {
 } from "@vis.gl/react-google-maps";
 import { Crosshair, LocateFixed, MapPinned } from "lucide-react";
 import { Badge, Button, Input, SearchInput } from "ui";
-import { useGoogleMapsRuntimeConfig } from "../../../common/queries/useGoogleMapsIntegration";
+import { usePlatformGoogleMaps } from "../../../common/queries/usePlatformGoogleMaps";
 
 declare const google: any;
 
@@ -349,8 +349,7 @@ export function ProjectGeofencePicker({
   errors,
   onChange,
 }: ProjectGeofencePickerProps) {
-  const { apiKey, isLoading: mapsConfigLoading, isError: mapsConfigError } =
-    useGoogleMapsRuntimeConfig();
+  const { apiKey } = usePlatformGoogleMaps();
   const [locationPending, setLocationPending] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [pulseFrame, setPulseFrame] = useState(0);
@@ -598,8 +597,8 @@ export function ProjectGeofencePicker({
                   />
                 ) : (
                   <div className="rounded-md border border-dashed border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-muted-foreground">
-                    Configure Google Maps in Workspace Settings to enable place
-                    search and click-to-pin geofence selection.
+                    The platform map service is unavailable. You can still
+                    enter coordinates manually.
                   </div>
                 )}
 
@@ -687,11 +686,8 @@ export function ProjectGeofencePicker({
         ) : (
           <div className="space-y-5">
             <div className="rounded-md border border-dashed border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-muted-foreground">
-              {mapsConfigLoading
-                ? "Loading this workspace's Google Maps configuration..."
-                : mapsConfigError
-                  ? "Google Maps configuration could not be loaded. You can still enter coordinates manually."
-                  : "Configure Google Maps in Workspace Settings to enable place search and click-to-pin geofence selection."}
+              The platform map service is unavailable. You can still enter
+              coordinates manually.
             </div>
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(240px,0.8fr)]">
               <div className="rounded-md border border-slate-200 bg-slate-50/80 p-4">
@@ -802,9 +798,8 @@ export function ProjectGeofencePicker({
               </div>
             </div>
             <div className="flex h-[340px] items-center justify-center rounded-md border border-dashed border-slate-200 bg-white px-6 text-center text-sm font-semibold text-muted-foreground">
-              {mapsConfigLoading
-                ? "Loading map configuration..."
-                : "Google Maps is unavailable, but manual latitude, longitude, and radius entry remains available."}
+              Google Maps is unavailable, but manual latitude, longitude, and
+              radius entry remains available.
             </div>
           </div>
         )}
