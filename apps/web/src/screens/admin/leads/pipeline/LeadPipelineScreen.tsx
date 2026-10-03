@@ -2,32 +2,32 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   BarChart3,
-  Bath,
-  BedDouble,
-  Bell,
+  ArrowRight,
   Building2,
   CalendarCheck,
-  CalendarPlus,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Download,
   Eye,
-  Filter,
   FolderKanban,
-  Import,
+  GripVertical,
   IndianRupee,
   Info,
   ListFilter,
   Loader2,
-  MessageCircle,
-  Phone,
   Plus,
+  RefreshCw,
+  Users,
   UserCheck,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import { getApiErrorMessage } from "../../../../common/apiError";
-import { WorkspacePage } from "../../../../components/layout/PageHeader";
+import {
+  PageHeader,
+  WorkspacePage,
+} from "../../../../components/layout/PageHeader";
+import { DashboardKpiCard } from "../../../../common/dashboard/DashboardKpiCard";
 import {
   Avatar,
   Badge,
@@ -39,6 +39,12 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   Input,
   Select,
   SelectContent,
@@ -52,14 +58,17 @@ import {
   cn,
   AvatarFallback,
 } from "ui";
-import { DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu";
 import { scheduledInputToIso } from "../../../../common/time";
 
 import { useDashboardLayout } from "../../dashboard/DashboardLayoutContext";
 import type {
   PipelineColumn,
   PipelineLead,
+  PipelineOption,
+  PipelineSourcePerformance,
+  PipelineStagePerformance,
   PipelineStatus,
+  PipelineSummary,
 } from "./useLeadPipeline";
 import {
   useLeadPipeline,
@@ -104,6 +113,47 @@ const lostReasons = [
   "Not Interested",
   "Other",
 ];
+
+const summaryCardStyles: ReadonlyArray<{
+  keywords: readonly string[];
+  icon: LucideIcon;
+  toneClassName: string;
+}> = [
+  {
+    keywords: ["total"],
+    icon: FolderKanban,
+    toneClassName: "bg-primary/10 text-primary",
+  },
+  {
+    keywords: ["site visit", "meeting"],
+    icon: CalendarCheck,
+    toneClassName: "bg-warning/10 text-warning",
+  },
+  {
+    keywords: ["booked", "won", "converted"],
+    icon: CheckCircle2,
+    toneClassName: "bg-success/10 text-success",
+  },
+  {
+    keywords: ["assigned"],
+    icon: UserCheck,
+    toneClassName: "bg-secondary/10 text-secondary",
+  },
+];
+
+const defaultSummaryCardStyle = {
+  icon: Users,
+  toneClassName: "bg-info/10 text-info",
+};
+
+const getSummaryCardStyle = (label: string) => {
+  const normalizedLabel = label.toLowerCase();
+  return (
+    summaryCardStyles.find(({ keywords }) =>
+      keywords.some((keyword) => normalizedLabel.includes(keyword)),
+    ) ?? defaultSummaryCardStyle
+  );
+};
 
 const initials = (name: string) =>
   name
@@ -158,11 +208,14 @@ function PipelineSelect({
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-10 min-w-[150px] rounded-md bg-card text-xs font-bold shadow-none">
+      <SelectTrigger
+        aria-label={placeholder}
+        className="h-10 min-w-36 rounded-md bg-card text-xs font-bold shadow-none"
+      >
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="all">All {placeholder}</SelectItem>
+        <SelectItem value="all">All {placeholder.toLowerCase()}</SelectItem>
         {options.map((option) => (
           <SelectItem key={option.id} value={option.id}>
             {option.name}
@@ -175,19 +228,40 @@ function PipelineSelect({
 
 function LeadCard({
   lead,
+  statuses,
+  currentStatusId,
+  disabled,
   onDragStart,
+  onDragEnd,
+  onMove,
 }: {
   lead: PipelineLead;
+  statuses: PipelineStatus[];
+  currentStatusId: string;
+  disabled: boolean;
   onDragStart: (lead: PipelineLead) => void;
+  onDragEnd: () => void;
+  onMove: (lead: PipelineLead, status: PipelineStatus) => void;
 }) {
   return (
     <Card
-      draggable
-      onDragStart={() => onDragStart(lead)}
-      className="cursor-grab rounded-lg border-slate-200 bg-card p-3 shadow-none transition hover:border-primary/35 hover:shadow-sm active:cursor-grabbing"
+      draggable={!disabled}
+      onDragStart={(event) => {
+        if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+        onDragStart(lead);
+      }}
+      onDragEnd={onDragEnd}
+      className={cn(
+        "group cursor-grab rounded-lg border-slate-200 bg-card p-3 shadow-none transition hover:border-primary/35 hover:shadow-sm active:cursor-grabbing",
+        disabled && "cursor-default opacity-70",
+      )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
+          <GripVertical
+            className="size-4 shrink-0 text-muted-foreground/60"
+            aria-hidden="true"
+          />
           <Avatar className="size-8">
             <AvatarFallback className="bg-primary/10 text-[11px] text-primary">
               {initials(lead.name)}
@@ -197,9 +271,11 @@ function LeadCard({
             <p className="truncate text-xs font-extrabold text-foreground">
               {lead.name}
             </p>
-            <p className="truncate text-[11px] font-semibold text-muted-foreground">
-              {lead.mobile}
-            </p>
+            <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+              <span className="truncate">{lead.mobile}</span>
+              <span aria-hidden="true">·</span>
+              <span className="shrink-0">{lead.displayId}</span>
+            </div>
           </div>
         </div>
         <Button
@@ -215,9 +291,11 @@ function LeadCard({
         </Button>
       </div>
 
-      <div className="mt-3 space-y-1.5 text-[11px] font-semibold text-muted-foreground">
-        <div className="flex justify-between gap-2">
-          <span className="truncate">{lead.source}</span>
+      <div className="mt-3 space-y-2 text-[11px] font-semibold text-muted-foreground">
+        <div className="flex items-center justify-between gap-2">
+          <Badge className="max-w-32 truncate px-2 py-0 text-[10px]">
+            {lead.source}
+          </Badge>
           <span className="shrink-0 font-extrabold text-secondary">
             {lead.budget}
           </span>
@@ -226,7 +304,7 @@ function LeadCard({
         {lead.project ? <p className="truncate">{lead.project}</p> : null}
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+      <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
         <div className="min-w-0">
           <p className="truncate text-[10px] font-bold text-muted-foreground">
             {lead.assignedUser?.name ?? "Unassigned"}
@@ -235,25 +313,40 @@ function LeadCard({
             {lead.lastActivity}
           </p>
         </div>
-        <div className="flex shrink-0 gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-7 text-secondary"
-            aria-label={`Call ${lead.name}`}
-          >
-            <Phone className="size-3.5" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-7 text-success"
-            aria-label={`WhatsApp ${lead.name}`}
-          >
-            <MessageCircle className="size-3.5" />
-          </Button>
+        <div className="flex shrink-0 items-center gap-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-7 text-primary"
+                aria-label={`Move ${lead.name} to another stage`}
+                disabled={disabled}
+              >
+                <ArrowRight className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuLabel>Move to stage</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {statuses
+                .filter((status) => status.id !== currentStatusId)
+                .map((status) => (
+                  <DropdownMenuItem
+                    key={status.id}
+                    onSelect={() => onMove(lead, status)}
+                  >
+                    <span
+                      className="size-2.5 shrink-0 rounded-sm"
+                      style={{ backgroundColor: status.color }}
+                      aria-hidden="true"
+                    />
+                    <span className="truncate">{status.name}</span>
+                  </DropdownMenuItem>
+                ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </Card>
@@ -263,59 +356,79 @@ function LeadCard({
 function PipelineColumnCard({
   column,
   status,
+  statuses,
   active,
+  disabled,
   onDropLead,
   onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDragLeave,
+  onMove,
 }: {
   column: PipelineColumn;
   status: PipelineStatus;
+  statuses: PipelineStatus[];
   active: boolean;
+  disabled: boolean;
   onDropLead: (status: PipelineStatus) => void;
   onDragStart: (lead: PipelineLead) => void;
+  onDragEnd: () => void;
+  onDragOver: (statusId: string) => void;
+  onDragLeave: () => void;
+  onMove: (lead: PipelineLead, status: PipelineStatus) => void;
 }) {
   return (
     <section
       className={cn(
-        "flex max-h-[660px] min-h-[520px] w-[286px] shrink-0 flex-col rounded-xl border bg-slate-50/80 transition-colors",
-        active ? "border-primary/50 bg-primary/5" : "border-slate-200",
+        "flex max-h-[660px] min-h-[520px] w-72 shrink-0 flex-col overflow-hidden rounded-lg border bg-muted/35 transition-colors",
+        active ? "border-primary/50 bg-primary/5" : "border-border",
       )}
-      onDragOver={(event) => event.preventDefault()}
+      aria-label={`${column.name} stage, ${column.count} leads`}
+      onDragOver={(event) => {
+        event.preventDefault();
+        onDragOver(status.id);
+      }}
+      onDragLeave={onDragLeave}
       onDrop={() => onDropLead(status)}
     >
-      <div className="sticky top-0 z-10 rounded-t-xl border-b border-slate-200 bg-card/95 p-4 backdrop-blur">
+      <span
+        className="h-1 w-full shrink-0"
+        style={{ backgroundColor: column.color }}
+        aria-hidden="true"
+      />
+      <div className="sticky top-0 z-10 border-b border-border bg-card/95 p-4 backdrop-blur">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span
-                className="size-2.5 rounded-full"
-                style={{ backgroundColor: column.color }}
-              />
               <h2 className="truncate text-sm font-extrabold text-foreground">
                 {column.name}
               </h2>
+              <Badge className="px-2 py-0 text-[10px]">
+                {column.count.toLocaleString("en-IN")}
+              </Badge>
             </div>
             <p className="mt-1 text-[11px] font-semibold text-muted-foreground">
-              {column.count.toLocaleString("en-IN")} Leads
-            </p>
-          </div>
-          <div className="shrink-0 text-right">
-            <p
-              className="text-sm font-extrabold"
-              style={{ color: column.color }}
-            >
-              {column.count}
-            </p>
-            <p className="text-[11px] font-bold text-secondary">
               {column.valueLabel}
             </p>
           </div>
+          <GripVertical className="mt-0.5 size-4 text-muted-foreground/50" />
         </div>
       </div>
 
       <div className="crm-sidebar-scrollbar flex-1 space-y-3 overflow-y-auto p-3">
         {column.leads.length ? (
           column.leads.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} onDragStart={onDragStart} />
+            <LeadCard
+              key={lead.id}
+              lead={lead}
+              statuses={statuses}
+              currentStatusId={status.id}
+              disabled={disabled}
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              onMove={onMove}
+            />
           ))
         ) : (
           <div className="flex min-h-[180px] items-center justify-center rounded-lg border border-dashed border-slate-200 bg-card px-4 text-center">
@@ -325,14 +438,10 @@ function PipelineColumnCard({
           </div>
         )}
         {column.hiddenCount > 0 ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 w-full text-xs"
-          >
-            + {column.hiddenCount.toLocaleString("en-IN")} more leads
-          </Button>
+          <p className="rounded-md border border-dashed border-border bg-card px-3 py-2 text-center text-[11px] font-semibold text-muted-foreground">
+            {column.hiddenCount.toLocaleString("en-IN")} more leads match this
+            stage
+          </p>
         ) : null}
       </div>
     </section>
@@ -360,7 +469,7 @@ function CreateVisitSection({
   children,
 }: {
   title: string;
-  icon: any;
+  icon: LucideIcon;
   children: React.ReactNode;
 }) {
   return (
@@ -410,7 +519,6 @@ function MoveDetailsDialog({
   onOpenChange: (open: boolean) => void;
   onSubmit: (values: Record<string, string>) => void;
 }) {
-  const navigate = useNavigate();
   const [values, setValues] = useState<Record<string, string>>({});
   const [previewImageIndex, setPreviewImageIndex] = useState(0);
   const statusName = status?.name.toLowerCase() ?? "";
@@ -428,21 +536,11 @@ function MoveDetailsDialog({
     values.bookingAmount ?? "",
     bookingAmountUnit,
   );
-  const selectedUnitImage = getFirstInventoryImage(
-    selectedUnit,
-    selectedProject,
-  );
-  const selectedProjectImage = getFirstInventoryImage(
-    undefined,
-    selectedProject,
-  );
   const unitTitle = selectedUnit
     ? [selectedUnit.tower, `Unit ${selectedUnit.unitNumber}`]
         .filter(Boolean)
         .join(", ")
     : "";
-  const bedroomCount = selectedUnit?.configuration?.match(/\d+/)?.[0];
-
   const canSubmitBooking =
     !isBooked ||
     (values.projectId &&
@@ -500,7 +598,7 @@ function MoveDetailsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "max-w-xl rounded-[14px] bg-white",
+          "max-w-xl rounded-xl bg-white",
           isBooked && "h-[92vh] max-h-[760px] max-w-6xl overflow-hidden p-0",
         )}
       >
@@ -509,12 +607,15 @@ function MoveDetailsDialog({
             <ScrollArea className="h-full w-full min-h-0 border-r border-slate-200 bg-slate-50/70">
               <aside className="p-6">
                 <div className="flex items-start gap-3">
-                  <span className="flex size-12 items-center justify-center rounded-[12px] bg-blue-50 text-blue-700">
+                  <span className="flex size-12 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
                     <CalendarCheck className="size-6" />
                   </span>
                   <div>
+                    <Badge variant="warning" className="mb-2">
+                      Booking confirmation required
+                    </Badge>
                     <p className="text-xl font-extrabold text-secondary">
-                      Create Booking
+                      Create booking
                     </p>
                     <p className="mt-1 text-sm font-semibold leading-6 text-muted-foreground">
                       Confirm the inventory and booking details to convert this
@@ -525,7 +626,7 @@ function MoveDetailsDialog({
 
                 <div className="mt-8 space-y-3">
                   <CreateVisitSummaryCard
-                    label="Selected Lead"
+                    label="Selected lead"
                     value={lead?.name ?? "Not selected"}
                   />
                   <CreateVisitSummaryCard
@@ -626,11 +727,11 @@ function MoveDetailsDialog({
                     <Info className="mt-0.5 size-4 shrink-0 text-blue-700" />
                     <div>
                       <p className="text-xs font-extrabold text-secondary">
-                        Booking Tip
+                        Booking tip
                       </p>
                       <p className="mt-1 text-xs font-semibold leading-5 text-muted-foreground">
                         Confirming the booking will automatically mark the
-                        selected unit as "Booked" and convert the lead.
+                        selected unit as &quot;Booked&quot; and convert the lead.
                       </p>
                     </div>
                   </div>
@@ -700,7 +801,7 @@ function MoveDetailsDialog({
                               unitId: "",
                             }))
                           }
-                          className="h-11 rounded-[10px]"
+                          className="h-11 rounded-md"
                         />
                       </div>
                       <div className="space-y-1.5">
@@ -729,7 +830,7 @@ function MoveDetailsDialog({
                           onValueChange={(value) =>
                             updateValue("unitId", value === "all" ? "" : value)
                           }
-                          className="h-11 rounded-[10px]"
+                          className="h-11 rounded-md"
                         />
                       </div>
                       <CreateVisitSummaryCard
@@ -757,7 +858,7 @@ function MoveDetailsDialog({
                               value={values.bookingAmount ?? ""}
                               inputMode="decimal"
                               placeholder="Enter amount"
-                              className="h-11 rounded-[10px] pl-9 text-sm font-semibold shadow-none"
+                              className="h-11 rounded-md pl-9 text-sm font-semibold shadow-none"
                               onChange={(event) =>
                                 updateValue(
                                   "bookingAmount",
@@ -776,7 +877,7 @@ function MoveDetailsDialog({
                           >
                             <SelectTrigger
                               aria-label="Booking amount unit"
-                              className="h-11 rounded-[10px] bg-card text-sm font-bold shadow-none"
+                              className="h-11 rounded-md bg-card text-sm font-bold shadow-none"
                             >
                               <SelectValue />
                             </SelectTrigger>
@@ -797,7 +898,7 @@ function MoveDetailsDialog({
                         <FieldLabel label="Booking Date" required />
                         <DatePicker
                           value={values.bookingDate ?? ""}
-                          className="h-11 rounded-[10px] text-sm font-semibold shadow-none"
+                          className="h-11 rounded-md text-sm font-semibold shadow-none"
                           onChange={(event) =>
                             updateValue("bookingDate", event.target.value)
                           }
@@ -810,7 +911,7 @@ function MoveDetailsDialog({
                             value={values.notes ?? ""}
                             maxLength={300}
                             placeholder="Add context for this booking (e.g., customer preference, payment mode, remarks...)"
-                            className="min-h-[80px] rounded-[10px] pr-16 text-sm font-semibold shadow-none resize-none"
+                            className="min-h-20 resize-none rounded-md pr-16 text-sm font-semibold shadow-none"
                             onChange={(event) =>
                               updateValue("notes", event.target.value)
                             }
@@ -833,7 +934,7 @@ function MoveDetailsDialog({
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-10 rounded-[10px] px-5 text-sm shadow-none"
+                    className="h-10 rounded-md px-5 text-sm shadow-none"
                     onClick={() => onOpenChange(false)}
                   >
                     Cancel
@@ -841,7 +942,7 @@ function MoveDetailsDialog({
                   <Button
                     type="button"
                     variant="primary"
-                    className="h-10 rounded-[10px] px-5 text-sm gap-2"
+                    className="h-10 gap-2 rounded-md px-5 text-sm"
                     disabled={submitting || !canSubmitBooking}
                     onClick={() => onSubmit(submitValues)}
                   >
@@ -918,7 +1019,7 @@ function MoveDetailsDialog({
                 disabled={submitting}
                 onClick={() => onSubmit(submitValues)}
               >
-                {submitting ? "Updating..." : "Update Stage"}
+                {submitting ? "Updating..." : "Update stage"}
               </Button>
             </div>
           </>
@@ -931,7 +1032,9 @@ function MoveDetailsDialog({
 export function LeadPipelineScreen() {
   const navigate = useNavigate();
   const [filters, setFilters] = useState(initialFilters);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [draggedLead, setDraggedLead] = useState<PipelineLead | null>(null);
+  const [dragOverStatusId, setDragOverStatusId] = useState<string | null>(null);
   const [pendingStatus, setPendingStatus] = useState<PipelineStatus | null>(
     null,
   );
@@ -989,19 +1092,18 @@ export function LeadPipelineScreen() {
     }
   };
 
-  const handleDropLead = (status: PipelineStatus) => {
-    if (!draggedLead) return;
+  const requestMove = (lead: PipelineLead, status: PipelineStatus) => {
     if (requiresDetails(status)) {
-      setPendingLead(draggedLead);
+      setPendingLead(lead);
       setPendingStatus(status);
       if (status.name.toLowerCase().includes("site visit")) {
         const projectId =
           projectsQuery.data?.projects.find(
-            (project: any) => project.name === draggedLead.project,
+            (project: ProjectCatalogItem) => project.name === lead.project,
           )?.id ?? "";
         setSiteVisitForm((current) => ({
           ...current,
-          leadId: draggedLead.id,
+          leadId: lead.id,
           projectId,
           unitId: "",
           date: "",
@@ -1010,7 +1112,14 @@ export function LeadPipelineScreen() {
       }
       return;
     }
-    void submitMove(draggedLead, status);
+    void submitMove(lead, status);
+  };
+
+  const handleDropLead = (status: PipelineStatus) => {
+    if (!draggedLead) return;
+    requestMove(draggedLead, status);
+    setDraggedLead(null);
+    setDragOverStatusId(null);
   };
 
   const updateFilter = (key: keyof PipelineFilters, value: string) => {
@@ -1018,6 +1127,13 @@ export function LeadPipelineScreen() {
   };
 
   const data = pipelineQuery.data;
+  const activeFilterCount = Object.entries(filters).filter(
+    ([key, value]) => key !== "search" && value && value !== "all",
+  ).length;
+  const visibleLeadCount =
+    data?.columns.reduce((total, column) => total + column.leads.length, 0) ?? 0;
+  const hiddenLeadCount =
+    data?.columns.reduce((total, column) => total + column.hiddenCount, 0) ?? 0;
 
   useDashboardLayout(
     {
@@ -1034,9 +1150,9 @@ export function LeadPipelineScreen() {
               Dashboard
             </Link>
             <ChevronRight className="size-3.5" />
-            <span>Lead Management</span>
+            <span>Lead management</span>
             <ChevronRight className="size-3.5" />
-            <span className="text-foreground">Lead Pipeline</span>
+            <span className="text-foreground">Lead pipeline</span>
           </div>
         ),
       },
@@ -1047,135 +1163,177 @@ export function LeadPipelineScreen() {
   return (
     <>
       <WorkspacePage>
-        <section className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
-          <div>
-            <div className="flex items-center gap-2">
-              <FolderKanban className="size-6 text-primary" />
-              <h1 className="text-2xl font-extrabold text-foreground">
-                Lead Pipeline
-              </h1>
-            </div>
-            <p className="mt-2 text-sm font-medium text-muted-foreground">
-              Drag and drop leads across stages and manage the sales funnel
-              efficiently.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2.5">
-            <Button
-              type="button"
-              variant="outline"
-              className="h-10 gap-2 text-xs"
-            >
-              Pipeline View
-              <ListFilter className="size-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-10 gap-2 text-xs"
-            >
-              <Filter className="size-4" />
-              Filters
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-10 gap-2 text-xs"
-              onClick={() => navigate("/leads/conversion-analytics")}
-            >
-              <BarChart3 className="size-4" />
-              View Analytics
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              className="h-10 gap-2 text-xs"
-              onClick={() =>
-                navigate("/leads/all", { state: { openAddLead: true } })
-              }
-            >
-              <Plus className="size-4" />
-              Add New Lead
-            </Button>
-          </div>
-        </section>
+        <PageHeader
+          title="Lead pipeline"
+          subtitle="Review pipeline value, spot stage bottlenecks, and move leads to their next action."
+          actions={
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void pipelineQuery.refetch()}
+                disabled={pipelineQuery.isFetching}
+              >
+                <RefreshCw
+                  className={cn(
+                    "size-4",
+                    pipelineQuery.isFetching && "animate-spin",
+                  )}
+                />
+                Refresh
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => navigate("/leads/conversion-analytics")}
+              >
+                <BarChart3 className="size-4" />
+                View analytics
+              </Button>
+              <Button
+                type="button"
+                onClick={() =>
+                  navigate("/leads/all", { state: { openAddLead: true } })
+                }
+              >
+                <Plus className="size-4" />
+                Add lead
+              </Button>
+            </>
+          }
+        />
 
-        <section className="grid gap-3 rounded-xl border bg-card p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
-          <div className="sm:col-span-2 lg:col-span-3 xl:col-span-2 2xl:col-span-2">
+        {data?.summary.length ? (
+          <section
+            aria-label="Pipeline summary"
+            className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"
+          >
+            {data.summary.slice(0, 5).map((item: PipelineSummary) => {
+              const style = getSummaryCardStyle(item.label);
+              return (
+                <DashboardKpiCard
+                  key={item.label}
+                  label={item.label}
+                  value={item.count.toLocaleString("en-IN")}
+                  icon={style.icon}
+                  toneClassName={style.toneClassName}
+                  helper={item.valueLabel}
+                />
+              );
+            })}
+          </section>
+        ) : null}
+
+        <Card className="border-border p-3 shadow-none">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <SearchInput
               aria-label="Search pipeline leads"
               value={filters.search}
               onChange={(event) => updateFilter("search", event.target.value)}
-              placeholder="Search leads, customers, projects, mobile number..."
-              className="h-10 text-sm"
+              placeholder="Search by lead, project, or mobile number"
+              className="h-10 flex-1 text-sm lg:max-w-xl"
             />
+            <Button
+              type="button"
+              variant="outline"
+              className="justify-between lg:ml-auto"
+              aria-expanded={filtersOpen}
+              aria-controls="pipeline-filters"
+              onClick={() => setFiltersOpen((current) => !current)}
+            >
+              <span className="flex items-center gap-2">
+                <ListFilter className="size-4" />
+                Filters
+              </span>
+              {activeFilterCount ? (
+                <Badge className="border-primary/20 bg-primary/10 px-2 py-0 text-primary">
+                  {activeFilterCount}
+                </Badge>
+              ) : null}
+            </Button>
+            {activeFilterCount ? (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setFilters(initialFilters)}
+              >
+                Clear filters
+              </Button>
+            ) : null}
           </div>
-          <PipelineSelect
-            value={filters.sourceId}
-            placeholder="Lead Sources"
-            options={data?.filters.sources ?? []}
-            onChange={(value) => updateFilter("sourceId", value)}
-          />
-          <PipelineSelect
-            value={filters.propertyType}
-            placeholder="Property Types"
-            options={data?.filters.propertyTypes ?? []}
-            onChange={(value) => updateFilter("propertyType", value)}
-          />
-          <PipelineSelect
-            value={filters.configuration}
-            placeholder="Configurations"
-            options={data?.filters.configurations ?? []}
-            onChange={(value) => updateFilter("configuration", value)}
-          />
-          <PipelineSelect
-            value={filters.assignedToId}
-            placeholder="Assigned To"
-            options={data?.filters.users ?? []}
-            onChange={(value) => updateFilter("assignedToId", value)}
-          />
-          <PipelineSelect
-            value={filters.executiveId}
-            placeholder="Executives"
-            options={(data?.filters.executives ?? []).map((user: any) => ({
-              id: user.id,
-              name: user.name,
-            }))}
-            onChange={(value) => updateFilter("executiveId", value)}
-          />
-          <PipelineSelect
-            value={filters.managerId}
-            placeholder="Managers"
-            options={(data?.filters.users ?? []).filter(
-              (user: any) =>
-                user.role?.includes("MANAGER") || user.role === "ADMIN",
-            )}
-            onChange={(value) => updateFilter("managerId", value)}
-          />
-          <PipelineSelect
-            value={filters.projectId}
-            placeholder="Projects"
-            options={data?.filters.projects ?? []}
-            onChange={(value) => updateFilter("projectId", value)}
-          />
-          <Input
-            type="date"
-            value={filters.from}
-            onChange={(event) => updateFilter("from", event.target.value)}
-            className="h-10 w-full text-xs font-bold"
-            aria-label="From date"
-          />
-          <Input
-            type="date"
-            value={filters.to}
-            onChange={(event) => updateFilter("to", event.target.value)}
-            className="h-10 w-full text-xs font-bold"
-            aria-label="To date"
-          />
-        </section>
+
+          {filtersOpen ? (
+            <div
+              id="pipeline-filters"
+              className="mt-3 grid gap-3 border-t border-border pt-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
+            >
+              <PipelineSelect
+                value={filters.sourceId}
+                placeholder="Lead sources"
+                options={data?.filters.sources ?? []}
+                onChange={(value) => updateFilter("sourceId", value)}
+              />
+              <PipelineSelect
+                value={filters.propertyType}
+                placeholder="Property types"
+                options={data?.filters.propertyTypes ?? []}
+                onChange={(value) => updateFilter("propertyType", value)}
+              />
+              <PipelineSelect
+                value={filters.configuration}
+                placeholder="Configurations"
+                options={data?.filters.configurations ?? []}
+                onChange={(value) => updateFilter("configuration", value)}
+              />
+              <PipelineSelect
+                value={filters.assignedToId}
+                placeholder="Assigned users"
+                options={data?.filters.users ?? []}
+                onChange={(value) => updateFilter("assignedToId", value)}
+              />
+              <PipelineSelect
+                value={filters.executiveId}
+                placeholder="Executives"
+                options={(data?.filters.executives ?? []).map(
+                  (user: PipelineOption) => ({ id: user.id, name: user.name }),
+                )}
+                onChange={(value) => updateFilter("executiveId", value)}
+              />
+              <PipelineSelect
+                value={filters.managerId}
+                placeholder="Managers"
+                options={(data?.filters.users ?? []).filter(
+                  (user: PipelineOption) =>
+                    user.role?.includes("MANAGER") || user.role === "ADMIN",
+                )}
+                onChange={(value) => updateFilter("managerId", value)}
+              />
+              <PipelineSelect
+                value={filters.projectId}
+                placeholder="Projects"
+                options={data?.filters.projects ?? []}
+                onChange={(value) => updateFilter("projectId", value)}
+              />
+              <Input
+                type="date"
+                value={filters.from}
+                onChange={(event) => updateFilter("from", event.target.value)}
+                className="h-10 w-full text-xs font-bold"
+                aria-label="From date"
+              />
+              <Input
+                type="date"
+                value={filters.to}
+                onChange={(event) => updateFilter("to", event.target.value)}
+                className="h-10 w-full text-xs font-bold"
+                aria-label="To date"
+              />
+            </div>
+          ) : null}
+        </Card>
 
         {pipelineQuery.isLoading ? (
-          <Card className="flex min-h-[420px] items-center justify-center rounded-xl border-slate-200 shadow-sm">
+          <Card className="flex min-h-[420px] items-center justify-center border-border shadow-none">
             <div className="flex items-center gap-3 text-sm font-semibold text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
               Loading pipeline...
@@ -1184,91 +1342,142 @@ export function LeadPipelineScreen() {
         ) : null}
 
         {pipelineQuery.error ? (
-          <Card className="rounded-xl border-destructive/20 bg-destructive/5 p-6 text-sm font-semibold text-destructive shadow-sm">
-            Failed to load lead pipeline.
+          <Card className="flex flex-col items-start gap-3 border-destructive/20 bg-destructive/5 p-6 shadow-none">
+            <div>
+              <h2 className="text-sm font-extrabold text-destructive">
+                Pipeline could not be loaded
+              </h2>
+              <p className="mt-1 text-sm font-medium text-muted-foreground">
+                Check your connection and try loading the pipeline again.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void pipelineQuery.refetch()}
+            >
+              <RefreshCw className="size-4" />
+              Try again
+            </Button>
           </Card>
         ) : null}
 
         {data ? (
           <>
-            <section className="rounded-xl border bg-card p-3 shadow-sm">
-              <div className="crm-sidebar-scrollbar flex gap-3 overflow-x-auto pb-2">
-                {data.columns.map((column: PipelineColumn) => {
-                  const status = statusMap.get(column.id);
-                  if (!status) return null;
-                  return (
-                    <PipelineColumnCard
-                      key={column.id}
-                      column={column}
-                      status={status}
-                      active={pendingStatus?.id === status.id}
-                      onDropLead={handleDropLead}
-                      onDragStart={setDraggedLead}
-                    />
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="grid gap-3 rounded-xl border bg-card p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
-              {data.summary.map((item: any) => (
-                <div
-                  key={item.label}
-                  className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3"
-                >
-                  <p className="text-[11px] font-bold text-muted-foreground">
-                    {item.label}
-                  </p>
-                  <p className="mt-1 text-xl font-extrabold text-foreground">
-                    {item.count.toLocaleString("en-IN")}
-                  </p>
-                  <p className="text-xs font-bold text-secondary">
-                    {item.valueLabel}
-                  </p>
-                </div>
-              ))}
-            </section>
-
-            <section className="grid gap-5 xl:grid-cols-[1fr_1.15fr_1.15fr]">
-              <Card className="rounded-xl border-slate-200 p-5 shadow-sm">
-                <h2 className="text-sm font-extrabold text-foreground">
-                  Quick Actions
-                </h2>
-                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-2">
-                  {[
-                    ["Add New Lead", Plus, "/leads/all"],
-                    ["Import Leads", Import, "/leads/import"],
-                    ["Schedule Follow-Up", CalendarPlus, "/leads/follow-up"],
-                    ["Send Notification", Bell, "/leads/all"],
-                    ["Export Leads", Download, "/leads/all"],
-                  ].map(([label, Icon, to]) => (
-                    <Button
-                      key={label as string}
-                      asChild
-                      type="button"
-                      variant="outline"
-                      className="h-16 flex-col gap-1 text-[11px]"
+            <section
+              className="overflow-hidden rounded-lg border border-border bg-card shadow-none"
+              aria-labelledby="pipeline-stages-heading"
+            >
+              <div className="flex flex-col gap-2 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <FolderKanban className="size-4 text-primary" />
+                    <h2
+                      id="pipeline-stages-heading"
+                      className="text-sm font-extrabold text-foreground"
                     >
-                      <Link
-                        to={to as string}
-                        state={
-                          label === "Add New Lead"
-                            ? { openAddLead: true }
-                            : undefined
-                        }
-                      >
-                        <Icon className="size-4 text-primary" />
-                        {label as string}
-                      </Link>
-                    </Button>
-                  ))}
+                      Pipeline stages
+                    </h2>
+                    <Badge>
+                      {data.columns.length.toLocaleString("en-IN")} stages
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs font-medium text-muted-foreground">
+                    Drag cards between columns or use each card&apos;s move action.
+                  </p>
                 </div>
+                <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                  {pipelineQuery.isFetching ? (
+                    <Loader2 className="size-3.5 animate-spin text-primary" />
+                  ) : null}
+                  <span>{data.meta.totalLeads.toLocaleString("en-IN")} leads</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{data.meta.totalValueLabel}</span>
+                </div>
+              </div>
+              {data.columns.length ? (
+                <div className="crm-sidebar-scrollbar flex gap-3 overflow-x-auto p-3">
+                  {data.columns.map((column: PipelineColumn) => {
+                    const status = statusMap.get(column.id);
+                    if (!status) return null;
+                    return (
+                      <PipelineColumnCard
+                        key={column.id}
+                        column={column}
+                        status={status}
+                        statuses={data.filters.statuses}
+                        active={dragOverStatusId === status.id}
+                        disabled={moveLead.isPending}
+                        onDropLead={handleDropLead}
+                        onDragStart={setDraggedLead}
+                        onDragEnd={() => {
+                          setDraggedLead(null);
+                          setDragOverStatusId(null);
+                        }}
+                        onDragOver={setDragOverStatusId}
+                        onDragLeave={() => setDragOverStatusId(null)}
+                        onMove={requestMove}
+                      />
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex min-h-64 items-center justify-center px-6 text-center">
+                  <div className="max-w-sm">
+                    <FolderKanban className="mx-auto size-8 text-muted-foreground" />
+                    <h3 className="mt-3 text-sm font-extrabold text-foreground">
+                      No pipeline stages configured
+                    </h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Add lead statuses in lead masters before managing this
+                      pipeline.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            <section className="grid gap-4 lg:grid-cols-3">
+              <Card className="border-border p-5 shadow-none">
+                <div className="flex items-center gap-2">
+                  <IndianRupee className="size-4 text-primary" />
+                  <h2 className="text-sm font-extrabold text-foreground">
+                    Pipeline overview
+                  </h2>
+                </div>
+                <dl className="mt-4 divide-y divide-border text-sm">
+                  <div className="flex items-center justify-between gap-4 py-2.5 first:pt-0">
+                    <dt className="text-muted-foreground">Total value</dt>
+                    <dd className="font-extrabold text-foreground">
+                      {data.meta.totalValueLabel}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 py-2.5">
+                    <dt className="text-muted-foreground">Total leads</dt>
+                    <dd className="font-extrabold text-foreground">
+                      {data.meta.totalLeads.toLocaleString("en-IN")}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 py-2.5">
+                    <dt className="text-muted-foreground">Cards shown</dt>
+                    <dd className="font-extrabold text-foreground">
+                      {visibleLeadCount.toLocaleString("en-IN")}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 py-2.5 last:pb-0">
+                    <dt className="text-muted-foreground">Additional matches</dt>
+                    <dd className="font-extrabold text-foreground">
+                      {hiddenLeadCount.toLocaleString("en-IN")}
+                    </dd>
+                  </div>
+                </dl>
               </Card>
 
-              <Card className="rounded-xl border-slate-200 p-5 shadow-sm">
+              <Card className="border-border p-5 shadow-none">
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="text-sm font-extrabold text-foreground">
-                    Lead Stage Performance
+                    Stage distribution
                   </h2>
                   <Button
                     asChild
@@ -1277,11 +1486,12 @@ export function LeadPipelineScreen() {
                     size="sm"
                     className="h-8 text-xs text-primary"
                   >
-                    <Link to="/leads/conversion-analytics">View Report</Link>
+                    <Link to="/leads/conversion-analytics">View report</Link>
                   </Button>
                 </div>
                 <div className="mt-5 space-y-3">
-                  {data.stagePerformance.map((item: any) => (
+                  {data.stagePerformance.map(
+                    (item: PipelineStagePerformance) => (
                     <div
                       key={item.stage}
                       className="grid grid-cols-[110px_1fr_42px] items-center gap-3 text-xs font-bold"
@@ -1302,14 +1512,15 @@ export function LeadPipelineScreen() {
                         {item.percent}%
                       </span>
                     </div>
-                  ))}
+                    ),
+                  )}
                 </div>
               </Card>
 
-              <Card className="rounded-xl border-slate-200 p-5 shadow-sm">
+              <Card className="border-border p-5 shadow-none">
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="text-sm font-extrabold text-foreground">
-                    Top Performing Sources
+                    Top lead sources
                   </h2>
                   <Button
                     asChild
@@ -1318,12 +1529,12 @@ export function LeadPipelineScreen() {
                     size="sm"
                     className="h-8 text-xs text-primary"
                   >
-                    <Link to="/reports/lead-source-analytics">View Report</Link>
+                    <Link to="/reports/lead-source-analytics">View report</Link>
                   </Button>
                 </div>
                 <div className="mt-5 space-y-3">
                   {data.topSources.length ? (
-                    data.topSources.map((item: any) => (
+                    data.topSources.map((item: PipelineSourcePerformance) => (
                       <div
                         key={item.name}
                         className="grid grid-cols-[100px_56px_1fr_44px] items-center gap-3 text-xs font-bold"
@@ -1332,7 +1543,7 @@ export function LeadPipelineScreen() {
                           {item.name}
                         </span>
                         <span className="text-muted-foreground">
-                          {item.count} Leads
+                          {item.count} leads
                         </span>
                         <div className="h-2.5 rounded-full bg-slate-100">
                           <div

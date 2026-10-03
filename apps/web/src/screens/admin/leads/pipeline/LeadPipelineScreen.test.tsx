@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
@@ -12,6 +13,13 @@ import { useSiteVisitOptions } from "../site-visits/useSiteVisits";
 
 jest.mock("../../../../common/services/auth.api", () => ({
   logout: jest.fn(),
+}));
+
+jest.mock("../../../../common/api", () => ({
+  api: {
+    get: jest.fn(),
+    post: jest.fn(),
+  },
 }));
 
 jest.mock("./useLeadPipeline", () => ({
@@ -87,11 +95,18 @@ beforeEach(() => {
             sortOrder: 2,
           },
           {
+            id: "status-contacted",
+            name: "Contacted",
+            code: "CONTACTED",
+            color: "#7C3AED",
+            sortOrder: 3,
+          },
+          {
             id: "status-site-visit",
             name: "Site Visit",
             code: "SITE_VISIT",
             color: "#EA580C",
-            sortOrder: 3,
+            sortOrder: 4,
           },
         ],
         sources: [],
@@ -274,10 +289,14 @@ test("opens conversion booking modal when a lead is moved to Booked", async () =
     screen.getByRole("heading", { name: "Convert Lead / Create Booking" }),
   ).toBeInTheDocument();
   expect(screen.getByText("Booking confirmation required")).toBeInTheDocument();
-  expect(screen.getByText("Project")).toBeInTheDocument();
-  expect(screen.getByText("Unit")).toBeInTheDocument();
-  expect(screen.getByText("Booking Amount")).toBeInTheDocument();
-  expect(screen.getByText("Booking Date")).toBeInTheDocument();
+  expect(screen.getByText("Project", { selector: "label" })).toBeInTheDocument();
+  expect(screen.getByText("Unit", { selector: "label" })).toBeInTheDocument();
+  expect(
+    screen.getByText("Booking Amount", { selector: "label" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText("Booking Date", { selector: "label" }),
+  ).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Create Booking" })).toBeDisabled();
   expect(mutateAsync).not.toHaveBeenCalled();
 });
@@ -301,4 +320,35 @@ test("opens the full site visit scheduling dialog when a lead moves to Site Visi
   expect(screen.getByText("Field Handoff")).toBeInTheDocument();
   expect(screen.getByLabelText("Visit date")).toBeInTheDocument();
   expect(screen.getByText("Visit Time")).toBeInTheDocument();
+});
+
+test("reveals advanced filters only when requested", () => {
+  renderPipeline();
+
+  expect(screen.queryByLabelText("Lead sources")).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+
+  expect(screen.getByLabelText("Lead sources")).toBeInTheDocument();
+  expect(screen.getByLabelText("Projects")).toBeInTheDocument();
+  expect(screen.getByLabelText("From date")).toBeInTheDocument();
+});
+
+test("moves a lead through the accessible stage menu", async () => {
+  const user = userEvent.setup();
+  renderPipeline();
+
+  await user.click(
+    screen.getByRole("button", {
+      name: "Move Rahul Sharma to another stage",
+    }),
+  );
+  await user.click(await screen.findByRole("menuitem", { name: "Contacted" }));
+
+  await waitFor(() =>
+    expect(mutateAsync).toHaveBeenCalledWith({
+      leadId: "lead-1",
+      statusId: "status-contacted",
+    }),
+  );
 });
