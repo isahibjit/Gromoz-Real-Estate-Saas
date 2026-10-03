@@ -47,6 +47,7 @@ import { fieldExecutiveSidebarItems } from "../field-executive/fieldExecutiveDat
 import { SendNotificationModal } from "./SendNotificationModal";
 import { api } from "../../common/api";
 import { currentOrganizationId } from "../../common/tenantRequestScope";
+import { WorkspacePage } from "../../components/layout/PageHeader";
 import trurootLogo from "../../assets/truroot-logo.png";
 
 function getNotificationIcon(type: string) {
@@ -289,7 +290,7 @@ export function NotificationsScreen() {
 
   return (
     <>
-      <main className="flex-1 p-6 overflow-auto">
+      <WorkspacePage className="flex-1">
         <div className="mx-auto space-y-6">
           {/* Header Section */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -784,7 +785,7 @@ export function NotificationsScreen() {
             )}
           </Tabs>
         </div>
-      </main>
+      </WorkspacePage>
 
       {/* Notification Preview Modal */}
       <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>

@@ -1472,7 +1472,7 @@ export const PayrollSettingsPage: React.FC = () => {
         </aside>
 
         {/* Content Pane */}
-        <main className="min-w-0 flex-1 transition-all duration-300 ease-in-out">
+        <section className="min-w-0 flex-1 transition-all duration-300 ease-in-out">
           <Card className="rounded-md border border-slate-200 bg-white p-8 min-h-[500px] shadow-card">
             <div className="mb-6 flex items-center justify-between">
               <div>
@@ -1784,7 +1784,7 @@ export const PayrollSettingsPage: React.FC = () => {
               </div>
             )}
           </Card>
-        </main>
+        </section>
       </div>
 
       {/* Modals */}

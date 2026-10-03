@@ -34,7 +34,7 @@ export function PlanLimitsTab({ plan }: PlanLimitsTabProps) {
       {/* Top Header Banner */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-sm border border-slate-200 bg-white p-5 shadow-xs">
         <div>
-          <h3 className="text-base font-extrabold text-[#0D1F3D]">Limits & Quotas Inspection</h3>
+          <h3 className="text-base font-extrabold text-primary">Limits & Quotas Inspection</h3>
           <p className="text-xs font-semibold text-slate-500 mt-0.5">
             Resource limits and quotas included with this plan. Values represent per tenant unless specified.
           </p>
@@ -58,42 +58,42 @@ export function PlanLimitsTab({ plan }: PlanLimitsTabProps) {
           <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-4">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
               <Users className="h-4 w-4 text-blue-600" />
-              <h4 className="text-sm font-extrabold text-[#0D1F3D]">Users & Organization</h4>
+              <h4 className="text-sm font-extrabold text-primary">Users & Organization</h4>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
               <div className="p-3 rounded-sm border border-slate-100 bg-slate-50/50">
                 <Users className="h-4 w-4 text-blue-500 mb-1.5" />
                 <span className="text-[11px] font-semibold text-slate-500 block">Minimum Seats</span>
-                <span className="text-lg font-extrabold text-[#0D1F3D] block">{limits.minimumSeats ?? 0}</span>
+                <span className="text-lg font-extrabold text-primary block">{limits.minimumSeats ?? 0}</span>
                 <span className="text-[10px] text-slate-600 font-medium">Users</span>
               </div>
 
               <div className="p-3 rounded-sm border border-slate-100 bg-slate-50/50">
                 <Users className="h-4 w-4 text-purple-500 mb-1.5" />
                 <span className="text-[11px] font-semibold text-slate-500 block">Default Seat Limit</span>
-                <span className="text-lg font-extrabold text-[#0D1F3D] block">{limits.defaultSeatLimit ?? 0}</span>
+                <span className="text-lg font-extrabold text-primary block">{limits.defaultSeatLimit ?? 0}</span>
                 <span className="text-[10px] text-slate-600 font-medium">Users</span>
               </div>
 
               <div className="p-3 rounded-sm border border-slate-100 bg-slate-50/50">
                 <Users className="h-4 w-4 text-indigo-500 mb-1.5" />
                 <span className="text-[11px] font-semibold text-slate-500 block">Maximum Users</span>
-                <span className="text-lg font-extrabold text-[#0D1F3D] block">{formatLimit(limits.maximumSeats)}</span>
+                <span className="text-lg font-extrabold text-primary block">{formatLimit(limits.maximumSeats)}</span>
                 <span className="text-[10px] text-slate-600 font-medium">Users</span>
               </div>
 
               <div className="p-3 rounded-sm border border-slate-100 bg-slate-50/50">
                 <Zap className="h-4 w-4 text-emerald-500 mb-1.5" />
                 <span className="text-[11px] font-semibold text-slate-500 block">Seat Increment</span>
-                <span className="text-lg font-extrabold text-[#0D1F3D] block">{limits.seatIncrement ?? '—'}</span>
+                <span className="text-lg font-extrabold text-primary block">{limits.seatIncrement ?? '—'}</span>
                 <span className="text-[10px] text-slate-600 font-medium">Users</span>
               </div>
 
               <div className="p-3 rounded-sm border border-slate-100 bg-slate-50/50">
                 <Clock className="h-4 w-4 text-amber-500 mb-1.5" />
                 <span className="text-[11px] font-semibold text-slate-500 block">Concurrent Sessions</span>
-                <span className="text-lg font-extrabold text-[#0D1F3D] block">
+                <span className="text-lg font-extrabold text-primary block">
                   {limits.concurrentSessions !== undefined ? limits.concurrentSessions : '—'}
                 </span>
                 <span className="text-[10px] text-slate-600 font-medium">Sessions</span>
@@ -105,14 +105,14 @@ export function PlanLimitsTab({ plan }: PlanLimitsTabProps) {
           <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-4">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
               <HardDrive className="h-4 w-4 text-blue-600" />
-              <h4 className="text-sm font-extrabold text-[#0D1F3D]">Storage & Data</h4>
+              <h4 className="text-sm font-extrabold text-primary">Storage & Data</h4>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
               <div className="p-3 rounded-sm border border-slate-100 bg-slate-50/50">
                 <HardDrive className="h-4 w-4 text-blue-500 mb-1.5" />
                 <span className="text-[11px] font-semibold text-slate-500 block">Storage Included</span>
-                <span className="text-lg font-extrabold text-[#0D1F3D] block">
+                <span className="text-lg font-extrabold text-primary block">
                   {limits.storageGb !== undefined ? `${limits.storageGb} GB` : '—'}
                 </span>
                 <span className="text-[10px] text-slate-600 font-medium">Total Storage</span>
@@ -121,7 +121,7 @@ export function PlanLimitsTab({ plan }: PlanLimitsTabProps) {
               <div className="p-3 rounded-sm border border-slate-100 bg-slate-50/50">
                 <HardDrive className="h-4 w-4 text-indigo-500 mb-1.5" />
                 <span className="text-[11px] font-semibold text-slate-500 block">Storage Increment</span>
-                <span className="text-lg font-extrabold text-[#0D1F3D] block">
+                <span className="text-lg font-extrabold text-primary block">
                   {limits.storageIncrementGb !== undefined ? `${limits.storageIncrementGb} GB` : '—'}
                 </span>
                 <span className="text-[10px] text-slate-600 font-medium">Per Increment</span>
@@ -130,7 +130,7 @@ export function PlanLimitsTab({ plan }: PlanLimitsTabProps) {
               <div className="p-3 rounded-sm border border-slate-100 bg-slate-50/50">
                 <Clock className="h-4 w-4 text-purple-500 mb-1.5" />
                 <span className="text-[11px] font-semibold text-slate-500 block">Data Retention</span>
-                <span className="text-lg font-extrabold text-[#0D1F3D] block">
+                <span className="text-lg font-extrabold text-primary block">
                   {formatDays(limits.dataRetentionDays)}
                 </span>
                 <span className="text-[10px] text-slate-600 font-medium">Retention Period</span>
@@ -148,7 +148,7 @@ export function PlanLimitsTab({ plan }: PlanLimitsTabProps) {
               <div className="p-3 rounded-sm border border-slate-100 bg-slate-50/50">
                 <ShieldCheck className="h-4 w-4 text-cyan-500 mb-1.5" />
                 <span className="text-[11px] font-semibold text-slate-500 block">Audit Log Retention</span>
-                <span className="text-lg font-extrabold text-[#0D1F3D] block">
+                <span className="text-lg font-extrabold text-primary block">
                   {formatDays(limits.auditRetentionDays)}
                 </span>
                 <span className="text-[10px] text-slate-600 font-medium">Retention Period</span>
@@ -160,14 +160,14 @@ export function PlanLimitsTab({ plan }: PlanLimitsTabProps) {
           <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-4">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
               <Cpu className="h-4 w-4 text-blue-600" />
-              <h4 className="text-sm font-extrabold text-[#0D1F3D]">Usage & Platform Limits</h4>
+              <h4 className="text-sm font-extrabold text-primary">Usage & Platform Limits</h4>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div className="p-3 rounded-sm border border-slate-100 bg-slate-50/50">
                 <Cpu className="h-4 w-4 text-blue-500 mb-1" />
                 <span className="text-[11px] font-semibold text-slate-500 block">API Requests / Month</span>
-                <span className="text-base font-extrabold text-[#0D1F3D] block">
+                <span className="text-base font-extrabold text-primary block">
                   {limits.apiRequestsPerMonth !== undefined ? formatLimit(limits.apiRequestsPerMonth) : '—'}
                 </span>
               </div>
@@ -175,7 +175,7 @@ export function PlanLimitsTab({ plan }: PlanLimitsTabProps) {
               <div className="p-3 rounded-sm border border-slate-100 bg-slate-50/50">
                 <Workflow className="h-4 w-4 text-amber-500 mb-1" />
                 <span className="text-[11px] font-semibold text-slate-500 block">Active Workflows</span>
-                <span className="text-base font-extrabold text-[#0D1F3D] block">
+                <span className="text-base font-extrabold text-primary block">
                   {limits.activeWorkflows !== undefined ? formatLimit(limits.activeWorkflows) : '—'}
                 </span>
               </div>
@@ -183,7 +183,7 @@ export function PlanLimitsTab({ plan }: PlanLimitsTabProps) {
               <div className="p-3 rounded-sm border border-slate-100 bg-slate-50/50">
                 <FileText className="h-4 w-4 text-purple-500 mb-1" />
                 <span className="text-[11px] font-semibold text-slate-500 block">Custom Forms</span>
-                <span className="text-base font-extrabold text-[#0D1F3D] block">
+                <span className="text-base font-extrabold text-primary block">
                   {limits.customForms !== undefined ? formatLimit(limits.customForms) : '—'}
                 </span>
               </div>
@@ -191,7 +191,7 @@ export function PlanLimitsTab({ plan }: PlanLimitsTabProps) {
               <div className="p-3 rounded-sm border border-slate-100 bg-slate-50/50">
                 <FileText className="h-4 w-4 text-rose-500 mb-1" />
                 <span className="text-[11px] font-semibold text-slate-500 block">Report Exports / Month</span>
-                <span className="text-base font-extrabold text-[#0D1F3D] block">
+                <span className="text-base font-extrabold text-primary block">
                   {limits.reportExportsPerMonth !== undefined ? formatLimit(limits.reportExportsPerMonth) : '—'}
                 </span>
               </div>
@@ -199,7 +199,7 @@ export function PlanLimitsTab({ plan }: PlanLimitsTabProps) {
               <div className="p-3 rounded-sm border border-slate-100 bg-slate-50/50">
                 <HardDrive className="h-4 w-4 text-indigo-500 mb-1" />
                 <span className="text-[11px] font-semibold text-slate-500 block">File Upload Limit</span>
-                <span className="text-base font-extrabold text-[#0D1F3D] block">
+                <span className="text-base font-extrabold text-primary block">
                   {limits.fileUploadMb !== undefined ? `${limits.fileUploadMb} MB` : '—'}
                 </span>
               </div>
@@ -207,7 +207,7 @@ export function PlanLimitsTab({ plan }: PlanLimitsTabProps) {
               <div className="p-3 rounded-sm border border-slate-100 bg-slate-50/50">
                 <Sparkles className="h-4 w-4 text-emerald-500 mb-1" />
                 <span className="text-[11px] font-semibold text-slate-500 block">AI Credits / Month</span>
-                <span className="text-base font-extrabold text-[#0D1F3D] block">
+                <span className="text-base font-extrabold text-primary block">
                   {limits.aiCreditsPerMonth !== undefined
                     ? limits.aiCreditsPerMonth === 0
                       ? '0 (Not Included)'
@@ -219,7 +219,7 @@ export function PlanLimitsTab({ plan }: PlanLimitsTabProps) {
               <div className="p-3 rounded-sm border border-slate-100 bg-slate-50/50">
                 <Zap className="h-4 w-4 text-amber-500 mb-1" />
                 <span className="text-[11px] font-semibold text-slate-500 block">Automations / Month</span>
-                <span className="text-base font-extrabold text-[#0D1F3D] block">
+                <span className="text-base font-extrabold text-primary block">
                   {limits.automationsPerMonth !== undefined ? formatLimit(limits.automationsPerMonth) : '—'}
                 </span>
               </div>
@@ -227,7 +227,7 @@ export function PlanLimitsTab({ plan }: PlanLimitsTabProps) {
               <div className="p-3 rounded-sm border border-slate-100 bg-slate-50/50">
                 <Mail className="h-4 w-4 text-purple-500 mb-1" />
                 <span className="text-[11px] font-semibold text-slate-500 block">Email Sends / Month</span>
-                <span className="text-base font-extrabold text-[#0D1F3D] block">
+                <span className="text-base font-extrabold text-primary block">
                   {limits.emailSendsPerMonth !== undefined ? formatLimit(limits.emailSendsPerMonth) : '—'}
                 </span>
               </div>
@@ -235,7 +235,7 @@ export function PlanLimitsTab({ plan }: PlanLimitsTabProps) {
               <div className="p-3 rounded-sm border border-slate-100 bg-slate-50/50">
                 <Smartphone className="h-4 w-4 text-cyan-500 mb-1" />
                 <span className="text-[11px] font-semibold text-slate-500 block">Mobile Offline Data</span>
-                <span className="text-base font-extrabold text-[#0D1F3D] block">
+                <span className="text-base font-extrabold text-primary block">
                   {limits.offlineDataGbPerDevice !== undefined ? `${limits.offlineDataGbPerDevice} GB / device` : '—'}
                 </span>
               </div>
@@ -252,47 +252,47 @@ export function PlanLimitsTab({ plan }: PlanLimitsTabProps) {
         <div className="space-y-6">
           {/* Card 1: Limits Summary */}
           <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-4">
-            <h4 className="text-sm font-bold text-[#0D1F3D] border-b border-slate-100 pb-3">Limits Summary</h4>
+            <h4 className="text-sm font-bold text-primary border-b border-slate-100 pb-3">Limits Summary</h4>
             <div className="space-y-2.5 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Minimum Seats</span>
-                <span className="font-extrabold text-[#0D1F3D]">{limits.minimumSeats ?? 0}</span>
+                <span className="font-extrabold text-primary">{limits.minimumSeats ?? 0}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Default Seat Limit</span>
-                <span className="font-extrabold text-[#0D1F3D]">{limits.defaultSeatLimit ?? 0}</span>
+                <span className="font-extrabold text-primary">{limits.defaultSeatLimit ?? 0}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Maximum Users</span>
-                <span className="font-extrabold text-[#0D1F3D]">{formatLimit(limits.maximumSeats)}</span>
+                <span className="font-extrabold text-primary">{formatLimit(limits.maximumSeats)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Storage Included</span>
-                <span className="font-extrabold text-[#0D1F3D]">
+                <span className="font-extrabold text-primary">
                   {limits.storageGb !== undefined ? `${limits.storageGb} GB` : '—'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">API Requests / Month</span>
-                <span className="font-extrabold text-[#0D1F3D]">
+                <span className="font-extrabold text-primary">
                   {limits.apiRequestsPerMonth !== undefined ? formatLimit(limits.apiRequestsPerMonth) : '—'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Active Workflows</span>
-                <span className="font-extrabold text-[#0D1F3D]">
+                <span className="font-extrabold text-primary">
                   {limits.activeWorkflows !== undefined ? formatLimit(limits.activeWorkflows) : '—'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Custom Forms</span>
-                <span className="font-extrabold text-[#0D1F3D]">
+                <span className="font-extrabold text-primary">
                   {limits.customForms !== undefined ? formatLimit(limits.customForms) : '—'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">AI Credits / Month</span>
-                <span className="font-extrabold text-[#0D1F3D]">
+                <span className="font-extrabold text-primary">
                   {limits.aiCreditsPerMonth !== undefined
                     ? limits.aiCreditsPerMonth === 0
                       ? '0 (Not Included)'
@@ -308,7 +308,7 @@ export function PlanLimitsTab({ plan }: PlanLimitsTabProps) {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Audit Log Retention</span>
-                <span className="font-extrabold text-[#0D1F3D]">
+                <span className="font-extrabold text-primary">
                   {formatDays(limits.auditRetentionDays)}
                 </span>
               </div>
@@ -317,7 +317,7 @@ export function PlanLimitsTab({ plan }: PlanLimitsTabProps) {
 
           {/* Card 2: Usage Guidance */}
           <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-3">
-            <h4 className="text-sm font-bold text-[#0D1F3D]">Usage Guidance</h4>
+            <h4 className="text-sm font-bold text-primary">Usage Guidance</h4>
             <div className="p-3.5 rounded-sm bg-emerald-50/60 border border-emerald-100 space-y-2 text-xs text-emerald-800 font-medium">
               <div className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-emerald-600 shrink-0" />

@@ -171,8 +171,8 @@ export function SuperAdminDashboard() {
   if (isLoading) {
     return (
       <div className="min-h-[500px] flex flex-col items-center justify-center p-12 text-center font-sans">
-        <div className="inline-block animate-spin h-8 w-8 border-3 border-[#0D1F3D] border-t-transparent rounded-full mb-3" />
-        <h3 className="text-sm font-bold text-[#0D1F3D]">Loading SaaS Platform Analytics...</h3>
+        <div className="inline-block animate-spin h-8 w-8 border-3 border-primary border-t-transparent rounded-full mb-3" />
+        <h3 className="text-sm font-bold text-primary">Loading SaaS Platform Analytics...</h3>
         <p className="text-xs text-slate-400 mt-1">Aggregating multi-tenant metrics, commercial subscriptions, and revenue run-rates</p>
       </div>
     );
@@ -186,7 +186,7 @@ export function SuperAdminDashboard() {
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-extrabold uppercase border border-indigo-200/60 mb-1.5">
             <ShieldCheck className="w-3.5 h-3.5" /> Platform SuperAdmin
           </div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-[#0D1F3D]">
+          <h1 className="text-2xl font-extrabold tracking-tight text-primary">
             SaaS Platform Analytics
           </h1>
           <p className="text-xs font-medium text-slate-500 mt-0.5">
@@ -216,7 +216,7 @@ export function SuperAdminDashboard() {
           <Button
             size="sm"
             onClick={() => setCreateModalOpen(true)}
-            className="gap-2 font-bold bg-[#0D1F3D] text-white hover:bg-[#132d56] shadow-xs h-9 px-4"
+            className="gap-2 font-bold bg-primary text-white hover:bg-[#132d56] shadow-xs h-9 px-4"
           >
             <Plus className="h-4 w-4" /> Provision Tenant
           </Button>
@@ -232,7 +232,7 @@ export function SuperAdminDashboard() {
             <Building2 className="w-4 h-4 text-indigo-600" />
           </div>
           <div className="mt-2">
-            <span className="text-2xl font-extrabold text-[#0D1F3D]">
+            <span className="text-2xl font-extrabold text-primary">
               {totalTenants}
             </span>
           </div>
@@ -328,7 +328,7 @@ export function SuperAdminDashboard() {
         <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs lg:col-span-2 space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-[#0D1F3D]">Monthly Recurring Revenue (MRR) Run-rate</h3>
+              <h3 className="text-sm font-bold text-primary">Monthly Recurring Revenue (MRR) Run-rate</h3>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
                 Subscription trajectory based on licensed customer seats and packages
               </p>
@@ -343,21 +343,21 @@ export function SuperAdminDashboard() {
               <AreaChart data={mrrChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorMrr" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0D1F3D" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#0D1F3D" stopOpacity={0} />
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#64748b" }} />
                 <YAxis tick={{ fontSize: 11, fill: "#64748b" }} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#0D1F3D", borderRadius: "4px", border: "none", color: "#fff" }}
+                  contentStyle={{ backgroundColor: "hsl(var(--primary))", borderRadius: "var(--radius-xs)", border: "none", color: "#fff" }}
                   itemStyle={{ color: "#fff", fontWeight: 700, fontSize: "11px" }}
                   formatter={(val: any) => [`₹${Number(val).toLocaleString("en-IN")}`, "Monthly MRR"]}
                 />
                 <Area
                   type="monotone"
                   dataKey="mrr"
-                  stroke="#0D1F3D"
+                  stroke="hsl(var(--primary))"
                   strokeWidth={2.5}
                   fillOpacity={1}
                   fill="url(#colorMrr)"
@@ -370,7 +370,7 @@ export function SuperAdminDashboard() {
         {/* Commercial Plan Donut Chart */}
         <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-3 flex flex-col justify-between">
           <div>
-            <h3 className="text-sm font-bold text-[#0D1F3D]">Tenants by Commercial Tier</h3>
+            <h3 className="text-sm font-bold text-primary">Tenants by Commercial Tier</h3>
             <p className="text-xs text-slate-500 font-medium mt-0.5">Subscription package adoption</p>
           </div>
 
@@ -392,14 +392,14 @@ export function SuperAdminDashboard() {
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={{ backgroundColor: "#0D1F3D", borderRadius: "4px", border: "none", color: "#fff" }}
+                    contentStyle={{ backgroundColor: "hsl(var(--primary))", borderRadius: "var(--radius-xs)", border: "none", color: "#fff" }}
                     itemStyle={{ color: "#fff", fontWeight: 600, fontSize: "11px" }}
                     formatter={(val: any) => [`${val} Tenants`, "Adoption"]}
                   />
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-base font-extrabold text-[#0D1F3D]">{totalTenants}</span>
+                <span className="text-base font-extrabold text-primary">{totalTenants}</span>
                 <span className="text-[9px] font-bold text-slate-400">Total</span>
               </div>
             </div>
@@ -440,7 +440,7 @@ export function SuperAdminDashboard() {
           {/* Card Header with Search & Filters */}
           <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h3 className="text-sm font-bold text-[#0D1F3D] flex items-center gap-2">
+              <h3 className="text-sm font-bold text-primary flex items-center gap-2">
                 <Briefcase className="h-4 w-4 text-indigo-600" />
                 Customer Organizations ({filteredOrgs.length})
               </h3>
@@ -457,14 +457,14 @@ export function SuperAdminDashboard() {
                   placeholder="Search organization or slug..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="h-9 w-full rounded-sm border border-slate-200 bg-slate-50/60 pl-9 pr-3 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:border-[#0D1F3D] focus:bg-white focus:outline-none"
+                  className="h-9 w-full rounded-sm border border-slate-200 bg-slate-50/60 pl-9 pr-3 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:border-primary focus:bg-white focus:outline-none"
                 />
               </div>
 
               <select
                 value={planFilter}
                 onChange={(e) => setPlanFilter(e.target.value)}
-                className="h-9 rounded-sm border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 focus:border-[#0D1F3D] focus:outline-none"
+                className="h-9 rounded-sm border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 focus:border-primary focus:outline-none"
               >
                 <option value="All">All Plans</option>
                 <option value="STARTER">Starter</option>
@@ -485,7 +485,7 @@ export function SuperAdminDashboard() {
           <div className="overflow-x-auto min-h-[320px]">
             <table className="w-full text-left text-xs whitespace-nowrap">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/50 text-xs font-bold text-[#0D1F3D]">
+                <tr className="border-b border-slate-200 bg-slate-50/50 text-xs font-bold text-primary">
                   <th className="py-3 px-4">Organization Name</th>
                   <th className="py-3 px-4">Subdomain Slug</th>
                   <th className="py-3 px-4">Status</th>
@@ -500,7 +500,7 @@ export function SuperAdminDashboard() {
                   <tr>
                     <td colSpan={7} className="py-16 text-center text-slate-500">
                       <Building2 className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-                      <p className="text-sm font-bold text-[#0D1F3D]">No customer organizations match your search</p>
+                      <p className="text-sm font-bold text-primary">No customer organizations match your search</p>
                       <p className="text-xs text-slate-400 mt-0.5">Try resetting search filters or provision a new customer workspace.</p>
                     </td>
                   </tr>
@@ -514,11 +514,11 @@ export function SuperAdminDashboard() {
                             onClick={() => navigate(`/superadmin/tenants/${org.id}`)}
                             className="flex items-center gap-3 cursor-pointer"
                           >
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-[#0D1F3D] text-white font-extrabold shadow-2xs group-hover:bg-[#1e3b6a] transition">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-primary text-white font-extrabold shadow-2xs group-hover:bg-[#1e3b6a] transition">
                               {org.name.charAt(0)}
                             </div>
                             <div>
-                              <p className="font-bold text-[#0D1F3D] group-hover:text-blue-600 transition flex items-center gap-1.5">
+                              <p className="font-bold text-primary group-hover:text-blue-600 transition flex items-center gap-1.5">
                                 {org.name}
                                 <Eye className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 text-blue-600 transition" />
                               </p>
@@ -573,7 +573,7 @@ export function SuperAdminDashboard() {
                             <Button
                               size="sm"
                               onClick={() => handleAccessOrg(org.id, org.name)}
-                              className="h-8 px-2.5 text-xs font-bold bg-[#0D1F3D] text-white hover:bg-[#132d56] gap-1 shadow-xs"
+                              className="h-8 px-2.5 text-xs font-bold bg-primary text-white hover:bg-[#132d56] gap-1 shadow-xs"
                             >
                               <ExternalLink className="h-3.5 w-3.5" /> Access
                             </Button>

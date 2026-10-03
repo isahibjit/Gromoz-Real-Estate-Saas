@@ -167,7 +167,7 @@ function PhoneInput({
     <div className="w-full space-y-1 text-left font-sans relative" ref={dropdownRef}>
       <label className="block text-xs font-bold text-slate-700">{label}</label>
 
-      <div className="flex h-10 w-full rounded-sm border border-slate-200 bg-[#F8FAFC] overflow-hidden focus-within:border-[#0D1F3D] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#0D1F3D] transition-all">
+      <div className="flex h-10 w-full rounded-sm border border-slate-200 bg-[#F8FAFC] overflow-hidden focus-within:border-primary focus-within:bg-white focus-within:ring-1 focus-within:ring-primary transition-all">
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
@@ -187,14 +187,14 @@ function PhoneInput({
           value={value}
           onKeyDown={handleKeyDown}
           onChange={handleChange}
-          className="flex-1 px-3 text-xs font-semibold text-[#0D1F3D] bg-transparent placeholder-slate-400 focus:outline-none"
+          className="flex-1 px-3 text-xs font-semibold text-primary bg-transparent placeholder-slate-400 focus:outline-none"
         />
       </div>
 
       {isOpen && (
         <div className="absolute left-0 top-full mt-1 z-[9999] w-60 rounded-sm border border-slate-200 bg-white p-1.5 shadow-2xl space-y-0.5 animate-in fade-in zoom-in-95">
           <div className="px-2 py-1 border-b border-slate-100 mb-1">
-            <p className="text-[10px] font-extrabold text-[#0D1F3D] uppercase tracking-wider">Select Country Code</p>
+            <p className="text-[10px] font-extrabold text-primary uppercase tracking-wider">Select Country Code</p>
           </div>
           <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar">
             {COUNTRY_CODES.map((c) => (
@@ -207,8 +207,8 @@ function PhoneInput({
                 }}
                 className={`flex w-full items-center justify-between rounded-sm px-2.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
                   selectedCountry.code === c.code
-                    ? 'bg-[#0D1F3D] text-white font-extrabold shadow-xs'
-                    : 'text-slate-700 hover:bg-slate-100 hover:text-[#0D1F3D]'
+                    ? 'bg-primary text-white font-extrabold shadow-xs'
+                    : 'text-slate-700 hover:bg-slate-100 hover:text-primary'
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -233,7 +233,7 @@ function Step1CompanyDetails() {
     <div className="space-y-6 font-sans">
       <div className="rounded-sm border border-slate-200 bg-white p-6 shadow-xs space-y-4">
         <div>
-          <h3 className="text-base font-extrabold text-[#0D1F3D]">Company Information</h3>
+          <h3 className="text-base font-extrabold text-primary">Company Information</h3>
           <p className="text-xs text-slate-500 font-medium mt-0.5">Basic information about the company/organization.</p>
         </div>
 
@@ -252,7 +252,7 @@ function Step1CompanyDetails() {
           />
           <div>
             <label className="font-bold text-slate-700 text-xs block mb-1">Tenant Code *</label>
-            <div className="flex rounded-sm border border-slate-200 bg-[#F8FAFC] overflow-hidden h-10 focus-within:border-[#0D1F3D] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#0D1F3D] transition-all">
+            <div className="flex rounded-sm border border-slate-200 bg-[#F8FAFC] overflow-hidden h-10 focus-within:border-primary focus-within:bg-white focus-within:ring-1 focus-within:ring-primary transition-all">
               <span className="bg-slate-100 border-r border-slate-200 px-3 flex items-center text-xs font-bold text-slate-600">
                 SFW-TNT-
               </span>
@@ -264,7 +264,7 @@ function Step1CompanyDetails() {
                   const cleaned = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
                   updateFormState({ slug: cleaned, domain: `${cleaned || 'tenant'}.smartfieldwork.com` });
                 }}
-                className="flex-1 px-3 text-xs font-semibold text-[#0D1F3D] bg-transparent focus:outline-none"
+                className="flex-1 px-3 text-xs font-semibold text-primary bg-transparent focus:outline-none"
               />
             </div>
             <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
@@ -339,7 +339,7 @@ function Step1CompanyDetails() {
 
       <div className="rounded-sm border border-slate-200 bg-white p-6 shadow-xs space-y-4">
         <div>
-          <h3 className="text-base font-extrabold text-[#0D1F3D]">Company Address</h3>
+          <h3 className="text-base font-extrabold text-primary">Company Address</h3>
           <p className="text-xs text-slate-500 font-medium mt-0.5">Registered business address of the company.</p>
         </div>
 
@@ -355,7 +355,7 @@ function Step1CompanyDetails() {
 
       <div className="rounded-sm border border-slate-200 bg-white p-6 shadow-xs space-y-4">
         <div>
-          <h3 className="text-base font-extrabold text-[#0D1F3D]">Company Settings</h3>
+          <h3 className="text-base font-extrabold text-primary">Company Settings</h3>
           <p className="text-xs text-slate-500 font-medium mt-0.5">Basic operational settings for the tenant.</p>
         </div>
 
@@ -442,7 +442,7 @@ function Step2IndustryProfile() {
     <div className="space-y-6 font-sans">
       <div className="rounded-sm border border-slate-200 bg-white p-6 shadow-xs space-y-4">
         <div>
-          <h3 className="text-base font-extrabold text-[#0D1F3D]">Industry Information</h3>
+          <h3 className="text-base font-extrabold text-primary">Industry Information</h3>
           <p className="text-xs text-slate-500 font-medium mt-0.5">Select the primary industry from the 25+ canonical industry registry.</p>
         </div>
 
@@ -469,7 +469,7 @@ function Step2IndustryProfile() {
 
       <div className="rounded-sm border border-slate-200 bg-white p-6 shadow-xs space-y-4">
         <div>
-          <h3 className="text-base font-extrabold text-[#0D1F3D]">Business Profile</h3>
+          <h3 className="text-base font-extrabold text-primary">Business Profile</h3>
           <p className="text-xs text-slate-500 font-medium mt-0.5">Tell us more about the business to help customize the workspace.</p>
         </div>
 
@@ -532,7 +532,7 @@ function Step3Administrator() {
     <div className="space-y-6 font-sans">
       <div className="rounded-sm border border-slate-200 bg-white p-6 shadow-xs space-y-4">
         <div>
-          <h3 className="text-base font-extrabold text-[#0D1F3D]">Primary Administrator</h3>
+          <h3 className="text-base font-extrabold text-primary">Primary Administrator</h3>
           <p className="text-xs text-slate-500 font-medium mt-0.5">Add the primary administrator who will be the main point of contact for this tenant.</p>
         </div>
 
@@ -567,8 +567,8 @@ function Step3Administrator() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="font-bold text-slate-700 text-xs block mb-1">Temporary Password (Optional)</label>
-            <div className="flex rounded-sm border border-slate-200 bg-[#F8FAFC] overflow-hidden h-10 relative focus-within:border-[#0D1F3D] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#0D1F3D] transition-all">
-              <input type={showPassword ? 'text' : 'password'} placeholder="Enter temporary password" value={formState.adminPassword} onChange={(e) => updateFormState({ adminPassword: e.target.value })} className="flex-1 px-3 text-xs font-semibold text-[#0D1F3D] bg-transparent focus:outline-none pr-8" />
+            <div className="flex rounded-sm border border-slate-200 bg-[#F8FAFC] overflow-hidden h-10 relative focus-within:border-primary focus-within:bg-white focus-within:ring-1 focus-within:ring-primary transition-all">
+              <input type={showPassword ? 'text' : 'password'} placeholder="Enter temporary password" value={formState.adminPassword} onChange={(e) => updateFormState({ adminPassword: e.target.value })} className="flex-1 px-3 text-xs font-semibold text-primary bg-transparent focus:outline-none pr-8" />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -576,8 +576,8 @@ function Step3Administrator() {
           </div>
           <div>
             <label className="font-bold text-slate-700 text-xs block mb-1">Confirm Password</label>
-            <div className="flex rounded-sm border border-slate-200 bg-[#F8FAFC] overflow-hidden h-10 relative focus-within:border-[#0D1F3D] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#0D1F3D] transition-all">
-              <input type={showConfirmPassword ? 'text' : 'password'} placeholder="Confirm password" value={formState.adminConfirmPassword} onChange={(e) => updateFormState({ adminConfirmPassword: e.target.value })} className="flex-1 px-3 text-xs font-semibold text-[#0D1F3D] bg-transparent focus:outline-none pr-8" />
+            <div className="flex rounded-sm border border-slate-200 bg-[#F8FAFC] overflow-hidden h-10 relative focus-within:border-primary focus-within:bg-white focus-within:ring-1 focus-within:ring-primary transition-all">
+              <input type={showConfirmPassword ? 'text' : 'password'} placeholder="Confirm password" value={formState.adminConfirmPassword} onChange={(e) => updateFormState({ adminConfirmPassword: e.target.value })} className="flex-1 px-3 text-xs font-semibold text-primary bg-transparent focus:outline-none pr-8" />
               <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
                 {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -697,7 +697,7 @@ function Step4PlanSubscription({
       <div className="rounded-sm border border-slate-200 bg-white p-6 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3">
           <div>
-            <h3 className="text-base font-extrabold text-[#0D1F3D]">Choose Subscription Plan</h3>
+            <h3 className="text-base font-extrabold text-primary">Choose Subscription Plan</h3>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
               Select a commercial subscription plan from live API catalog or standard system tiers.
             </p>
@@ -710,7 +710,7 @@ function Step4PlanSubscription({
               onClick={() => setPlanSource('canonical')}
               className={`px-3 py-1 text-xs font-bold rounded-2xs transition-all cursor-pointer ${
                 planSource === 'canonical'
-                  ? 'bg-white text-[#0D1F3D] shadow-2xs'
+                  ? 'bg-white text-primary shadow-2xs'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -721,7 +721,7 @@ function Step4PlanSubscription({
               onClick={() => setPlanSource('live')}
               className={`px-3 py-1 text-xs font-bold rounded-2xs transition-all cursor-pointer flex items-center gap-1.5 ${
                 planSource === 'live'
-                  ? 'bg-[#0D1F3D] text-white shadow-2xs'
+                  ? 'bg-primary text-white shadow-2xs'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -777,7 +777,7 @@ function Step4PlanSubscription({
 
                   {/* Plan Name & ID */}
                   <div>
-                    <h4 className="text-base font-extrabold text-[#0D1F3D] leading-snug tracking-tight mb-0.5">
+                    <h4 className="text-base font-extrabold text-primary leading-snug tracking-tight mb-0.5">
                       {plan.name}
                     </h4>
                     <p className="text-[11px] font-mono text-slate-400 font-medium mb-3 truncate">
@@ -788,7 +788,7 @@ function Step4PlanSubscription({
                   {/* Price Block */}
                   <div className="my-2">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-extrabold text-[#0D1F3D] tracking-tight">
+                      <span className="text-3xl font-extrabold text-primary tracking-tight">
                         ₹{plan.monthlyPricePerUser.toLocaleString('en-IN')}
                       </span>
                       <span className="text-xs font-semibold text-slate-400">
@@ -825,7 +825,7 @@ function Step4PlanSubscription({
 
       <div className="rounded-sm border border-slate-200 bg-white p-6 shadow-xs space-y-4">
         <div>
-          <h3 className="text-base font-extrabold text-[#0D1F3D]">Subscription & Provisioning Policy</h3>
+          <h3 className="text-base font-extrabold text-primary">Subscription & Provisioning Policy</h3>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -854,7 +854,7 @@ function Step4PlanSubscription({
                 step={seatIncrement}
                 value={formState.userLicensesCount}
                 onChange={(e) => updateFormState({ userLicensesCount: parseInt(e.target.value, 10) || 1 })}
-                className={`w-full h-10 px-3 text-xs font-bold text-[#0D1F3D] bg-[#F8FAFC] border rounded-sm focus:bg-white focus:outline-none transition-all ${
+                className={`w-full h-10 px-3 text-xs font-bold text-primary bg-[#F8FAFC] border rounded-sm focus:bg-white focus:outline-none transition-all ${
                   isUnderMin || isOverMax
                     ? 'border-rose-400 bg-rose-50/20 focus:border-rose-600 focus:ring-1 focus:ring-rose-600'
                     : 'border-slate-200 focus:border-indigo-600'
@@ -929,7 +929,7 @@ function Step4PlanSubscription({
                       onChange={() => updateFormState({ provisioningType: opt.value })}
                     />
                     <div>
-                      <p className={`font-bold ${isActive ? 'text-indigo-950' : 'text-[#0D1F3D]'}`}>{opt.title}</p>
+                      <p className={`font-bold ${isActive ? 'text-indigo-950' : 'text-primary'}`}>{opt.title}</p>
                       <p className={`text-[10px] font-normal ${isActive ? 'text-indigo-800' : 'text-slate-400'}`}>{opt.desc}</p>
                     </div>
                   </label>
@@ -962,7 +962,7 @@ function Step4PlanSubscription({
                       onChange={() => updateFormState({ paymentCollectionMethod: opt.value })}
                     />
                     <div>
-                      <p className={`font-bold ${isActive ? 'text-indigo-950' : 'text-[#0D1F3D]'}`}>{opt.title}</p>
+                      <p className={`font-bold ${isActive ? 'text-indigo-950' : 'text-primary'}`}>{opt.title}</p>
                       <p className={`text-[10px] font-normal ${isActive ? 'text-indigo-800' : 'text-slate-400'}`}>{opt.desc}</p>
                     </div>
                   </label>
@@ -1024,7 +1024,7 @@ function Step6ReviewConfirm({
     <div className="space-y-6 font-sans">
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
-          <h3 className="text-lg font-extrabold text-[#0D1F3D]">Review & Confirm Details</h3>
+          <h3 className="text-lg font-extrabold text-primary">Review & Confirm Details</h3>
           <p className="text-xs text-slate-500 font-medium mt-0.5">Please review all configuration fields derived from canonical fixtures before submitting.</p>
         </div>
       </div>
@@ -1037,7 +1037,7 @@ function Step6ReviewConfirm({
               <span className="flex h-8 w-8 items-center justify-center rounded-sm bg-purple-50 text-purple-600 border border-purple-100 font-bold">
                 <Building2 className="h-4 w-4" />
               </span>
-              <h4 className="text-sm font-extrabold text-[#0D1F3D]">Company Details</h4>
+              <h4 className="text-sm font-extrabold text-primary">Company Details</h4>
             </div>
             <button
               type="button"
@@ -1051,7 +1051,7 @@ function Step6ReviewConfirm({
           <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs font-medium">
             <div>
               <span className="text-slate-400 text-[11px] block mb-0.5">Company Name</span>
-              <span className="font-extrabold text-[#0D1F3D]">{formState.companyName || '—'}</span>
+              <span className="font-extrabold text-primary">{formState.companyName || '—'}</span>
             </div>
             <div>
               <span className="text-slate-400 text-[11px] block mb-0.5">Legal Entity</span>
@@ -1075,7 +1075,7 @@ function Step6ReviewConfirm({
               <span className="flex h-8 w-8 items-center justify-center rounded-sm bg-emerald-50 text-emerald-600 border border-emerald-100 font-bold">
                 <Globe className="h-4 w-4" />
               </span>
-              <h4 className="text-sm font-extrabold text-[#0D1F3D]">Industry & Profile</h4>
+              <h4 className="text-sm font-extrabold text-primary">Industry & Profile</h4>
             </div>
             <button
               type="button"
@@ -1089,7 +1089,7 @@ function Step6ReviewConfirm({
           <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs font-medium">
             <div>
               <span className="text-slate-400 text-[11px] block mb-0.5">Industry Label</span>
-              <span className="font-extrabold text-[#0D1F3D]">{selectedIndustry.label}</span>
+              <span className="font-extrabold text-primary">{selectedIndustry.label}</span>
             </div>
             <div>
               <span className="text-slate-400 text-[11px] block mb-0.5">Industry Code</span>
@@ -1109,7 +1109,7 @@ function Step6ReviewConfirm({
               <span className="flex h-8 w-8 items-center justify-center rounded-sm bg-blue-50 text-blue-600 border border-blue-100 font-bold">
                 <User className="h-4 w-4" />
               </span>
-              <h4 className="text-sm font-extrabold text-[#0D1F3D]">Administrator Account</h4>
+              <h4 className="text-sm font-extrabold text-primary">Administrator Account</h4>
             </div>
             <button
               type="button"
@@ -1123,7 +1123,7 @@ function Step6ReviewConfirm({
           <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs font-medium">
             <div>
               <span className="text-slate-400 text-[11px] block mb-0.5">Admin Full Name</span>
-              <span className="font-extrabold text-[#0D1F3D]">{formState.adminFullName || '—'}</span>
+              <span className="font-extrabold text-primary">{formState.adminFullName || '—'}</span>
             </div>
             <div>
               <span className="text-slate-400 text-[11px] block mb-0.5">Email</span>
@@ -1139,7 +1139,7 @@ function Step6ReviewConfirm({
               <span className="flex h-8 w-8 items-center justify-center rounded-sm bg-amber-50 text-amber-600 border border-amber-100 font-bold">
                 <CreditCard className="h-4 w-4" />
               </span>
-              <h4 className="text-sm font-extrabold text-[#0D1F3D]">Plan & Provisioning</h4>
+              <h4 className="text-sm font-extrabold text-primary">Plan & Provisioning</h4>
             </div>
             <button
               type="button"
@@ -1153,7 +1153,7 @@ function Step6ReviewConfirm({
           <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs font-medium">
             <div>
               <span className="text-slate-400 text-[11px] block mb-0.5">Plan Name</span>
-              <span className="font-extrabold text-[#0D1F3D]">{selectedPlan.name}</span>
+              <span className="font-extrabold text-primary">{selectedPlan.name}</span>
             </div>
             <div>
               <span className="text-slate-400 text-[11px] block mb-0.5">User Licenses</span>
@@ -1174,7 +1174,7 @@ function Step6ReviewConfirm({
       {/* Modules List Card */}
       <div className="rounded-sm border border-slate-200 bg-white p-5 space-y-3 shadow-xs">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <h4 className="text-sm font-extrabold text-[#0D1F3D]">
+          <h4 className="text-sm font-extrabold text-primary">
             Selected Modules ({formState.inheritedModuleCodes.length})
           </h4>
           <button
@@ -1204,32 +1204,32 @@ function Step6ReviewConfirm({
           <span className="flex h-8 w-8 items-center justify-center rounded-sm bg-purple-50 text-purple-600 border border-purple-100 font-bold">
             <CreditCard className="h-4 w-4" />
           </span>
-          <h4 className="text-sm font-extrabold text-[#0D1F3D]">Estimated Subscription Cost Summary</h4>
+          <h4 className="text-sm font-extrabold text-primary">Estimated Subscription Cost Summary</h4>
         </div>
 
         <div className="space-y-2 text-xs">
           <div className="flex items-center justify-between text-slate-600 font-medium">
             <span>Price Per User ({formState.billingCycle})</span>
-            <span className="font-extrabold text-[#0D1F3D]">₹{priceResult.pricePerUser.toLocaleString('en-IN')} / mo</span>
+            <span className="font-extrabold text-primary">₹{priceResult.pricePerUser.toLocaleString('en-IN')} / mo</span>
           </div>
 
           <div className="flex items-center justify-between text-slate-600 font-medium">
             <span>Monthly Total ({formState.userLicensesCount} users)</span>
-            <span className="font-extrabold text-[#0D1F3D]">₹{priceResult.monthlyTotal.toLocaleString('en-IN')}</span>
+            <span className="font-extrabold text-primary">₹{priceResult.monthlyTotal.toLocaleString('en-IN')}</span>
           </div>
 
           <div className="flex items-center justify-between text-slate-600 font-medium">
             <span>Annual Subtotal</span>
-            <span className="font-extrabold text-[#0D1F3D]">₹{priceResult.annualTotal.toLocaleString('en-IN')}</span>
+            <span className="font-extrabold text-primary">₹{priceResult.annualTotal.toLocaleString('en-IN')}</span>
           </div>
 
           <div className="flex items-center justify-between text-slate-600 font-medium">
             <span>Estimated Taxes (18%)</span>
-            <span className="font-extrabold text-[#0D1F3D]">₹{priceResult.estimatedTax.toLocaleString('en-IN')}</span>
+            <span className="font-extrabold text-primary">₹{priceResult.estimatedTax.toLocaleString('en-IN')}</span>
           </div>
 
           <div className="border-t border-slate-200 pt-3 flex items-center justify-between">
-            <span className="text-sm font-extrabold text-[#0D1F3D]">Grand Total</span>
+            <span className="text-sm font-extrabold text-primary">Grand Total</span>
             <span className="text-xl font-extrabold text-indigo-600">₹{priceResult.finalGrandTotal.toLocaleString('en-IN')}</span>
           </div>
         </div>
@@ -1413,7 +1413,7 @@ function CreateTenantWizardInner() {
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-600">
           <AlertTriangle className="h-6 w-6" />
         </div>
-        <h2 className="text-lg font-extrabold text-[#0D1F3D]">Edit Target Not Found</h2>
+        <h2 className="text-lg font-extrabold text-primary">Edit Target Not Found</h2>
         <p className="text-xs text-slate-500 font-medium">
           This tenant could not be found or may no longer be available for editing.
         </p>
@@ -1438,7 +1438,7 @@ function CreateTenantWizardInner() {
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-[#0D1F3D]">
+            <h1 className="text-2xl font-extrabold text-primary">
               {isEditMode ? `Edit Tenant — ${formState.companyName || 'Loading...'}` : 'Create Tenant'}
             </h1>
             <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
@@ -1494,7 +1494,7 @@ function CreateTenantWizardInner() {
                     isDone
                       ? 'bg-emerald-600 text-white shadow-2xs'
                       : isActive
-                      ? 'bg-[#0D1F3D] text-white shadow-xs'
+                      ? 'bg-primary text-white shadow-xs'
                       : 'bg-slate-100 text-slate-500 border border-slate-200'
                   }`}
                 >
@@ -1504,7 +1504,7 @@ function CreateTenantWizardInner() {
                   <p
                     className={`text-xs truncate transition-colors ${
                       isActive
-                        ? 'font-extrabold text-[#0D1F3D]'
+                        ? 'font-extrabold text-primary'
                         : isDone
                         ? 'font-bold text-slate-800'
                         : 'font-semibold text-slate-500'
@@ -1567,7 +1567,7 @@ function CreateTenantWizardInner() {
         {/* Right Live Summary Panel */}
         <div className="lg:col-span-4 space-y-4">
           <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-4 text-xs font-sans">
-            <h3 className="text-base font-extrabold text-[#0D1F3D] border-b border-slate-100 pb-3">
+            <h3 className="text-base font-extrabold text-primary border-b border-slate-100 pb-3">
               Tenant Summary
             </h3>
 
@@ -1578,7 +1578,7 @@ function CreateTenantWizardInner() {
                     <Building2 className="h-4 w-4" />
                   </span>
                   <div>
-                    <p className="font-extrabold text-[#0D1F3D]">Company</p>
+                    <p className="font-extrabold text-primary">Company</p>
                     <p className="text-[11px] text-slate-500 font-medium">{formState.companyName || '—'}</p>
                   </div>
                 </div>
@@ -1591,7 +1591,7 @@ function CreateTenantWizardInner() {
                     <Globe className="h-4 w-4" />
                   </span>
                   <div>
-                    <p className="font-extrabold text-[#0D1F3D]">Industry</p>
+                    <p className="font-extrabold text-primary">Industry</p>
                     <p className="text-[11px] text-slate-700 font-bold">
                       {PLATFORM_INDUSTRIES.find((i) => i.id === formState.industryId || i.code === formState.industryId)?.label || formState.industryId || 'Pharma & Healthcare'}
                     </p>
@@ -1606,7 +1606,7 @@ function CreateTenantWizardInner() {
                     <User className="h-4 w-4" />
                   </span>
                   <div>
-                    <p className="font-extrabold text-[#0D1F3D]">Administrator</p>
+                    <p className="font-extrabold text-primary">Administrator</p>
                     <p className="text-[11px] text-slate-500 font-medium">{formState.adminFullName || '—'}</p>
                   </div>
                 </div>
@@ -1619,7 +1619,7 @@ function CreateTenantWizardInner() {
                     <CreditCard className="h-4 w-4" />
                   </span>
                   <div>
-                    <p className="font-extrabold text-[#0D1F3D]">Plan</p>
+                    <p className="font-extrabold text-primary">Plan</p>
                     <p className="text-[11px] text-slate-700 font-bold">
                       {(() => {
                         const matchedPlan =
@@ -1641,7 +1641,7 @@ function CreateTenantWizardInner() {
                     <Layers className="h-4 w-4" />
                   </span>
                   <div>
-                    <p className="font-extrabold text-[#0D1F3D]">Selected Modules</p>
+                    <p className="font-extrabold text-primary">Selected Modules</p>
                     <p className="text-[11px] text-slate-500 font-medium">{formState.inheritedModuleCodes.length} modules selected</p>
                   </div>
                 </div>
@@ -1669,7 +1669,7 @@ function CreateTenantWizardInner() {
               <AlertTriangle className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="text-base font-extrabold text-[#0D1F3D]">Unsaved Changes</h3>
+              <h3 className="text-base font-extrabold text-primary">Unsaved Changes</h3>
               <p className="text-xs text-slate-500 font-medium mt-1">
                 You have unsaved changes in the wizard. Are you sure you want to discard them and leave?
               </p>

@@ -47,6 +47,7 @@ import {
 
 import { DashboardHeader } from "../../dashboard/DashboardHeader";
 import { DashboardSidebar } from "../../dashboard/DashboardSidebar";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 import type { LeadRow } from "../all/allLeadsTypes";
 import { useAllLeads } from "../all/useAllLeads";
 import { StatsRow, type LeadStatsRowItem } from "../components/StatsRow";
@@ -2346,7 +2347,7 @@ export function LeadAssignmentScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -2357,8 +2358,7 @@ export function LeadAssignmentScreen() {
         onMobileClose={() => setMobileOpen(false)}
       />
 
-      <div className="min-w-0 flex-1">
-        <DashboardHeader
+      <DashboardHeader
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={
@@ -2404,9 +2404,9 @@ export function LeadAssignmentScreen() {
               </SelectContent>
             </Select>
           </div>
-        </DashboardHeader>
+      </DashboardHeader>
 
-        <main className="space-y-5 p-4 sm:p-6 2xl:px-8">
+      <WorkspacePage>
           <section className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
             <div>
               <h1 className="text-[2rem] font-extrabold text-secondary">
@@ -2637,8 +2637,7 @@ export function LeadAssignmentScreen() {
               </aside>
             )}
           </section>
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

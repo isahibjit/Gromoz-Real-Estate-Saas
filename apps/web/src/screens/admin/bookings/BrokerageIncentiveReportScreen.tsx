@@ -26,6 +26,7 @@ import {
 } from "ui";
 
 import { api } from "../../../common/api";
+import { WorkspacePage } from "../../../components/layout/PageHeader";
 import { DashboardHeader } from "../dashboard/DashboardHeader";
 import { DashboardSidebar } from "../dashboard/DashboardSidebar";
 import { addLeadSidebarItems } from "../leads/add/addLeadData";
@@ -214,7 +215,7 @@ export function BrokerageIncentiveReportScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -224,8 +225,7 @@ export function BrokerageIncentiveReportScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1">
-        <DashboardHeader
+      <DashboardHeader
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={
@@ -253,9 +253,9 @@ export function BrokerageIncentiveReportScreen() {
               }}
             />
           </div>
-        </DashboardHeader>
+      </DashboardHeader>
 
-        <main className="space-y-5 p-4 sm:p-6">
+      <WorkspacePage>
           <section className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <Badge className="mb-2 w-fit border-0 bg-blue-50 text-blue-700">
@@ -605,8 +605,7 @@ export function BrokerageIncentiveReportScreen() {
               </div>
             </div>
           </Card>
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

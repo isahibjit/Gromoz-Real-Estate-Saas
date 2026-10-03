@@ -60,7 +60,7 @@ export function ModuleDependenciesTab({ module }: ModuleDependenciesTabProps) {
       {/* Top Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
         <div>
-          <h2 className="text-lg font-extrabold text-[#0D1F3D]">Module Dependencies</h2>
+          <h2 className="text-lg font-extrabold text-primary">Module Dependencies</h2>
           <p className="text-xs font-medium text-slate-500 mt-0.5">
             Manage prerequisite modules required before this capability can operate and modules that depend on this module.
           </p>
@@ -84,7 +84,7 @@ export function ModuleDependenciesTab({ module }: ModuleDependenciesTabProps) {
         {/* Left Column: Prerequisite Parent Modules */}
         <div className="rounded-sm border border-slate-200/80 bg-slate-50/30 p-5 space-y-4">
           <div>
-            <h3 className="font-extrabold text-sm text-[#0D1F3D]">
+            <h3 className="font-extrabold text-sm text-primary">
               Prerequisite Parent Modules ({parents.length})
             </h3>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
@@ -112,7 +112,7 @@ export function ModuleDependenciesTab({ module }: ModuleDependenciesTabProps) {
                       </div>
                       <div className="space-y-0.5 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-extrabold text-xs text-[#0D1F3D] group-hover:text-indigo-600 transition-colors">
+                          <span className="font-extrabold text-xs text-primary group-hover:text-indigo-600 transition-colors">
                             {info.name}
                           </span>
                           <span className="font-mono text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-sm border border-indigo-200">
@@ -138,7 +138,7 @@ export function ModuleDependenciesTab({ module }: ModuleDependenciesTabProps) {
           ) : (
             <div className="p-6 rounded-sm bg-white border border-slate-200/80 text-center space-y-1">
               <CheckCircle2 className="h-6 w-6 text-emerald-600 mx-auto" />
-              <p className="text-xs font-extrabold text-[#0D1F3D]">Root Module (No Prerequisites)</p>
+              <p className="text-xs font-extrabold text-primary">Root Module (No Prerequisites)</p>
               <p className="text-[11px] font-medium text-slate-500">
                 This module operates independently without requiring parent prerequisite modules.
               </p>
@@ -149,7 +149,7 @@ export function ModuleDependenciesTab({ module }: ModuleDependenciesTabProps) {
         {/* Right Column: Downstream Dependent Modules */}
         <div className="rounded-sm border border-slate-200/80 bg-slate-50/30 p-5 space-y-4">
           <div>
-            <h3 className="font-extrabold text-sm text-[#0D1F3D]">
+            <h3 className="font-extrabold text-sm text-primary">
               Downstream Dependent Modules ({dependents.length})
             </h3>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
@@ -177,7 +177,7 @@ export function ModuleDependenciesTab({ module }: ModuleDependenciesTabProps) {
                       </div>
                       <div className="space-y-0.5 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-extrabold text-xs text-[#0D1F3D] group-hover:text-indigo-600 transition-colors">
+                          <span className="font-extrabold text-xs text-primary group-hover:text-indigo-600 transition-colors">
                             {info.name}
                           </span>
                           <span className="font-mono text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-sm border border-indigo-200">
@@ -203,7 +203,7 @@ export function ModuleDependenciesTab({ module }: ModuleDependenciesTabProps) {
           ) : (
             <div className="p-6 rounded-sm bg-white border border-slate-200/80 text-center space-y-1">
               <Package className="h-6 w-6 text-slate-400 mx-auto" />
-              <p className="text-xs font-extrabold text-[#0D1F3D]">No Downstream Dependents</p>
+              <p className="text-xs font-extrabold text-primary">No Downstream Dependents</p>
               <p className="text-[11px] font-medium text-slate-500">
                 No active catalog modules currently depend on this capability.
               </p>

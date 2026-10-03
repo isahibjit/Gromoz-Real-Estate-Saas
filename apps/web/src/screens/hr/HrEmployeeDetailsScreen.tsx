@@ -41,6 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from "ui";
+import { WorkspacePage } from "../../components/layout/PageHeader";
 
 import { canAccess } from "../../common/access/access";
 import { useAppSelector } from "../../store";
@@ -643,18 +644,18 @@ export function HrEmployeeDetailsScreen() {
 
   if (employee.isLoading) {
     return (
-      <main className="flex items-center justify-center p-12">
+      <WorkspacePage className="flex items-center justify-center p-12">
         <div className="flex items-center gap-3 text-sm font-semibold text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
           Loading employee...
         </div>
-      </main>
+      </WorkspacePage>
     );
   }
 
   if (!emp) {
     return (
-      <main className="flex flex-col items-center justify-center gap-4 p-12">
+      <WorkspacePage className="flex flex-col items-center justify-center gap-4 p-12">
         <p className="text-sm font-semibold text-muted-foreground">
           Employee not found.
         </p>
@@ -672,12 +673,12 @@ export function HrEmployeeDetailsScreen() {
           <ArrowLeft className="mr-2 size-4" />{" "}
           {canViewEmployeeDirectory ? "Back to directory" : "Back to dashboard"}
         </Button>
-      </main>
+      </WorkspacePage>
     );
   }
 
   return (
-    <main className="space-y-5 bg-slate-50/60 p-4 pb-16 sm:p-6 2xl:px-8">
+    <WorkspacePage className="pb-16">
       {canViewEmployeeDirectory ? (
         <Button
           type="button"
@@ -1615,6 +1616,6 @@ export function HrEmployeeDetailsScreen() {
           </div>
         </DialogContent>
       </Dialog>
-    </main>
+    </WorkspacePage>
   );
 }

@@ -65,6 +65,7 @@ import {
 } from "ui";
 import { VideoUploadPreviewModal } from "./VideoUploadPreviewModal";
 
+import { WorkspacePage } from "../../../components/layout/PageHeader";
 import { DashboardHeader } from "../dashboard/DashboardHeader";
 import { DashboardSidebar } from "../dashboard/DashboardSidebar";
 import {
@@ -1339,7 +1340,7 @@ export function ProjectDetailsScreen() {
       : "bg-slate-100 text-secondary";
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -1347,975 +1348,963 @@ export function ProjectDetailsScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1">
-        <DashboardHeader
-          search={search}
-          onSearchChange={setSearch}
-          onMobileMenuOpen={() => setMobileOpen(true)}
-          onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
-          breadcrumbs={
-            <>
-              <Link to="/projects" className="hover:text-secondary">
-                Projects
-              </Link>
-              <span> / </span>
-              <span className="text-secondary">{projectName}</span>
-            </>
-          }
-        />
-        <main className="space-y-5 p-4 sm:p-6">
-          <Button
-            asChild
-            variant="ghost"
-            className="h-8 px-0 text-xs font-extrabold text-muted-foreground hover:bg-transparent hover:text-secondary"
-          >
-            <Link to="/projects">
-              <ArrowLeft className="size-4" />
-              Back to Projects
+      <DashboardHeader
+        search={search}
+        onSearchChange={setSearch}
+        onMobileMenuOpen={() => setMobileOpen(true)}
+        onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
+        breadcrumbs={
+          <>
+            <Link to="/projects" className="hover:text-secondary">
+              Projects
             </Link>
-          </Button>
+            <span> / </span>
+            <span className="text-secondary">{projectName}</span>
+          </>
+        }
+      />
+      <WorkspacePage>
+        <Button
+          asChild
+          variant="ghost"
+          className="h-8 px-0 text-xs font-extrabold text-muted-foreground hover:bg-transparent hover:text-secondary"
+        >
+          <Link to="/projects">
+            <ArrowLeft className="size-4" />
+            Back to Projects
+          </Link>
+        </Button>
 
-          <Card className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-card">
-            <div className="grid lg:grid-cols-[minmax(0,1fr)_auto]">
-              <div className="p-5 sm:p-6 flex flex-col justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge
-                      className={cn(
-                        "border-0 text-[11px] font-extrabold",
-                        getStatusClassName(projectStatus),
-                      )}
-                    >
-                      {projectStatus}
-                    </Badge>
-                    {projectPossession ? (
-                      <Badge className="border-0 bg-slate-100 text-[11px] font-extrabold text-secondary">
-                        {projectPossession}
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <h1 className="mt-4 text-3xl font-extrabold text-secondary">
-                    {projectName}
-                  </h1>
-                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-semibold text-muted-foreground">
-                    <span className="flex items-center gap-1.5">
-                      <MapPin className="size-4" />
-                      {projectLocation}
-                    </span>
-                    <span>·</span>
-                    {projectDeveloper ? (
-                      <span>Developer: {projectDeveloper}</span>
-                    ) : null}
-                    {project.numberOfFloors ? (
-                      <span>{project.numberOfFloors} floors</span>
-                    ) : null}
-                  </div>
-                  <p className="mt-4 max-w-3xl text-sm font-semibold leading-6 text-secondary">
-                    {projectDescription}
-                  </p>
-                </div>
-                <div className="mt-6 flex flex-wrap gap-2.5">
-                  <Button
-                    type="button"
-                    className="h-10 rounded-md px-4 shadow-sm"
-                    onClick={openCreateUnitForm}
-                  >
-                    <Plus className="mr-1.5 size-4" /> Add Inventory
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-10 rounded-md px-4 shadow-none"
-                    onClick={() => setIsEditProjectOpen(true)}
-                  >
-                    Edit Project
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-10 rounded-md px-4 shadow-none"
-                    onClick={() => setShareProjectOpen(true)}
-                  >
-                    <Share2 className="mr-1.5 size-4" />
-                    Share WhatsApp
-                  </Button>
-                  <label className="flex h-10 cursor-pointer items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-secondary hover:bg-slate-50 transition-colors shadow-none">
-                    Upload Images
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(event) => {
-                        handleUploadImages(event.target.files);
-                        event.currentTarget.value = "";
-                      }}
-                    />
-                  </label>
-                  <label className="flex h-10 cursor-pointer items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-secondary transition-colors hover:bg-slate-50 shadow-none">
-                    <FileText className="mr-1.5 size-4" />
-                    {projectBrochures.length
-                      ? "Add brochure PDFs"
-                      : "Upload brochure PDFs"}
-                    <input
-                      type="file"
-                      accept="application/pdf,.pdf"
-                      multiple
-                      className="hidden"
-                      onChange={(event) => {
-                        void handleUploadProjectBrochures(event.target.files);
-                        event.currentTarget.value = "";
-                      }}
-                    />
-                  </label>
-                  <Button
-                    variant="outline"
+        <Card className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-card">
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="p-5 sm:p-6 flex flex-col justify-between">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge
                     className={cn(
-                      "h-10 rounded-md px-4 shadow-none transition-colors",
-                      projectStatus === "Archived"
-                        ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100 hover:text-red-700"
-                        : "text-destructive hover:bg-red-50",
+                      "border-0 text-[11px] font-extrabold",
+                      getStatusClassName(projectStatus),
                     )}
-                    onClick={handleArchiveProject}
                   >
-                    <FolderArchive className="mr-1.5 size-4" />
-                    {projectStatus === "Archived"
-                      ? "Archived (Activate)"
-                      : "Archive Project"}
-                  </Button>
+                    {projectStatus}
+                  </Badge>
+                  {projectPossession ? (
+                    <Badge className="border-0 bg-slate-100 text-[11px] font-extrabold text-secondary">
+                      {projectPossession}
+                    </Badge>
+                  ) : null}
                 </div>
-                <div className="mt-4 rounded-md border border-slate-200 bg-slate-50/70 p-3">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex min-w-0 items-start gap-3">
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-white text-secondary">
-                        <FileText className="size-5" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-extrabold text-secondary">
-                          {projectBrochures.length
-                            ? `${projectBrochures.length} brochure PDF${
-                                projectBrochures.length === 1 ? "" : "s"
-                              } uploaded`
-                            : "No brochure uploaded"}
-                        </p>
-                        <p className="mt-1 text-xs font-semibold text-muted-foreground">
-                          {projectBrochures.length
-                            ? "PDF brochures are ready to view, copy, or share with clients."
-                            : "Upload PDF brochures to view, copy, or share them with clients."}
-                        </p>
-                      </div>
+                <h1 className="mt-4 text-3xl font-extrabold text-secondary">
+                  {projectName}
+                </h1>
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-semibold text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <MapPin className="size-4" />
+                    {projectLocation}
+                  </span>
+                  <span>·</span>
+                  {projectDeveloper ? (
+                    <span>Developer: {projectDeveloper}</span>
+                  ) : null}
+                  {project.numberOfFloors ? (
+                    <span>{project.numberOfFloors} floors</span>
+                  ) : null}
+                </div>
+                <p className="mt-4 max-w-3xl text-sm font-semibold leading-6 text-secondary">
+                  {projectDescription}
+                </p>
+              </div>
+              <div className="mt-6 flex flex-wrap gap-2.5">
+                <Button
+                  type="button"
+                  className="h-10 rounded-md px-4 shadow-sm"
+                  onClick={openCreateUnitForm}
+                >
+                  <Plus className="mr-1.5 size-4" /> Add Inventory
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-10 rounded-md px-4 shadow-none"
+                  onClick={() => setIsEditProjectOpen(true)}
+                >
+                  Edit Project
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 rounded-md px-4 shadow-none"
+                  onClick={() => setShareProjectOpen(true)}
+                >
+                  <Share2 className="mr-1.5 size-4" />
+                  Share WhatsApp
+                </Button>
+                <label className="flex h-10 cursor-pointer items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-secondary hover:bg-slate-50 transition-colors shadow-none">
+                  Upload Images
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => {
+                      handleUploadImages(event.target.files);
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                </label>
+                <label className="flex h-10 cursor-pointer items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-secondary transition-colors hover:bg-slate-50 shadow-none">
+                  <FileText className="mr-1.5 size-4" />
+                  {projectBrochures.length
+                    ? "Add brochure PDFs"
+                    : "Upload brochure PDFs"}
+                  <input
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    multiple
+                    className="hidden"
+                    onChange={(event) => {
+                      void handleUploadProjectBrochures(event.target.files);
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                </label>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "h-10 rounded-md px-4 shadow-none transition-colors",
+                    projectStatus === "Archived"
+                      ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100 hover:text-red-700"
+                      : "text-destructive hover:bg-red-50",
+                  )}
+                  onClick={handleArchiveProject}
+                >
+                  <FolderArchive className="mr-1.5 size-4" />
+                  {projectStatus === "Archived"
+                    ? "Archived (Activate)"
+                    : "Archive Project"}
+                </Button>
+              </div>
+              <div className="mt-4 rounded-md border border-slate-200 bg-slate-50/70 p-3">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-white text-secondary">
+                      <FileText className="size-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-extrabold text-secondary">
+                        {projectBrochures.length
+                          ? `${projectBrochures.length} brochure PDF${
+                              projectBrochures.length === 1 ? "" : "s"
+                            } uploaded`
+                          : "No brochure uploaded"}
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                        {projectBrochures.length
+                          ? "PDF brochures are ready to view, copy, or share with clients."
+                          : "Upload PDF brochures to view, copy, or share them with clients."}
+                      </p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {projectBrochures.length ? (
-                        <>
-                          <Button
-                            asChild
-                            type="button"
-                            variant="outline"
-                            className="h-9 rounded-md px-3 text-xs shadow-none"
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {projectBrochures.length ? (
+                      <>
+                        <Button
+                          asChild
+                          type="button"
+                          variant="outline"
+                          className="h-9 rounded-md px-3 text-xs shadow-none"
+                        >
+                          <a
+                            href={projectBrochures[0]?.url}
+                            target="_blank"
+                            rel="noreferrer"
                           >
-                            <a
-                              href={projectBrochures[0]?.url}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              <ExternalLink className="size-4" />
-                              View PDF
-                            </a>
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-9 rounded-md px-3 text-xs shadow-none"
-                            onClick={handleCopyProjectBrochureLink}
-                          >
-                            <Copy className="size-4" />
-                            Copy links
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-9 rounded-md px-3 text-xs shadow-none"
-                            onClick={handleShareProjectBrochure}
-                          >
-                            <Share2 className="size-4" />
-                            Share PDFs
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-9 rounded-md px-3 text-xs text-destructive shadow-none hover:bg-red-50"
-                            onClick={() =>
-                              handleRemoveProjectBrochure(
-                                projectBrochures[0]?.url ?? "",
-                              )
-                            }
-                          >
-                            Remove
-                          </Button>
-                        </>
-                      ) : (
+                            <ExternalLink className="size-4" />
+                            View PDF
+                          </a>
+                        </Button>
                         <Button
                           type="button"
                           variant="outline"
                           className="h-9 rounded-md px-3 text-xs shadow-none"
-                          onClick={() =>
-                            toast.error("Upload a brochure PDF first")
-                          }
+                          onClick={handleCopyProjectBrochureLink}
+                        >
+                          <Copy className="size-4" />
+                          Copy links
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-9 rounded-md px-3 text-xs shadow-none"
+                          onClick={handleShareProjectBrochure}
                         >
                           <Share2 className="size-4" />
-                          Share PDF
+                          Share PDFs
                         </Button>
-                      )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-9 rounded-md px-3 text-xs text-destructive shadow-none hover:bg-red-50"
+                          onClick={() =>
+                            handleRemoveProjectBrochure(
+                              projectBrochures[0]?.url ?? "",
+                            )
+                          }
+                        >
+                          Remove
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9 rounded-md px-3 text-xs shadow-none"
+                        onClick={() =>
+                          toast.error("Upload a brochure PDF first")
+                        }
+                      >
+                        <Share2 className="size-4" />
+                        Share PDF
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                {projectBrochures.length ? (
+                  <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                    {projectBrochures.map(
+                      (brochure: ProjectBrochure, index: number) => (
+                        <div
+                          key={`${brochure.url}-${index}`}
+                          className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-extrabold text-secondary">
+                              {brochure.fileName ||
+                                `Project brochure ${index + 1}.pdf`}
+                            </p>
+                            <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">
+                              {index === 0 ? "Primary PDF" : "Additional PDF"} -{" "}
+                              {formatFileSize(brochure.sizeBytes)}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <Button
+                              asChild
+                              type="button"
+                              variant="ghost"
+                              className="h-8 rounded-md px-2 text-xs shadow-none"
+                            >
+                              <a
+                                href={brochure.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                aria-label={`View ${
+                                  brochure.fileName || `brochure ${index + 1}`
+                                }`}
+                              >
+                                <ExternalLink className="size-4" />
+                              </a>
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="h-8 rounded-md px-2 text-xs text-destructive shadow-none hover:bg-red-50"
+                              onClick={() =>
+                                handleRemoveProjectBrochure(brochure.url)
+                              }
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                ) : null}
+              </div>
+              <div className="mt-4 rounded-md border border-slate-200 bg-slate-50/70 p-3">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-white text-purple-700">
+                      <Video className="size-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-extrabold text-secondary">
+                        {project.videoUrls?.length
+                          ? `${project.videoUrls.length} project video${
+                              project.videoUrls.length === 1 ? "" : "s"
+                            }`
+                          : project.videoUrl
+                          ? "1 project video"
+                          : "No videos linked"}
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                        Watch video tours, paste video links, or upload video
+                        files directly.
+                      </p>
                     </div>
                   </div>
-                  {projectBrochures.length ? (
-                    <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                      {projectBrochures.map(
-                        (brochure: ProjectBrochure, index: number) => (
-                          <div
-                            key={`${brochure.url}-${index}`}
-                            className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2"
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate text-xs font-extrabold text-secondary">
-                                {brochure.fileName ||
-                                  `Project brochure ${index + 1}.pdf`}
-                              </p>
-                              <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">
-                                {index === 0 ? "Primary PDF" : "Additional PDF"}{" "}
-                                - {formatFileSize(brochure.sizeBytes)}
-                              </p>
-                            </div>
-                            <div className="flex shrink-0 items-center gap-1">
-                              <Button
-                                asChild
-                                type="button"
-                                variant="ghost"
-                                className="h-8 rounded-md px-2 text-xs shadow-none"
-                              >
-                                <a
-                                  href={brochure.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  aria-label={`View ${
-                                    brochure.fileName || `brochure ${index + 1}`
-                                  }`}
-                                >
-                                  <ExternalLink className="size-4" />
-                                </a>
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                className="h-8 rounded-md px-2 text-xs text-destructive shadow-none hover:bg-red-50"
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="flex h-9 cursor-pointer items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-secondary transition-colors hover:bg-slate-50 shadow-none">
+                      <Upload className="mr-1.5 size-3.5" />
+                      {isVideoUploading ? "Uploading..." : "Upload Video"}
+                      <input
+                        type="file"
+                        accept="video/*"
+                        disabled={isVideoUploading}
+                        className="hidden"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) {
+                            setVideoUploadTarget("overview");
+                            setPendingVideoFile(file);
+                            setIsVideoPreviewOpen(true);
+                            event.currentTarget.value = "";
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex gap-2">
+                  <Input
+                    type="url"
+                    placeholder="Paste video link (YouTube/Drive/MP4)..."
+                    value={newDetailVideoUrl}
+                    onChange={(e) => setNewDetailVideoUrl(e.target.value)}
+                    className="h-9 text-xs shadow-none border-slate-200 font-semibold bg-white"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-9 shrink-0 text-xs font-extrabold shadow-none bg-white"
+                    onClick={() => void handleAddProjectVideoLink()}
+                  >
+                    Add Link
+                  </Button>
+                </div>
+
+                {project.videoUrls?.length || project.videoUrl ? (
+                  <div className="mt-4 grid gap-4 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs lg:grid-cols-[340px_minmax(0,1fr)]">
+                    {/* Compact Live Video Player */}
+                    <div className="relative aspect-video max-h-[210px] w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-950 shadow-md">
+                      {(() => {
+                        const videosList = (
+                          project.videoUrls?.length
+                            ? project.videoUrls
+                            : [project.videoUrl!]
+                        ).filter(Boolean);
+                        const activeUrl =
+                          videosList[selectedDetailVideoIndex] || videosList[0];
+                        if (!activeUrl) return null;
+                        if (
+                          activeUrl.includes("youtube.com") ||
+                          activeUrl.includes("youtu.be")
+                        ) {
+                          const embedId = activeUrl.includes("v=")
+                            ? activeUrl.split("v=")[1]?.split("&")[0]
+                            : activeUrl.split("/").pop();
+                          return (
+                            <iframe
+                              src={`https://www.youtube.com/embed/${embedId}`}
+                              title="Project Video"
+                              className="aspect-video h-full w-full object-cover"
+                              allowFullScreen
+                            />
+                          );
+                        }
+                        return (
+                          <video
+                            controls
+                            autoPlay={false}
+                            src={activeUrl}
+                            className="aspect-video h-full w-full object-contain"
+                          />
+                        );
+                      })()}
+                    </div>
+
+                    {/* Playlist / Videos List */}
+                    <div className="flex flex-col justify-between space-y-2">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <span className="flex items-center gap-1.5 text-xs font-extrabold text-secondary">
+                          <Video className="size-3.5 text-purple-600" />
+                          Linked Video Tours
+                        </span>
+                        <span className="text-[11px] font-bold text-muted-foreground">
+                          {
+                            (project.videoUrls?.length
+                              ? project.videoUrls
+                              : [project.videoUrl!]
+                            ).filter(Boolean).length
+                          }{" "}
+                          Total
+                        </span>
+                      </div>
+
+                      <div className="max-h-[165px] space-y-2 overflow-y-auto pr-1">
+                        {(project.videoUrls?.length
+                          ? project.videoUrls
+                          : [project.videoUrl!]
+                        )
+                          .filter(Boolean)
+                          .map((videoUrl: string, index: number) => {
+                            const isSelected =
+                              selectedDetailVideoIndex === index;
+                            const isYouTube =
+                              videoUrl.includes("youtube.com") ||
+                              videoUrl.includes("youtu.be");
+                            return (
+                              <div
+                                key={`${videoUrl}-${index}`}
+                                className={cn(
+                                  "flex cursor-pointer items-center justify-between gap-2 rounded-lg border p-2 text-xs transition-all",
+                                  isSelected
+                                    ? "border-purple-500 bg-purple-50/70 text-purple-950 shadow-xs"
+                                    : "border-slate-200 bg-slate-50/50 text-secondary hover:bg-slate-100",
+                                )}
                                 onClick={() =>
-                                  handleRemoveProjectBrochure(brochure.url)
+                                  setSelectedDetailVideoIndex(index)
                                 }
                               >
-                                Remove
+                                <div className="flex min-w-0 flex-1 items-center gap-2">
+                                  <span
+                                    className={cn(
+                                      "flex size-7 shrink-0 items-center justify-center rounded-md text-[11px] font-black px-1",
+                                      isSelected
+                                        ? "bg-purple-600 text-white"
+                                        : "border border-slate-200 bg-white text-slate-600",
+                                    )}
+                                  >
+                                    {index + 1}
+                                  </span>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-xs font-extrabold">
+                                      {isYouTube
+                                        ? `YouTube Tour ${index + 1}`
+                                        : `Project Video Tour ${index + 1}`}
+                                    </p>
+                                    <p className="truncate text-[10px] font-semibold text-muted-foreground">
+                                      {isYouTube
+                                        ? "YouTube Link"
+                                        : "Uploaded MP4 Video"}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex shrink-0 items-center gap-1">
+                                  <Button
+                                    type="button"
+                                    variant={isSelected ? "navy" : "outline"}
+                                    size="sm"
+                                    className="h-7 px-2 text-[11px] font-bold shadow-none"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedDetailVideoIndex(index);
+                                    }}
+                                  >
+                                    {isSelected ? "Playing" : "Preview"}
+                                  </Button>
+                                  <Button
+                                    asChild
+                                    type="button"
+                                    variant="ghost"
+                                    className="size-7 p-0 text-slate-500 hover:text-slate-800"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <a
+                                      href={videoUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      title="Open in new tab"
+                                    >
+                                      <ExternalLink className="size-3.5" />
+                                    </a>
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="size-7 p-0 text-red-500 hover:bg-red-50 hover:text-red-700"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void handleRemoveProjectVideo(videoUrl);
+                                    }}
+                                    title="Remove video"
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <ProjectHeroGallery
+              project={project}
+              gallery={gallery}
+              onUpload={handleUploadImages}
+              onDelete={handleDeleteImage}
+              onMove={handleMoveImage}
+              onOpenLightbox={(idx) => setLightboxIndex(idx)}
+            />
+          </div>
+        </Card>
+
+        <section className="grid gap-3 sm:gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))]">
+          <SummaryTile
+            label="Total Inventory"
+            value={`${totalInventory}`}
+            icon={Building2}
+          />
+          <SummaryTile
+            label="Available Units"
+            value={`${availableCount}`}
+            icon={CalendarCheck}
+          />
+          <SummaryTile
+            label="Reserved Units"
+            value={`${reservedCount}`}
+            icon={Info}
+          />
+          <SummaryTile label="Sold Units" value={`${soldCount}`} icon={Check} />
+          <SummaryTile
+            label="Active Leads"
+            value={`${project.activeLeads}`}
+            icon={UsersRound}
+          />
+          <SummaryTile
+            label="Site Visits"
+            value={`${project.linkedVisits.length}`}
+            icon={Calendar}
+          />
+          <SummaryTile
+            label="Conversion Rate"
+            value={conversionRate}
+            icon={TrendingUp}
+          />
+        </section>
+
+        <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
+          <div className="space-y-5">
+            <Card className="rounded-md border border-slate-200 bg-white p-4 shadow-card">
+              <div className="mb-6 flex flex-col gap-4 border-b border-slate-100 pb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <h2 className="text-base font-extrabold text-secondary">
+                      Unit Inventory ({filteredUnits.length})
+                    </h2>
+                    <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                      Manage and filter physical property assets linked to this
+                      project hub.
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      variant={unitViewMode === "grid" ? "navy" : "outline"}
+                      size="icon"
+                      className="size-9 rounded-md p-1 shadow-none"
+                      onClick={() => setUnitViewMode("grid")}
+                    >
+                      <LayoutGrid className="size-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={unitViewMode === "list" ? "navy" : "outline"}
+                      size="icon"
+                      className="size-9 rounded-md p-1 shadow-none"
+                      onClick={() => setUnitViewMode("list")}
+                    >
+                      <List className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-5 text-xs">
+                  <div className="space-y-1">
+                    <label className="font-extrabold text-secondary">
+                      Search Unit
+                    </label>
+                    <Input
+                      value={unitSearch}
+                      placeholder="Search number or tower..."
+                      className="h-9 text-xs rounded-md border-slate-200 shadow-none font-semibold"
+                      onChange={(e) => setUnitSearch(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="font-extrabold text-secondary">
+                      Tower
+                    </label>
+                    <Select value={towerFilter} onValueChange={setTowerFilter}>
+                      <SelectTrigger className="h-9 text-xs rounded-md border-slate-200 shadow-none font-semibold">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {uniqueTowers.map((tower) => (
+                          <SelectItem key={tower} value={tower}>
+                            {tower}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="font-extrabold text-secondary">
+                      Configuration
+                    </label>
+                    <Select
+                      value={configFilter}
+                      onValueChange={setConfigFilter}
+                    >
+                      <SelectTrigger className="h-9 text-xs rounded-md border-slate-200 shadow-none font-semibold">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {uniqueConfigs.map((config) => (
+                          <SelectItem key={config} value={config}>
+                            {config}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="font-extrabold text-secondary">
+                      Availability
+                    </label>
+                    <Select
+                      value={availabilityFilter}
+                      onValueChange={setAvailabilityFilter}
+                    >
+                      <SelectTrigger className="h-9 text-xs rounded-md border-slate-200 shadow-none font-semibold">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[
+                          "All",
+                          ...availabilityMasters.options.map(
+                            (option) => option.value,
+                          ),
+                        ].map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {status}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="font-extrabold text-secondary">
+                      Booking Status
+                    </label>
+                    <Select
+                      value={bookingStatusFilter}
+                      onValueChange={setBookingStatusFilter}
+                    >
+                      <SelectTrigger className="h-9 text-xs rounded-md border-slate-200 shadow-none font-semibold col-span-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[
+                          "All",
+                          ...bookingStatusMasters.options.map(
+                            (option) => option.value,
+                          ),
+                        ].map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {status}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {inventoryMessage ? (
+                <div className="mb-4 rounded-md border border-success/20 bg-success/10 px-3 py-2 text-xs font-extrabold text-success">
+                  {inventoryMessage}
+                </div>
+              ) : null}
+
+              {unitViewMode === "grid" ? (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredUnits.length === 0 ? (
+                    <div className="col-span-full py-16 text-center text-sm font-semibold text-muted-foreground">
+                      No units match the filter options.
+                    </div>
+                  ) : (
+                    filteredUnits.map((unit) => (
+                      <Card
+                        key={unit.id}
+                        className="group overflow-hidden rounded-md border border-slate-200 bg-white transition-all duration-300 hover:border-slate-300 hover:shadow-[0_12px_24px_rgba(15,37,68,0.06)]"
+                      >
+                        <div className="relative h-28 bg-slate-100">
+                          <img
+                            src={
+                              unit.imageUrl ||
+                              "https://images.unsplash.com/photo-1617103996702-96ff29b1c467?auto=format&fit=crop&q=80&w=700&h=460"
+                            }
+                            alt={formatUnitLabel(unit)}
+                            className="h-full w-full object-cover"
+                          />
+                          <Badge
+                            className={cn(
+                              "absolute right-2 top-2 border-0 text-[10px] font-extrabold",
+                              getUnitStatusClassName(unit.availability),
+                            )}
+                          >
+                            {unit.availability}
+                          </Badge>
+                        </div>
+                        <div className="p-4 space-y-3">
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground">
+                              {unit.tower} · Floor {unit.floor}
+                            </p>
+                            <h3 className="text-sm font-extrabold text-secondary mt-0.5">
+                              {formatUnitLabel(unit)}
+                            </h3>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-[11px] font-semibold text-muted-foreground">
+                            <div className="bg-slate-50 p-2 rounded-md">
+                              <span className="block font-bold text-secondary">
+                                {unit.configuration}
+                              </span>
+                              Config
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                            <p className="text-xs font-extrabold text-secondary">
+                              {unit.price}
+                            </p>
+                            <div className="flex gap-1.5">
+                              <Button
+                                asChild
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2.5 text-[11px] font-bold shadow-none"
+                              >
+                                <Link
+                                  to={`/projects/${project.id}/inventory/${unit.id}`}
+                                >
+                                  View
+                                </Link>
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2.5 text-[11px] font-bold shadow-none"
+                                onClick={() => openEditUnitForm(unit)}
+                              >
+                                Edit
                               </Button>
                             </div>
                           </div>
-                        ),
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-                <div className="mt-4 rounded-md border border-slate-200 bg-slate-50/70 p-3">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex min-w-0 items-start gap-3">
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-white text-purple-700">
-                        <Video className="size-5" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-extrabold text-secondary">
-                          {project.videoUrls?.length
-                            ? `${project.videoUrls.length} project video${
-                                project.videoUrls.length === 1 ? "" : "s"
-                              }`
-                            : project.videoUrl
-                            ? "1 project video"
-                            : "No videos linked"}
-                        </p>
-                        <p className="mt-1 text-xs font-semibold text-muted-foreground">
-                          Watch video tours, paste video links, or upload video
-                          files directly.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <label className="flex h-9 cursor-pointer items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-secondary transition-colors hover:bg-slate-50 shadow-none">
-                        <Upload className="mr-1.5 size-3.5" />
-                        {isVideoUploading ? "Uploading..." : "Upload Video"}
-                        <input
-                          type="file"
-                          accept="video/*"
-                          disabled={isVideoUploading}
-                          className="hidden"
-                          onChange={(event) => {
-                            const file = event.target.files?.[0];
-                            if (file) {
-                              setVideoUploadTarget("overview");
-                              setPendingVideoFile(file);
-                              setIsVideoPreviewOpen(true);
-                              event.currentTarget.value = "";
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex gap-2">
-                    <Input
-                      type="url"
-                      placeholder="Paste video link (YouTube/Drive/MP4)..."
-                      value={newDetailVideoUrl}
-                      onChange={(e) => setNewDetailVideoUrl(e.target.value)}
-                      className="h-9 text-xs shadow-none border-slate-200 font-semibold bg-white"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-9 shrink-0 text-xs font-extrabold shadow-none bg-white"
-                      onClick={() => void handleAddProjectVideoLink()}
-                    >
-                      Add Link
-                    </Button>
-                  </div>
-
-                  {project.videoUrls?.length || project.videoUrl ? (
-                    <div className="mt-4 grid gap-4 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs lg:grid-cols-[340px_minmax(0,1fr)]">
-                      {/* Compact Live Video Player */}
-                      <div className="relative aspect-video max-h-[210px] w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-950 shadow-md">
-                        {(() => {
-                          const videosList = (
-                            project.videoUrls?.length
-                              ? project.videoUrls
-                              : [project.videoUrl!]
-                          ).filter(Boolean);
-                          const activeUrl =
-                            videosList[selectedDetailVideoIndex] ||
-                            videosList[0];
-                          if (!activeUrl) return null;
-                          if (
-                            activeUrl.includes("youtube.com") ||
-                            activeUrl.includes("youtu.be")
-                          ) {
-                            const embedId = activeUrl.includes("v=")
-                              ? activeUrl.split("v=")[1]?.split("&")[0]
-                              : activeUrl.split("/").pop();
-                            return (
-                              <iframe
-                                src={`https://www.youtube.com/embed/${embedId}`}
-                                title="Project Video"
-                                className="aspect-video h-full w-full object-cover"
-                                allowFullScreen
-                              />
-                            );
-                          }
-                          return (
-                            <video
-                              controls
-                              autoPlay={false}
-                              src={activeUrl}
-                              className="aspect-video h-full w-full object-contain"
-                            />
-                          );
-                        })()}
-                      </div>
-
-                      {/* Playlist / Videos List */}
-                      <div className="flex flex-col justify-between space-y-2">
-                        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                          <span className="flex items-center gap-1.5 text-xs font-extrabold text-secondary">
-                            <Video className="size-3.5 text-purple-600" />
-                            Linked Video Tours
-                          </span>
-                          <span className="text-[11px] font-bold text-muted-foreground">
-                            {
-                              (project.videoUrls?.length
-                                ? project.videoUrls
-                                : [project.videoUrl!]
-                              ).filter(Boolean).length
-                            }{" "}
-                            Total
-                          </span>
                         </div>
-
-                        <div className="max-h-[165px] space-y-2 overflow-y-auto pr-1">
-                          {(project.videoUrls?.length
-                            ? project.videoUrls
-                            : [project.videoUrl!]
-                          )
-                            .filter(Boolean)
-                            .map((videoUrl: string, index: number) => {
-                              const isSelected =
-                                selectedDetailVideoIndex === index;
-                              const isYouTube =
-                                videoUrl.includes("youtube.com") ||
-                                videoUrl.includes("youtu.be");
-                              return (
-                                <div
-                                  key={`${videoUrl}-${index}`}
-                                  className={cn(
-                                    "flex cursor-pointer items-center justify-between gap-2 rounded-lg border p-2 text-xs transition-all",
-                                    isSelected
-                                      ? "border-purple-500 bg-purple-50/70 text-purple-950 shadow-xs"
-                                      : "border-slate-200 bg-slate-50/50 text-secondary hover:bg-slate-100",
-                                  )}
-                                  onClick={() =>
-                                    setSelectedDetailVideoIndex(index)
-                                  }
-                                >
-                                  <div className="flex min-w-0 flex-1 items-center gap-2">
-                                    <span
-                                      className={cn(
-                                        "flex size-7 shrink-0 items-center justify-center rounded-md text-[11px] font-black px-1",
-                                        isSelected
-                                          ? "bg-purple-600 text-white"
-                                          : "border border-slate-200 bg-white text-slate-600",
-                                      )}
-                                    >
-                                      {index + 1}
-                                    </span>
-                                    <div className="min-w-0 flex-1">
-                                      <p className="truncate text-xs font-extrabold">
-                                        {isYouTube
-                                          ? `YouTube Tour ${index + 1}`
-                                          : `Project Video Tour ${index + 1}`}
-                                      </p>
-                                      <p className="truncate text-[10px] font-semibold text-muted-foreground">
-                                        {isYouTube
-                                          ? "YouTube Link"
-                                          : "Uploaded MP4 Video"}
-                                      </p>
-                                    </div>
-                                  </div>
-
-                                  <div className="flex shrink-0 items-center gap-1">
-                                    <Button
-                                      type="button"
-                                      variant={isSelected ? "navy" : "outline"}
-                                      size="sm"
-                                      className="h-7 px-2 text-[11px] font-bold shadow-none"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedDetailVideoIndex(index);
-                                      }}
-                                    >
-                                      {isSelected ? "Playing" : "Preview"}
-                                    </Button>
-                                    <Button
-                                      asChild
-                                      type="button"
-                                      variant="ghost"
-                                      className="size-7 p-0 text-slate-500 hover:text-slate-800"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <a
-                                        href={videoUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        title="Open in new tab"
-                                      >
-                                        <ExternalLink className="size-3.5" />
-                                      </a>
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      className="size-7 p-0 text-red-500 hover:bg-red-50 hover:text-red-700"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        void handleRemoveProjectVideo(videoUrl);
-                                      }}
-                                      title="Remove video"
-                                    >
-                                      <Trash2 className="size-3.5" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
+                      </Card>
+                    ))
+                  )}
                 </div>
-              </div>
-              <ProjectHeroGallery
-                project={project}
-                gallery={gallery}
-                onUpload={handleUploadImages}
-                onDelete={handleDeleteImage}
-                onMove={handleMoveImage}
-                onOpenLightbox={(idx) => setLightboxIndex(idx)}
-              />
-            </div>
-          </Card>
-
-          <section className="grid gap-3 sm:gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))]">
-            <SummaryTile
-              label="Total Inventory"
-              value={`${totalInventory}`}
-              icon={Building2}
-            />
-            <SummaryTile
-              label="Available Units"
-              value={`${availableCount}`}
-              icon={CalendarCheck}
-            />
-            <SummaryTile
-              label="Reserved Units"
-              value={`${reservedCount}`}
-              icon={Info}
-            />
-            <SummaryTile
-              label="Sold Units"
-              value={`${soldCount}`}
-              icon={Check}
-            />
-            <SummaryTile
-              label="Active Leads"
-              value={`${project.activeLeads}`}
-              icon={UsersRound}
-            />
-            <SummaryTile
-              label="Site Visits"
-              value={`${project.linkedVisits.length}`}
-              icon={Calendar}
-            />
-            <SummaryTile
-              label="Conversion Rate"
-              value={conversionRate}
-              icon={TrendingUp}
-            />
-          </section>
-
-          <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
-            <div className="space-y-5">
-              <Card className="rounded-md border border-slate-200 bg-white p-4 shadow-card">
-                <div className="mb-6 flex flex-col gap-4 border-b border-slate-100 pb-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                      <h2 className="text-base font-extrabold text-secondary">
-                        Unit Inventory ({filteredUnits.length})
-                      </h2>
-                      <p className="mt-1 text-xs font-semibold text-muted-foreground">
-                        Manage and filter physical property assets linked to
-                        this project hub.
-                      </p>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button
-                        type="button"
-                        variant={unitViewMode === "grid" ? "navy" : "outline"}
-                        size="icon"
-                        className="size-9 rounded-md p-1 shadow-none"
-                        onClick={() => setUnitViewMode("grid")}
-                      >
-                        <LayoutGrid className="size-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={unitViewMode === "list" ? "navy" : "outline"}
-                        size="icon"
-                        className="size-9 rounded-md p-1 shadow-none"
-                        onClick={() => setUnitViewMode("list")}
-                      >
-                        <List className="size-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-5 text-xs">
-                    <div className="space-y-1">
-                      <label className="font-extrabold text-secondary">
-                        Search Unit
-                      </label>
-                      <Input
-                        value={unitSearch}
-                        placeholder="Search number or tower..."
-                        className="h-9 text-xs rounded-md border-slate-200 shadow-none font-semibold"
-                        onChange={(e) => setUnitSearch(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="font-extrabold text-secondary">
-                        Tower
-                      </label>
-                      <Select
-                        value={towerFilter}
-                        onValueChange={setTowerFilter}
-                      >
-                        <SelectTrigger className="h-9 text-xs rounded-md border-slate-200 shadow-none font-semibold">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {uniqueTowers.map((tower) => (
-                            <SelectItem key={tower} value={tower}>
-                              {tower}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="font-extrabold text-secondary">
-                        Configuration
-                      </label>
-                      <Select
-                        value={configFilter}
-                        onValueChange={setConfigFilter}
-                      >
-                        <SelectTrigger className="h-9 text-xs rounded-md border-slate-200 shadow-none font-semibold">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {uniqueConfigs.map((config) => (
-                            <SelectItem key={config} value={config}>
-                              {config}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="font-extrabold text-secondary">
-                        Availability
-                      </label>
-                      <Select
-                        value={availabilityFilter}
-                        onValueChange={setAvailabilityFilter}
-                      >
-                        <SelectTrigger className="h-9 text-xs rounded-md border-slate-200 shadow-none font-semibold">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[
-                            "All",
-                            ...availabilityMasters.options.map(
-                              (option) => option.value,
-                            ),
-                          ].map((status) => (
-                            <SelectItem key={status} value={status}>
-                              {status}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="font-extrabold text-secondary">
-                        Booking Status
-                      </label>
-                      <Select
-                        value={bookingStatusFilter}
-                        onValueChange={setBookingStatusFilter}
-                      >
-                        <SelectTrigger className="h-9 text-xs rounded-md border-slate-200 shadow-none font-semibold col-span-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[
-                            "All",
-                            ...bookingStatusMasters.options.map(
-                              (option) => option.value,
-                            ),
-                          ].map((status) => (
-                            <SelectItem key={status} value={status}>
-                              {status}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                {inventoryMessage ? (
-                  <div className="mb-4 rounded-md border border-success/20 bg-success/10 px-3 py-2 text-xs font-extrabold text-success">
-                    {inventoryMessage}
-                  </div>
-                ) : null}
-
-                {unitViewMode === "grid" ? (
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              ) : (
+                <Table className="min-w-[860px]">
+                  <TableHeader>
+                    <TableRow>
+                      {[
+                        "Unit",
+                        "Configuration",
+                        "Floor",
+                        "Facing",
+                        "Price",
+                        "Status",
+                        "Actions",
+                      ].map((head) => (
+                        <TableHead key={head}>{head}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {filteredUnits.length === 0 ? (
-                      <div className="col-span-full py-16 text-center text-sm font-semibold text-muted-foreground">
-                        No units match the filter options.
-                      </div>
+                      <TableRow>
+                        <TableCell
+                          colSpan={7}
+                          className="py-10 text-center text-sm font-semibold text-muted-foreground"
+                        >
+                          No units found matching selection.
+                        </TableCell>
+                      </TableRow>
                     ) : (
                       filteredUnits.map((unit) => (
-                        <Card
-                          key={unit.id}
-                          className="group overflow-hidden rounded-md border border-slate-200 bg-white transition-all duration-300 hover:border-slate-300 hover:shadow-[0_12px_24px_rgba(15,37,68,0.06)]"
-                        >
-                          <div className="relative h-28 bg-slate-100">
-                            <img
-                              src={
-                                unit.imageUrl ||
-                                "https://images.unsplash.com/photo-1617103996702-96ff29b1c467?auto=format&fit=crop&q=80&w=700&h=460"
-                              }
-                              alt={formatUnitLabel(unit)}
-                              className="h-full w-full object-cover"
-                            />
+                        <TableRow key={unit.id}>
+                          <TableCell>
+                            <p className="font-extrabold text-secondary">
+                              {formatUnitLabel(unit)}
+                            </p>
+                            <p className="text-xs font-semibold text-muted-foreground">
+                              {unit.bookingStatus}
+                            </p>
+                          </TableCell>
+                          <TableCell>{unit.configuration}</TableCell>
+                          <TableCell>{unit.floor}</TableCell>
+                          <TableCell>{unit.facing}</TableCell>
+                          <TableCell className="font-extrabold text-secondary">
+                            {unit.price}
+                          </TableCell>
+                          <TableCell>
                             <Badge
                               className={cn(
-                                "absolute right-2 top-2 border-0 text-[10px] font-extrabold",
+                                "border-0 text-[11px] font-extrabold",
                                 getUnitStatusClassName(unit.availability),
                               )}
                             >
                               {unit.availability}
                             </Badge>
-                          </div>
-                          <div className="p-4 space-y-3">
-                            <div>
-                              <p className="text-xs font-semibold text-muted-foreground">
-                                {unit.tower} · Floor {unit.floor}
-                              </p>
-                              <h3 className="text-sm font-extrabold text-secondary mt-0.5">
-                                {formatUnitLabel(unit)}
-                              </h3>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2 text-[11px] font-semibold text-muted-foreground">
-                              <div className="bg-slate-50 p-2 rounded-md">
-                                <span className="block font-bold text-secondary">
-                                  {unit.configuration}
-                                </span>
-                                Config
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                              <p className="text-xs font-extrabold text-secondary">
-                                {unit.price}
-                              </p>
-                              <div className="flex gap-1.5">
-                                <Button
-                                  asChild
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 px-2.5 text-[11px] font-bold shadow-none"
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap justify-end gap-2">
+                              <Button
+                                asChild
+                                variant="outline"
+                                size="icon"
+                                className="size-8 rounded-md shadow-none"
+                                aria-label={`View ${formatUnitLabel(unit)}`}
+                                title={`View ${formatUnitLabel(unit)}`}
+                              >
+                                <Link
+                                  to={`/projects/${project.id}/inventory/${unit.id}`}
                                 >
-                                  <Link
-                                    to={`/projects/${project.id}/inventory/${unit.id}`}
-                                  >
-                                    View
-                                  </Link>
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 px-2.5 text-[11px] font-bold shadow-none"
-                                  onClick={() => openEditUnitForm(unit)}
-                                >
-                                  Edit
-                                </Button>
-                              </div>
+                                  <Eye className="size-3.5" />
+                                </Link>
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="size-8 rounded-md shadow-none"
+                                aria-label={`Edit ${formatUnitLabel(unit)}`}
+                                title={`Edit ${formatUnitLabel(unit)}`}
+                                onClick={() => openEditUnitForm(unit)}
+                              >
+                                <Plus className="size-3.5" />
+                              </Button>
                             </div>
-                          </div>
-                        </Card>
+                          </TableCell>
+                        </TableRow>
                       ))
                     )}
-                  </div>
-                ) : (
-                  <Table className="min-w-[860px]">
-                    <TableHeader>
-                      <TableRow>
-                        {[
-                          "Unit",
-                          "Configuration",
-                          "Floor",
-                          "Facing",
-                          "Price",
-                          "Status",
-                          "Actions",
-                        ].map((head) => (
-                          <TableHead key={head}>{head}</TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredUnits.length === 0 ? (
-                        <TableRow>
-                          <TableCell
-                            colSpan={7}
-                            className="py-10 text-center text-sm font-semibold text-muted-foreground"
-                          >
-                            No units found matching selection.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        filteredUnits.map((unit) => (
-                          <TableRow key={unit.id}>
-                            <TableCell>
-                              <p className="font-extrabold text-secondary">
-                                {formatUnitLabel(unit)}
-                              </p>
-                              <p className="text-xs font-semibold text-muted-foreground">
-                                {unit.bookingStatus}
-                              </p>
-                            </TableCell>
-                            <TableCell>{unit.configuration}</TableCell>
-                            <TableCell>{unit.floor}</TableCell>
-                            <TableCell>{unit.facing}</TableCell>
-                            <TableCell className="font-extrabold text-secondary">
-                              {unit.price}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                className={cn(
-                                  "border-0 text-[11px] font-extrabold",
-                                  getUnitStatusClassName(unit.availability),
-                                )}
-                              >
-                                {unit.availability}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-wrap justify-end gap-2">
-                                <Button
-                                  asChild
-                                  variant="outline"
-                                  size="icon"
-                                  className="size-8 rounded-md shadow-none"
-                                  aria-label={`View ${formatUnitLabel(unit)}`}
-                                  title={`View ${formatUnitLabel(unit)}`}
-                                >
-                                  <Link
-                                    to={`/projects/${project.id}/inventory/${unit.id}`}
-                                  >
-                                    <Eye className="size-3.5" />
-                                  </Link>
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  className="size-8 rounded-md shadow-none"
-                                  aria-label={`Edit ${formatUnitLabel(unit)}`}
-                                  title={`Edit ${formatUnitLabel(unit)}`}
-                                  onClick={() => openEditUnitForm(unit)}
-                                >
-                                  <Plus className="size-3.5" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                )}
-              </Card>
+                  </TableBody>
+                </Table>
+              )}
+            </Card>
 
-              <Card className="rounded-md border border-slate-200 bg-white p-4 shadow-card">
-                <h2 className="mb-4 text-base font-extrabold text-secondary">
-                  Linked Leads
-                </h2>
-                {project.linkedLeads.length === 0 ? (
+            <Card className="rounded-md border border-slate-200 bg-white p-4 shadow-card">
+              <h2 className="mb-4 text-base font-extrabold text-secondary">
+                Linked Leads
+              </h2>
+              {project.linkedLeads.length === 0 ? (
+                <div className="rounded-md border border-dashed border-slate-200 bg-slate-50/70 px-4 py-8 text-center">
+                  <UsersRound className="mx-auto size-6 text-slate-400" />
+                  <p className="mt-3 text-sm font-extrabold text-secondary">
+                    Nothing linked yet
+                  </p>
+                  <p className="mt-1 text-xs font-semibold leading-relaxed text-muted-foreground">
+                    Leads linked to this project will appear here once a project
+                    preference, unit, or booking is assigned.
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {["Lead", "Stage", "Budget", "Unit", "Owner"].map(
+                        (head) => (
+                          <TableHead key={head}>{head}</TableHead>
+                        ),
+                      )}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {project.linkedLeads.map((lead: any) => (
+                      <TableRow key={`${lead.id}-${lead.unitId ?? "project"}`}>
+                        <TableCell>
+                          <Link
+                            to={`/leads/${lead.id}`}
+                            className="font-extrabold text-blue-700 hover:text-blue-800"
+                          >
+                            {lead.name}
+                          </Link>
+                          <p className="text-xs font-semibold text-muted-foreground">
+                            {lead.id}
+                          </p>
+                        </TableCell>
+                        <TableCell>{lead.stage}</TableCell>
+                        <TableCell>{lead.budget}</TableCell>
+                        <TableCell>
+                          {formatUnitLabel(
+                            getUnitById(project.id, lead.unitId),
+                          ) || "Project preference"}
+                        </TableCell>
+                        <TableCell>{lead.owner}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </Card>
+          </div>
+
+          <aside className="space-y-5">
+            <Card className="rounded-md border border-slate-200 bg-white p-4 shadow-card">
+              <h2 className="text-base font-extrabold text-secondary">
+                Scheduled Site Visits
+              </h2>
+              <div className="mt-4 space-y-3">
+                {project.linkedVisits.length === 0 ? (
                   <div className="rounded-md border border-dashed border-slate-200 bg-slate-50/70 px-4 py-8 text-center">
-                    <UsersRound className="mx-auto size-6 text-slate-400" />
+                    <CalendarCheck className="mx-auto size-6 text-slate-400" />
                     <p className="mt-3 text-sm font-extrabold text-secondary">
-                      Nothing linked yet
+                      No site visits scheduled
                     </p>
                     <p className="mt-1 text-xs font-semibold leading-relaxed text-muted-foreground">
-                      Leads linked to this project will appear here once a
-                      project preference, unit, or booking is assigned.
+                      Scheduled visits for this project will appear here once
+                      they are created from leads or site visit planning.
                     </p>
                   </div>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {["Lead", "Stage", "Budget", "Unit", "Owner"].map(
-                          (head) => (
-                            <TableHead key={head}>{head}</TableHead>
-                          ),
-                        )}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {project.linkedLeads.map((lead: any) => (
-                        <TableRow
-                          key={`${lead.id}-${lead.unitId ?? "project"}`}
-                        >
-                          <TableCell>
-                            <Link
-                              to={`/leads/${lead.id}`}
-                              className="font-extrabold text-blue-700 hover:text-blue-800"
-                            >
-                              {lead.name}
-                            </Link>
-                            <p className="text-xs font-semibold text-muted-foreground">
-                              {lead.id}
-                            </p>
-                          </TableCell>
-                          <TableCell>{lead.stage}</TableCell>
-                          <TableCell>{lead.budget}</TableCell>
-                          <TableCell>
-                            {formatUnitLabel(
-                              getUnitById(project.id, lead.unitId),
-                            ) || "Project preference"}
-                          </TableCell>
-                          <TableCell>{lead.owner}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </Card>
-            </div>
-
-            <aside className="space-y-5">
-              <Card className="rounded-md border border-slate-200 bg-white p-4 shadow-card">
-                <h2 className="text-base font-extrabold text-secondary">
-                  Scheduled Site Visits
-                </h2>
-                <div className="mt-4 space-y-3">
-                  {project.linkedVisits.length === 0 ? (
-                    <div className="rounded-md border border-dashed border-slate-200 bg-slate-50/70 px-4 py-8 text-center">
-                      <CalendarCheck className="mx-auto size-6 text-slate-400" />
-                      <p className="mt-3 text-sm font-extrabold text-secondary">
-                        No site visits scheduled
+                  project.linkedVisits.map((visit: any) => (
+                    <div
+                      key={visit.id}
+                      className="rounded-md border border-slate-100 bg-slate-50 p-3"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-extrabold text-secondary">
+                          {visit.leadName}
+                        </p>
+                        <Badge className="border-0 bg-blue-50 text-blue-700">
+                          {visit.status}
+                        </Badge>
+                      </div>
+                      <p className="mt-2 text-xs font-semibold text-muted-foreground">
+                        {visit.date}, {visit.time}
                       </p>
-                      <p className="mt-1 text-xs font-semibold leading-relaxed text-muted-foreground">
-                        Scheduled visits for this project will appear here once
-                        they are created from leads or site visit planning.
+                      <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                        {formatUnitLabel(
+                          getUnitById(project.id, visit.unitId),
+                        ) || project.name}
                       </p>
                     </div>
-                  ) : (
-                    project.linkedVisits.map((visit: any) => (
-                      <div
-                        key={visit.id}
-                        className="rounded-md border border-slate-100 bg-slate-50 p-3"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm font-extrabold text-secondary">
-                            {visit.leadName}
-                          </p>
-                          <Badge className="border-0 bg-blue-50 text-blue-700">
-                            {visit.status}
-                          </Badge>
-                        </div>
-                        <p className="mt-2 text-xs font-semibold text-muted-foreground">
-                          {visit.date}, {visit.time}
-                        </p>
-                        <p className="mt-1 text-xs font-semibold text-muted-foreground">
-                          {formatUnitLabel(
-                            getUnitById(project.id, visit.unitId),
-                          ) || project.name}
-                        </p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </Card>
-            </aside>
-          </section>
-        </main>
-      </div>
+                  ))
+                )}
+              </div>
+            </Card>
+          </aside>
+        </section>
+      </WorkspacePage>
 
       <Dialog open={isEditProjectOpen} onOpenChange={setIsEditProjectOpen}>
         <DialogContent className="flex max-h-[90vh] w-[min(1180px,calc(100vw-1.5rem))] max-w-none flex-col overflow-hidden rounded-md border border-slate-200 bg-white p-0 shadow-xl">
@@ -3416,6 +3405,6 @@ export function ProjectDetailsScreen() {
         onOpenChange={setIsVideoPreviewOpen}
         onConfirmUpload={handleConfirmVideoUpload}
       />
-    </div>
+    </>
   );
 }

@@ -49,6 +49,7 @@ import {
   SelectValue,
   Textarea,
 } from "ui";
+import { WorkspacePage } from "../../components/layout/PageHeader";
 
 function TablePagination({
   total,
@@ -903,7 +904,7 @@ export function HrWorkspaceScreen() {
   if (!canViewEmployeeDirectory && workspace === "employees") return null;
 
   return (
-    <main className="space-y-5 p-4 sm:p-6 2xl:px-8">
+    <WorkspacePage>
       {workspace === "employees" && (
         <>
           <SectionHeading
@@ -2424,6 +2425,6 @@ export function HrWorkspaceScreen() {
           <PersonalSettingsPage />
         </>
       )}
-    </main>
+    </WorkspacePage>
   );
 }

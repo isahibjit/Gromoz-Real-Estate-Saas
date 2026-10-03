@@ -52,6 +52,7 @@ import {
 import { DashboardHeader } from "../../admin/dashboard/DashboardHeader";
 import { DashboardSidebar } from "../../admin/dashboard/DashboardSidebar";
 import { telecallerSidebarItems } from "../dashboard/telecallerDashboardData";
+import { WorkspacePage } from "../../../components/layout/PageHeader";
 
 const MOCK_WHATSAPP_LOGS = [
   {
@@ -242,7 +243,7 @@ export function TelecallerWhatsAppLogsScreen() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
+    <>
       <DashboardSidebar
         collapsed={sidebarCollapsed}
         mobileOpen={mobileMenuOpen}
@@ -252,8 +253,7 @@ export function TelecallerWhatsAppLogsScreen() {
         activeItem="Communication"
         activeChild="WhatsApp Logs"
       />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <DashboardHeader
+      <DashboardHeader
           onMobileMenuOpen={() => setMobileMenuOpen(true)}
           onDesktopSidebarToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
           search={searchQuery}
@@ -275,9 +275,9 @@ export function TelecallerWhatsAppLogsScreen() {
               <span className="text-foreground">WhatsApp Logs</span>
             </div>
           }
-        />
+      />
 
-        <main className="flex-1 p-6 overflow-auto">
+      <WorkspacePage>
           <div className="mx-auto space-y-6">
             {/* Header Area */}
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -797,8 +797,7 @@ export function TelecallerWhatsAppLogsScreen() {
               </div>
             </Card>
           </div>
-        </main>
-      </div>
+      </WorkspacePage>
 
       {/* Send WhatsApp Modal */}
       <Dialog open={isSendModalOpen} onOpenChange={setIsSendModalOpen}>
@@ -874,6 +873,6 @@ export function TelecallerWhatsAppLogsScreen() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

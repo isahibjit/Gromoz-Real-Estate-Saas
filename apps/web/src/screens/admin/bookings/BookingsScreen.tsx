@@ -52,6 +52,7 @@ import { useSiteVisitOptions } from "../leads/site-visits/useSiteVisits";
 import { useProjects } from "../projects/useProjectsApi";
 import { useAppSelector } from "../../../store";
 import { canAccess } from "../../../common/access/access";
+import { WorkspacePage } from "../../../components/layout/PageHeader";
 import {
   CreateBookingDialog,
   type CreateBookingDialogDefaults,
@@ -2748,7 +2749,7 @@ export function BookingsScreen() {
   );
 
   return (
-    <main className="mx-auto  space-y-8 p-4 sm:p-6">
+    <WorkspacePage className="space-y-8">
       {/* Header Section */}
       <section className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
         <div>
@@ -3165,6 +3166,6 @@ export function BookingsScreen() {
           if (!open) setSelectedBooking(null);
         }}
       />
-    </main>
+    </WorkspacePage>
   );
 }

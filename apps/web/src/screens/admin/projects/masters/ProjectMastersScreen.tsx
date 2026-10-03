@@ -6,6 +6,7 @@ import { Button, ConfirmDeleteDialog } from "ui";
 
 import { usePermission } from "../../../../common/access/usePermission";
 import { api } from "../../../../common/api";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 import { DashboardSidebar } from "../../dashboard/DashboardSidebar";
 import { LeadMastersHeader } from "../../leads/masters/components/LeadMastersHeader";
 import { MasterCategoryPanel } from "../../leads/masters/components/MasterCategoryPanel";
@@ -317,7 +318,7 @@ export function ProjectMastersScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 lg:flex">
+    <>
       <DashboardSidebar
         activeItem="Masters"
         activeChild="Projects"
@@ -327,8 +328,7 @@ export function ProjectMastersScreen() {
         onMobileClose={() => setMobileOpen(false)}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <LeadMastersHeader
+      <LeadMastersHeader
           search={activeFilters.search}
           onSearchChange={(value) => setFiltersForCategory({ search: value })}
           onMobileMenuOpen={() => setMobileOpen(true)}
@@ -342,9 +342,9 @@ export function ProjectMastersScreen() {
               : undefined
           }
           sectionTitle="Project Masters"
-        />
+      />
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-5 lg:p-6">
+      <WorkspacePage className="space-y-6">
           <div className="mx-auto space-y-6">
             <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -451,8 +451,7 @@ export function ProjectMastersScreen() {
               </div>
             </div>
           </div>
-        </main>
-      </div>
+      </WorkspacePage>
 
       <MasterRecordModal
         open={recordModalOpen}
@@ -476,6 +475,6 @@ export function ProjectMastersScreen() {
         onCancel={() => setDeleteRow(null)}
         onClose={() => setDeleteRow(null)}
       />
-    </div>
+    </>
   );
 }

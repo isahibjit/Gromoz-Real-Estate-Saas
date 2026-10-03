@@ -10,13 +10,35 @@ import {
 } from "../Table/Table";
 import { cn } from "../../lib/utils";
 
-export interface ColumnDef<TData, TValue = unknown> {
+export interface ColumnDef<TData> {
   id?: string;
   header: React.ReactNode;
   accessorKey?: keyof TData | string;
   cell?: (row: TData) => React.ReactNode;
   className?: string;
   headerClassName?: string;
+}
+
+function getAccessorValue<TData>(
+  row: TData,
+  accessorKey: keyof TData | string,
+): React.ReactNode {
+  if (typeof row !== "object" || row === null) {
+    return null;
+  }
+
+  const value = (row as Record<string, unknown>)[String(accessorKey)];
+
+  if (
+    value === null ||
+    value === undefined ||
+    typeof value === "string" ||
+    typeof value === "number"
+  ) {
+    return value;
+  }
+
+  return String(value);
 }
 
 interface DataTableProps<TData> {
@@ -50,7 +72,7 @@ export function DataTable<TData>({
   return (
     <div
       className={cn(
-        "relative flex flex-col justify-between overflow-hidden rounded-md border border-slate-200 bg-white shadow-card",
+        "relative flex flex-col justify-between overflow-hidden rounded-lg border border-border bg-card shadow-xs",
         minHeight,
         className,
       )}
@@ -59,13 +81,13 @@ export function DataTable<TData>({
 
       <div className="min-h-0 flex-1 overflow-x-auto">
         <Table className={cn("w-full", tableClassName)}>
-          <TableHeader className="bg-slate-50/80 backdrop-blur-sm">
+          <TableHeader className="bg-muted/60">
             <TableRow className="hover:bg-transparent">
               {columns.map((col, index) => (
                 <TableHead
                   key={index}
                   className={cn(
-                    "px-2.5 py-3 text-[11px] font-extrabold uppercase tracking-wide text-secondary",
+                    "px-2.5 py-3 text-xs font-bold text-foreground",
                     col.headerClassName,
                   )}
                 >
@@ -74,7 +96,7 @@ export function DataTable<TData>({
               ))}
             </TableRow>
           </TableHeader>
-          <TableBody className="divide-y divide-slate-100">
+          <TableBody className="divide-y divide-border/70">
             {isLoading ? (
               Array.from({ length: skeletonRowCount }).map((_, rowIndex) => (
                 <TableRow
@@ -131,7 +153,7 @@ export function DataTable<TData>({
                   <TableRow
                     key={rowIndex}
                     className={cn(
-                      "animate-in fade-in-50 duration-200 transition-colors hover:bg-slate-50/60",
+                      "animate-in fade-in-50 duration-200 transition-colors hover:bg-muted/45",
                       onRowClick && "cursor-pointer",
                     )}
                     onClick={() => onRowClick?.(row)}
@@ -147,7 +169,7 @@ export function DataTable<TData>({
                         {col.cell
                           ? col.cell(row)
                           : col.accessorKey
-                          ? (row as any)[col.accessorKey]
+                          ? getAccessorValue(row, col.accessorKey)
                           : null}
                       </TableCell>
                     ))}

@@ -48,6 +48,7 @@ import {
 import { DashboardHeader } from "../../admin/dashboard/DashboardHeader";
 import { DashboardSidebar } from "../../admin/dashboard/DashboardSidebar";
 import { telecallerSidebarItems } from "../dashboard/telecallerDashboardData";
+import { WorkspacePage } from "../../../components/layout/PageHeader";
 
 const MOCK_REQUESTS = [
   {
@@ -147,7 +148,7 @@ export function TelecallerLeadTransferRequestScreen() {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans">
+    <>
       <DashboardSidebar
         collapsed={sidebarCollapsed}
         mobileOpen={mobileMenuOpen}
@@ -157,8 +158,7 @@ export function TelecallerLeadTransferRequestScreen() {
         activeItem="Others"
         activeChild="Lead Transfer Request"
       />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <DashboardHeader
+      <DashboardHeader
           search="Search leads, customers, projects..."
           onSearchChange={() => {}}
           onMobileMenuOpen={() => setMobileMenuOpen(true)}
@@ -182,8 +182,8 @@ export function TelecallerLeadTransferRequestScreen() {
               </span>
             </div>
           }
-        />
-        <main className="flex-1 p-6 overflow-auto">
+      />
+      <WorkspacePage className="space-y-6">
           <div className="max-w-[1600px] mx-auto space-y-6">
             {/* Page Header */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -544,8 +544,7 @@ export function TelecallerLeadTransferRequestScreen() {
               </TabsContent>
             </Tabs>
           </div>
-        </main>
-      </div>
+      </WorkspacePage>
 
       {/* New Transfer Request Modal */}
       <Dialog
@@ -780,6 +779,6 @@ export function TelecallerLeadTransferRequestScreen() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

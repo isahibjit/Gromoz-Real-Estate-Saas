@@ -105,11 +105,11 @@ export function PlanTenantsTab({ plan, planTenants, metrics }: PlanTenantsTabPro
           onClick={() => navigate(`/platform/tenants/${t.id}`)}
           className="flex items-center gap-3 min-w-[200px] cursor-pointer group select-none"
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-[#0D1F3D] text-white font-extrabold text-xs transition-colors group-hover:bg-[#E20613]">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-primary text-white font-extrabold text-xs transition-colors group-hover:bg-tertiary">
             {t.companyName ? t.companyName[0] : 'T'}
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-extrabold text-[#0D1F3D] group-hover:text-[#E20613] group-hover:underline truncate transition-colors">
+            <p className="text-xs font-extrabold text-primary group-hover:text-tertiary group-hover:underline truncate transition-colors">
               {t.companyName}
             </p>
             <p className="text-[11px] font-semibold text-slate-500 truncate">
@@ -145,7 +145,7 @@ export function PlanTenantsTab({ plan, planTenants, metrics }: PlanTenantsTabPro
 
         return (
           <div className="min-w-[130px] space-y-1">
-            <div className="flex items-center justify-between text-xs font-bold text-[#0D1F3D]">
+            <div className="flex items-center justify-between text-xs font-bold text-primary">
               <span>{used} / {limit}</span>
               <span className="text-slate-500 font-semibold">{percent}%</span>
             </div>
@@ -168,7 +168,7 @@ export function PlanTenantsTab({ plan, planTenants, metrics }: PlanTenantsTabPro
         const amount = t.mrr || 0;
         return (
           <div className="min-w-[100px]">
-            <span className="font-extrabold text-[#0D1F3D] text-xs block">
+            <span className="font-extrabold text-primary text-xs block">
               {amount > 0 ? formatCurrency(amount, plan.pricing.currency) : '₹0'}
             </span>
             <span className="text-[10px] text-slate-500 font-semibold block">{amount > 0 ? 'Monthly' : 'Trial'}</span>
@@ -193,7 +193,7 @@ export function PlanTenantsTab({ plan, planTenants, metrics }: PlanTenantsTabPro
       header: 'Primary Contact',
       cell: (t: Tenant) => (
         <div className="min-w-[150px]">
-          <p className="font-extrabold text-[#0D1F3D] text-xs truncate">{t.adminUser?.fullName || '—'}</p>
+          <p className="font-extrabold text-primary text-xs truncate">{t.adminUser?.fullName || '—'}</p>
           <p className="text-[10px] text-slate-500 font-medium truncate">{t.adminUser?.email || '—'}</p>
         </div>
       ),
@@ -255,7 +255,7 @@ export function PlanTenantsTab({ plan, planTenants, metrics }: PlanTenantsTabPro
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-sm border border-slate-200 bg-white p-5 shadow-xs">
         <div>
           <div className="flex items-center gap-2.5">
-            <h3 className="text-base font-extrabold text-[#0D1F3D]">Plan Tenants</h3>
+            <h3 className="text-base font-extrabold text-primary">Plan Tenants</h3>
             <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700 border border-blue-200">
               {metrics.totalTenants} Subscribed
             </span>
@@ -321,7 +321,7 @@ export function PlanTenantsTab({ plan, planTenants, metrics }: PlanTenantsTabPro
               placeholder="Search tenants by name, domain, contact..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-10 w-full rounded-sm border border-slate-200 bg-slate-50/50 pl-10 pr-4 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-[#0D1F3D] focus:bg-white focus:outline-none"
+              className="h-10 w-full rounded-sm border border-slate-200 bg-slate-50/50 pl-10 pr-4 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-primary focus:bg-white focus:outline-none"
             />
           </div>
 
@@ -397,7 +397,7 @@ export function PlanTenantsTab({ plan, planTenants, metrics }: PlanTenantsTabPro
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
         {/* Card 1: Plan Adoption Donut Chart */}
         <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-4 min-w-0">
-          <h4 className="text-sm font-bold text-[#0D1F3D] border-b border-slate-100 pb-3">Plan Adoption Breakdown</h4>
+          <h4 className="text-sm font-bold text-primary border-b border-slate-100 pb-3">Plan Adoption Breakdown</h4>
 
           {metrics.totalTenants > 0 ? (
             <div className="flex items-center gap-4">
@@ -419,13 +419,13 @@ export function PlanTenantsTab({ plan, planTenants, metrics }: PlanTenantsTabPro
                     </Pie>
                     <Tooltip
                       wrapperStyle={{ zIndex: 100 }}
-                      contentStyle={{ backgroundColor: '#0D1F3D', borderRadius: '4px', border: 'none', color: '#fff' }}
+                      contentStyle={{ backgroundColor: 'hsl(var(--primary))', borderRadius: 'var(--radius-xs)', border: 'none', color: '#fff' }}
                       itemStyle={{ color: '#FFFFFF', fontWeight: 600, fontSize: '11px' }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-base font-extrabold text-[#0D1F3D]">{metrics.totalTenants}</span>
+                  <span className="text-base font-extrabold text-primary">{metrics.totalTenants}</span>
                   <span className="text-[10px] font-semibold text-slate-500">Total</span>
                 </div>
               </div>
@@ -436,21 +436,21 @@ export function PlanTenantsTab({ plan, planTenants, metrics }: PlanTenantsTabPro
                     <span className="h-2.5 w-2.5 rounded-full bg-blue-500 shrink-0" />
                     <span className="text-slate-600 truncate">Active</span>
                   </div>
-                  <span className="text-[#0D1F3D] font-extrabold shrink-0">{metrics.activeTenants}</span>
+                  <span className="text-primary font-extrabold shrink-0">{metrics.activeTenants}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shrink-0" />
                     <span className="text-slate-600 truncate">Trial</span>
                   </div>
-                  <span className="text-[#0D1F3D] font-extrabold shrink-0">{metrics.trialTenants}</span>
+                  <span className="text-primary font-extrabold shrink-0">{metrics.trialTenants}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="h-2.5 w-2.5 rounded-full bg-purple-500 shrink-0" />
                     <span className="text-slate-600 truncate">Suspended</span>
                   </div>
-                  <span className="text-[#0D1F3D] font-extrabold shrink-0">{metrics.suspendedTenants}</span>
+                  <span className="text-primary font-extrabold shrink-0">{metrics.suspendedTenants}</span>
                 </div>
               </div>
             </div>
@@ -463,7 +463,7 @@ export function PlanTenantsTab({ plan, planTenants, metrics }: PlanTenantsTabPro
 
         {/* Card 2: Top Tenants by MRR */}
         <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-4 min-w-0">
-          <h4 className="text-sm font-extrabold text-[#0D1F3D] border-b border-slate-100 pb-3">Top Tenants by MRR</h4>
+          <h4 className="text-sm font-extrabold text-primary border-b border-slate-100 pb-3">Top Tenants by MRR</h4>
           {topTenants.length > 0 ? (
             <div className="space-y-3">
               {topTenants.map((t, idx) => {
@@ -472,7 +472,7 @@ export function PlanTenantsTab({ plan, planTenants, metrics }: PlanTenantsTabPro
                   <div key={t.id} className="flex items-center justify-between text-xs gap-2">
                     <div className="flex items-center gap-2.5 min-w-0 truncate">
                       <span className="text-xs font-bold text-slate-500 w-3 shrink-0">{idx + 1}</span>
-                      <span className="font-extrabold text-[#0D1F3D] truncate">{t.companyName}</span>
+                      <span className="font-extrabold text-primary truncate">{t.companyName}</span>
                     </div>
                     <span className="font-mono font-extrabold text-indigo-700 shrink-0">
                       {mrrVal > 0 ? formatCurrency(mrrVal, plan.pricing.currency) : '₹0'}
@@ -490,7 +490,7 @@ export function PlanTenantsTab({ plan, planTenants, metrics }: PlanTenantsTabPro
 
         {/* Card 3: Tenant Insights */}
         <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-3 min-w-0">
-          <h4 className="text-sm font-bold text-[#0D1F3D]">Tenant Insights</h4>
+          <h4 className="text-sm font-bold text-primary">Tenant Insights</h4>
           <div className="space-y-2 text-xs text-slate-600 font-medium">
             <div className="flex items-start gap-2">
               <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />

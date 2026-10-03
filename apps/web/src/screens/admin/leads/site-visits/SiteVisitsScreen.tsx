@@ -58,6 +58,7 @@ import {
 
 import { api } from "../../../../common/api";
 import { getApiErrorMessage } from "../../../../common/apiError";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 import {
   ExecutiveCell,
   LeadCell,
@@ -3040,13 +3041,13 @@ export function SiteVisitsScreen({ leadId }: { leadId?: string } = {}) {
   );
 
   return (
-    <main className="mx-auto  space-y-8 p-4 sm:p-6">
+    <WorkspacePage className="space-y-8">
       <SiteVisitsWorkspace
         leadId={leadId}
         fieldExecutiveRoute={fieldExecutiveRoute}
         search={search}
         onSearchChange={setSearch}
       />
-    </main>
+    </WorkspacePage>
   );
 }

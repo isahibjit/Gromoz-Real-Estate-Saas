@@ -145,7 +145,7 @@ export function TenantDetailsPage() {
           <AlertCircle className="h-7 w-7" />
         </div>
         <div>
-          <h2 className="text-xl font-extrabold text-[#0D1F3D]">
+          <h2 className="text-xl font-extrabold text-primary">
             Tenant Not Found
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-1">
@@ -173,7 +173,7 @@ export function TenantDetailsPage() {
             <button
               type="button"
               onClick={() => navigate("/platform/dashboard")}
-              className="hover:text-[#0D1F3D]"
+              className="hover:text-primary"
             >
               Dashboard
             </button>
@@ -181,7 +181,7 @@ export function TenantDetailsPage() {
             <button
               type="button"
               onClick={() => navigate("/platform/tenants")}
-              className="hover:text-[#0D1F3D]"
+              className="hover:text-primary"
             >
               Tenants
             </button>
@@ -189,18 +189,18 @@ export function TenantDetailsPage() {
             <button
               type="button"
               onClick={() => navigate("/platform/tenants")}
-              className="hover:text-[#0D1F3D]"
+              className="hover:text-primary"
             >
               All Tenants
             </button>
             <span>›</span>
-            <span className="font-extrabold text-[#0D1F3D]">
+            <span className="font-extrabold text-primary">
               {tenant.companyName}
             </span>
           </div>
 
           <div className="flex items-center gap-2.5 mt-1.5">
-            <h1 className="text-2xl font-extrabold text-[#0D1F3D] tracking-tight">
+            <h1 className="text-2xl font-extrabold text-primary tracking-tight">
               Tenant Overview
             </h1>
             <span className="flex h-7 w-7 items-center justify-center rounded-sm bg-purple-100 text-purple-700">
@@ -340,7 +340,7 @@ export function TenantDetailsPage() {
               Plan & Billing
             </span>
             <span
-              className="text-base font-extrabold text-[#0D1F3D] block leading-tight truncate max-w-[110px]"
+              className="text-base font-extrabold text-primary block leading-tight truncate max-w-[110px]"
               title={tenant.planName}
             >
               {tenant.planName}
@@ -359,7 +359,7 @@ export function TenantDetailsPage() {
             <span className="text-[11px] text-slate-500 font-semibold block">
               Active Users
             </span>
-            <span className="text-base font-extrabold text-[#0D1F3D] block leading-tight">
+            <span className="text-base font-extrabold text-primary block leading-tight">
               {tenant.userLicensesCount} Licenses
             </span>
             <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
@@ -376,7 +376,7 @@ export function TenantDetailsPage() {
             <span className="text-[11px] text-slate-500 font-semibold block">
               Storage Used
             </span>
-            <span className="text-base font-extrabold text-[#0D1F3D] block leading-tight">
+            <span className="text-base font-extrabold text-primary block leading-tight">
               {tenant.usage?.storageUsedGb ?? 45} GB /{" "}
               {tenant.storageLimit ?? "200 GB"}
             </span>
@@ -409,7 +409,7 @@ export function TenantDetailsPage() {
         {/* Card 1: Tenant Information */}
         <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between space-y-4">
           <div className="space-y-3">
-            <h3 className="text-sm font-extrabold text-[#0D1F3D] border-b border-slate-100 pb-3 flex items-center gap-2">
+            <h3 className="text-sm font-extrabold text-primary border-b border-slate-100 pb-3 flex items-center gap-2">
               <Building2 className="h-4 w-4 text-indigo-600 shrink-0" /> Tenant
               Information
             </h3>
@@ -423,7 +423,7 @@ export function TenantDetailsPage() {
                     className="h-16 w-16 object-contain rounded-sm"
                   />
                 ) : (
-                  <span className="text-2xl font-extrabold text-[#0D1F3D]">
+                  <span className="text-2xl font-extrabold text-primary">
                     {tenant.companyName[0]}
                   </span>
                 )}
@@ -435,7 +435,7 @@ export function TenantDetailsPage() {
                     <span className="text-[11px] text-slate-500 font-semibold block">
                       Tenant Name
                     </span>
-                    <span className="font-extrabold text-[#0D1F3D]">
+                    <span className="font-extrabold text-primary">
                       {tenant.companyName}
                     </span>
                   </div>
@@ -467,7 +467,7 @@ export function TenantDetailsPage() {
                     <span className="text-[11px] text-slate-500 font-semibold block">
                       Primary Contact
                     </span>
-                    <span className="font-extrabold text-[#0D1F3D] block">
+                    <span className="font-extrabold text-primary block">
                       {tenant.adminUser.fullName} (
                       {tenant.adminUser.designation})
                     </span>
@@ -546,7 +546,7 @@ export function TenantDetailsPage() {
         <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between space-y-4">
           <div className="space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-extrabold text-[#0D1F3D] flex items-center gap-2">
+              <h3 className="text-sm font-extrabold text-primary flex items-center gap-2">
                 <Crown className="h-4 w-4 text-indigo-600 shrink-0" />{" "}
                 Subscription & Plan
               </h3>
@@ -560,7 +560,7 @@ export function TenantDetailsPage() {
                 <span className="text-[11px] text-slate-500 font-semibold block">
                   Plan
                 </span>
-                <span className="font-extrabold text-[#0D1F3D] text-sm">
+                <span className="font-extrabold text-primary text-sm">
                   {tenant.planName}
                 </span>
               </div>
@@ -568,7 +568,7 @@ export function TenantDetailsPage() {
                 <span className="text-[11px] text-slate-500 font-semibold block">
                   Billing Cycle
                 </span>
-                <span className="font-extrabold text-[#0D1F3D] text-sm">
+                <span className="font-extrabold text-primary text-sm">
                   {tenant.billingCycle || 'Yearly'}
                 </span>
               </div>
@@ -576,7 +576,7 @@ export function TenantDetailsPage() {
                 <span className="text-[11px] text-slate-500 font-semibold block">
                   Users / Seats
                 </span>
-                <span className="font-extrabold text-[#0D1F3D] text-sm">
+                <span className="font-extrabold text-primary text-sm">
                   {tenant.userLicensesCount}
                 </span>
               </div>
@@ -584,7 +584,7 @@ export function TenantDetailsPage() {
                 <span className="text-[11px] text-slate-500 font-semibold block">
                   Subscription Start
                 </span>
-                <span className="font-bold text-[#0D1F3D] text-xs">
+                <span className="font-bold text-primary text-xs">
                   {tenant.billingDetails?.lastInvoiceDate || tenant.createdAt.split(' ·')[0] || '—'}
                 </span>
               </div>
@@ -594,7 +594,7 @@ export function TenantDetailsPage() {
               <span className="text-[11px] text-slate-500 font-semibold block">
                 Current Period
               </span>
-              <span className="font-extrabold text-[#0D1F3D] text-xs block">
+              <span className="font-extrabold text-primary text-xs block">
                 {tenant.billingDetails?.nextBillingDate
                   ? `${tenant.billingDetails.lastInvoiceDate || tenant.createdAt.split(' ·')[0]} – ${tenant.billingDetails.nextBillingDate}`
                   : (tenant.subscriptionStatus === 'Trialing' ? 'Active 14-Day Free Trial' : 'Current Active Cycle')}
@@ -634,7 +634,7 @@ export function TenantDetailsPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-semibold">Amount</span>
-                <span className="font-mono font-extrabold text-[#0D1F3D]">
+                <span className="font-mono font-extrabold text-primary">
                   {tenant.mrr ? `₹${(tenant.mrr * (tenant.billingCycle === 'Monthly' ? 1 : 12)).toLocaleString('en-IN')}` : '₹0'}
                 </span>
               </div>
@@ -655,7 +655,7 @@ export function TenantDetailsPage() {
         <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between space-y-4">
           <div className="space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-extrabold text-[#0D1F3D] flex items-center gap-2">
+              <h3 className="text-sm font-extrabold text-primary flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-indigo-600 shrink-0" />{" "}
                 Tenant Status & Activity
               </h3>
@@ -746,7 +746,7 @@ export function TenantDetailsPage() {
         <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between space-y-4">
           <div className="space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-extrabold text-[#0D1F3D] flex items-center gap-2">
+              <h3 className="text-sm font-extrabold text-primary flex items-center gap-2">
                 <Layers className="h-4 w-4 text-indigo-600 shrink-0" /> Module &
                 Feature Usage
               </h3>
@@ -764,7 +764,7 @@ export function TenantDetailsPage() {
 
             <div className="space-y-3 text-xs">
               <div>
-                <span className="font-extrabold text-[#0D1F3D] block mb-1 text-[11px]">
+                <span className="font-extrabold text-primary block mb-1 text-[11px]">
                   Core Modules{" "}
                   <span className="text-slate-400 font-semibold">
                     (6 / 6 Enabled)
@@ -799,7 +799,7 @@ export function TenantDetailsPage() {
               </div>
 
               <div className="border-t border-slate-100 pt-2">
-                <span className="font-extrabold text-[#0D1F3D] block mb-1 text-[11px]">
+                <span className="font-extrabold text-primary block mb-1 text-[11px]">
                   Advanced Modules{" "}
                   <span className="text-slate-400 font-semibold">
                     (8 / 10 Enabled)
@@ -842,7 +842,7 @@ export function TenantDetailsPage() {
               </div>
 
               <div className="border-t border-slate-100 pt-2">
-                <span className="font-extrabold text-[#0D1F3D] block mb-1 text-[11px]">
+                <span className="font-extrabold text-primary block mb-1 text-[11px]">
                   Integrations{" "}
                   <span className="text-slate-400 font-semibold">
                     (3 / 4 Connected)
@@ -873,7 +873,7 @@ export function TenantDetailsPage() {
           <div className="border-t border-slate-100 pt-3 flex items-center justify-between text-xs font-semibold">
             <div>
               <span className="text-slate-500">Total Enabled:</span>{" "}
-              <strong className="text-[#0D1F3D] font-extrabold text-sm ml-1">
+              <strong className="text-primary font-extrabold text-sm ml-1">
                 17 / 20
               </strong>
             </div>
@@ -894,7 +894,7 @@ export function TenantDetailsPage() {
         <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between space-y-4">
           <div className="space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-extrabold text-[#0D1F3D] flex items-center gap-2">
+              <h3 className="text-sm font-extrabold text-primary flex items-center gap-2">
                 <Users className="h-4 w-4 text-indigo-600 shrink-0" /> Active
                 Users & Roles
               </h3>
@@ -930,7 +930,7 @@ export function TenantDetailsPage() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-                  <span className="text-base font-extrabold text-[#0D1F3D] leading-none">
+                  <span className="text-base font-extrabold text-primary leading-none">
                     126
                   </span>
                   <span className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">
@@ -945,7 +945,7 @@ export function TenantDetailsPage() {
                     <span className="h-2 w-2 rounded-full bg-blue-600" /> Tenant
                     Owner
                   </span>
-                  <span className="font-extrabold text-[#0D1F3D]">
+                  <span className="font-extrabold text-primary">
                     1 (0.8%)
                   </span>
                 </div>
@@ -954,7 +954,7 @@ export function TenantDetailsPage() {
                     <span className="h-2 w-2 rounded-full bg-blue-500" /> Tenant
                     Admin
                   </span>
-                  <span className="font-extrabold text-[#0D1F3D]">
+                  <span className="font-extrabold text-primary">
                     4 (3.2%)
                   </span>
                 </div>
@@ -963,7 +963,7 @@ export function TenantDetailsPage() {
                     <span className="h-2 w-2 rounded-full bg-amber-500" /> Sales
                     Manager
                   </span>
-                  <span className="font-extrabold text-[#0D1F3D]">
+                  <span className="font-extrabold text-primary">
                     8 (6.3%)
                   </span>
                 </div>
@@ -972,7 +972,7 @@ export function TenantDetailsPage() {
                     <span className="h-2 w-2 rounded-full bg-pink-500" /> Team
                     Leaders
                   </span>
-                  <span className="font-extrabold text-[#0D1F3D]">
+                  <span className="font-extrabold text-primary">
                     15 (11.9%)
                   </span>
                 </div>
@@ -981,7 +981,7 @@ export function TenantDetailsPage() {
                     <span className="h-2 w-2 rounded-full bg-indigo-600" />{" "}
                     Field Executives
                   </span>
-                  <span className="font-extrabold text-[#0D1F3D]">
+                  <span className="font-extrabold text-primary">
                     78 (61.9%)
                   </span>
                 </div>
@@ -990,7 +990,7 @@ export function TenantDetailsPage() {
                     <span className="h-2 w-2 rounded-full bg-emerald-500" />{" "}
                     Others
                   </span>
-                  <span className="font-extrabold text-[#0D1F3D]">
+                  <span className="font-extrabold text-primary">
                     20 (15.9%)
                   </span>
                 </div>
@@ -1018,7 +1018,7 @@ export function TenantDetailsPage() {
         <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between space-y-4">
           <div className="space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-extrabold text-[#0D1F3D] flex items-center gap-2">
+              <h3 className="text-sm font-extrabold text-primary flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-indigo-600 shrink-0" /> Recent
                 Activity
               </h3>
@@ -1037,7 +1037,7 @@ export function TenantDetailsPage() {
                 <span className="h-2 w-2 rounded-full bg-indigo-600 mt-1.5 shrink-0" />
                 <div className="flex-1 flex justify-between items-start">
                   <p className="font-semibold text-slate-800">
-                    <strong className="font-extrabold text-[#0D1F3D]">
+                    <strong className="font-extrabold text-primary">
                       Rahul Sharma (Admin)
                     </strong>{" "}
                     updated subscription plan
@@ -1053,7 +1053,7 @@ export function TenantDetailsPage() {
                 <div className="flex-1 flex justify-between items-start">
                   <p className="font-semibold text-slate-800">
                     New user{" "}
-                    <strong className="font-extrabold text-[#0D1F3D]">
+                    <strong className="font-extrabold text-primary">
                       Priya Mehta
                     </strong>{" "}
                     added to tenant
@@ -1069,7 +1069,7 @@ export function TenantDetailsPage() {
                 <div className="flex-1 flex justify-between items-start">
                   <p className="font-semibold text-slate-800">
                     Modules updated:{" "}
-                    <strong className="font-extrabold text-[#0D1F3D]">
+                    <strong className="font-extrabold text-primary">
                       Advanced Reports enabled
                     </strong>
                   </p>
@@ -1114,7 +1114,7 @@ export function TenantDetailsPage() {
       {/* 5. Footer Card: Internal Notes */}
       <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-3">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <h3 className="text-sm font-extrabold text-[#0D1F3D] flex items-center gap-2">
+          <h3 className="text-sm font-extrabold text-primary flex items-center gap-2">
             <FileText className="h-4 w-4 text-indigo-600 shrink-0" /> Internal
             Notes
           </h3>
@@ -1188,7 +1188,7 @@ export function TenantDetailsPage() {
                   <Edit2 className="h-4 w-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-extrabold text-[#0D1F3D]">
+                  <h3 className="text-sm font-extrabold text-primary">
                     Edit Tenant Details
                   </h3>
                   <p className="text-[11px] text-slate-500 font-medium">

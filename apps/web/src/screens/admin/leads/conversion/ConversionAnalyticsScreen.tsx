@@ -51,6 +51,7 @@ import {
 
 import { DashboardSidebar } from "../../dashboard/DashboardSidebar";
 import { DashboardHeader } from "../../dashboard/DashboardHeader";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 import { addLeadSidebarItems } from "../add/addLeadData";
 import { StatsRow, type LeadStatsRowItem } from "../components/StatsRow";
 import {
@@ -1049,7 +1050,7 @@ export function ConversionAnalyticsScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -1059,8 +1060,7 @@ export function ConversionAnalyticsScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1">
-        <DashboardHeader
+      <DashboardHeader
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={
@@ -1106,9 +1106,9 @@ export function ConversionAnalyticsScreen() {
               </SelectContent>
             </Select>
           </div>
-        </DashboardHeader>
+      </DashboardHeader>
 
-        <main className="space-y-6 p-4 sm:p-6">
+      <WorkspacePage className="space-y-6">
           <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h1 className="flex items-center gap-2 text-2xl font-extrabold text-secondary">
@@ -1163,8 +1163,7 @@ export function ConversionAnalyticsScreen() {
           ) : (
             <ErrorState message="No conversion analytics data available." />
           )}
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

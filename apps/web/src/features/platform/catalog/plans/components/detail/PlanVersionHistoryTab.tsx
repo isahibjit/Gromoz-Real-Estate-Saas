@@ -58,7 +58,7 @@ export function PlanVersionHistoryTab({ plan }: PlanVersionHistoryTabProps) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-sm border border-slate-200 bg-white p-5 shadow-xs">
         <div className="min-w-0">
           <div className="flex items-center gap-2.5">
-            <h3 className="text-base font-extrabold text-[#0D1F3D]">Version History</h3>
+            <h3 className="text-base font-extrabold text-primary">Version History</h3>
             <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700 border border-blue-200">
               {versionRecords.length > 0 ? versionRecords.length : 1} Versions Logged
             </span>
@@ -84,7 +84,7 @@ export function PlanVersionHistoryTab({ plan }: PlanVersionHistoryTabProps) {
         <div className="lg:col-span-2 space-y-4 min-w-0">
           <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-6 min-w-0 overflow-hidden">
             <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-              <h4 className="text-sm font-extrabold text-[#0D1F3D]">Version Revision Timeline</h4>
+              <h4 className="text-sm font-extrabold text-primary">Version Revision Timeline</h4>
               <span className="text-xs font-semibold text-slate-500">Ordered by most recent</span>
             </div>
 
@@ -119,7 +119,7 @@ export function PlanVersionHistoryTab({ plan }: PlanVersionHistoryTabProps) {
                     <div className="rounded-sm border border-slate-200 bg-slate-50/50 p-4 hover:bg-white hover:border-slate-300 transition space-y-3 min-w-0">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-2.5">
-                          <span className="text-base font-extrabold text-[#0D1F3D]">{versionLabel}</span>
+                          <span className="text-base font-extrabold text-primary">{versionLabel}</span>
                           <span
                             className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-extrabold border ${
                               isActive
@@ -157,7 +157,7 @@ export function PlanVersionHistoryTab({ plan }: PlanVersionHistoryTabProps) {
                       {/* Meta Information Bar */}
                       <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200/60 text-xs font-medium text-slate-600 min-w-0">
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="h-5 w-5 rounded-full bg-[#0D1F3D] text-white text-[9px] font-bold flex items-center justify-center shrink-0">
+                          <span className="h-5 w-5 rounded-full bg-primary text-white text-[9px] font-bold flex items-center justify-center shrink-0">
                             {ver.actorName ? ver.actorName[0] : 'S'}
                           </span>
                           <span className="truncate">Published by <strong className="text-slate-800 font-bold">{ver.actorName}</strong></span>
@@ -185,11 +185,11 @@ export function PlanVersionHistoryTab({ plan }: PlanVersionHistoryTabProps) {
         <div className="space-y-6 min-w-0">
           {/* Card 1: Version Summary */}
           <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-4 min-w-0">
-            <h4 className="text-sm font-extrabold text-[#0D1F3D] border-b border-slate-100 pb-3">Version Summary</h4>
+            <h4 className="text-sm font-extrabold text-primary border-b border-slate-100 pb-3">Version Summary</h4>
             <div className="space-y-2.5 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Total Logged Revisions</span>
-                <span className="font-extrabold text-[#0D1F3D]">{versionRecords.length}</span>
+                <span className="font-extrabold text-primary">{versionRecords.length}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Active Version</span>
@@ -199,11 +199,11 @@ export function PlanVersionHistoryTab({ plan }: PlanVersionHistoryTabProps) {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Replaced Versions</span>
-                <span className="font-extrabold text-[#0D1F3D]">{replacedCount}</span>
+                <span className="font-extrabold text-primary">{replacedCount}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Archived Versions</span>
-                <span className="font-extrabold text-[#0D1F3D]">{archivedCount}</span>
+                <span className="font-extrabold text-primary">{archivedCount}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Created On</span>
@@ -222,7 +222,7 @@ export function PlanVersionHistoryTab({ plan }: PlanVersionHistoryTabProps) {
 
           {/* Card 2: About Versioning */}
           <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-3 min-w-0">
-            <h4 className="text-sm font-bold text-[#0D1F3D]">About Versioning</h4>
+            <h4 className="text-sm font-bold text-primary">About Versioning</h4>
             <div className="space-y-2.5 text-xs text-slate-600 font-medium">
               <div className="flex items-start gap-2">
                 <Check className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
@@ -247,7 +247,7 @@ export function PlanVersionHistoryTab({ plan }: PlanVersionHistoryTabProps) {
           <div className="w-full max-w-lg rounded-sm border border-slate-200 bg-white p-6 shadow-2xl space-y-4 font-sans max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-extrabold text-[#0D1F3D]">Version Snapshot: v{selectedSnapshot.version.toFixed(1)}</h3>
+                <h3 className="text-base font-extrabold text-primary">Version Snapshot: v{selectedSnapshot.version.toFixed(1)}</h3>
                 <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700 border border-blue-200">
                   {selectedSnapshot.status}
                 </span>
@@ -269,23 +269,23 @@ export function PlanVersionHistoryTab({ plan }: PlanVersionHistoryTabProps) {
               </div>
 
               <div className="rounded-sm border border-slate-200 bg-slate-50 p-3 space-y-2">
-                <h5 className="font-extrabold text-[#0D1F3D]">Snapshot Specs:</h5>
+                <h5 className="font-extrabold text-primary">Snapshot Specs:</h5>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-slate-500 font-semibold block">Monthly Price</span>
-                    <span className="font-extrabold text-[#0D1F3D]">₹{selectedSnapshot.snapshot?.pricing?.monthlyPerUser ?? 0}</span>
+                    <span className="font-extrabold text-primary">₹{selectedSnapshot.snapshot?.pricing?.monthlyPerUser ?? 0}</span>
                   </div>
                   <div>
                     <span className="text-slate-500 font-semibold block">Annual Price</span>
-                    <span className="font-extrabold text-[#0D1F3D]">₹{selectedSnapshot.snapshot?.pricing?.annualPerUser ?? 0}</span>
+                    <span className="font-extrabold text-primary">₹{selectedSnapshot.snapshot?.pricing?.annualPerUser ?? 0}</span>
                   </div>
                   <div>
                     <span className="text-slate-500 font-semibold block">Storage Limit</span>
-                    <span className="font-extrabold text-[#0D1F3D]">{selectedSnapshot.snapshot?.limits?.storageGb ?? 0} GB</span>
+                    <span className="font-extrabold text-primary">{selectedSnapshot.snapshot?.limits?.storageGb ?? 0} GB</span>
                   </div>
                   <div>
                     <span className="text-slate-500 font-semibold block">API Requests</span>
-                    <span className="font-extrabold text-[#0D1F3D]">{(selectedSnapshot.snapshot?.limits?.apiRequestsPerMonth ?? 0).toLocaleString()}</span>
+                    <span className="font-extrabold text-primary">{(selectedSnapshot.snapshot?.limits?.apiRequestsPerMonth ?? 0).toLocaleString()}</span>
                   </div>
                 </div>
               </div>
@@ -310,7 +310,7 @@ export function PlanVersionHistoryTab({ plan }: PlanVersionHistoryTabProps) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in">
           <div className="w-full max-w-xl rounded-sm border border-slate-200 bg-white p-6 shadow-2xl space-y-4 font-sans max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-extrabold text-[#0D1F3D]">
+              <h3 className="text-base font-extrabold text-primary">
                 Compare Versions (v{plan.version || 1.0} vs {previousRecord ? `v${previousRecord.version.toFixed(1)}` : 'v0.9'})
               </h3>
               <button
@@ -323,7 +323,7 @@ export function PlanVersionHistoryTab({ plan }: PlanVersionHistoryTabProps) {
             </div>
 
             <div className="space-y-3 text-xs">
-              <div className="grid grid-cols-3 gap-2 p-2 bg-slate-100 rounded-sm font-extrabold text-[#0D1F3D]">
+              <div className="grid grid-cols-3 gap-2 p-2 bg-slate-100 rounded-sm font-extrabold text-primary">
                 <span>Parameter</span>
                 <span>{previousRecord ? `v${previousRecord.version.toFixed(1)}` : 'v0.9 (Previous)'}</span>
                 <span>v{plan.version || 1.0} (Current)</span>

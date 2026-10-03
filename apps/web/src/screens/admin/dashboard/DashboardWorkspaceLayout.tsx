@@ -11,7 +11,6 @@ import { DashboardSidebar } from "./DashboardSidebar";
 import { TodayFollowUpsFab } from "../leads/follow-up/TodayFollowUpsFab";
 import { useAppSelector } from "../../../store";
 import {
-  buildBreadcrumbsFromNavigation,
   getActiveNavigation,
   getNavigationForUser,
 } from "../../../common/navigation/navigationRegistry";
@@ -26,7 +25,6 @@ function DashboardWorkspaceLayoutContent({ children }: { children?: ReactNode })
   const sidebar = layout?.sidebar ?? {};
   const sidebarItems = getNavigationForUser(user);
   const activeNavigation = getActiveNavigation(location.pathname, sidebarItems);
-  const derivedBreadcrumbs = buildBreadcrumbsFromNavigation(location.pathname);
 
   const isSuperAdminImpersonating =
     user?.role === "SUPER_ADMIN" && Boolean(localStorage.getItem("active_organization_id"));
@@ -63,7 +61,7 @@ function DashboardWorkspaceLayoutContent({ children }: { children?: ReactNode })
                 SuperAdmin Mode
               </span>
               <span>
-                You are inspecting a tenant workspace. Changes will directly modify this customer's live records.
+                You are inspecting a tenant workspace. Changes will directly modify this customer&apos;s live records.
               </span>
             </div>
             <button
@@ -79,19 +77,14 @@ function DashboardWorkspaceLayoutContent({ children }: { children?: ReactNode })
           managed
           search={header.search}
           onSearchChange={header.onSearchChange}
-          breadcrumbs={
-            header.breadcrumbs ??
-            (derivedBreadcrumbs.length ? (
-              <span>{derivedBreadcrumbs.join(" / ")}</span>
-            ) : undefined)
-          }
+          breadcrumbs={header.breadcrumbs}
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
         >
           {header.headerContent}
         </DashboardHeader>
-        <main className="flex-1 overflow-y-auto bg-[#F3F5F7] w-full">
-          <div className="w-full p-4 sm:p-5 lg:p-6 space-y-5 font-sans max-w-[1600px] mx-auto">
+        <main className="crm-workspace flex-1 w-full overflow-y-auto bg-background">
+          <div className="crm-workspace-content mx-auto w-full max-w-[1600px] space-y-5 p-4 font-sans sm:p-5 lg:p-6">
             {children ?? <Outlet />}
           </div>
         </main>

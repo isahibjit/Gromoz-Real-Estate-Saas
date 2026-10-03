@@ -29,6 +29,7 @@ import {
 
 import { api } from "../../common/api";
 import { LeadCell } from "../../common/components/DataTableCells";
+import { WorkspacePage } from "../../components/layout/PageHeader";
 
 type CallLog = {
   id: string;
@@ -432,7 +433,7 @@ export function CallHistoryScreen() {
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-[1600px] flex-col gap-5 p-4 sm:p-6">
+    <WorkspacePage className="flex flex-col gap-5">
       <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-2xl">
           <div className="flex items-center gap-2 text-sm font-extrabold text-primary">
@@ -721,6 +722,6 @@ export function CallHistoryScreen() {
           </Select>
         </div>
       </section>
-    </main>
+    </WorkspacePage>
   );
 }

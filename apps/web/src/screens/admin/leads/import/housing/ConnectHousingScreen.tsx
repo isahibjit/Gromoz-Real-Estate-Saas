@@ -25,6 +25,7 @@ import {
 import { api } from "../../../../../common/api";
 import { currentOrganizationId } from "../../../../../common/tenantRequestScope";
 import { DashboardSidebar } from "../../../dashboard/DashboardSidebar";
+import { WorkspacePage } from "../../../../../components/layout/PageHeader";
 import { assignLeadsSidebarItems } from "../../assignment/leadAssignmentData";
 import { housingIntegrationQueryKey } from "./housingIntegrationQuery";
 
@@ -114,7 +115,7 @@ export function ConnectHousingScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -124,19 +125,18 @@ export function ConnectHousingScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1 flex flex-col font-sans text-secondary antialiased">
-        <main className="flex-1 space-y-6 p-4 sm:p-6 overflow-x-hidden">
+      <WorkspacePage className="space-y-6 overflow-x-hidden">
           {/* Header */}
           <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-3">
                 <span className="flex h-11 w-11 flex-col items-center justify-center rounded-xl bg-[#453580] text-white shadow-xs">
                   <span className="text-xl font-extrabold leading-none tracking-tight">H</span>
-                  <span className="text-[7px] font-bold uppercase tracking-wider">Housing</span>
+                  <span className="text-[7px] font-bold">Housing</span>
                 </span>
                 <div>
                   <h1 className="text-2xl font-black text-secondary tracking-tight">
-                    Housing.com Integration Setup
+                    Housing.com integration setup
                   </h1>
                   <p className="text-xs font-semibold text-muted-foreground">
                     Connect Housing.com lead webhooks to capture and auto-assign buyer enquiries in real time.
@@ -386,8 +386,7 @@ export function ConnectHousingScreen() {
               </Card>
             </aside>
           </div>
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

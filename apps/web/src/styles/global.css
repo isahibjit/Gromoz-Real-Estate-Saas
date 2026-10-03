@@ -40,23 +40,44 @@
 
 @layer base {
   :root {
-    --background: 216 20% 97%;       /* #F3F5F7 Light Gray */
-    --foreground: 218 65% 15%;       /* #0D1F3D Deep Navy */
-    --primary: 218 65% 15%;          /* #0D1F3D Deep Navy */
-    --primary-hover: 218 65% 10%;
+    /*
+     * Brand palette: the single source of truth for the product UI.
+     * Values are HSL channels so Tailwind opacity modifiers keep working.
+     */
+    --brand-primary: 218 65% 15%;
+    --brand-primary-hover: 218 65% 10%;
+    --brand-secondary: 215 66% 25%;
+    --brand-secondary-hover: 215 66% 20%;
+    --brand-tertiary: 356 95% 45%;
+    --brand-tertiary-hover: 356 95% 39%;
+
+    /* Semantic aliases consumed by Tailwind and the shared UI package. */
+    --primary: var(--brand-primary);
+    --primary-hover: var(--brand-primary-hover);
     --primary-foreground: 0 0% 100%;
-    --secondary: 218 65% 15%;        /* #0D1F3D Deep Navy */
+    --secondary: var(--brand-secondary);
+    --secondary-hover: var(--brand-secondary-hover);
     --secondary-foreground: 0 0% 100%;
-    --accent: 356 95% 45%;           /* #E20613 Corporate Red */
+    --tertiary: var(--brand-tertiary);
+    --tertiary-hover: var(--brand-tertiary-hover);
+    --tertiary-foreground: 0 0% 100%;
+    --accent: var(--brand-tertiary);
     --accent-foreground: 0 0% 100%;
-    --muted: 216 20% 95%;
-    --muted-foreground: 215 16% 47%;
+
+    /* Neutral workspace palette. */
+    --background: 216 20% 97%;
+    --foreground: 218 43% 17%;
+    --surface: 0 0% 100%;
+    --surface-subtle: 214 32% 96%;
+    --surface-raised: 0 0% 100%;
+    --muted: 214 28% 95%;
+    --muted-foreground: 215 16% 42%;
     --card: 0 0% 100%;
-    --card-foreground: 218 65% 15%;
-    --border: 214 20% 90%;
-    --input: 214 20% 90%;
-    --ring: 356 95% 45%;
-    --destructive: 356 95% 45%;
+    --card-foreground: var(--foreground);
+    --border: 214 24% 88%;
+    --input: 214 24% 84%;
+    --ring: var(--brand-primary);
+    --destructive: 356 78% 49%;
     --destructive-foreground: 0 0% 100%;
     --success: 142 76% 36%;
     --success-soft: 142 76% 96%;
@@ -65,19 +86,22 @@
     --info-soft: 218 65% 96%;
     --auth-surface: 213 58% 96.3%;
     --auth-surface-soft: 240 14% 98.6%;
-    --sidebar: 218 65% 15%;
-    --sidebar-deep: 218 65% 10%;
+    --sidebar: var(--brand-primary);
+    --sidebar-deep: var(--brand-primary-hover);
     --sidebar-foreground: 0 0% 100%;
     --sidebar-muted: 210 24% 74%;
-    --sidebar-active: 218 65% 15%;
+    --sidebar-active: var(--brand-primary);
     --sidebar-active-foreground: 0 0% 100%;
-    --chart-navy: 218 65% 15%;
+    --chart-navy: var(--brand-primary);
     --chart-blue: 205 65% 52%;
     --chart-sky: 197 75% 66%;
     --chart-orange: 25 100% 50%;
     --chart-gold: 35 100% 56%;
+    --radius-xs: 4px;
+    --radius-sm: 6px;
     --radius-control: 8px;
-    --radius-card: 12px;
+    --radius-card: 10px;
+    --radius-dialog: 12px;
   }
 
   * {
@@ -93,6 +117,13 @@
 
   body {
     @apply min-h-screen bg-background text-foreground;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
   }
 
   ::selection {
@@ -125,7 +156,7 @@
     @apply flex h-11 items-center gap-3 rounded-sm px-3 text-[14px] font-medium transition-colors;
   }
   .crm-sidebar-item-active {
-    @apply bg-[#0D1F3D] text-white font-semibold shadow-xs;
+    @apply bg-primary text-white font-semibold shadow-xs;
   }
 
   .crm-sidebar-scrollbar {
@@ -147,11 +178,11 @@
   }
 
   .crm-sidebar-scrollbar:hover::-webkit-scrollbar-thumb {
-    background-color: #0d1f3d;
+    background-color: hsl(var(--primary));
   }
 
   .crm-sidebar-item-active {
-    @apply bg-[#0D1F3D] text-white hover:bg-[#0D1F3D] hover:text-white shadow-xs font-semibold;
+    @apply bg-primary text-white hover:bg-primary hover:text-white shadow-xs font-semibold;
   }
 
   .crm-sidebar-collapse {
@@ -175,7 +206,7 @@
   }
 
   .crm-chart-container {
-    @apply rounded-lg border bg-card p-4 text-card-foreground shadow-card;
+    @apply rounded-lg border bg-card p-4 text-card-foreground shadow-xs;
   }
 
   .crm-card-action {
@@ -231,22 +262,87 @@
   }
 }
 
-/* ─── Recharts Tooltip Contrast & Elevation Fix (Deep Navy #0D1F3D & Corporate Red #E20613) ─── */
+/*
+ * Workspace body contract. The header and sidebar deliberately sit outside
+ * this scope; authenticated main-body routes inherit this visual system.
+ */
+.crm-workspace {
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  font-family: Manrope, sans-serif;
+}
+
+.crm-workspace-content {
+  isolation: isolate;
+}
+
+.crm-workspace :where(h1, h2, h3, h4, h5, h6) {
+  color: hsl(var(--foreground));
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.crm-workspace :where(p, td, dd, li) {
+  text-wrap: pretty;
+}
+
+.crm-workspace :where(.uppercase, .capitalize),
+.crm-dialog-content :where(.uppercase, .capitalize) {
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.crm-workspace :where(label, th, [role="tab"]),
+.crm-dialog-content :where(label, th, [role="tab"]) {
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.crm-workspace :where(th) {
+  color: hsl(var(--foreground));
+  font-weight: 700;
+}
+
+.crm-workspace :where(input, textarea, select) {
+  background: hsl(var(--surface));
+}
+
+.crm-workspace :where(input, textarea, select):disabled {
+  background: hsl(var(--surface-subtle));
+}
+
+.crm-surface {
+  @apply rounded-lg border border-border bg-card text-card-foreground shadow-xs;
+}
+
+.crm-page-heading {
+  @apply text-2xl font-bold leading-tight text-foreground;
+}
+
+.crm-page-description {
+  @apply mt-1 text-sm font-medium leading-6 text-muted-foreground;
+}
+
+.crm-field-label {
+  @apply text-xs font-semibold text-muted-foreground;
+}
+
+/* Recharts tooltip inherits the centralized brand palette. */
 .recharts-tooltip-wrapper {
   z-index: 100 !important;
   pointer-events: none !important;
 }
 
 .recharts-default-tooltip {
-  background-color: #0D1F3D !important;
-  border-radius: 12px !important;
+  background-color: hsl(var(--primary)) !important;
+  border-radius: var(--radius-card) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  box-shadow: 0 12px 30px -5px rgba(13, 31, 61, 0.4) !important;
+  box-shadow: 0 12px 30px -5px hsl(var(--primary) / 0.4) !important;
   padding: 8px 14px !important;
 }
 
 .recharts-tooltip-label {
-  color: #E20613 !important;
+  color: hsl(var(--tertiary)) !important;
   font-weight: 700 !important;
   font-size: 12px !important;
   margin-bottom: 4px !important;
@@ -340,7 +436,7 @@
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #0d1f3d;
+  background: hsl(var(--primary));
 }
 
 * {
@@ -359,7 +455,7 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #0d1f3d;
+  background: hsl(var(--primary));
 }
 
 .scrollbar-none::-webkit-scrollbar {
@@ -429,3 +525,13 @@ main.overflow-y-auto > div > .min-h-screen > .min-w-0.flex-1 > section {
   max-width: 100% !important;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

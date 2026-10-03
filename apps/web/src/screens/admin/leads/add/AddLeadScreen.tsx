@@ -13,6 +13,7 @@ import {
 } from "ui";
 import { DashboardSidebar } from "../../dashboard/DashboardSidebar";
 import { DashboardHeader } from "../../dashboard/DashboardHeader";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 import {
   addLeadSidebarItems,
   budgetRangeOptions as fallbackBudgetRangeOptions,
@@ -425,7 +426,7 @@ export function AddLeadScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -436,8 +437,7 @@ export function AddLeadScreen() {
         onMobileClose={() => setMobileOpen(false)}
       />
 
-      <div className="min-w-0 flex-1">
-        <DashboardHeader
+      <DashboardHeader
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={
@@ -466,9 +466,9 @@ export function AddLeadScreen() {
             </div>
 
           </div>
-        </DashboardHeader>
+      </DashboardHeader>
 
-        <main className="p-4 sm:p-6">
+      <WorkspacePage>
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.75fr)_minmax(320px,0.72fr)]">
           <LeadInformationForm
             formData={formData}
@@ -509,8 +509,7 @@ export function AddLeadScreen() {
               <QuickActionsCard onAction={handleQuickAction} />
             </aside>
           </div>
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

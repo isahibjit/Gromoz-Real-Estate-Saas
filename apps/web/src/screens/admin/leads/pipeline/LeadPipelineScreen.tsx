@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { getApiErrorMessage } from "../../../../common/apiError";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 import {
   Avatar,
   Badge,
@@ -1045,7 +1046,7 @@ export function LeadPipelineScreen() {
 
   return (
     <>
-      <main className="space-y-5 p-5 sm:p-6">
+      <WorkspacePage>
         <section className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
           <div>
             <div className="flex items-center gap-2">
@@ -1354,7 +1355,7 @@ export function LeadPipelineScreen() {
             </section>
           </>
         ) : null}
-      </main>
+      </WorkspacePage>
       <MoveDetailsDialog
         open={Boolean(
           pendingLead &&

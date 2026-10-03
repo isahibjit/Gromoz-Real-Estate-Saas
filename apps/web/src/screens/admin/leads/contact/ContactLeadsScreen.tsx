@@ -56,6 +56,7 @@ import { api } from "../../../../common/api";
 import { canAccess } from "../../../../common/access/access";
 import { usePermission } from "../../../../common/access/usePermission";
 import { useAppSelector } from "../../../../store";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 import { useProjects } from "../../projects/useProjectsApi";
 import { useDashboardLayout } from "../../dashboard/DashboardLayoutContext";
 import { addLeadSidebarItems } from "../add/addLeadData";
@@ -2071,7 +2072,7 @@ export function ContactLeadsScreen() {
   };
 
   return (
-    <main className="mx-auto space-y-8 p-4 sm:p-6">
+    <WorkspacePage className="space-y-8">
       <section className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
         <div>
           <h1 className="flex items-center gap-2 text-3xl font-extrabold text-secondary">
@@ -2384,6 +2385,6 @@ export function ContactLeadsScreen() {
         onCancel={() => setContactsPendingBulkDelete(null)}
         onClose={() => setContactsPendingBulkDelete(null)}
       />
-    </main>
+    </WorkspacePage>
   );
 }

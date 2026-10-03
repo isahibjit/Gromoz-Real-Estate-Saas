@@ -116,7 +116,7 @@ export function PlatformDashboardPage() {
       {/* Header Row */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-5">
         <div>
-          <h1 className="text-2xl font-extrabold text-[#0D1F3D]">Platform Dashboard</h1>
+          <h1 className="text-2xl font-extrabold text-primary">Platform Dashboard</h1>
           <p className="text-xs font-medium text-slate-500">
             Overview of your Smart Field Work SaaS Platform
           </p>
@@ -175,7 +175,7 @@ export function PlatformDashboardPage() {
           subValue="4.7% of total"
           icon={AlertOctagon}
           iconBgColor="bg-red-50"
-          iconTextColor="text-[#E20613]"
+          iconTextColor="text-tertiary"
         />
         <KpiCard
           title="Total SaaS Users"
@@ -205,7 +205,7 @@ export function PlatformDashboardPage() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5">
-                <h3 className="text-sm font-bold text-[#0D1F3D]">MRR Trend</h3>
+                <h3 className="text-sm font-bold text-primary">MRR Trend</h3>
                 <Info className="h-3.5 w-3.5 text-slate-400" />
               </div>
               <div className="relative">
@@ -222,7 +222,7 @@ export function PlatformDashboardPage() {
             </div>
 
             <div className="flex items-baseline gap-2 mb-4">
-              <span className="text-2xl font-extrabold text-[#0D1F3D]">₹28,74,320</span>
+              <span className="text-2xl font-extrabold text-primary">₹28,74,320</span>
               <span className="text-xs font-bold text-emerald-600">▲ 18.6% vs last month</span>
             </div>
 
@@ -240,8 +240,8 @@ export function PlatformDashboardPage() {
                   <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} tickFormatter={(v) => `₹${v / 100000}L`} />
                   <Tooltip
                     wrapperStyle={{ zIndex: 100 }}
-                    contentStyle={{ backgroundColor: '#0D1F3D', borderRadius: '4px', border: 'none', color: '#fff' }}
-                    labelStyle={{ color: '#E20613', fontWeight: 700, fontSize: '12px' }}
+                    contentStyle={{ backgroundColor: 'hsl(var(--primary))', borderRadius: 'var(--radius-xs)', border: 'none', color: '#fff' }}
+                    labelStyle={{ color: 'hsl(var(--tertiary))', fontWeight: 700, fontSize: '12px' }}
                     itemStyle={{ color: '#FFFFFF', fontWeight: 600, fontSize: '12px' }}
                     formatter={(val: any) => [`₹${Number(val).toLocaleString()}`, 'MRR']}
                   />
@@ -255,7 +255,7 @@ export function PlatformDashboardPage() {
         {/* Tenants by Industry Donut Chart Card */}
         <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
           <div>
-            <h3 className="text-sm font-bold text-[#0D1F3D] mb-4">Tenants by Industry</h3>
+            <h3 className="text-sm font-bold text-primary mb-4">Tenants by Industry</h3>
 
             <div className="flex items-center gap-4">
               <div className="relative h-36 w-36 shrink-0">
@@ -268,14 +268,14 @@ export function PlatformDashboardPage() {
                     </Pie>
                     <Tooltip
                       wrapperStyle={{ zIndex: 100 }}
-                      contentStyle={{ backgroundColor: '#0D1F3D', borderRadius: '4px', border: 'none', color: '#fff' }}
+                      contentStyle={{ backgroundColor: 'hsl(var(--primary))', borderRadius: 'var(--radius-xs)', border: 'none', color: '#fff' }}
                       itemStyle={{ color: '#FFFFFF', fontWeight: 600, fontSize: '12px' }}
                       formatter={(val: any) => [`${val} Tenants`, 'Count']}
                     />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-xl font-extrabold text-[#0D1F3D]">128</span>
+                  <span className="text-xl font-extrabold text-primary">128</span>
                   <span className="text-[10px] font-bold text-slate-400 uppercase">Total</span>
                 </div>
               </div>
@@ -287,7 +287,7 @@ export function PlatformDashboardPage() {
                       <span className={`h-2.5 w-2.5 rounded-full ${ind.color}`} />
                       <span className="text-slate-600">{ind.name}</span>
                     </div>
-                    <span className="text-[#0D1F3D] font-bold">
+                    <span className="text-primary font-bold">
                       {ind.count} ({ind.percentage})
                     </span>
                   </div>
@@ -310,7 +310,7 @@ export function PlatformDashboardPage() {
         {/* Tenants by Plan Donut Chart Card */}
         <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
           <div>
-            <h3 className="text-sm font-bold text-[#0D1F3D] mb-4">Tenants by Plan</h3>
+            <h3 className="text-sm font-bold text-primary mb-4">Tenants by Plan</h3>
 
             <div className="flex items-center gap-4">
               <div className="relative h-36 w-36 shrink-0">
@@ -323,14 +323,14 @@ export function PlatformDashboardPage() {
                     </Pie>
                     <Tooltip
                       wrapperStyle={{ zIndex: 100 }}
-                      contentStyle={{ backgroundColor: '#0D1F3D', borderRadius: '4px', border: 'none', color: '#fff' }}
+                      contentStyle={{ backgroundColor: 'hsl(var(--primary))', borderRadius: 'var(--radius-xs)', border: 'none', color: '#fff' }}
                       itemStyle={{ color: '#FFFFFF', fontWeight: 600, fontSize: '12px' }}
                       formatter={(val: any) => [`${val} Tenants`, 'Count']}
                     />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-xl font-extrabold text-[#0D1F3D]">128</span>
+                  <span className="text-xl font-extrabold text-primary">128</span>
                   <span className="text-[10px] font-bold text-slate-400 uppercase">Total</span>
                 </div>
               </div>
@@ -342,7 +342,7 @@ export function PlatformDashboardPage() {
                       <span className={`h-2.5 w-2.5 rounded-full ${pl.color}`} />
                       <span className="text-slate-600">{pl.name}</span>
                     </div>
-                    <span className="text-[#0D1F3D] font-bold">
+                    <span className="text-primary font-bold">
                       {pl.count} ({pl.percentage})
                     </span>
                   </div>
@@ -368,7 +368,7 @@ export function PlatformDashboardPage() {
         {/* Recent Tenant Signups Table */}
         <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
           <div>
-            <h3 className="text-sm font-bold text-[#0D1F3D] mb-3">Recent Tenant Signups</h3>
+            <h3 className="text-sm font-bold text-primary mb-3">Recent Tenant Signups</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs whitespace-nowrap">
                 <thead>
@@ -411,7 +411,7 @@ export function PlatformDashboardPage() {
         {/* Upcoming Renewals Table */}
         <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
           <div>
-            <h3 className="text-sm font-bold text-[#0D1F3D] mb-3">Upcoming Renewals</h3>
+            <h3 className="text-sm font-bold text-primary mb-3">Upcoming Renewals</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs whitespace-nowrap">
                 <thead>
@@ -428,7 +428,7 @@ export function PlatformDashboardPage() {
                       <td className="py-2.5 font-bold text-slate-800">{r.tenant}</td>
                       <td className="py-2.5 text-slate-600">{r.plan}</td>
                       <td className="py-2.5 text-slate-500">{r.date}</td>
-                      <td className="py-2.5 text-right font-bold text-[#0D1F3D]">{r.amount}</td>
+                      <td className="py-2.5 text-right font-bold text-primary">{r.amount}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -450,7 +450,7 @@ export function PlatformDashboardPage() {
         {/* Tenant Status Overview + Quick Actions */}
         <div className="flex flex-col gap-6">
           <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-3">
-            <h3 className="text-sm font-bold text-[#0D1F3D]">Tenant Status Overview</h3>
+            <h3 className="text-sm font-bold text-primary">Tenant Status Overview</h3>
             <div className="space-y-2.5">
               <div>
                 <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
@@ -495,7 +495,7 @@ export function PlatformDashboardPage() {
           </div>
 
           <div className="rounded-sm border border-slate-200 bg-white p-4 shadow-xs space-y-2">
-            <h4 className="text-xs font-extrabold text-[#0D1F3D] px-2 mb-1 uppercase tracking-wider">
+            <h4 className="text-xs font-extrabold text-primary px-2 mb-1 uppercase tracking-wider">
               Quick Actions
             </h4>
             <Button

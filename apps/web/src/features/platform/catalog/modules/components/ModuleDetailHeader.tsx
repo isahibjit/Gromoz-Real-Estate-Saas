@@ -94,7 +94,7 @@ export function ModuleDetailHeader({ module, onRefresh }: ModuleDetailHeaderProp
 
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="text-2xl font-extrabold text-[#0D1F3D]">{module.name}</h1>
+              <h1 className="text-2xl font-extrabold text-primary">{module.name}</h1>
               <ModuleStatusBadge status={module.status} />
               <ModuleCategoryBadge category={module.category} />
               {module.requiredBySystem && (
@@ -235,7 +235,7 @@ export function ModuleDetailHeader({ module, onRefresh }: ModuleDetailHeaderProp
               variant="accent"
               size="sm"
               onClick={() => navigate(`/platform/modules/${module.id}/edit`)}
-              className="gap-2 font-bold shadow-xs bg-[#E20613] hover:bg-red-700 text-white border-none h-9"
+              className="gap-2 font-bold shadow-xs bg-tertiary hover:bg-red-700 text-white border-none h-9"
             >
               <Edit className="h-4 w-4" />
               Edit Module

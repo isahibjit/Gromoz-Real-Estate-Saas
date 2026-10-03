@@ -117,8 +117,8 @@ export function TenantOverviewScreen() {
   if (loading) {
     return (
       <div className="min-h-[500px] flex flex-col items-center justify-center p-12 text-center font-sans">
-        <div className="inline-block animate-spin h-8 w-8 border-3 border-[#0D1F3D] border-t-transparent rounded-full mb-3" />
-        <h3 className="text-sm font-bold text-[#0D1F3D]">Loading Workspace Overview...</h3>
+        <div className="inline-block animate-spin h-8 w-8 border-3 border-primary border-t-transparent rounded-full mb-3" />
+        <h3 className="text-sm font-bold text-primary">Loading Workspace Overview...</h3>
         <p className="text-xs text-slate-400 mt-1">Retrieving tenant organization profile, subscription, and capacity</p>
       </div>
     );
@@ -131,7 +131,7 @@ export function TenantOverviewScreen() {
           <AlertCircle className="h-7 w-7" />
         </div>
         <div>
-          <h2 className="text-xl font-extrabold text-[#0D1F3D]">Tenant Workspace Not Found</h2>
+          <h2 className="text-xl font-extrabold text-primary">Tenant Workspace Not Found</h2>
           <p className="text-xs text-slate-500 font-medium mt-1">
             Could not locate tenant organization with identifier: <span className="font-mono font-bold text-slate-800">{tenantId}</span>
           </p>
@@ -139,7 +139,7 @@ export function TenantOverviewScreen() {
         <Button
           size="sm"
           onClick={() => navigate("/superadmin/tenants")}
-          className="font-bold bg-[#0D1F3D] text-white hover:bg-[#132d56]"
+          className="font-bold bg-primary text-white hover:bg-[#132d56]"
         >
           <ArrowLeft className="h-4 w-4 mr-1.5" /> Back to Tenant Organizations
         </Button>
@@ -161,24 +161,24 @@ export function TenantOverviewScreen() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div>
           <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-            <Link to="/superadmin/dashboard" className="hover:text-[#0D1F3D] transition">
+            <Link to="/superadmin/dashboard" className="hover:text-primary transition">
               Super Admin
             </Link>
             <ChevronRight className="h-3 w-3 text-slate-400" />
-            <Link to="/superadmin/tenants" className="hover:text-[#0D1F3D] transition">
+            <Link to="/superadmin/tenants" className="hover:text-primary transition">
               Tenant Organizations
             </Link>
             <ChevronRight className="h-3 w-3 text-slate-400" />
-            <span className="font-bold text-[#0D1F3D]">{tenant.name}</span>
+            <span className="font-bold text-primary">{tenant.name}</span>
           </div>
 
           <div className="flex items-center gap-3 mt-2">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-[#0D1F3D] text-white font-extrabold text-base shadow-xs">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-primary text-white font-extrabold text-base shadow-xs">
               {tenant.name.charAt(0)}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-extrabold text-[#0D1F3D] tracking-tight">{tenant.name}</h1>
+                <h1 className="text-2xl font-extrabold text-primary tracking-tight">{tenant.name}</h1>
                 <span
                   className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${
                     tenant.status === "ACTIVE"
@@ -238,7 +238,7 @@ export function TenantOverviewScreen() {
           <Button
             size="sm"
             onClick={handleAccessTenant}
-            className="gap-2 font-bold bg-[#0D1F3D] text-white hover:bg-[#132d56] shadow-xs h-9 px-4 cursor-pointer"
+            className="gap-2 font-bold bg-primary text-white hover:bg-[#132d56] shadow-xs h-9 px-4 cursor-pointer"
           >
             <ExternalLink className="h-4 w-4" /> Access Workspace
           </Button>
@@ -292,7 +292,7 @@ export function TenantOverviewScreen() {
           </div>
           <div>
             <span className="text-[11px] text-slate-500 font-semibold block">Active Users</span>
-            <span className="text-base font-extrabold text-[#0D1F3D] block leading-tight">
+            <span className="text-base font-extrabold text-primary block leading-tight">
               {activeMembers}
             </span>
             <span className="text-[10px] text-slate-400 font-medium block mt-0.5">of {tenant.allocatedSeats} licensed</span>
@@ -305,7 +305,7 @@ export function TenantOverviewScreen() {
           </div>
           <div>
             <span className="text-[11px] text-slate-500 font-semibold block">Leads Pipeline</span>
-            <span className="text-base font-extrabold text-[#0D1F3D] block leading-tight">
+            <span className="text-base font-extrabold text-primary block leading-tight">
               {leadsCount}
             </span>
             <span className="text-[10px] text-slate-400 font-medium block mt-0.5">Customer Inquiries</span>
@@ -318,7 +318,7 @@ export function TenantOverviewScreen() {
           </div>
           <div>
             <span className="text-[11px] text-slate-500 font-semibold block">Real Estate Projects</span>
-            <span className="text-base font-extrabold text-[#0D1F3D] block leading-tight">
+            <span className="text-base font-extrabold text-primary block leading-tight">
               {projectsCount}
             </span>
             <span className="text-[10px] text-slate-400 font-medium block mt-0.5">Active Inventories</span>
@@ -332,7 +332,7 @@ export function TenantOverviewScreen() {
         <div className="rounded-sm border border-slate-200 bg-white shadow-xs p-6 space-y-4">
           <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-[#0D1F3D]">Workspace & Identity Profile</h3>
+              <h3 className="text-sm font-bold text-primary">Workspace & Identity Profile</h3>
               <p className="text-xs text-slate-500 font-medium mt-0.5">Core organizational metadata and routing configuration</p>
             </div>
             <span className="flex h-8 w-8 items-center justify-center rounded-sm bg-slate-100 text-slate-600">
@@ -402,7 +402,7 @@ export function TenantOverviewScreen() {
         <div className="rounded-sm border border-slate-200 bg-white shadow-xs p-6 space-y-4">
           <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-[#0D1F3D]">Commercial Plan & Capacity</h3>
+              <h3 className="text-sm font-bold text-primary">Commercial Plan & Capacity</h3>
               <p className="text-xs text-slate-500 font-medium mt-0.5">Subscription tier, licensing quotas, and commercial terms</p>
             </div>
             <span className="flex h-8 w-8 items-center justify-center rounded-sm bg-indigo-50 text-indigo-700">
@@ -413,7 +413,7 @@ export function TenantOverviewScreen() {
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div>
               <span className="text-slate-400 font-medium block">Subscribed Tier:</span>
-              <p className="font-bold text-[#0D1F3D] mt-0.5 text-sm">{tenant.planTier} Plan</p>
+              <p className="font-bold text-primary mt-0.5 text-sm">{tenant.planTier} Plan</p>
             </div>
             <div>
               <span className="text-slate-400 font-medium block">Licensed Seat Capacity:</span>
@@ -439,7 +439,7 @@ export function TenantOverviewScreen() {
             </div>
             <div className="col-span-2 pt-2 border-t border-slate-100 flex items-center justify-between">
               <span className="text-slate-500 font-medium">Estimated Annual Subscription Value:</span>
-              <span className="font-extrabold text-base text-[#0D1F3D]">
+              <span className="font-extrabold text-base text-primary">
                 ₹{(totalMrr * 12).toLocaleString("en-IN")} / Year
               </span>
             </div>
@@ -451,7 +451,7 @@ export function TenantOverviewScreen() {
       <div className="rounded-sm border border-slate-200 bg-white shadow-xs overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-bold text-[#0D1F3D]">Tenant Team Members & Administrators</h3>
+            <h3 className="text-sm font-bold text-primary">Tenant Team Members & Administrators</h3>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
               Users provisioned inside this customer organization
             </p>
@@ -464,7 +464,7 @@ export function TenantOverviewScreen() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs whitespace-nowrap">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/50 text-xs font-bold text-[#0D1F3D]">
+              <tr className="border-b border-slate-200 bg-slate-50/50 text-xs font-bold text-primary">
                 <th className="py-3 px-4 w-8">#</th>
                 <th className="py-3 px-4">User Name</th>
                 <th className="py-3 px-4">Email Address</th>
@@ -485,7 +485,7 @@ export function TenantOverviewScreen() {
                 (tenant.memberships || []).map((m, idx) => (
                   <tr key={m.id} className="hover:bg-slate-50/80 transition">
                     <td className="py-3 px-4 text-slate-400 font-semibold">{idx + 1}</td>
-                    <td className="py-3 px-4 font-bold text-[#0D1F3D]">
+                    <td className="py-3 px-4 font-bold text-primary">
                       <div className="flex items-center gap-2">
                         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-slate-700 font-bold text-xs">
                           {m.user.fullName?.charAt(0) || "U"}

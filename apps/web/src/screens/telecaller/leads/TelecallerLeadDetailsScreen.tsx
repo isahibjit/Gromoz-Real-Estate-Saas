@@ -39,6 +39,7 @@ import {
 } from "ui";
 
 import { SlaBadge } from "../../../common/sla/SlaBadge";
+import { WorkspacePage } from "../../../components/layout/PageHeader";
 import { getTelecallerLeadSla } from "../../../common/sla/slaData";
 import { useDashboardLayout } from "../../admin/dashboard/DashboardLayoutContext";
 import { telecallerSidebarItems } from "../dashboard/telecallerDashboardData";
@@ -124,7 +125,7 @@ export function TelecallerLeadDetailsScreen() {
 
   return (
     <>
-      <main className="crm-main-scrollbar flex-1 overflow-x-hidden p-4 lg:p-6 space-y-6">
+      <WorkspacePage className="crm-main-scrollbar space-y-6 overflow-x-hidden">
         <div className="mx-auto w-full max-w-screen-2xl">
           <div className="flex flex-col lg:flex-row gap-6 items-start">
             {/* Left Main Column */}
@@ -971,7 +972,7 @@ export function TelecallerLeadDetailsScreen() {
             </div>
           </div>
         </div>
-      </main>
+      </WorkspacePage>
     </>
   );
 }

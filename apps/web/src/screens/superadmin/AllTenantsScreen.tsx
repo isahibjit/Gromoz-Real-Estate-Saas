@@ -176,7 +176,7 @@ export function AllTenantsScreen() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-[#0D1F3D]">Tenant Organizations</h1>
+            <h1 className="text-2xl font-extrabold text-primary">Tenant Organizations</h1>
             <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
               <Building2 className="h-4 w-4" />
             </span>
@@ -198,7 +198,7 @@ export function AllTenantsScreen() {
           <Button
             size="sm"
             onClick={() => setCreateModalOpen(true)}
-            className="gap-2 font-bold bg-[#0D1F3D] text-white hover:bg-[#132d56] shadow-xs"
+            className="gap-2 font-bold bg-primary text-white hover:bg-[#132d56] shadow-xs"
           >
             <Plus className="h-4 w-4" /> Provision Tenant
           </Button>
@@ -212,7 +212,7 @@ export function AllTenantsScreen() {
             <p className="text-xs font-semibold text-slate-500">Total Tenants</p>
             <Building2 className="h-4 w-4 text-blue-600" />
           </div>
-          <p className="text-2xl font-extrabold text-[#0D1F3D] mt-2">{totalTenants}</p>
+          <p className="text-2xl font-extrabold text-primary mt-2">{totalTenants}</p>
           <p className="text-[11px] font-medium text-slate-400 mt-0.5">Customer Workspaces</p>
         </div>
 
@@ -274,7 +274,7 @@ export function AllTenantsScreen() {
               placeholder="Search tenants by name, slug, domain..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-10 w-full rounded-sm border border-slate-200 bg-slate-50/50 pl-10 pr-4 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-[#0D1F3D] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D1F3D] transition"
+              className="h-10 w-full rounded-sm border border-slate-200 bg-slate-50/50 pl-10 pr-4 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary transition"
             />
           </div>
 
@@ -282,7 +282,7 @@ export function AllTenantsScreen() {
             <select
               value={selectedPlan}
               onChange={(e) => setSelectedPlan(e.target.value)}
-              className="h-10 rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:border-[#0D1F3D] focus:outline-none"
+              className="h-10 rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:border-primary focus:outline-none"
             >
               <option value="All">All Plans</option>
               <option value="STARTER">Starter</option>
@@ -293,7 +293,7 @@ export function AllTenantsScreen() {
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="h-10 rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:border-[#0D1F3D] focus:outline-none"
+              className="h-10 rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:border-primary focus:outline-none"
             >
               <option value="All">All Statuses</option>
               <option value="ACTIVE">Active</option>
@@ -322,17 +322,17 @@ export function AllTenantsScreen() {
       <div className="rounded-sm border border-slate-200 bg-white shadow-xs min-h-[580px] flex flex-col justify-between overflow-hidden">
         <div>
           <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-[#0D1F3D]">Tenant Workspaces Directory</h3>
+            <h3 className="text-sm font-bold text-primary">Tenant Workspaces Directory</h3>
             <span className="text-xs font-medium text-slate-500">
-              Showing <strong className="text-[#0D1F3D]">{filteredTenants.length}</strong> of{" "}
-              <strong className="text-[#0D1F3D]">{totalTenants}</strong> tenants
+              Showing <strong className="text-primary">{filteredTenants.length}</strong> of{" "}
+              <strong className="text-primary">{totalTenants}</strong> tenants
             </span>
           </div>
 
           <div className="overflow-x-auto min-h-[440px] pb-32">
             <table className="w-full text-left text-xs whitespace-nowrap">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/50 text-xs font-bold text-[#0D1F3D]">
+                <tr className="border-b border-slate-200 bg-slate-50/50 text-xs font-bold text-primary">
                   <th className="py-3 px-4 w-8">#</th>
                   <th className="py-3 px-4">Organization Name</th>
                   <th className="py-3 px-4">Slug / Subdomain</th>
@@ -348,7 +348,7 @@ export function AllTenantsScreen() {
                 {loading ? (
                   <tr>
                     <td colSpan={9} className="py-24 text-center text-slate-500">
-                      <div className="inline-block animate-spin h-6 w-6 border-2 border-[#0D1F3D] border-t-transparent rounded-full mb-3" />
+                      <div className="inline-block animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mb-3" />
                       <p className="text-xs font-semibold">Loading tenant directory...</p>
                     </td>
                   </tr>
@@ -356,7 +356,7 @@ export function AllTenantsScreen() {
                   <tr>
                     <td colSpan={9} className="py-24 text-center text-slate-500">
                       <Building2 className="mx-auto h-10 w-10 text-slate-400 mb-2" />
-                      <p className="text-sm font-bold text-[#0D1F3D]">No tenant organizations found</p>
+                      <p className="text-sm font-bold text-primary">No tenant organizations found</p>
                       <p className="text-xs text-slate-400 mt-1">Try adjusting search filters or provision a new tenant.</p>
                     </td>
                   </tr>
@@ -371,11 +371,11 @@ export function AllTenantsScreen() {
                           onClick={() => navigate(`/superadmin/tenants/${t.id}`)}
                           className="flex items-center gap-3 cursor-pointer group"
                         >
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-[#0D1F3D] text-white font-extrabold shadow-2xs group-hover:bg-[#1e3b6a] transition">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-primary text-white font-extrabold shadow-2xs group-hover:bg-[#1e3b6a] transition">
                             {t.name.charAt(0)}
                           </div>
                           <div>
-                            <p className="font-bold text-[#0D1F3D] group-hover:text-blue-600 transition flex items-center gap-1.5">
+                            <p className="font-bold text-primary group-hover:text-blue-600 transition flex items-center gap-1.5">
                               {t.name}
                               <Eye className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 text-blue-600 transition" />
                             </p>
@@ -518,7 +518,7 @@ export function AllTenantsScreen() {
             >
               <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Previous
             </Button>
-            <span className="px-2 font-bold text-[#0D1F3D]">
+            <span className="px-2 font-bold text-primary">
               Page {currentPage} of {totalPages}
             </span>
             <Button

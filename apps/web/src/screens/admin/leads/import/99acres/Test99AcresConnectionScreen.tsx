@@ -24,6 +24,7 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import toast from "react-hot-toast";
 
 import { DashboardSidebar } from "../../../dashboard/DashboardSidebar";
+import { WorkspacePage } from "../../../../../components/layout/PageHeader";
 import { assignLeadsSidebarItems } from "../../assignment/leadAssignmentData";
 import {
   ConnectionStepper,
@@ -671,7 +672,7 @@ export function Test99AcresConnectionScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -681,15 +682,14 @@ export function Test99AcresConnectionScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1 flex flex-col">
-        <Header
+      <Header
           search={search}
           onSearchChange={setSearch}
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={["Connect to 99Acres", "Test Connection"]}
-        />
-        <main className="flex-1 space-y-5 p-4 sm:p-6 overflow-x-hidden">
+      />
+      <WorkspacePage className="overflow-x-hidden">
           <section className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-3">
@@ -733,8 +733,7 @@ export function Test99AcresConnectionScreen() {
               <ConnectionHelpCard />
             </aside>
           </div>
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

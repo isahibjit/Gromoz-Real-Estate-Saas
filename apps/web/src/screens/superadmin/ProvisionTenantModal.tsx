@@ -269,7 +269,7 @@ export function ProvisionTenantModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-2xl sm:max-w-3xl max-h-[92vh] overflow-y-auto p-0 border border-slate-200 bg-white shadow-2xl rounded-lg font-sans">
         {/* Modal Header */}
-        <div className="bg-[#0D1F3D] !text-white p-6 rounded-t-lg relative">
+        <div className="bg-primary !text-white p-6 rounded-t-lg relative">
           <button
             type="button"
             onClick={onClose}
@@ -307,7 +307,7 @@ export function ProvisionTenantModal({
               <span
                 className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
                   step === 1
-                    ? "bg-[#E20613] !text-white"
+                    ? "bg-tertiary !text-white"
                     : step > 1
                     ? "bg-emerald-500 !text-white"
                     : "bg-slate-700 !text-slate-200"
@@ -344,7 +344,7 @@ export function ProvisionTenantModal({
               <span
                 className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
                   step === 2
-                    ? "bg-[#E20613] !text-white"
+                    ? "bg-tertiary !text-white"
                     : step > 2
                     ? "bg-emerald-500 !text-white"
                     : "bg-slate-700 !text-slate-200"
@@ -378,7 +378,7 @@ export function ProvisionTenantModal({
             >
               <span
                 className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
-                  step === 3 ? "bg-[#E20613] !text-white" : "bg-slate-700 !text-slate-200"
+                  step === 3 ? "bg-tertiary !text-white" : "bg-slate-700 !text-slate-200"
                 }`}
               >
                 3
@@ -400,7 +400,7 @@ export function ProvisionTenantModal({
           {step === 1 && (
             <div className="space-y-4 animate-fadeIn">
               <div className="border-b border-slate-100 pb-3">
-                <h4 className="text-sm font-bold text-[#0D1F3D]">Organization & Workspace Profile</h4>
+                <h4 className="text-sm font-bold text-primary">Organization & Workspace Profile</h4>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
                   Set the legal company name and choose their unique SaaS workspace URL.
                 </p>
@@ -414,13 +414,13 @@ export function ProvisionTenantModal({
                   placeholder="e.g. Prestige Heights Realtors Pvt Ltd"
                   value={form.companyName}
                   onChange={handleCompanyNameChange}
-                  className="mt-1 h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:border-[#0D1F3D] focus:outline-none focus:ring-2 focus:ring-[#0D1F3D]/10 transition-all"
+                  className="mt-1 h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
                 />
               </div>
 
               <div>
                 <label className="text-xs font-bold text-slate-700">Workspace Subdomain Slug *</label>
-                <div className="mt-1 flex items-center rounded-lg border border-slate-200 bg-slate-50 px-3.5 transition-all focus-within:border-[#0D1F3D] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0D1F3D]/10">
+                <div className="mt-1 flex items-center rounded-lg border border-slate-200 bg-slate-50 px-3.5 transition-all focus-within:border-primary focus-within:bg-white focus-within:ring-2 focus-within:ring-primary/10">
                   <Globe className="h-4 w-4 text-slate-400 mr-2 shrink-0" />
                   <input
                     type="text"
@@ -440,7 +440,7 @@ export function ProvisionTenantModal({
                 </div>
                 <p className="text-[11px] text-slate-400 font-medium mt-1">
                   Tenant workspace will be accessible at:{" "}
-                  <span className="font-mono font-bold text-[#0D1F3D]">
+                  <span className="font-mono font-bold text-primary">
                     https://{form.slug || "slug"}.truerootcrm.com
                   </span>
                 </p>
@@ -452,7 +452,7 @@ export function ProvisionTenantModal({
                   <select
                     value={form.industry}
                     onChange={(e) => setForm({ ...form, industry: e.target.value })}
-                    className="mt-1 h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none focus:ring-2 focus:ring-[#0D1F3D]/10 transition-all"
+                    className="mt-1 h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
                   >
                     <option value="Real Estate & Property Development">Real Estate & Property Development</option>
                     <option value="Brokerage Agency & Channel Partner">Brokerage Agency & Channel Partner</option>
@@ -470,14 +470,14 @@ export function ProvisionTenantModal({
                       placeholder="City (e.g. Mumbai)"
                       value={form.city}
                       onChange={(e) => setForm({ ...form, city: e.target.value })}
-                      className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none focus:ring-2 focus:ring-[#0D1F3D]/10 transition-all"
+                      className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
                     />
                     <input
                       type="text"
                       placeholder="State (e.g. Maharashtra)"
                       value={form.state}
                       onChange={(e) => setForm({ ...form, state: e.target.value })}
-                      className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none focus:ring-2 focus:ring-[#0D1F3D]/10 transition-all"
+                      className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
                     />
                   </div>
                 </div>
@@ -490,7 +490,7 @@ export function ProvisionTenantModal({
             <div className="space-y-4 animate-fadeIn">
               <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
                 <div>
-                  <h4 className="text-sm font-bold text-[#0D1F3D]">Commercial Plan & Licensed Capacity</h4>
+                  <h4 className="text-sm font-bold text-primary">Commercial Plan & Licensed Capacity</h4>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
                     Select commercial tier and assign initial seat licenses.
                   </p>
@@ -503,7 +503,7 @@ export function ProvisionTenantModal({
                     onClick={() => setForm({ ...form, billingCycle: "monthly" })}
                     className={`px-3 py-1 rounded-sm text-xs font-bold transition ${
                       form.billingCycle === "monthly"
-                        ? "bg-white text-[#0D1F3D] shadow-xs"
+                        ? "bg-white text-primary shadow-xs"
                         : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
@@ -514,7 +514,7 @@ export function ProvisionTenantModal({
                     onClick={() => setForm({ ...form, billingCycle: "annual" })}
                     className={`px-3 py-1 rounded-sm text-xs font-bold transition flex items-center gap-1 ${
                       form.billingCycle === "annual"
-                        ? "bg-[#0D1F3D] text-white shadow-xs"
+                        ? "bg-primary text-white shadow-xs"
                         : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
@@ -530,7 +530,7 @@ export function ProvisionTenantModal({
               {availablePlans.length === 0 ? (
                 <div className="rounded-sm border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
                   <CreditCard className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-                  <p className="text-xs font-bold text-[#0D1F3D]">No commercial plans configured</p>
+                  <p className="text-xs font-bold text-primary">No commercial plans configured</p>
                   <p className="text-[11px] text-slate-500 mt-1">
                     Please create or activate commercial subscription tiers in Platform Settings &gt; Pricing &amp; Plans.
                   </p>
@@ -553,12 +553,12 @@ export function ProvisionTenantModal({
                       }
                       className={`rounded-sm border p-4 cursor-pointer transition-all relative flex flex-col justify-between ${
                         isSelected
-                          ? "border-[#0D1F3D] bg-slate-50/70 ring-1 ring-[#0D1F3D] shadow-sm"
+                          ? "border-primary bg-slate-50/70 ring-1 ring-primary shadow-sm"
                           : "border-slate-200 bg-white hover:border-slate-300"
                       }`}
                     >
                       {isSelected && (
-                        <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#0D1F3D] text-white">
+                        <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white">
                           <Check className="h-3 w-3" />
                         </div>
                       )}
@@ -573,7 +573,7 @@ export function ProvisionTenantModal({
 
                         <div className="mt-3">
                           <div className="flex items-baseline gap-1">
-                            <span className="text-xl font-extrabold text-[#0D1F3D]">₹{price}</span>
+                            <span className="text-xl font-extrabold text-primary">₹{price}</span>
                             <span className="text-[11px] text-slate-500 font-medium">/ user / mo</span>
                           </div>
                           <p className="text-[11px] text-slate-500 font-medium mt-1">
@@ -618,7 +618,7 @@ export function ProvisionTenantModal({
                       min={1}
                       value={form.seats}
                       onChange={(e) => setForm({ ...form, seats: Math.max(1, Number(e.target.value)) })}
-                      className="h-10 flex-1 rounded-sm border border-slate-200 bg-white px-3 text-center text-sm font-bold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                      className="h-10 flex-1 rounded-sm border border-slate-200 bg-white px-3 text-center text-sm font-bold text-slate-800 focus:border-primary focus:outline-none"
                     />
                     <button
                       type="button"
@@ -665,7 +665,7 @@ export function ProvisionTenantModal({
               </div>
 
               {/* Cost Summary Box */}
-              <div className="rounded-sm bg-[#0D1F3D] text-white p-3.5 flex items-center justify-between">
+              <div className="rounded-sm bg-primary text-white p-3.5 flex items-center justify-between">
                 <div>
                   <p className="text-xs font-bold text-white">Commercial Tier: {selectedPlan.name}</p>
                   <p className="text-[11px] text-slate-300 font-medium">
@@ -686,7 +686,7 @@ export function ProvisionTenantModal({
           {step === 3 && (
             <div className="space-y-4 animate-fadeIn">
               <div className="border-b border-slate-100 pb-3">
-                <h4 className="text-sm font-bold text-[#0D1F3D]">Primary Tenant Administrator Account</h4>
+                <h4 className="text-sm font-bold text-primary">Primary Tenant Administrator Account</h4>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
                   Set the credentials for the organization's owner/director to log in and manage their CRM.
                 </p>
@@ -694,7 +694,7 @@ export function ProvisionTenantModal({
 
               <div>
                 <label className="text-xs font-bold text-slate-700">Administrator Full Name *</label>
-                <div className="mt-1 flex items-center rounded-lg border border-slate-200 bg-white px-3.5 transition-all focus-within:border-[#0D1F3D] focus-within:ring-2 focus-within:ring-[#0D1F3D]/10">
+                <div className="mt-1 flex items-center rounded-lg border border-slate-200 bg-white px-3.5 transition-all focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
                   <User className="h-4 w-4 text-slate-400 mr-2 shrink-0" />
                   <input
                     type="text"
@@ -710,7 +710,7 @@ export function ProvisionTenantModal({
 
               <div>
                 <label className="text-xs font-bold text-slate-700">Administrator Email Address *</label>
-                <div className="mt-1 flex items-center rounded-lg border border-slate-200 bg-white px-3.5 transition-all focus-within:border-[#0D1F3D] focus-within:ring-2 focus-within:ring-[#0D1F3D]/10">
+                <div className="mt-1 flex items-center rounded-lg border border-slate-200 bg-white px-3.5 transition-all focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
                   <Mail className="h-4 w-4 text-slate-400 mr-2 shrink-0" />
                   <input
                     type="email"
@@ -738,7 +738,7 @@ export function ProvisionTenantModal({
                     <RefreshCw className="h-3 w-3" /> Generate Password
                   </button>
                 </div>
-                <div className="mt-1 flex items-center rounded-lg border border-slate-200 bg-white px-3.5 transition-all focus-within:border-[#0D1F3D] focus-within:ring-2 focus-within:ring-[#0D1F3D]/10">
+                <div className="mt-1 flex items-center rounded-lg border border-slate-200 bg-white px-3.5 transition-all focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
                   <Key className="h-4 w-4 text-slate-400 mr-2 shrink-0" />
                   <input
                     type={showPassword ? "text" : "password"}
@@ -761,7 +761,7 @@ export function ProvisionTenantModal({
 
               {/* Confirmation Overview Box */}
               <div className="rounded-sm border border-slate-200 bg-slate-50 p-4 space-y-2 text-xs">
-                <p className="font-bold text-[#0D1F3D] flex items-center gap-1.5">
+                <p className="font-bold text-primary flex items-center gap-1.5">
                   <ShieldCheck className="h-4 w-4 text-emerald-600" /> Provisioning Summary:
                 </p>
                 <div className="grid grid-cols-2 gap-2 text-slate-600 pt-1">
@@ -889,7 +889,7 @@ export function ProvisionTenantModal({
               <Button
                 type="button"
                 size="sm"
-                className="font-bold bg-[#0D1F3D] text-white hover:bg-[#132d56]"
+                className="font-bold bg-primary text-white hover:bg-[#132d56]"
                 onClick={() => {
                   onClose();
                   setStep(1);
@@ -931,7 +931,7 @@ export function ProvisionTenantModal({
                     if (step === 1 && validateStep1()) setStep(2);
                     else if (step === 2 && validateStep2()) setStep(3);
                   }}
-                  className="font-bold bg-[#0D1F3D] text-white hover:bg-[#132d56] shadow-xs gap-1.5"
+                  className="font-bold bg-primary text-white hover:bg-[#132d56] shadow-xs gap-1.5"
                 >
                   Continue to Step {step + 1}
                   <ChevronRight className="h-4 w-4" />

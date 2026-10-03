@@ -23,14 +23,14 @@ export function DashboardKpiCard({
   return (
     <Card
       className={cn(
-        "flex min-h-[92px] min-w-0 items-start gap-3 overflow-hidden rounded-md border border-slate-200 p-3 shadow-card sm:p-4",
-        onClick && "cursor-pointer transition-all hover:border-slate-300 hover:shadow-md active:scale-[0.99]",
+        "flex min-h-[96px] min-w-0 items-start gap-3 overflow-hidden border-border p-4",
+        onClick && "cursor-pointer transition-colors hover:border-primary/25 hover:bg-muted/30",
       )}
       onClick={onClick}
     >
       <span
         className={cn(
-          "flex size-10 shrink-0 items-center justify-center rounded-full p-2",
+          "flex size-10 shrink-0 items-center justify-center rounded-md p-2",
           toneClassName,
         )}
       >

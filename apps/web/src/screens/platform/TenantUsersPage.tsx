@@ -136,7 +136,7 @@ export function TenantUsersPage() {
           <Info className="h-7 w-7" />
         </div>
         <div>
-          <h2 className="text-xl font-extrabold text-[#0D1F3D]">Tenant Not Found</h2>
+          <h2 className="text-xl font-extrabold text-primary">Tenant Not Found</h2>
           <p className="text-xs text-slate-500 font-medium mt-1">
             This tenant could not be found or may no longer be available.
           </p>
@@ -253,17 +253,17 @@ export function TenantUsersPage() {
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div>
           <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-            <button type="button" onClick={() => navigate('/platform/dashboard')} className="hover:text-[#0D1F3D]">Dashboard</button>
+            <button type="button" onClick={() => navigate('/platform/dashboard')} className="hover:text-primary">Dashboard</button>
             <span>›</span>
-            <button type="button" onClick={() => navigate('/platform/tenants')} className="hover:text-[#0D1F3D]">Tenants</button>
+            <button type="button" onClick={() => navigate('/platform/tenants')} className="hover:text-primary">Tenants</button>
             <span>›</span>
-            <button type="button" onClick={() => navigate(`/platform/tenants/${tenant.id}`)} className="hover:text-[#0D1F3D]">{tenant.companyName}</button>
+            <button type="button" onClick={() => navigate(`/platform/tenants/${tenant.id}`)} className="hover:text-primary">{tenant.companyName}</button>
             <span>›</span>
-            <span className="font-extrabold text-[#0D1F3D]">Users & Memberships</span>
+            <span className="font-extrabold text-primary">Users & Memberships</span>
           </div>
 
           <div className="flex items-center gap-2 mt-1.5">
-            <h1 className="text-2xl font-extrabold text-[#0D1F3D] tracking-tight">Tenant Users & Memberships</h1>
+            <h1 className="text-2xl font-extrabold text-primary tracking-tight">Tenant Users & Memberships</h1>
             <span className="flex h-7 w-7 items-center justify-center rounded-sm bg-purple-100 text-purple-700">
               <Users className="h-4.5 w-4.5" />
             </span>
@@ -302,7 +302,7 @@ export function TenantUsersPage() {
           <TenantLogo name={tenant.companyName} logoUrl={tenant.logoUrl} />
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-extrabold text-[#0D1F3D]">{tenant.companyName}</h2>
+              <h2 className="text-base font-extrabold text-primary">{tenant.companyName}</h2>
               <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">{tenant.tenantStatus}</span>
             </div>
             <p className="text-xs text-slate-500 font-medium">
@@ -319,7 +319,7 @@ export function TenantUsersPage() {
             <span className="text-xs font-semibold text-slate-500">Subscription Status</span>
             <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">{tenant.subscriptionStatus}</span>
           </div>
-          <p className="text-xs font-extrabold text-[#0D1F3D]">Created {tenant.createdAt.split(' ·')[0]}</p>
+          <p className="text-xs font-extrabold text-primary">Created {tenant.createdAt.split(' ·')[0]}</p>
           <p className="text-[11px] text-slate-400 font-medium">MRR: ₹{tenant.mrr.toLocaleString('en-IN')} / mo</p>
         </div>
 
@@ -328,7 +328,7 @@ export function TenantUsersPage() {
             <span className="text-xs font-semibold text-slate-500">Active Seat Usage</span>
             <span className="inline-flex rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 border border-indigo-200">{members.length} / {seatLimit}</span>
           </div>
-          <p className="text-xs font-extrabold text-[#0D1F3D]">{availableSeats} Available Seats</p>
+          <p className="text-xs font-extrabold text-primary">{availableSeats} Available Seats</p>
         </div>
       </div>
 
@@ -442,7 +442,7 @@ export function TenantUsersPage() {
                   <ShieldCheck className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-extrabold text-[#0D1F3D]">No Platform Managed Access</h3>
+                  <h3 className="text-sm font-extrabold text-primary">No Platform Managed Access</h3>
                   <p className="text-xs text-slate-500 font-medium mt-1 max-w-sm mx-auto">
                     No platform super administrators currently have emergency override access assigned to this tenant workspace.
                   </p>
@@ -462,7 +462,7 @@ export function TenantUsersPage() {
                   <tbody className="divide-y divide-slate-100">
                     {platformAccess.map((pa) => (
                       <tr key={pa.id} className="hover:bg-slate-50">
-                        <td className="py-3 px-3 font-extrabold text-[#0D1F3D]">
+                        <td className="py-3 px-3 font-extrabold text-primary">
                           {pa.name} <span className="text-[11px] text-slate-400 font-normal block">{pa.email}</span>
                         </td>
                         <td className="py-3 px-3 text-purple-700 font-bold">{pa.platformRole}</td>
@@ -477,7 +477,7 @@ export function TenantUsersPage() {
           ) : activeTab === 'access-requests' ? (
             <div className="rounded-sm border border-slate-200 bg-white p-8 shadow-xs text-center space-y-3">
               <UserCheck className="mx-auto h-8 w-8 text-indigo-500" />
-              <h3 className="text-sm font-extrabold text-[#0D1F3D]">No Pending Access Requests</h3>
+              <h3 className="text-sm font-extrabold text-primary">No Pending Access Requests</h3>
               <p className="text-xs text-slate-500">All tenant user membership requests have been reviewed.</p>
             </div>
           ) : displayedMembers.length === 0 ? (
@@ -486,7 +486,7 @@ export function TenantUsersPage() {
                 <Users className="h-6 w-6" />
               </div>
               <div>
-                <h3 className="text-sm font-extrabold text-[#0D1F3D]">
+                <h3 className="text-sm font-extrabold text-primary">
                   {searchQuery
                     ? 'No matching users found'
                     : activeTab === 'pending-invitations'
@@ -551,7 +551,7 @@ export function TenantUsersPage() {
                             <UserAvatar name={u.name} avatar={u.avatar} />
                             <div>
                               <div className="flex items-center gap-1.5">
-                                <span className="font-extrabold text-[#0D1F3D]">{u.name}</span>
+                                <span className="font-extrabold text-primary">{u.name}</span>
                                 {u.isOwner && <span className="rounded-sm bg-purple-100 px-1.5 py-0.2 text-[9px] font-bold text-purple-700">Owner</span>}
                               </div>
                               <span className="text-[11px] text-slate-500 font-medium">{u.email}</span>
@@ -601,7 +601,7 @@ export function TenantUsersPage() {
         {/* RIGHT SIDEBAR AREA */}
         <div className="lg:col-span-4 space-y-6">
           <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-4">
-            <h3 className="text-sm font-extrabold text-[#0D1F3D] border-b border-slate-100 pb-3">User Seats & Usage</h3>
+            <h3 className="text-sm font-extrabold text-primary border-b border-slate-100 pb-3">User Seats & Usage</h3>
             <div className="flex items-center gap-4">
               <div className="relative flex h-28 w-28 shrink-0 items-center justify-center">
                 <ResponsiveContainer width="100%" height="100%">
@@ -624,7 +624,7 @@ export function TenantUsersPage() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-                  <span className="text-xs font-extrabold text-[#0D1F3D] leading-tight">{members.length} / {seatLimit}</span>
+                  <span className="text-xs font-extrabold text-primary leading-tight">{members.length} / {seatLimit}</span>
                   <span className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">
                     {seatLimit > 0 ? Math.round((members.length / seatLimit) * 100) : 0}% Used
                   </span>
@@ -634,19 +634,19 @@ export function TenantUsersPage() {
               <div className="flex-1 space-y-1.5 text-xs font-semibold">
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 text-slate-600"><span className="h-2 w-2 rounded-full bg-indigo-600" /> Active Users</span>
-                  <span className="font-extrabold text-[#0D1F3D]">{activeCount}</span>
+                  <span className="font-extrabold text-primary">{activeCount}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 text-slate-600"><span className="h-2 w-2 rounded-full bg-blue-500" /> Invited</span>
-                  <span className="font-extrabold text-[#0D1F3D]">{invitedCount}</span>
+                  <span className="font-extrabold text-primary">{invitedCount}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 text-slate-600"><span className="h-2 w-2 rounded-full bg-rose-500" /> Suspended</span>
-                  <span className="font-extrabold text-[#0D1F3D]">{suspendedCount}</span>
+                  <span className="font-extrabold text-primary">{suspendedCount}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 text-slate-600"><span className="h-2 w-2 rounded-full bg-slate-300" /> Available Seats</span>
-                  <span className="font-extrabold text-[#0D1F3D]">{availableSeats}</span>
+                  <span className="font-extrabold text-primary">{availableSeats}</span>
                 </div>
               </div>
             </div>

@@ -59,6 +59,7 @@ import {
 import { api } from "../../../../common/api";
 import { DashboardHeader } from "../../dashboard/DashboardHeader";
 import { DashboardSidebar } from "../../dashboard/DashboardSidebar";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 import { addLeadSidebarItems } from "../add/addLeadData";
 import type { LeadRow } from "../all/allLeadsTypes";
 import { LEAD_TABLE_MAX_ROWS, useAllLeads } from "../all/useAllLeads";
@@ -1328,7 +1329,7 @@ export function LostLeadsScreen() {
   );
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -1339,8 +1340,7 @@ export function LostLeadsScreen() {
         onMobileClose={() => setMobileOpen(false)}
       />
 
-      <div className="min-w-0 flex-1">
-        <DashboardHeader
+      <DashboardHeader
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={
@@ -1365,9 +1365,9 @@ export function LostLeadsScreen() {
               />
             </div>
           </div>
-        </DashboardHeader>
+      </DashboardHeader>
 
-        <main className="space-y-5 p-4 sm:p-6">
+      <WorkspacePage>
           <section>
             <div className="flex items-center gap-2">
               <h1 className="text-3xl font-extrabold text-secondary">
@@ -1428,8 +1428,7 @@ export function LostLeadsScreen() {
               <LostLeadsSummaryCard rows={summaryRows} />
             </aside>
           </section>
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

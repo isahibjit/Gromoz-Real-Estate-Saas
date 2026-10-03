@@ -31,6 +31,7 @@ import {
 
 import { DashboardSidebar } from "../../dashboard/DashboardSidebar";
 import { DashboardHeader } from "../../dashboard/DashboardHeader";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 import { addLeadSidebarItems } from "../add/addLeadData";
 import { downloadCsvFile } from "../components/exportCsv";
 import { LeadActionsMenu } from "../components/LeadActionsMenu";
@@ -967,7 +968,7 @@ export function HotLeadsScreen() {
     !hotLeadsQuery.isLoading && !hotLeadsQuery.isFetching && rows.length === 0;
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -977,8 +978,7 @@ export function HotLeadsScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1">
-        <DashboardHeader
+      <DashboardHeader
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={
@@ -1006,8 +1006,8 @@ export function HotLeadsScreen() {
               </span>
             </div>
           </div>
-        </DashboardHeader>
-        <main className="space-y-5 p-4 sm:p-6">
+      </DashboardHeader>
+      <WorkspacePage>
           <section className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
             <div>
               <h1 className="flex items-center gap-2 text-3xl font-extrabold text-secondary">
@@ -1082,8 +1082,7 @@ export function HotLeadsScreen() {
               </aside>
             </section>
           )}
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

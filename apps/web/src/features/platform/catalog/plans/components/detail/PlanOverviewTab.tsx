@@ -134,13 +134,13 @@ export function PlanOverviewTab({
                 <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-blue-50 text-blue-600">
                   <FileText className="h-4 w-4" />
                 </div>
-                <h3 className="text-sm font-extrabold text-[#0D1F3D]">Plan Information</h3>
+                <h3 className="text-sm font-extrabold text-primary">Plan Information</h3>
               </div>
 
               <div className="space-y-3 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-slate-500">Plan Name</span>
-                  <span className="font-extrabold text-[#0D1F3D]">{plan.name}</span>
+                  <span className="font-extrabold text-primary">{plan.name}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-slate-500">Plan Code</span>
@@ -212,13 +212,13 @@ export function PlanOverviewTab({
                   <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-blue-50 text-blue-600">
                     <IndianRupee className="h-4 w-4" />
                   </div>
-                  <h3 className="text-sm font-extrabold text-[#0D1F3D]">Commercial Summary</h3>
+                  <h3 className="text-sm font-extrabold text-primary">Commercial Summary</h3>
                 </div>
 
                 <div className="space-y-3 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-slate-500">Pricing Model</span>
-                    <span className="font-extrabold text-[#0D1F3D]">{plan.pricing.model}</span>
+                    <span className="font-extrabold text-primary">{plan.pricing.model}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-slate-500">Default Billing</span>
@@ -226,7 +226,7 @@ export function PlanOverviewTab({
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-slate-500">Monthly Price</span>
-                    <span className="font-extrabold text-[#0D1F3D]">{formatPlanMonthlyPrice(plan.pricing)}</span>
+                    <span className="font-extrabold text-primary">{formatPlanMonthlyPrice(plan.pricing)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-slate-500">Annual Price</span>
@@ -286,7 +286,7 @@ export function PlanOverviewTab({
             <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-4 flex flex-col justify-between">
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <h3 className="text-sm font-extrabold text-[#0D1F3D]">
+                  <h3 className="text-sm font-extrabold text-primary">
                     Included Modules ({includedModules.length})
                   </h3>
                   <button
@@ -309,7 +309,7 @@ export function PlanOverviewTab({
                           <Layers className="h-3.5 w-3.5" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-[#0D1F3D] truncate">{mod.name}</p>
+                          <p className="text-xs font-bold text-primary truncate">{mod.name}</p>
                           <p className="text-[10px] text-slate-500 font-medium">{mod.category || 'Standard'}</p>
                         </div>
                       </div>
@@ -331,7 +331,7 @@ export function PlanOverviewTab({
             {/* Card 4: Key Limits Overview */}
             <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 className="text-sm font-extrabold text-[#0D1F3D]">Key Limits Overview</h3>
+                <h3 className="text-sm font-extrabold text-primary">Key Limits Overview</h3>
                 <button
                   type="button"
                   onClick={() => navigate(`/platform/plans/${plan.id}/limits`)}
@@ -346,7 +346,7 @@ export function PlanOverviewTab({
                   <Users className="h-4 w-4 text-blue-500 shrink-0" />
                   <div>
                     <span className="text-slate-500 text-[10px] font-semibold block">Maximum Users</span>
-                    <span className="font-extrabold text-[#0D1F3D]">{formatLimit(plan.limits.maximumSeats)}</span>
+                    <span className="font-extrabold text-primary">{formatLimit(plan.limits.maximumSeats)}</span>
                   </div>
                 </div>
 
@@ -354,7 +354,7 @@ export function PlanOverviewTab({
                   <FileText className="h-4 w-4 text-blue-500 shrink-0" />
                   <div>
                     <span className="text-slate-500 text-[10px] font-semibold block">Custom Forms</span>
-                    <span className="font-extrabold text-[#0D1F3D]">{formatLimit(plan.limits.customForms)}</span>
+                    <span className="font-extrabold text-primary">{formatLimit(plan.limits.customForms)}</span>
                   </div>
                 </div>
 
@@ -362,7 +362,7 @@ export function PlanOverviewTab({
                   <HardDrive className="h-4 w-4 text-blue-500 shrink-0" />
                   <div>
                     <span className="text-slate-500 text-[10px] font-semibold block">Storage</span>
-                    <span className="font-extrabold text-[#0D1F3D]">
+                    <span className="font-extrabold text-primary">
                       {plan.limits.storageGb !== undefined ? `${plan.limits.storageGb} GB` : '—'}
                     </span>
                   </div>
@@ -372,7 +372,7 @@ export function PlanOverviewTab({
                   <Sparkles className="h-4 w-4 text-blue-500 shrink-0" />
                   <div>
                     <span className="text-slate-500 text-[10px] font-semibold block">AI Credits / Month</span>
-                    <span className="font-extrabold text-[#0D1F3D]">
+                    <span className="font-extrabold text-primary">
                       {plan.limits.aiCreditsPerMonth !== undefined
                         ? plan.limits.aiCreditsPerMonth === 0
                           ? '0'
@@ -386,7 +386,7 @@ export function PlanOverviewTab({
                   <Cpu className="h-4 w-4 text-blue-500 shrink-0" />
                   <div>
                     <span className="text-slate-500 text-[10px] font-semibold block">API Requests / Month</span>
-                    <span className="font-extrabold text-[#0D1F3D]">{formatLimit(plan.limits.apiRequestsPerMonth)}</span>
+                    <span className="font-extrabold text-primary">{formatLimit(plan.limits.apiRequestsPerMonth)}</span>
                   </div>
                 </div>
 
@@ -394,7 +394,7 @@ export function PlanOverviewTab({
                   <FileText className="h-4 w-4 text-blue-500 shrink-0" />
                   <div>
                     <span className="text-slate-500 text-[10px] font-semibold block">Report Exports / Month</span>
-                    <span className="font-extrabold text-[#0D1F3D]">{formatLimit(plan.limits.reportExportsPerMonth)}</span>
+                    <span className="font-extrabold text-primary">{formatLimit(plan.limits.reportExportsPerMonth)}</span>
                   </div>
                 </div>
 
@@ -402,7 +402,7 @@ export function PlanOverviewTab({
                   <Layers className="h-4 w-4 text-blue-500 shrink-0" />
                   <div>
                     <span className="text-slate-500 text-[10px] font-semibold block">Active Workflows</span>
-                    <span className="font-extrabold text-[#0D1F3D]">{formatLimit(plan.limits.activeWorkflows)}</span>
+                    <span className="font-extrabold text-primary">{formatLimit(plan.limits.activeWorkflows)}</span>
                   </div>
                 </div>
 
@@ -410,7 +410,7 @@ export function PlanOverviewTab({
                   <Clock className="h-4 w-4 text-blue-500 shrink-0" />
                   <div>
                     <span className="text-slate-500 text-[10px] font-semibold block">Data Retention</span>
-                    <span className="font-extrabold text-[#0D1F3D]">{formatDays(plan.limits.dataRetentionDays)}</span>
+                    <span className="font-extrabold text-primary">{formatDays(plan.limits.dataRetentionDays)}</span>
                   </div>
                 </div>
               </div>
@@ -423,7 +423,7 @@ export function PlanOverviewTab({
           {/* Card 1: Plan Performance Donut Chart */}
           <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-[#0D1F3D]">Plan Performance Breakdown</h3>
+              <h3 className="text-sm font-bold text-primary">Plan Performance Breakdown</h3>
             </div>
 
             {metrics.totalTenants > 0 ? (
@@ -446,14 +446,14 @@ export function PlanOverviewTab({
                       </Pie>
                       <Tooltip
                         wrapperStyle={{ zIndex: 100 }}
-                        contentStyle={{ backgroundColor: '#0D1F3D', borderRadius: '4px', border: 'none', color: '#fff' }}
+                        contentStyle={{ backgroundColor: 'hsl(var(--primary))', borderRadius: 'var(--radius-xs)', border: 'none', color: '#fff' }}
                         itemStyle={{ color: '#FFFFFF', fontWeight: 600, fontSize: '11px' }}
                         formatter={(val: any) => [`${val} Tenants`, 'Status']}
                       />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-base font-extrabold text-[#0D1F3D]">{metrics.activeTenants}</span>
+                    <span className="text-base font-extrabold text-primary">{metrics.activeTenants}</span>
                     <span className="text-[10px] font-semibold text-slate-500">Active</span>
                   </div>
                 </div>
@@ -464,28 +464,28 @@ export function PlanOverviewTab({
                       <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
                       <span className="text-slate-600">Active</span>
                     </div>
-                    <span className="text-[#0D1F3D] font-extrabold">{metrics.activeTenants}</span>
+                    <span className="text-primary font-extrabold">{metrics.activeTenants}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
                       <span className="text-slate-600">Trial</span>
                     </div>
-                    <span className="text-[#0D1F3D] font-extrabold">{metrics.trialTenants}</span>
+                    <span className="text-primary font-extrabold">{metrics.trialTenants}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <span className="h-2.5 w-2.5 rounded-full bg-purple-500" />
                       <span className="text-slate-600">Suspended</span>
                     </div>
-                    <span className="text-[#0D1F3D] font-extrabold">{metrics.suspendedTenants}</span>
+                    <span className="text-primary font-extrabold">{metrics.suspendedTenants}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <span className="h-2.5 w-2.5 rounded-full bg-orange-500" />
                       <span className="text-slate-600">Past Due</span>
                     </div>
-                    <span className="text-[#0D1F3D] font-extrabold">{metrics.pastDueTenants}</span>
+                    <span className="text-primary font-extrabold">{metrics.pastDueTenants}</span>
                   </div>
                 </div>
               </div>
@@ -508,7 +508,7 @@ export function PlanOverviewTab({
 
           {/* Card 2: Quick Actions */}
           <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-3">
-            <h3 className="text-sm font-extrabold text-[#0D1F3D]">Quick Actions</h3>
+            <h3 className="text-sm font-extrabold text-primary">Quick Actions</h3>
             <div className="space-y-1.5">
               <button
                 type="button"
@@ -518,7 +518,7 @@ export function PlanOverviewTab({
                 <div className="flex items-center gap-2.5">
                   <Edit className="h-4 w-4 text-blue-600 shrink-0" />
                   <div>
-                    <p className="text-xs font-bold text-[#0D1F3D] group-hover:text-indigo-600">Edit Plan</p>
+                    <p className="text-xs font-bold text-primary group-hover:text-indigo-600">Edit Plan</p>
                     <p className="text-[10px] text-slate-500 font-medium">Update plan details, pricing, limits or modules</p>
                   </div>
                 </div>
@@ -533,7 +533,7 @@ export function PlanOverviewTab({
                 <div className="flex items-center gap-2.5">
                   <Copy className="h-4 w-4 text-blue-600 shrink-0" />
                   <div>
-                    <p className="text-xs font-bold text-[#0D1F3D] group-hover:text-indigo-600">Duplicate Plan</p>
+                    <p className="text-xs font-bold text-primary group-hover:text-indigo-600">Duplicate Plan</p>
                     <p className="text-[10px] text-slate-500 font-medium">Create a copy of this plan</p>
                   </div>
                 </div>
@@ -548,7 +548,7 @@ export function PlanOverviewTab({
                 <div className="flex items-center gap-2.5">
                   <Users className="h-4 w-4 text-blue-600 shrink-0" />
                   <div>
-                    <p className="text-xs font-bold text-[#0D1F3D] group-hover:text-indigo-600">View Plan Tenants</p>
+                    <p className="text-xs font-bold text-primary group-hover:text-indigo-600">View Plan Tenants</p>
                     <p className="text-[10px] text-slate-500 font-medium">See tenants subscribed to this plan</p>
                   </div>
                 </div>
@@ -563,7 +563,7 @@ export function PlanOverviewTab({
                 <div className="flex items-center gap-2.5">
                   <History className="h-4 w-4 text-blue-600 shrink-0" />
                   <div>
-                    <p className="text-xs font-bold text-[#0D1F3D] group-hover:text-indigo-600">View Version History</p>
+                    <p className="text-xs font-bold text-primary group-hover:text-indigo-600">View Version History</p>
                     <p className="text-[10px] text-slate-500 font-medium">Track changes and versions</p>
                   </div>
                 </div>
@@ -586,7 +586,7 @@ export function PlanOverviewTab({
                 <div className="flex items-center gap-2.5">
                   <Download className="h-4 w-4 text-blue-600 shrink-0" />
                   <div>
-                    <p className="text-xs font-bold text-[#0D1F3D] group-hover:text-indigo-600">Export Plan Summary</p>
+                    <p className="text-xs font-bold text-primary group-hover:text-indigo-600">Export Plan Summary</p>
                     <p className="text-[10px] text-slate-500 font-medium">Download plan details as JSON</p>
                   </div>
                 </div>
@@ -598,7 +598,7 @@ export function PlanOverviewTab({
           {/* Card 3: Recent Tenants Added */}
           <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-extrabold text-[#0D1F3D]">Recent Tenants Subscribed</h3>
+              <h3 className="text-sm font-extrabold text-primary">Recent Tenants Subscribed</h3>
               <button
                 type="button"
                 onClick={() => navigate(`/platform/plans/${plan.id}/tenants`)}
@@ -617,11 +617,11 @@ export function PlanOverviewTab({
                     className="flex items-center justify-between p-2.5 rounded-sm border border-slate-100 bg-slate-50/50 hover:bg-slate-100/80 transition cursor-pointer"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm bg-[#0D1F3D] text-white font-bold text-xs">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm bg-primary text-white font-bold text-xs">
                         {t.companyName[0]}
                       </div>
                       <div className="truncate">
-                        <p className="text-xs font-bold text-[#0D1F3D] truncate">{t.companyName}</p>
+                        <p className="text-xs font-bold text-primary truncate">{t.companyName}</p>
                         <p className="text-[10px] text-slate-500 truncate font-medium">
                           {t.subscriptionStartDate || t.createdAt || '—'}
                         </p>

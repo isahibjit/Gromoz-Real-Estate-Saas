@@ -47,6 +47,7 @@ import {
 
 import { api } from "../../../common/api";
 import { useAppSelector } from "../../../store";
+import { WorkspacePage } from "../../../components/layout/PageHeader";
 import { DashboardHeader } from "../../admin/dashboard/DashboardHeader";
 import { DashboardSidebar } from "../../admin/dashboard/DashboardSidebar";
 import { telecallerSidebarItems } from "../dashboard/telecallerDashboardData";
@@ -281,7 +282,7 @@ export function TelecallerMyPerformanceScreen() {
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <>
       <DashboardSidebar
         items={
           user?.role === "SALES_AGENT"
@@ -294,15 +295,14 @@ export function TelecallerMyPerformanceScreen() {
         onMobileClose={() => setMobileOpen(false)}
         activeItem="My Performance"
       />
-      <div className="min-w-0 flex-1">
-        <DashboardHeader
+      <DashboardHeader
           search="Search leads, customers, projects..."
           onSearchChange={() => {}}
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={<span className="text-sm font-semibold text-foreground">My Performance</span>}
-        />
-        <main className="crm-main-scrollbar space-y-5 overflow-x-hidden p-4 lg:p-6">
+      />
+      <WorkspacePage className="crm-main-scrollbar overflow-x-hidden">
           <section className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <h1 className="text-2xl font-extrabold text-secondary">My Performance</h1>
@@ -405,8 +405,7 @@ export function TelecallerMyPerformanceScreen() {
               </section>
             </>
           ) : null}
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

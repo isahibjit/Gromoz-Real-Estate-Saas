@@ -34,6 +34,7 @@ import {
 } from "ui";
 
 import { DashboardSidebar } from "../../../dashboard/DashboardSidebar";
+import { WorkspacePage } from "../../../../../components/layout/PageHeader";
 import { useProjects } from "../../../projects/useProjectsApi";
 import { useLeadListFilterOptions } from "../../all/useAllLeads";
 import { assignLeadsSidebarItems } from "../../assignment/leadAssignmentData";
@@ -459,7 +460,7 @@ export function ConnectMetaLeadsScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -469,15 +470,14 @@ export function ConnectMetaLeadsScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1">
-        <Header
+      <Header
           search={search}
           onSearchChange={setSearch}
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={["Import leads", "Meta Lead Ads"]}
-        />
-        <main className="mx-auto w-full max-w-[1600px] space-y-6 p-4 sm:p-6">
+      />
+      <WorkspacePage className="space-y-6">
           <section className="flex flex-col gap-5 border-b border-slate-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <div className="flex items-center gap-2 text-sm font-bold text-primary">
@@ -1671,8 +1671,7 @@ export function ConnectMetaLeadsScreen() {
               </Card>
             </>
           )}
-        </main>
-      </div>
+      </WorkspacePage>
 
       <Dialog open={manualDialogOpen} onOpenChange={setManualDialogOpen}>
         <DialogContent className="max-h-[calc(100vh-2rem)] max-w-2xl overflow-y-auto p-0">
@@ -1886,6 +1885,6 @@ export function ConnectMetaLeadsScreen() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

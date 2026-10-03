@@ -44,7 +44,7 @@ export function PlatformAuditLogsScreen() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-[#0D1F3D]">Platform Audit Logs</h1>
+            <h1 className="text-2xl font-extrabold text-primary">Platform Audit Logs</h1>
             <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-100 text-purple-700">
               <ShieldAlert className="h-4 w-4" />
             </span>
@@ -73,7 +73,7 @@ export function PlatformAuditLogsScreen() {
             placeholder="Search audit trail by user, action, tenant..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-10 w-full rounded-sm border border-slate-200 bg-slate-50/50 pl-10 pr-4 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-[#0D1F3D] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D1F3D] transition"
+            className="h-10 w-full rounded-sm border border-slate-200 bg-slate-50/50 pl-10 pr-4 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary transition"
           />
         </div>
       </div>
@@ -84,7 +84,7 @@ export function PlatformAuditLogsScreen() {
           <div className="overflow-x-auto min-h-[460px]">
             <table className="w-full text-left text-xs whitespace-nowrap">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/50 text-xs font-bold text-[#0D1F3D]">
+                <tr className="border-b border-slate-200 bg-slate-50/50 text-xs font-bold text-primary">
                   <th className="py-3 px-4 w-8">#</th>
                   <th className="py-3 px-4">Timestamp</th>
                   <th className="py-3 px-4">Operator / User</th>
@@ -97,7 +97,7 @@ export function PlatformAuditLogsScreen() {
                 {loading ? (
                   <tr>
                     <td colSpan={6} className="py-24 text-center text-slate-500">
-                      <div className="inline-block animate-spin h-6 w-6 border-2 border-[#0D1F3D] border-t-transparent rounded-full mb-3" />
+                      <div className="inline-block animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mb-3" />
                       <p className="text-xs font-semibold">Loading security audit records...</p>
                     </td>
                   </tr>
@@ -105,7 +105,7 @@ export function PlatformAuditLogsScreen() {
                   <tr>
                     <td colSpan={6} className="py-24 text-center text-slate-500">
                       <FileText className="mx-auto h-10 w-10 text-slate-400 mb-2" />
-                      <p className="text-sm font-bold text-[#0D1F3D]">No audit log entries found</p>
+                      <p className="text-sm font-bold text-primary">No audit log entries found</p>
                     </td>
                   </tr>
                 ) : (
@@ -120,7 +120,7 @@ export function PlatformAuditLogsScreen() {
                       <td className="py-3.5 px-4 font-semibold text-slate-800">
                         {log.user?.fullName || log.user?.email || "System"}
                       </td>
-                      <td className="py-3.5 px-4 font-semibold text-[#0D1F3D]">
+                      <td className="py-3.5 px-4 font-semibold text-primary">
                         {log.organization?.name || "Global Platform"}
                       </td>
                       <td className="py-3.5 px-4">
@@ -158,7 +158,7 @@ export function PlatformAuditLogsScreen() {
             >
               <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Previous
             </Button>
-            <span className="px-2 font-bold text-[#0D1F3D]">
+            <span className="px-2 font-bold text-primary">
               Page {currentPage} of {totalPages}
             </span>
             <Button

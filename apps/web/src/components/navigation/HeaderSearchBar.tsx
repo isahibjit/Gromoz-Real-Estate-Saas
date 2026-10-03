@@ -294,7 +294,7 @@ export function HeaderSearchBar({ navCategories = [] }: HeaderSearchBarProps) {
       <div className="relative flex items-center w-full">
         <Search
           className={`absolute left-3.5 h-4 w-4 pointer-events-none transition-colors z-10 ${
-            isOpen ? 'text-[#0D1F3D]' : 'text-slate-400'
+            isOpen ? 'text-primary' : 'text-slate-400'
           }`}
         />
 
@@ -312,7 +312,7 @@ export function HeaderSearchBar({ navCategories = [] }: HeaderSearchBarProps) {
           placeholder="Search leads, projects, site visits, bookings, reports..."
           className={`h-10 w-full rounded-lg bg-white pl-10 pr-20 text-xs font-medium text-slate-800 placeholder:text-slate-400 transition-colors ${
             isOpen
-              ? 'border border-[#0D1F3D] shadow-xs'
+              ? 'border border-primary shadow-xs'
               : 'border border-slate-200 hover:border-slate-300'
           }`}
           style={{
@@ -358,12 +358,12 @@ export function HeaderSearchBar({ navCategories = [] }: HeaderSearchBarProps) {
               {/* Recent Searches Section */}
               <div className="px-3 py-1">
                 <div className="flex items-center justify-between pb-1.5 px-1">
-                  <span className="text-xs font-bold text-[#0D1F3D]">Recent Searches</span>
+                  <span className="text-xs font-bold text-primary">Recent Searches</span>
                   {recentSearches.length > 0 && (
                     <button
                       type="button"
                       onClick={handleClearAll}
-                      className="text-[11px] font-semibold text-[#E20613] hover:underline transition-colors"
+                      className="text-[11px] font-semibold text-tertiary hover:underline transition-colors"
                     >
                       Clear All
                     </button>
@@ -379,8 +379,8 @@ export function HeaderSearchBar({ navCategories = [] }: HeaderSearchBarProps) {
                         className="flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer group transition-colors"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <Clock className="h-3.5 w-3.5 text-slate-400 group-hover:text-[#0D1F3D] flex-shrink-0 transition-colors" />
-                          <span className="text-xs font-semibold text-slate-700 group-hover:text-[#0D1F3D] truncate">
+                          <Clock className="h-3.5 w-3.5 text-slate-400 group-hover:text-primary flex-shrink-0 transition-colors" />
+                          <span className="text-xs font-semibold text-slate-700 group-hover:text-primary truncate">
                             {item.label}
                           </span>
                         </div>
@@ -418,7 +418,7 @@ export function HeaderSearchBar({ navCategories = [] }: HeaderSearchBarProps) {
               {/* Quick Links Section */}
               <div className="px-3 py-1">
                 <div className="px-1 pb-1.5">
-                  <span className="text-xs font-bold text-[#0D1F3D]">Quick Links</span>
+                  <span className="text-xs font-bold text-primary">Quick Links</span>
                 </div>
                 <div className="space-y-1">
                   {quickLinks.map((ql) => {
@@ -434,7 +434,7 @@ export function HeaderSearchBar({ navCategories = [] }: HeaderSearchBarProps) {
                             <Icon className="h-4 w-4" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-bold text-slate-800 group-hover:text-[#0D1F3D] transition-colors truncate">
+                            <p className="text-xs font-bold text-slate-800 group-hover:text-primary transition-colors truncate">
                               {ql.label}
                             </p>
                             <p className="text-[11px] font-medium text-slate-400 truncate">{ql.desc}</p>
@@ -470,7 +470,7 @@ export function HeaderSearchBar({ navCategories = [] }: HeaderSearchBarProps) {
                           onClick={() => handleSelect(item.label, category, item.to, item.badge)}
                           className={`flex items-center justify-between px-2.5 py-2 rounded-lg cursor-pointer transition-all ${
                             isSelected
-                              ? 'bg-slate-100/90 text-[#0D1F3D] border-l-2 border-[#0D1F3D] pl-2'
+                              ? 'bg-slate-100/90 text-primary border-l-2 border-primary pl-2'
                               : 'hover:bg-slate-50 text-slate-700'
                           }`}
                         >
@@ -509,12 +509,12 @@ export function HeaderSearchBar({ navCategories = [] }: HeaderSearchBarProps) {
                     className="flex items-center justify-between p-3 rounded-lg bg-blue-50/70 hover:bg-blue-50 text-blue-900 cursor-pointer transition-colors"
                   >
                     <div className="flex items-center gap-2.5">
-                      <Search className="h-4 w-4 text-[#0D1F3D]" />
+                      <Search className="h-4 w-4 text-primary" />
                       <span className="text-xs font-semibold">
                         Search CRM records for "<span className="font-bold">{query.trim()}</span>"
                       </span>
                     </div>
-                    <ArrowRight className="h-3.5 w-3.5 text-[#0D1F3D]" />
+                    <ArrowRight className="h-3.5 w-3.5 text-primary" />
                   </div>
                 </div>
               )}

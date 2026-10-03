@@ -17,6 +17,7 @@ import {
 import { useMemo } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Badge, Button, Card, cn } from "ui";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 
 import { getFirstInventoryImage } from "../../bookings/bookingUiUtils";
 import { useDashboardLayout } from "../../dashboard/DashboardLayoutContext";
@@ -296,22 +297,22 @@ export function SiteVisitDetailsScreen() {
 
   if (detailQuery.isLoading) {
     return (
-      <main className="p-6 text-sm font-semibold text-muted-foreground">
+      <WorkspacePage className="text-sm font-semibold text-muted-foreground">
         Loading site visit details...
-      </main>
+      </WorkspacePage>
     );
   }
 
   if (!visit) {
     return (
-      <main className="p-6 text-sm font-semibold text-destructive">
+      <WorkspacePage className="text-sm font-semibold text-destructive">
         Site visit not found.
-      </main>
+      </WorkspacePage>
     );
   }
 
   return (
-    <main className="space-y-6 p-4 sm:p-6">
+    <WorkspacePage className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button
           type="button"
@@ -599,6 +600,6 @@ export function SiteVisitDetailsScreen() {
           </Card>
         </div>
       </section>
-    </main>
+    </WorkspacePage>
   );
 }

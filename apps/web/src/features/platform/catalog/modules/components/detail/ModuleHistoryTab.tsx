@@ -128,7 +128,7 @@ export function ModuleHistoryTab({ module, historyLogs = [] }: ModuleHistoryTabP
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
         <div>
-          <h2 className="text-lg font-extrabold text-[#0D1F3D]">Audit History</h2>
+          <h2 className="text-lg font-extrabold text-primary">Audit History</h2>
           <p className="text-xs font-medium text-slate-500 mt-0.5">
             Chronological record of all changes and updates made to this module.
           </p>
@@ -206,7 +206,7 @@ export function ModuleHistoryTab({ module, historyLogs = [] }: ModuleHistoryTabP
               <div className="flex items-start gap-2.5 py-1 min-w-[170px]">
                 <Calendar className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-extrabold text-xs text-[#0D1F3D] block">
+                  <span className="font-extrabold text-xs text-primary block">
                     {new Date(item.createdAt).toLocaleString()}
                   </span>
                   <span className="text-[11px] font-medium text-slate-500 block">
@@ -220,11 +220,11 @@ export function ModuleHistoryTab({ module, historyLogs = [] }: ModuleHistoryTabP
             header: 'Actor',
             cell: (item: any) => (
               <div className="flex items-center gap-2.5 min-w-[150px]">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0D1F3D] text-xs font-bold text-white shadow-2xs">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white shadow-2xs">
                   {item.actorName ? item.actorName.charAt(0) : 'S'}
                 </div>
                 <div>
-                  <span className="font-extrabold text-xs text-[#0D1F3D] block">
+                  <span className="font-extrabold text-xs text-primary block">
                     {item.actorName || item.actorUser?.fullName || 'Sahibjit Singh'}
                   </span>
                   <span className="text-[11px] font-medium text-slate-500 block">
@@ -250,7 +250,7 @@ export function ModuleHistoryTab({ module, historyLogs = [] }: ModuleHistoryTabP
             header: 'Change Summary',
             cell: (item: any) => (
               <div className="space-y-0.5 min-w-[220px]">
-                <span className="font-extrabold text-xs text-[#0D1F3D] block">
+                <span className="font-extrabold text-xs text-primary block">
                   {item.summaryTitle || item.action}
                 </span>
                 <span className="text-[11px] font-medium text-slate-500 block truncate max-w-md">

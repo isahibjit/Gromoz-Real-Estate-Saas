@@ -78,6 +78,7 @@ import { usePermission } from "../../../../common/access/usePermission";
 import { ExecutiveCell } from "../../../../common/components/DataTableCells";
 import { scheduledInputToIso } from "../../../../common/time";
 import { useAppSelector } from "../../../../store";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 
 import { useLocation, useNavigate } from "react-router-dom";
 import { getAdminLeadSla } from "../../../../common/sla/slaData";
@@ -5028,7 +5029,7 @@ export function AllLeadsScreen() {
   };
 
   return (
-    <main className="mx-auto  space-y-8 p-4 sm:p-6">
+    <WorkspacePage className="space-y-8">
       <section className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
         <div>
           <h1 className="flex items-center gap-2 text-3xl font-extrabold text-secondary">
@@ -5261,7 +5262,7 @@ export function AllLeadsScreen() {
         rowCount={exportRows.length}
         onExport={handleConfirmExportLeads}
       />
-    </main>
+    </WorkspacePage>
   );
 }
 

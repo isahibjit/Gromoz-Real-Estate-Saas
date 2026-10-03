@@ -18,7 +18,6 @@ import {
   ChevronRight,
   Download,
   Filter,
-  Info,
   Search,
 } from "lucide-react";
 import {
@@ -42,6 +41,10 @@ import {
 
 import { DashboardSidebar } from "../../dashboard/DashboardSidebar";
 import { DashboardHeader } from "../../dashboard/DashboardHeader";
+import {
+  PageHeader,
+  WorkspacePage,
+} from "../../../../components/layout/PageHeader";
 import { addLeadSidebarItems } from "../add/addLeadData";
 import {
   conversionBySource,
@@ -56,32 +59,6 @@ import {
   topRoiSources,
   totalRow,
 } from "./sourceAnalyticsData";
-
-function SidebarFooter() {
-  return (
-    <div className="space-y-3">
-      <div className="rounded-md border border-white/15 bg-white/6 p-4 text-white">
-        <p className="text-sm font-extrabold">Need Help?</p>
-        <p className="mt-1 text-xs font-semibold text-white/75">
-          Contact Support
-        </p>
-      </div>
-      <div className="rounded-md border border-white/15 bg-white/6 p-4 text-white">
-        <p className="text-sm font-extrabold">Trueroot Realty CRM</p>
-        <p className="mt-1 text-sm font-bold text-[#ffc78f]">Premium Plan</p>
-        <p className="mt-3 text-xs font-semibold text-white/75">
-          Valid till 31 Dec 2025
-        </p>
-        <Button
-          type="button"
-          className="mt-4 h-10 w-full rounded-md bg-violet-600 text-sm font-bold text-white hover:bg-violet-700"
-        >
-          Upgrade Plan
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 function Panel({
   title,
@@ -127,49 +104,6 @@ function SourceIcon({
     >
       {short}
     </span>
-  );
-}
-
-function PageHeader() {
-  return (
-    <section className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-      <div>
-        <h1 className="flex items-center gap-2 text-3xl font-extrabold text-secondary">
-          Lead Source Analytics
-          <Info className="h-4 w-4 text-blue-700" />
-        </h1>
-        <p className="mt-2 text-sm font-semibold text-blue-800">
-          Track performance of all lead sources and optimize your marketing
-          investments.
-        </p>
-      </div>
-      <div className="flex flex-wrap gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          className="h-10 rounded-md px-4 text-xs font-extrabold shadow-none"
-        >
-          <Download className="h-4 w-4" />
-          Export Report
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-10 rounded-md px-4 text-xs font-extrabold shadow-none"
-        >
-          <Filter className="h-4 w-4" />
-          Filters
-        </Button>
-        <Button
-          type="button"
-          variant="navy"
-          className="h-10 rounded-md px-5 text-xs font-extrabold shadow-none"
-        >
-          <CalendarDays className="h-4 w-4" />
-          Custom Range
-        </Button>
-      </div>
-    </section>
   );
 }
 
@@ -638,7 +572,7 @@ export function LeadSourceAnalyticsScreen() {
   const [activeTab, setActiveTab] = useState(tabs[0]);
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -647,8 +581,7 @@ export function LeadSourceAnalyticsScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1">
-        <DashboardHeader
+      <DashboardHeader
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={
@@ -688,9 +621,28 @@ export function LeadSourceAnalyticsScreen() {
               </SelectContent>
             </Select>
           </div>
-        </DashboardHeader>
-        <main className="space-y-5 p-4 sm:p-6">
-          <PageHeader />
+      </DashboardHeader>
+      <WorkspacePage>
+          <PageHeader
+            title="Lead source analytics"
+            subtitle="Track performance across every lead source and optimize your marketing investments."
+            actions={
+              <>
+                <Button type="button" variant="outline">
+                  <Download className="h-4 w-4" />
+                  Export report
+                </Button>
+                <Button type="button" variant="outline">
+                  <Filter className="h-4 w-4" />
+                  Filters
+                </Button>
+                <Button type="button" variant="navy">
+                  <CalendarDays className="h-4 w-4" />
+                  Custom range
+                </Button>
+              </>
+            }
+          />
           <KpiRow />
           <AnalyticsTabs activeTab={activeTab} onChangeTab={setActiveTab} />
           <section className="grid gap-5 xl:grid-cols-[1fr_1.45fr_1fr]">
@@ -726,8 +678,7 @@ export function LeadSourceAnalyticsScreen() {
             />
             <EfficiencyCard />
           </section>
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

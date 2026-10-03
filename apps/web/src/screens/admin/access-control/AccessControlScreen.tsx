@@ -37,6 +37,7 @@ import {
 } from "ui";
 import type { ModulePermission } from "@truroot/shared/auth";
 import { getUserRoleLabel } from "../../../common/roleLabels";
+import { WorkspacePage } from "../../../components/layout/PageHeader";
 
 import { api } from "../../../common/api";
 import { useDashboardLayout } from "../dashboard/DashboardLayoutContext";
@@ -763,7 +764,7 @@ export function AccessControlScreen() {
   };
 
   return (
-    <main className="space-y-5 p-4 sm:p-6">
+    <WorkspacePage>
       <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-extrabold text-secondary">
@@ -1415,6 +1416,6 @@ export function AccessControlScreen() {
           ) : null}
         </DialogContent>
       </Dialog>
-    </main>
+    </WorkspacePage>
   );
 }

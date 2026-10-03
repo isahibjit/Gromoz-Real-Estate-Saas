@@ -38,6 +38,7 @@ import {
   cn,
 } from "ui";
 
+import { WorkspacePage } from "../../../components/layout/PageHeader";
 import { DashboardHeader } from "../dashboard/DashboardHeader";
 import { DashboardSidebar } from "../dashboard/DashboardSidebar";
 import { assigneeOptions } from "../leads/add/addLeadData";
@@ -94,7 +95,9 @@ function InfoTile({
           <Icon className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-bold text-muted-foreground">{label}</p>
+          <p className="truncate text-xs font-bold text-muted-foreground">
+            {label}
+          </p>
           <p className="mt-1 truncate text-base font-extrabold text-secondary">
             {value}
           </p>
@@ -437,7 +440,9 @@ export function UnitDetailsScreen() {
     if (failedCount > 0) {
       // Keep successful uploads; prompt the user to retry only the failed files.
       console.error(
-        `${failedCount} unit image upload${failedCount === 1 ? "" : "s"} failed.`,
+        `${failedCount} unit image upload${
+          failedCount === 1 ? "" : "s"
+        } failed.`,
       );
     }
   };
@@ -493,7 +498,7 @@ export function UnitDetailsScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -501,431 +506,424 @@ export function UnitDetailsScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1">
-        <DashboardHeader
-          search={search}
-          onSearchChange={setSearch}
-          onMobileMenuOpen={() => setMobileOpen(true)}
-          onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
-          breadcrumbs={
-            <>
-              <Link to="/projects" className="hover:text-secondary">
-                Projects
-              </Link>
-              <span> / </span>
-              <Link
-                to={`/projects/${project.id}`}
-                className="hover:text-secondary"
-              >
-                {project.name}
-              </Link>
-              <span> / </span>
-              <span className="text-muted-foreground font-semibold">
-                Inventory
-              </span>
-              <span> / </span>
-              <span className="text-secondary font-bold">
-                Unit {unit.unitNumber}
-              </span>
-            </>
-          }
-        />
-        <main className="space-y-5 p-4 sm:p-6">
-          <Button
-            asChild
-            variant="ghost"
-            className="h-8 px-0 text-xs font-extrabold text-muted-foreground hover:bg-transparent hover:text-secondary"
-          >
-            <Link to={`/projects/${project.id}`}>
-              <ArrowLeft className="size-4" />
-              Back to Project Details
+      <DashboardHeader
+        search={search}
+        onSearchChange={setSearch}
+        onMobileMenuOpen={() => setMobileOpen(true)}
+        onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
+        breadcrumbs={
+          <>
+            <Link to="/projects" className="hover:text-secondary">
+              Projects
             </Link>
-          </Button>
+            <span> / </span>
+            <Link
+              to={`/projects/${project.id}`}
+              className="hover:text-secondary"
+            >
+              {project.name}
+            </Link>
+            <span> / </span>
+            <span className="text-muted-foreground font-semibold">
+              Inventory
+            </span>
+            <span> / </span>
+            <span className="text-secondary font-bold">
+              Unit {unit.unitNumber}
+            </span>
+          </>
+        }
+      />
+      <WorkspacePage>
+        <Button
+          asChild
+          variant="ghost"
+          className="h-8 px-0 text-xs font-extrabold text-muted-foreground hover:bg-transparent hover:text-secondary"
+        >
+          <Link to={`/projects/${project.id}`}>
+            <ArrowLeft className="size-4" />
+            Back to Project Details
+          </Link>
+        </Button>
 
-          <Card className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-card">
-            <div className="grid lg:grid-cols-[minmax(0,1fr)_auto]">
-              <div className="p-5 sm:p-6 flex flex-col justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge
-                      className={cn(
-                        "border-0 text-[11px] font-extrabold",
-                        getUnitStatusClassName(availability),
-                      )}
-                    >
-                      {availability}
-                    </Badge>
-                    <Badge className="border-0 bg-slate-100 text-[11px] font-extrabold text-secondary">
-                      {unit.bookingStatus}
-                    </Badge>
-                  </div>
-                  <h1 className="mt-4 text-3xl font-extrabold text-secondary">
-                    {formatUnitLabel(unit)}
-                  </h1>
-                  <p className="mt-2 text-sm font-semibold text-muted-foreground">
-                    {project.name} · {project.location}
-                  </p>
-                  <p className="mt-4 max-w-3xl text-sm font-semibold leading-6 text-secondary">
-                    Experience luxurious living in {formatUnitLabel(unit)}, a
-                    premium {unit.configuration} home in the heart of{" "}
-                    {project.name}. Featuring premium orientation, ample
-                    sunlight, and access to all project amenities.
-                  </p>
+        <Card className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-card">
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="p-5 sm:p-6 flex flex-col justify-between">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge
+                    className={cn(
+                      "border-0 text-[11px] font-extrabold",
+                      getUnitStatusClassName(availability),
+                    )}
+                  >
+                    {availability}
+                  </Badge>
+                  <Badge className="border-0 bg-slate-100 text-[11px] font-extrabold text-secondary">
+                    {unit.bookingStatus}
+                  </Badge>
                 </div>
-                <div className="mt-6 flex flex-wrap gap-2.5">
-                  {/* Status Toggle Actions */}
-                  {availability !== "Sold" && (
-                    <Button
-                      type="button"
-                      className="h-10 rounded-md px-4 shadow-sm"
-                      onClick={() => handleSetStatus("Sold")}
-                    >
-                      <Check className="mr-1.5 size-4" /> Mark Sold
-                    </Button>
-                  )}
-                  {availability !== "Hold" && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-10 rounded-md px-4 shadow-none"
-                      onClick={() => handleSetStatus("Hold")}
-                    >
-                      <Circle className="mr-1.5 size-3 fill-current text-primary" />{" "}
-                      Mark Reserved
-                    </Button>
-                  )}
-                  {availability !== "Available" && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-10 rounded-md px-4 shadow-none"
-                      onClick={() => handleSetStatus("Available")}
-                    >
-                      <CalendarCheck className="mr-1.5 size-4" /> Mark Available
-                    </Button>
-                  )}
-
-                  <label className="flex h-10 cursor-pointer items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-secondary hover:bg-slate-50 transition-colors shadow-none">
-                    Upload Images
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      className="sr-only"
-                      onChange={(e) => handleUploadImages(e.target.files)}
-                    />
-                  </label>
-
+                <h1 className="mt-4 text-3xl font-extrabold text-secondary">
+                  {formatUnitLabel(unit)}
+                </h1>
+                <p className="mt-2 text-sm font-semibold text-muted-foreground">
+                  {project.name} · {project.location}
+                </p>
+                <p className="mt-4 max-w-3xl text-sm font-semibold leading-6 text-secondary">
+                  Experience luxurious living in {formatUnitLabel(unit)}, a
+                  premium {unit.configuration} home in the heart of{" "}
+                  {project.name}. Featuring premium orientation, ample sunlight,
+                  and access to all project amenities.
+                </p>
+              </div>
+              <div className="mt-6 flex flex-wrap gap-2.5">
+                {/* Status Toggle Actions */}
+                {availability !== "Sold" && (
                   <Button
-                    asChild
+                    type="button"
+                    className="h-10 rounded-md px-4 shadow-sm"
+                    onClick={() => handleSetStatus("Sold")}
+                  >
+                    <Check className="mr-1.5 size-4" /> Mark Sold
+                  </Button>
+                )}
+                {availability !== "Hold" && (
+                  <Button
+                    type="button"
                     variant="outline"
                     className="h-10 rounded-md px-4 shadow-none"
+                    onClick={() => handleSetStatus("Hold")}
                   >
-                    <Link to={`/projects/${project.id}`}>
-                      View Project Details
-                    </Link>
+                    <Circle className="mr-1.5 size-3 fill-current text-primary" />{" "}
+                    Mark Reserved
+                  </Button>
+                )}
+                {availability !== "Available" && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 rounded-md px-4 shadow-none"
+                    onClick={() => handleSetStatus("Available")}
+                  >
+                    <CalendarCheck className="mr-1.5 size-4" /> Mark Available
+                  </Button>
+                )}
+
+                <label className="flex h-10 cursor-pointer items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-secondary hover:bg-slate-50 transition-colors shadow-none">
+                  Upload Images
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(e) => handleUploadImages(e.target.files)}
+                  />
+                </label>
+
+                <Button
+                  asChild
+                  variant="outline"
+                  className="h-10 rounded-md px-4 shadow-none"
+                >
+                  <Link to={`/projects/${project.id}`}>
+                    View Project Details
+                  </Link>
+                </Button>
+              </div>
+            </div>
+            <UnitHeroGallery
+              unit={unit}
+              gallery={gallery}
+              onUpload={handleUploadImages}
+              onDelete={handleDeleteImage}
+              onMove={handleMoveImage}
+              onOpenLightbox={(idx) => setLightboxIndex(idx)}
+            />
+          </div>
+        </Card>
+
+        <section className="grid gap-3 sm:gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))]">
+          <InfoTile
+            label="Configuration"
+            value={unit.configuration}
+            icon={Home}
+          />
+          <InfoTile label="Floor" value={unit.floor} icon={Layers3} />
+          <InfoTile label="Facing" value={unit.facing} icon={Compass} />
+          <InfoTile label="Price" value={unit.price} icon={Building2} />
+          <InfoTile
+            label="Visit Count"
+            value={`${unit.visitCount}`}
+            icon={CalendarCheck}
+          />
+          <InfoTile
+            label="Linked Leads"
+            value={`${activeLeads.length}`}
+            icon={UsersRound}
+          />
+          <InfoTile
+            label="Booking Status"
+            value={unit.bookingStatus}
+            icon={CalendarCheck}
+          />
+        </section>
+
+        {/* Lead & Sales Assignment Section */}
+        <Card className="rounded-md border border-slate-200 bg-white p-5 shadow-card sm:p-6">
+          <h2 className="text-base font-extrabold text-secondary mb-4 flex items-center gap-2">
+            <UsersRound className="size-5 text-primary" /> Sales & Lead
+            Assignment Hub
+          </h2>
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Sales Representative & Performance Stats */}
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-extrabold text-secondary block mb-1">
+                  Assigned Sales Owner
+                </label>
+                <div className="flex gap-2">
+                  <Select
+                    value={salesOwner}
+                    onValueChange={handleSetSalesOwner}
+                  >
+                    <SelectTrigger
+                      aria-label="Sales Executive"
+                      className="h-10 rounded-md text-sm font-bold shadow-none flex-1"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {salesExecutives.map((exec) => (
+                        <SelectItem key={exec} value={exec}>
+                          {exec}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="mt-1 text-[11px] font-semibold text-muted-foreground">
+                  The lead engagement owner responsible for showings and
+                  closing.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-md border border-slate-100 bg-slate-50/50 p-3 text-center">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                    Active Leads
+                  </p>
+                  <p className="mt-1.5 text-xl font-extrabold text-secondary">
+                    {activeLeads.length}
+                  </p>
+                </div>
+                <div className="rounded-md border border-slate-100 bg-slate-50/50 p-3 text-center">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                    Site Visits
+                  </p>
+                  <p className="mt-1.5 text-xl font-extrabold text-secondary">
+                    {linkedVisits.length}
+                  </p>
+                </div>
+                <div className="rounded-md border border-slate-100 bg-slate-50/50 p-3 text-center">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                    Follow-ups
+                  </p>
+                  <p className="mt-1.5 text-xl font-extrabold text-secondary">
+                    {
+                      activeLeads.filter((l: any) => l.stage !== "Closed")
+                        .length
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Assign Lead to Unit form */}
+            <div className="rounded-md border border-slate-100 bg-slate-50/30 p-4">
+              <h3 className="text-sm font-extrabold text-secondary mb-3 flex items-center gap-1.5">
+                <Plus className="size-4" /> Link/Assign Lead to Unit
+              </h3>
+              {assignmentMessage ? (
+                <div className="mb-3 rounded-md border border-success/20 bg-success/10 px-3 py-1.5 text-xs font-extrabold text-success">
+                  {assignmentMessage}
+                </div>
+              ) : null}
+              <div className="grid gap-3 sm:grid-cols-2 text-xs">
+                <div className="space-y-1">
+                  <label className="font-extrabold text-secondary">
+                    Lead Name
+                  </label>
+                  <Input
+                    value={newLeadName}
+                    placeholder="e.g. Vikram Singh"
+                    className="h-9 text-xs rounded-md border-slate-200 shadow-none font-semibold"
+                    onChange={(e) => setNewLeadName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-extrabold text-secondary">
+                    Sales Owner
+                  </label>
+                  <Select value={newLeadOwner} onValueChange={setNewLeadOwner}>
+                    <SelectTrigger className="h-9 text-xs rounded-md border-slate-200 shadow-none font-semibold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {salesExecutives.map((exec) => (
+                        <SelectItem key={exec} value={exec}>
+                          {exec}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="font-extrabold text-secondary">Stage</label>
+                  <Select value={newLeadStage} onValueChange={setNewLeadStage}>
+                    <SelectTrigger className="h-9 text-xs rounded-md border-slate-200 shadow-none font-semibold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[
+                        "New Lead",
+                        "Interested",
+                        "Site Visit",
+                        "Negotiation",
+                        "Token received",
+                        "Closed",
+                      ].map((stg) => (
+                        <SelectItem key={stg} value={stg}>
+                          {stg}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="font-extrabold text-secondary">
+                    Budget
+                  </label>
+                  <Input
+                    value={newLeadBudget}
+                    placeholder="e.g. INR 1.35 Cr"
+                    className="h-9 text-xs rounded-md border-slate-200 shadow-none font-semibold"
+                    onChange={(e) => setNewLeadBudget(e.target.value)}
+                  />
+                </div>
+                <div className="sm:col-span-2 pt-2 flex justify-end">
+                  <Button
+                    type="button"
+                    className="h-9 rounded-md px-4 text-xs shadow-sm"
+                    onClick={handleAssignLead}
+                  >
+                    Assign & Link Lead
                   </Button>
                 </div>
               </div>
-              <UnitHeroGallery
-                unit={unit}
-                gallery={gallery}
-                onUpload={handleUploadImages}
-                onDelete={handleDeleteImage}
-                onMove={handleMoveImage}
-                onOpenLightbox={(idx) => setLightboxIndex(idx)}
-              />
             </div>
-          </Card>
+          </div>
+        </Card>
 
-          <section className="grid gap-3 sm:gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))]">
-            <InfoTile
-              label="Configuration"
-              value={unit.configuration}
-              icon={Home}
-            />
-            <InfoTile label="Floor" value={unit.floor} icon={Layers3} />
-            <InfoTile label="Facing" value={unit.facing} icon={Compass} />
-            <InfoTile label="Price" value={unit.price} icon={Building2} />
-            <InfoTile
-              label="Visit Count"
-              value={`${unit.visitCount}`}
-              icon={CalendarCheck}
-            />
-            <InfoTile
-              label="Linked Leads"
-              value={`${activeLeads.length}`}
-              icon={UsersRound}
-            />
-            <InfoTile
-              label="Booking Status"
-              value={unit.bookingStatus}
-              icon={CalendarCheck}
-            />
-          </section>
-
-          {/* Lead & Sales Assignment Section */}
-          <Card className="rounded-md border border-slate-200 bg-white p-5 shadow-card sm:p-6">
-            <h2 className="text-base font-extrabold text-secondary mb-4 flex items-center gap-2">
-              <UsersRound className="size-5 text-primary" /> Sales & Lead
-              Assignment Hub
+        <section className="grid gap-5 xl:grid-cols-2">
+          <Card className="rounded-md border border-slate-200 bg-white p-4 shadow-card">
+            <h2 className="mb-4 text-base font-extrabold text-secondary">
+              Linked Leads
             </h2>
-            <div className="grid gap-6 md:grid-cols-2">
-              {/* Sales Representative & Performance Stats */}
-              <div className="space-y-4">
-                <div>
-                  <label className="text-xs font-extrabold text-secondary block mb-1">
-                    Assigned Sales Owner
-                  </label>
-                  <div className="flex gap-2">
-                    <Select
-                      value={salesOwner}
-                      onValueChange={handleSetSalesOwner}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {["Lead", "Stage", "Budget", "Owner"].map((head) => (
+                    <TableHead key={head}>{head}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {activeLeads.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={4}
+                      className="py-10 text-center text-sm font-semibold text-muted-foreground"
                     >
-                      <SelectTrigger
-                        aria-label="Sales Executive"
-                        className="h-10 rounded-md text-sm font-bold shadow-none flex-1"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {salesExecutives.map((exec) => (
-                          <SelectItem key={exec} value={exec}>
-                            {exec}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <p className="mt-1 text-[11px] font-semibold text-muted-foreground">
-                    The lead engagement owner responsible for showings and
-                    closing.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="rounded-md border border-slate-100 bg-slate-50/50 p-3 text-center">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                      Active Leads
-                    </p>
-                    <p className="mt-1.5 text-xl font-extrabold text-secondary">
-                      {activeLeads.length}
-                    </p>
-                  </div>
-                  <div className="rounded-md border border-slate-100 bg-slate-50/50 p-3 text-center">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                      Site Visits
-                    </p>
-                    <p className="mt-1.5 text-xl font-extrabold text-secondary">
-                      {linkedVisits.length}
-                    </p>
-                  </div>
-                  <div className="rounded-md border border-slate-100 bg-slate-50/50 p-3 text-center">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                      Follow-ups
-                    </p>
-                    <p className="mt-1.5 text-xl font-extrabold text-secondary">
-                      {activeLeads.filter((l: any) => l.stage !== "Closed").length}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Assign Lead to Unit form */}
-              <div className="rounded-md border border-slate-100 bg-slate-50/30 p-4">
-                <h3 className="text-sm font-extrabold text-secondary mb-3 flex items-center gap-1.5">
-                  <Plus className="size-4" /> Link/Assign Lead to Unit
-                </h3>
-                {assignmentMessage ? (
-                  <div className="mb-3 rounded-md border border-success/20 bg-success/10 px-3 py-1.5 text-xs font-extrabold text-success">
-                    {assignmentMessage}
-                  </div>
-                ) : null}
-                <div className="grid gap-3 sm:grid-cols-2 text-xs">
-                  <div className="space-y-1">
-                    <label className="font-extrabold text-secondary">
-                      Lead Name
-                    </label>
-                    <Input
-                      value={newLeadName}
-                      placeholder="e.g. Vikram Singh"
-                      className="h-9 text-xs rounded-md border-slate-200 shadow-none font-semibold"
-                      onChange={(e) => setNewLeadName(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="font-extrabold text-secondary">
-                      Sales Owner
-                    </label>
-                    <Select
-                      value={newLeadOwner}
-                      onValueChange={setNewLeadOwner}
-                    >
-                      <SelectTrigger className="h-9 text-xs rounded-md border-slate-200 shadow-none font-semibold">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {salesExecutives.map((exec) => (
-                          <SelectItem key={exec} value={exec}>
-                            {exec}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="font-extrabold text-secondary">
-                      Stage
-                    </label>
-                    <Select
-                      value={newLeadStage}
-                      onValueChange={setNewLeadStage}
-                    >
-                      <SelectTrigger className="h-9 text-xs rounded-md border-slate-200 shadow-none font-semibold">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[
-                          "New Lead",
-                          "Interested",
-                          "Site Visit",
-                          "Negotiation",
-                          "Token received",
-                          "Closed",
-                        ].map((stg) => (
-                          <SelectItem key={stg} value={stg}>
-                            {stg}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="font-extrabold text-secondary">
-                      Budget
-                    </label>
-                    <Input
-                      value={newLeadBudget}
-                      placeholder="e.g. INR 1.35 Cr"
-                      className="h-9 text-xs rounded-md border-slate-200 shadow-none font-semibold"
-                      onChange={(e) => setNewLeadBudget(e.target.value)}
-                    />
-                  </div>
-                  <div className="sm:col-span-2 pt-2 flex justify-end">
-                    <Button
-                      type="button"
-                      className="h-9 rounded-md px-4 text-xs shadow-sm"
-                      onClick={handleAssignLead}
-                    >
-                      Assign & Link Lead
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
+                      No linked leads for this unit.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  activeLeads.map((lead: any) => (
+                    <TableRow key={lead.id}>
+                      <TableCell>
+                        <Link
+                          to={`/leads/${lead.id}`}
+                          className="font-extrabold text-blue-700 hover:text-blue-800"
+                        >
+                          {lead.name}
+                        </Link>
+                        <p className="text-xs font-semibold text-muted-foreground">
+                          {lead.id}
+                        </p>
+                      </TableCell>
+                      <TableCell>{lead.stage}</TableCell>
+                      <TableCell>{lead.budget}</TableCell>
+                      <TableCell>{lead.owner}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </Card>
 
-          <section className="grid gap-5 xl:grid-cols-2">
-            <Card className="rounded-md border border-slate-200 bg-white p-4 shadow-card">
-              <h2 className="mb-4 text-base font-extrabold text-secondary">
-                Linked Leads
-              </h2>
-              <Table>
-                <TableHeader>
+          <Card className="rounded-md border border-slate-200 bg-white p-4 shadow-card">
+            <h2 className="mb-4 text-base font-extrabold text-secondary">
+              Site Visits
+            </h2>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {["Visit", "Lead", "Schedule", "Executive"].map((head) => (
+                    <TableHead key={head}>{head}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {linkedVisits.length === 0 ? (
                   <TableRow>
-                    {["Lead", "Stage", "Budget", "Owner"].map((head) => (
-                      <TableHead key={head}>{head}</TableHead>
-                    ))}
+                    <TableCell
+                      colSpan={4}
+                      className="py-10 text-center text-sm font-semibold text-muted-foreground"
+                    >
+                      No site visits linked to this unit.
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {activeLeads.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={4}
-                        className="py-10 text-center text-sm font-semibold text-muted-foreground"
-                      >
-                        No linked leads for this unit.
+                ) : (
+                  linkedVisits.map((visit: any) => (
+                    <TableRow key={visit.id}>
+                      <TableCell>
+                        <p className="font-extrabold text-secondary">
+                          {visit.id}
+                        </p>
+                        <Badge className="mt-1 border-0 bg-blue-50 text-blue-700">
+                          {visit.status}
+                        </Badge>
                       </TableCell>
-                    </TableRow>
-                  ) : (
-                    activeLeads.map((lead: any) => (
-                      <TableRow key={lead.id}>
-                        <TableCell>
-                          <Link
-                            to={`/leads/${lead.id}`}
-                            className="font-extrabold text-blue-700 hover:text-blue-800"
-                          >
-                            {lead.name}
-                          </Link>
-                          <p className="text-xs font-semibold text-muted-foreground">
-                            {lead.id}
-                          </p>
-                        </TableCell>
-                        <TableCell>{lead.stage}</TableCell>
-                        <TableCell>{lead.budget}</TableCell>
-                        <TableCell>{lead.owner}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </Card>
-
-            <Card className="rounded-md border border-slate-200 bg-white p-4 shadow-card">
-              <h2 className="mb-4 text-base font-extrabold text-secondary">
-                Site Visits
-              </h2>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {["Visit", "Lead", "Schedule", "Executive"].map((head) => (
-                      <TableHead key={head}>{head}</TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {linkedVisits.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={4}
-                        className="py-10 text-center text-sm font-semibold text-muted-foreground"
-                      >
-                        No site visits linked to this unit.
+                      <TableCell>
+                        <Link
+                          to={`/leads/${visit.leadId}`}
+                          className="font-extrabold text-blue-700 hover:text-blue-800"
+                        >
+                          {visit.leadName}
+                        </Link>
                       </TableCell>
+                      <TableCell>
+                        {visit.date}, {visit.time}
+                      </TableCell>
+                      <TableCell>{visit.assignedExecutive}</TableCell>
                     </TableRow>
-                  ) : (
-                    linkedVisits.map((visit : any) => (
-                      <TableRow key={visit.id}>
-                        <TableCell>
-                          <p className="font-extrabold text-secondary">
-                            {visit.id}
-                          </p>
-                          <Badge className="mt-1 border-0 bg-blue-50 text-blue-700">
-                            {visit.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Link
-                            to={`/leads/${visit.leadId}`}
-                            className="font-extrabold text-blue-700 hover:text-blue-800"
-                          >
-                            {visit.leadName}
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          {visit.date}, {visit.time}
-                        </TableCell>
-                        <TableCell>{visit.assignedExecutive}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </Card>
-          </section>
-        </main>
-      </div>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+        </section>
+      </WorkspacePage>
 
       <Dialog
         open={lightboxIndex !== null}
@@ -977,6 +975,6 @@ export function UnitDetailsScreen() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

@@ -17,6 +17,7 @@ import {
 } from "ui";
 
 import { useAppSelector } from "../../store";
+import { WorkspacePage } from "../../components/layout/PageHeader";
 import { useDashboardLayout } from "../admin/dashboard/DashboardLayoutContext";
 import {
   formatBookingAmount,
@@ -155,7 +156,7 @@ export function MyCommissionsScreen() {
   }
 
   return (
-    <main className="space-y-5 p-4 sm:p-6">
+    <WorkspacePage>
       <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <Badge className="mb-2 border-0 bg-blue-50 text-blue-700">
@@ -514,6 +515,6 @@ export function MyCommissionsScreen() {
           </div>
         </div>
       </Card>
-    </main>
+    </WorkspacePage>
   );
 }

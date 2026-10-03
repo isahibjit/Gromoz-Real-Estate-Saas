@@ -702,7 +702,7 @@ function DashboardSidebarComponent({
                         : "w-11 mx-auto justify-center px-0"
                     } ${
                       active
-                        ? "bg-[#0D1F3D] text-white shadow-xs font-semibold" /* Active State */
+                        ? "bg-primary text-white shadow-xs font-semibold" /* Active State */
                         : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900" /* Default & Hover State */
                     }`}
                   >
@@ -721,8 +721,8 @@ function DashboardSidebarComponent({
                           <span
                             className={`shrink-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-extrabold transition-colors ${
                               active
-                                ? "bg-[#E20613] text-white border border-[#E20613]"
-                                : "bg-red-50 text-[#E20613] border border-red-200/60"
+                                ? "bg-tertiary text-white border border-tertiary"
+                                : "bg-red-50 text-tertiary border border-red-200/60"
                             }`}
                           >
                             {item.badge}
@@ -774,10 +774,10 @@ function DashboardSidebarComponent({
                       className="h-8 w-8 rounded-sm object-cover shrink-0 shadow-xs border border-slate-200"
                     />
                   ) : (
-                    <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-[#0D1F3D] text-xs font-semibold text-white shadow-xs">
+                    <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-primary text-xs font-semibold text-white shadow-xs">
                       {user.fullName?.charAt(0) ??
                         user.email.charAt(0).toUpperCase()}
-                      <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-[#E20613] ring-2 ring-white" />
+                      <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-tertiary ring-2 ring-white" />
                     </div>
                   )}
 
@@ -812,7 +812,7 @@ function DashboardSidebarComponent({
                   )}
                 >
                   <div className="px-3 py-2 border-b border-slate-100 mb-1">
-                    <p className="text-xs font-bold text-[#0D1F3D] truncate">
+                    <p className="text-xs font-bold text-primary truncate">
                       {user.fullName || user.email}
                     </p>
                     <p className="text-[11px] text-slate-400 truncate">
@@ -825,9 +825,9 @@ function DashboardSidebarComponent({
                       setUserMenuOpen(false);
                       onMobileClose();
                     }}
-                    className="flex items-center gap-2.5 rounded-sm px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-[#0D1F3D] transition-colors"
+                    className="flex items-center gap-2.5 rounded-sm px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-primary transition-colors"
                   >
-                    <User className="h-4 w-4 text-[#E20613]" /> My Profile
+                    <User className="h-4 w-4 text-tertiary" /> My Profile
                   </NavLink>
                   <NavLink
                     to="/employee/settings"
@@ -835,7 +835,7 @@ function DashboardSidebarComponent({
                       setUserMenuOpen(false);
                       onMobileClose();
                     }}
-                    className="flex items-center gap-2.5 rounded-sm px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-[#0D1F3D] transition-colors"
+                    className="flex items-center gap-2.5 rounded-sm px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-primary transition-colors"
                   >
                     <Shield className="h-4 w-4 text-blue-600" /> Security & 2FA
                   </NavLink>

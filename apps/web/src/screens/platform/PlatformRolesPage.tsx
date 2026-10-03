@@ -22,16 +22,16 @@ export function PlatformRolesPage() {
             <button
               type="button"
               onClick={() => navigate('/platform/dashboard')}
-              className="hover:text-[#0D1F3D]"
+              className="hover:text-primary"
             >
               Dashboard
             </button>
             <span>›</span>
             <span>Platform RBAC</span>
             <span>›</span>
-            <span className="font-extrabold text-[#0D1F3D]">Platform Roles & Security</span>
+            <span className="font-extrabold text-primary">Platform Roles & Security</span>
           </div>
-          <h1 className="text-2xl font-extrabold text-[#0D1F3D] tracking-tight mt-1.5">
+          <h1 className="text-2xl font-extrabold text-primary tracking-tight mt-1.5">
             Platform Roles & RBAC Management
           </h1>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
@@ -77,7 +77,7 @@ export function PlatformRolesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {requiredApis.map((apiItem) => (
               <div key={apiItem.endpoint} className="p-3 rounded-sm border border-amber-200 bg-white/80 space-y-1">
-                <span className="font-mono font-extrabold text-xs text-[#0D1F3D] block">{apiItem.endpoint}</span>
+                <span className="font-mono font-extrabold text-xs text-primary block">{apiItem.endpoint}</span>
                 <span className="text-[11px] text-slate-600 font-medium block">{apiItem.purpose}</span>
               </div>
             ))}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Area,
   CartesianGrid,
@@ -20,7 +20,6 @@ import {
   ChevronRight,
   Download,
   Filter,
-  Info,
   MessageCircle,
   MoreVertical,
   Phone,
@@ -54,6 +53,10 @@ import {
 
 import { DashboardSidebar } from "../../dashboard/DashboardSidebar";
 import { DashboardHeader } from "../../dashboard/DashboardHeader";
+import {
+  PageHeader,
+  WorkspacePage,
+} from "../../../../components/layout/PageHeader";
 import { addLeadSidebarItems } from "../add/addLeadData";
 import {
   slaBreachedLeads,
@@ -68,49 +71,17 @@ import { KpiCard } from "../../dashboard/KpiCard";
 
 
 
-function PageHeader() {
-  return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h1 className="flex items-center gap-2 text-2xl font-extrabold text-secondary">
-          SLA Dashboard
-          <Info className="h-4 w-4 text-blue-700" />
-        </h1>
-        <p className="mt-1.5 text-sm font-semibold text-blue-800">
-          Monitor lead response time and SLA compliance to ensure timely
-          follow-ups and better conversions.
-        </p>
-      </div>
-      <div className="flex gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          className="h-10 rounded-md px-4 text-xs font-extrabold shadow-none"
-        >
-          <Download className="mr-2 h-4 w-4" />
-          Export Report
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-10 rounded-md px-4 text-xs font-extrabold shadow-none"
-        >
-          <Filter className="mr-2 h-4 w-4" />
-          Filters
-        </Button>
-        <Button
-          type="button"
-          className="h-10 rounded-md bg-gradient-to-r from-indigo-600 to-purple-600 px-4 text-xs font-extrabold shadow-none hover:from-indigo-700 hover:to-purple-700"
-        >
-          <Settings className="mr-2 h-4 w-4" />
-          SLA Settings
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function Panel({ title, action, children, className }: any) {
+function Panel({
+  title,
+  action,
+  children,
+  className,
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <Card
       className={cn(
@@ -896,7 +867,7 @@ export function SLADashboardScreen() {
   const [search, setSearch] = useState("");
 
   return (
-    <div className="min-h-screen bg-slate-50 lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -906,8 +877,7 @@ export function SLADashboardScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1">
-        <DashboardHeader
+      <DashboardHeader
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={
@@ -947,9 +917,28 @@ export function SLADashboardScreen() {
               </SelectContent>
             </Select>
           </div>
-        </DashboardHeader>
-        <main className="space-y-6 p-4 sm:p-6 max-w-[1600px] mx-auto">
-          <PageHeader />
+      </DashboardHeader>
+      <WorkspacePage className="space-y-6">
+          <PageHeader
+            title="SLA dashboard"
+            subtitle="Monitor lead response time and SLA compliance to ensure timely follow-ups and better conversions."
+            actions={
+              <>
+                <Button type="button" variant="outline">
+                  <Download className="h-4 w-4" />
+                  Export report
+                </Button>
+                <Button type="button" variant="outline">
+                  <Filter className="h-4 w-4" />
+                  Filters
+                </Button>
+                <Button type="button" variant="navy">
+                  <Settings className="h-4 w-4" />
+                  SLA settings
+                </Button>
+              </>
+            }
+          />
           <SLAKPIRow />
           <SLATabs activeTab={activeTab} onChangeTab={setActiveTab} />
 
@@ -981,8 +970,7 @@ export function SLADashboardScreen() {
               </p>
             </div>
           )}
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

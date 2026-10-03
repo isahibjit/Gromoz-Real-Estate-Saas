@@ -177,7 +177,7 @@ export function PlansPricingPage() {
               {plan.name.charAt(0)}
             </div>
             <div className="min-w-0">
-              <p className="font-bold text-[#0D1F3D] group-hover:text-indigo-600 group-hover:underline flex items-center gap-1.5 truncate">
+              <p className="font-bold text-primary group-hover:text-indigo-600 group-hover:underline flex items-center gap-1.5 truncate">
                 {plan.name}
                 {plan.badge && plan.badge !== 'None' && (
                   <span className="inline-flex rounded-full bg-indigo-50 px-2 py-0.5 text-[9px] font-extrabold text-indigo-700 border border-indigo-100 shrink-0">
@@ -195,7 +195,7 @@ export function PlansPricingPage() {
       {
         header: 'Plan Code',
         cell: (plan) => (
-          <span className="font-mono text-xs font-bold text-[#0D1F3D]">{plan.code}</span>
+          <span className="font-mono text-xs font-bold text-primary">{plan.code}</span>
         ),
       },
       {
@@ -216,7 +216,7 @@ export function PlansPricingPage() {
       {
         header: 'Monthly Price',
         cell: (plan) => (
-          <span className="font-bold text-[#0D1F3D]">{formatPlanMonthlyPrice(plan.pricing)}</span>
+          <span className="font-bold text-primary">{formatPlanMonthlyPrice(plan.pricing)}</span>
         ),
       },
       {
@@ -266,7 +266,7 @@ export function PlansPricingPage() {
         header: 'MRR',
         cell: (plan) => {
           const planMrr = metrics.mrrByPlan[plan.id] || 0;
-          return <span className="font-mono font-bold text-[#0D1F3D]">{formatCurrency(planMrr)}</span>;
+          return <span className="font-mono font-bold text-primary">{formatCurrency(planMrr)}</span>;
         },
       },
       {
@@ -342,7 +342,7 @@ export function PlansPricingPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-[#0D1F3D]">Plans & Pricing</h1>
+            <h1 className="text-2xl font-extrabold text-primary">Plans & Pricing</h1>
             <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
               <CreditCard className="h-4 w-4" />
             </span>
@@ -430,7 +430,7 @@ export function PlansPricingPage() {
               placeholder="Search plans by name or code..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-10 w-full rounded-sm border border-slate-200 bg-slate-50/50 pl-10 pr-4 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-[#0D1F3D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-100 transition"
+              className="h-10 w-full rounded-sm border border-slate-200 bg-slate-50/50 pl-10 pr-4 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-100 transition"
             />
           </div>
 
@@ -513,7 +513,7 @@ export function PlansPricingPage() {
       {/* Bottom Analytics Cards Section (Moved below table to next line) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2 font-sans">
         <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs">
-          <h3 className="text-sm font-bold text-[#0D1F3D] mb-4">Tenants by Plan</h3>
+          <h3 className="text-sm font-bold text-primary mb-4">Tenants by Plan</h3>
           <div className="flex items-center gap-4">
             <div className="relative h-28 w-28 shrink-0">
               <ResponsiveContainer width="100%" height="100%">
@@ -525,14 +525,14 @@ export function PlansPricingPage() {
                   </Pie>
                   <Tooltip
                     wrapperStyle={{ zIndex: 100 }}
-                    contentStyle={{ backgroundColor: '#0D1F3D', borderRadius: '4px', border: 'none', color: '#fff' }}
+                    contentStyle={{ backgroundColor: 'hsl(var(--primary))', borderRadius: 'var(--radius-xs)', border: 'none', color: '#fff' }}
                     itemStyle={{ color: '#FFFFFF', fontWeight: 600, fontSize: '11px' }}
                     formatter={(val: any) => [`${val} Tenants`, 'Count']}
                   />
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-base font-extrabold text-[#0D1F3D]">{metrics.activeSubscriptions}</span>
+                <span className="text-base font-extrabold text-primary">{metrics.activeSubscriptions}</span>
                 <span className="text-[9px] font-bold text-slate-600">Total</span>
               </div>
             </div>
@@ -543,7 +543,7 @@ export function PlansPricingPage() {
                     <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
                     <span className="text-slate-600 truncate max-w-[140px]">{p.name}</span>
                   </div>
-                  <span className="text-[#0D1F3D] font-bold">{metrics.tenantsByPlan[p.id] || 0}</span>
+                  <span className="text-primary font-bold">{metrics.tenantsByPlan[p.id] || 0}</span>
                 </div>
               ))}
             </div>
@@ -551,7 +551,7 @@ export function PlansPricingPage() {
         </div>
 
         <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs">
-          <h3 className="text-sm font-bold text-[#0D1F3D] mb-4">MRR Contribution by Plan</h3>
+          <h3 className="text-sm font-bold text-primary mb-4">MRR Contribution by Plan</h3>
           <div className="h-36 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={barChartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
@@ -573,7 +573,7 @@ export function PlansPricingPage() {
               <AlertTriangle className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="text-base font-extrabold text-[#0D1F3D]">Archive Commercial Plan</h3>
+              <h3 className="text-base font-extrabold text-primary">Archive Commercial Plan</h3>
               <p className="text-xs text-slate-500 font-medium mt-1">
                 Archived plans will no longer be available for new tenant subscriptions. Existing tenant records subscribed to{' '}
                 <strong>{archivingPlan.name}</strong> are not deleted.

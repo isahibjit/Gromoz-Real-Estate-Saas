@@ -82,7 +82,7 @@ export function FeatureRegistryPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-[#0D1F3D]">Feature Registry</h1>
+            <h1 className="text-2xl font-extrabold text-primary">Feature Registry</h1>
             <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
               <Boxes className="h-4 w-4" />
             </span>
@@ -178,7 +178,7 @@ export function FeatureRegistryPage() {
       {error ? (
         <div className="rounded-sm border border-rose-200 bg-white p-8 text-center space-y-3 max-w-md mx-auto shadow-xs">
           <AlertTriangle className="h-8 w-8 text-rose-600 mx-auto" />
-          <h3 className="text-base font-extrabold text-[#0D1F3D]">Unable to Load Feature Registry</h3>
+          <h3 className="text-base font-extrabold text-primary">Unable to Load Feature Registry</h3>
           <p className="text-xs text-slate-500 font-medium">{error}</p>
           <Button variant="accent" size="sm" onClick={handleRefresh} className="font-extrabold bg-indigo-600 text-white">
             Retry Loading
@@ -199,7 +199,7 @@ export function FeatureRegistryPage() {
               header: 'Feature Name & Description',
               cell: (item) => (
                 <div className="min-w-[200px]">
-                  <p className="font-extrabold text-[#0D1F3D] text-xs">{item.name}</p>
+                  <p className="font-extrabold text-primary text-xs">{item.name}</p>
                   <p className="text-[11px] font-medium text-slate-500 truncate max-w-xs">{item.description}</p>
                 </div>
               ),
@@ -224,7 +224,7 @@ export function FeatureRegistryPage() {
               header: 'Parent Module',
               cell: (item) => (
                 <div>
-                  <span className="font-extrabold text-xs text-[#0D1F3D] block">{item.module?.name || '—'}</span>
+                  <span className="font-extrabold text-xs text-primary block">{item.module?.name || '—'}</span>
                   <span className="font-mono text-[10px] font-bold text-slate-500">{item.module?.code || ''}</span>
                 </div>
               ),

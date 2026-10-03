@@ -224,7 +224,7 @@ function WizardContent() {
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-600">
           <AlertTriangle className="h-6 w-6" />
         </div>
-        <h2 className="text-lg font-extrabold text-[#0D1F3D]">Plan Not Found</h2>
+        <h2 className="text-lg font-extrabold text-primary">Plan Not Found</h2>
         <p className="text-xs text-slate-500 font-medium">
           The requested commercial plan configuration does not exist or may no longer be available for editing.
         </p>
@@ -250,7 +250,7 @@ function WizardContent() {
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-[#0D1F3D]">
+            <h1 className="text-2xl font-extrabold text-primary">
               {isEditMode ? `Edit Plan — ${formState.name || 'Loading...'}` : 'Create Commercial Plan'}
             </h1>
             <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
@@ -304,7 +304,7 @@ function WizardContent() {
                     isDone
                       ? 'bg-emerald-600 text-white shadow-2xs'
                       : isActive
-                      ? 'bg-[#0D1F3D] text-white shadow-xs'
+                      ? 'bg-primary text-white shadow-xs'
                       : 'bg-slate-100 text-slate-500 border border-slate-200'
                   }`}
                 >
@@ -314,7 +314,7 @@ function WizardContent() {
                   <p
                     className={`text-xs truncate transition-colors ${
                       isActive
-                        ? 'font-extrabold text-[#0D1F3D]'
+                        ? 'font-extrabold text-primary'
                         : isDone
                         ? 'font-bold text-slate-800'
                         : 'font-semibold text-slate-500'
@@ -338,7 +338,7 @@ function WizardContent() {
             {currentStep === 1 && (
               <div className="space-y-5">
                 <div className="border-b border-slate-100 pb-3">
-                  <h2 className="text-base font-extrabold text-[#0D1F3D]">Step 1: Basic Information</h2>
+                  <h2 className="text-base font-extrabold text-primary">Step 1: Basic Information</h2>
                   <p className="text-xs text-slate-500 font-medium">
                     Define the commercial identity, code and catalog presentation of this plan.
                   </p>
@@ -354,7 +354,7 @@ function WizardContent() {
                       placeholder="e.g. Professional Field Suite"
                       value={formState.name}
                       onChange={(e) => updateFormState({ name: e.target.value })}
-                      className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-[#0D1F3D] focus:outline-none focus:border-[#0D1F3D]"
+                      className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-primary focus:outline-none focus:border-primary"
                     />
                   </div>
 
@@ -367,7 +367,7 @@ function WizardContent() {
                       placeholder="e.g. PROFESSIONAL"
                       value={formState.code}
                       onChange={(e) => updateFormState({ code: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '') })}
-                      className="w-full h-10 px-3 text-xs font-mono font-extrabold rounded-sm border border-slate-200 bg-[#F8FAFC] text-[#0D1F3D] focus:outline-none focus:border-[#0D1F3D]"
+                      className="w-full h-10 px-3 text-xs font-mono font-extrabold rounded-sm border border-slate-200 bg-[#F8FAFC] text-primary focus:outline-none focus:border-primary"
                     />
                     <span className="text-[10px] text-slate-400 font-medium block">
                       Stable uppercase identifier (regex: ^[A-Z][A-Z0-9_]*$). Cannot be changed after publishing.
@@ -385,7 +385,7 @@ function WizardContent() {
                       placeholder="Public tagline displayed on tenant billing page..."
                       value={formState.description}
                       onChange={(e) => updateFormState({ description: e.target.value })}
-                      className="w-full p-3 text-xs font-medium rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                      className="w-full p-3 text-xs font-medium rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -395,7 +395,7 @@ function WizardContent() {
                       placeholder="Internal operational guidance for sales & support admins..."
                       value={formState.internalDescription || ''}
                       onChange={(e) => updateFormState({ internalDescription: e.target.value })}
-                      className="w-full p-3 text-xs font-medium rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                      className="w-full p-3 text-xs font-medium rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                     />
                   </div>
                 </div>
@@ -406,7 +406,7 @@ function WizardContent() {
                     <select
                       value={formState.tier || 'Growth'}
                       onChange={(e) => updateFormState({ tier: e.target.value })}
-                      className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                      className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                     >
                       <option value="Starter">Starter</option>
                       <option value="Growth">Growth</option>
@@ -421,7 +421,7 @@ function WizardContent() {
                     <select
                       value={formState.visibility}
                       onChange={(e) => updateFormState({ visibility: e.target.value as PlanVisibility })}
-                      className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                      className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                     >
                       <option value="Public">Public (Self-Serve Tenant Catalog)</option>
                       <option value="Internal">Internal (Admin Provisioned Only)</option>
@@ -436,7 +436,7 @@ function WizardContent() {
                       min={0}
                       value={formState.displayOrder}
                       onChange={(e) => updateFormState({ displayOrder: parseInt(e.target.value, 10) || 0 })}
-                      className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                      className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                     />
                   </div>
                 </div>
@@ -449,7 +449,7 @@ function WizardContent() {
                       placeholder="e.g. Mid-Market Businesses (50-150 Reps)"
                       value={formState.recommendedFor || ''}
                       onChange={(e) => updateFormState({ recommendedFor: e.target.value })}
-                      className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                      className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                     />
                   </div>
 
@@ -458,7 +458,7 @@ function WizardContent() {
                     <select
                       value={formState.badge || 'None'}
                       onChange={(e) => updateFormState({ badge: e.target.value })}
-                      className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                      className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                     >
                       <option value="None">None</option>
                       <option value="Popular">Popular</option>
@@ -481,7 +481,7 @@ function WizardContent() {
                         type="text"
                         value={formState.color || '#6366F1'}
                         onChange={(e) => updateFormState({ color: e.target.value })}
-                        className="w-full h-10 px-3 text-xs font-mono font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                        className="w-full h-10 px-3 text-xs font-mono font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                       />
                     </div>
                   </div>
@@ -493,14 +493,14 @@ function WizardContent() {
             {currentStep === 2 && (
               <div className="space-y-5">
                 <div className="border-b border-slate-100 pb-3">
-                  <h2 className="text-base font-extrabold text-[#0D1F3D]">Step 2: Pricing Configuration</h2>
+                  <h2 className="text-base font-extrabold text-primary">Step 2: Pricing Configuration</h2>
                   <p className="text-xs text-slate-500 font-medium">
                     Select the pricing model and configure monthly, annual, and commercial billing rules.
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-[#0D1F3D] block">Pricing Model</label>
+                  <label className="text-xs font-bold text-primary block">Pricing Model</label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {(
                       [
@@ -526,7 +526,7 @@ function WizardContent() {
                               : 'border-slate-200 bg-white hover:bg-slate-50'
                           }`}
                         >
-                          <div className="text-xs font-extrabold text-[#0D1F3D]">{item.title}</div>
+                          <div className="text-xs font-extrabold text-primary">{item.title}</div>
                           <div className="text-[11px] text-slate-500 font-medium mt-1 leading-snug">
                             {item.desc}
                           </div>
@@ -546,7 +546,7 @@ function WizardContent() {
                           pricing: { ...formState.pricing, currency: e.target.value as any },
                         })
                       }
-                      className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                      className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                     >
                       <option value="INR">INR (₹ - Indian Rupee)</option>
                       <option value="USD">USD ($ - US Dollar)</option>
@@ -564,7 +564,7 @@ function WizardContent() {
                           pricing: { ...formState.pricing, taxMode: e.target.value as TaxMode },
                         })
                       }
-                      className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                      className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                     >
                       <option value="Exclusive">Exclusive (+ Tax / GST extra)</option>
                       <option value="Inclusive">Inclusive (Taxes included in price)</option>
@@ -580,7 +580,7 @@ function WizardContent() {
                           pricing: { ...formState.pricing, prorationPolicy: e.target.value as ProrationPolicy },
                         })
                       }
-                      className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                      className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                     >
                       <option value="Prorate Immediately">Prorate Immediately on seat add</option>
                       <option value="No Proration">No Proration</option>
@@ -615,7 +615,7 @@ function WizardContent() {
                                   },
                                 })
                               }
-                              className="w-full h-10 px-3 text-xs font-extrabold rounded-sm border border-slate-200 bg-[#F8FAFC] text-[#0D1F3D] focus:outline-none focus:border-[#0D1F3D]"
+                              className="w-full h-10 px-3 text-xs font-extrabold rounded-sm border border-slate-200 bg-[#F8FAFC] text-primary focus:outline-none focus:border-primary"
                             />
                           </div>
                           <div className="space-y-1.5">
@@ -633,7 +633,7 @@ function WizardContent() {
                                   },
                                 })
                               }
-                              className="w-full h-10 px-3 text-xs font-extrabold rounded-sm border border-slate-200 bg-[#F8FAFC] text-[#0D1F3D] focus:outline-none focus:border-[#0D1F3D]"
+                              className="w-full h-10 px-3 text-xs font-extrabold rounded-sm border border-slate-200 bg-[#F8FAFC] text-primary focus:outline-none focus:border-primary"
                             />
                           </div>
                         </>
@@ -656,7 +656,7 @@ function WizardContent() {
                                   },
                                 })
                               }
-                              className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-[#0D1F3D] focus:outline-none focus:border-[#0D1F3D]"
+                              className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-primary focus:outline-none focus:border-primary"
                             />
                           </div>
                           <div className="space-y-1.5">
@@ -674,7 +674,7 @@ function WizardContent() {
                                   },
                                 })
                               }
-                              className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-[#0D1F3D] focus:outline-none focus:border-[#0D1F3D]"
+                              className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-primary focus:outline-none focus:border-primary"
                             />
                           </div>
                         </>
@@ -697,7 +697,7 @@ function WizardContent() {
                                   },
                                 })
                               }
-                              className="w-full h-10 px-3 text-xs font-extrabold rounded-sm border border-slate-200 bg-[#F8FAFC] text-[#0D1F3D] focus:outline-none focus:border-[#0D1F3D]"
+                              className="w-full h-10 px-3 text-xs font-extrabold rounded-sm border border-slate-200 bg-[#F8FAFC] text-primary focus:outline-none focus:border-primary"
                             />
                           </div>
                           <div className="space-y-1.5">
@@ -715,7 +715,7 @@ function WizardContent() {
                                   },
                                 })
                               }
-                              className="w-full h-10 px-3 text-xs font-extrabold rounded-sm border border-slate-200 bg-[#F8FAFC] text-[#0D1F3D] focus:outline-none focus:border-[#0D1F3D]"
+                              className="w-full h-10 px-3 text-xs font-extrabold rounded-sm border border-slate-200 bg-[#F8FAFC] text-primary focus:outline-none focus:border-primary"
                             />
                           </div>
                         </>
@@ -737,7 +737,7 @@ function WizardContent() {
                               },
                             })
                           }
-                          className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-[#0D1F3D] focus:outline-none focus:border-[#0D1F3D]"
+                          className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-primary focus:outline-none focus:border-primary"
                         />
                       </div>
                     </div>
@@ -752,7 +752,7 @@ function WizardContent() {
                         pricing: { ...formState.pricing, allowMonthlyBilling: checked },
                       })
                     }
-                    label={<span className="text-xs font-extrabold text-[#0D1F3D]">Allow Monthly Billing Cycle</span>}
+                    label={<span className="text-xs font-extrabold text-primary">Allow Monthly Billing Cycle</span>}
                   />
 
                   <Checkbox
@@ -762,7 +762,7 @@ function WizardContent() {
                         pricing: { ...formState.pricing, allowAnnualBilling: checked },
                       })
                     }
-                    label={<span className="text-xs font-extrabold text-[#0D1F3D]">Allow Annual Billing Cycle</span>}
+                    label={<span className="text-xs font-extrabold text-primary">Allow Annual Billing Cycle</span>}
                   />
                 </div>
               </div>
@@ -772,14 +772,14 @@ function WizardContent() {
             {currentStep === 3 && (
               <div className="space-y-5">
                 <div className="border-b border-slate-100 pb-3">
-                  <h2 className="text-base font-extrabold text-[#0D1F3D]">Step 3: Seats & Usage Limits</h2>
+                  <h2 className="text-base font-extrabold text-primary">Step 3: Seats & Usage Limits</h2>
                   <p className="text-xs text-slate-500 font-medium">
                     Configure capacity bounds, storage allowances, API quotas, and platform retention rules.
                   </p>
                 </div>
 
                 <div className="space-y-3">
-                  <h3 className="text-xs font-extrabold text-[#0D1F3D] uppercase tracking-wider">
+                  <h3 className="text-xs font-extrabold text-primary uppercase tracking-wider">
                     Section A — Users & Organization
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -796,7 +796,7 @@ function WizardContent() {
                             limits: { ...formState.limits, minimumSeats: parseInt(e.target.value, 10) || 1 },
                           })
                         }
-                        className="w-full h-10 px-3 text-xs font-extrabold rounded-sm border border-slate-200 bg-[#F8FAFC] text-[#0D1F3D] focus:outline-none focus:border-[#0D1F3D]"
+                        className="w-full h-10 px-3 text-xs font-extrabold rounded-sm border border-slate-200 bg-[#F8FAFC] text-primary focus:outline-none focus:border-primary"
                       />
                     </div>
 
@@ -813,7 +813,7 @@ function WizardContent() {
                             limits: { ...formState.limits, defaultSeatLimit: parseInt(e.target.value, 10) || 1 },
                           })
                         }
-                        className="w-full h-10 px-3 text-xs font-extrabold rounded-sm border border-slate-200 bg-[#F8FAFC] text-[#0D1F3D] focus:outline-none focus:border-[#0D1F3D]"
+                        className="w-full h-10 px-3 text-xs font-extrabold rounded-sm border border-slate-200 bg-[#F8FAFC] text-primary focus:outline-none focus:border-primary"
                       />
                     </div>
 
@@ -831,7 +831,7 @@ function WizardContent() {
                             },
                           })
                         }
-                        className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                        className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                       />
                     </div>
 
@@ -846,14 +846,14 @@ function WizardContent() {
                             limits: { ...formState.limits, seatIncrement: parseInt(e.target.value, 10) || 1 },
                           })
                         }
-                        className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                        className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                       />
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-3 border-t border-slate-100 pt-3">
-                  <h3 className="text-xs font-extrabold text-[#0D1F3D] uppercase tracking-wider">
+                  <h3 className="text-xs font-extrabold text-primary uppercase tracking-wider">
                     Section B — Storage & Data Retention
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -868,7 +868,7 @@ function WizardContent() {
                             limits: { ...formState.limits, storageGb: parseFloat(e.target.value) || 0 },
                           })
                         }
-                        className="w-full h-10 px-3 text-xs font-extrabold rounded-sm border border-slate-200 bg-[#F8FAFC] text-[#0D1F3D] focus:outline-none focus:border-[#0D1F3D]"
+                        className="w-full h-10 px-3 text-xs font-extrabold rounded-sm border border-slate-200 bg-[#F8FAFC] text-primary focus:outline-none focus:border-primary"
                       />
                     </div>
 
@@ -881,7 +881,7 @@ function WizardContent() {
                             limits: { ...formState.limits, dataRetentionDays: parseInt(e.target.value, 10) },
                           })
                         }
-                        className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                        className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                       >
                         <option value={90}>90 Days</option>
                         <option value={180}>180 Days (6 Months)</option>
@@ -901,14 +901,14 @@ function WizardContent() {
                             limits: { ...formState.limits, fileUploadMb: parseInt(e.target.value, 10) || 10 },
                           })
                         }
-                        className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                        className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                       />
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-3 border-t border-slate-100 pt-3">
-                  <h3 className="text-xs font-extrabold text-[#0D1F3D] uppercase tracking-wider">
+                  <h3 className="text-xs font-extrabold text-primary uppercase tracking-wider">
                     Section C — Usage Quotas & Feature Toggles
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -926,7 +926,7 @@ function WizardContent() {
                             },
                           })
                         }
-                        className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                        className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                       />
                     </div>
 
@@ -944,7 +944,7 @@ function WizardContent() {
                             },
                           })
                         }
-                        className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                        className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                       />
                     </div>
 
@@ -962,7 +962,7 @@ function WizardContent() {
                             },
                           })
                         }
-                        className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                        className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                       />
                     </div>
 
@@ -980,7 +980,7 @@ function WizardContent() {
                             },
                           })
                         }
-                        className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                        className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                       />
                     </div>
                   </div>
@@ -994,7 +994,7 @@ function WizardContent() {
                         })
                       }
                       label={
-                        <span className="text-xs font-extrabold text-[#0D1F3D]">
+                        <span className="text-xs font-extrabold text-primary">
                           Allow Full Data Backup Export (CSV & Database Dump)
                         </span>
                       }
@@ -1018,14 +1018,14 @@ function WizardContent() {
             {currentStep === 5 && (
               <div className="space-y-5">
                 <div className="border-b border-slate-100 pb-3">
-                  <h2 className="text-base font-extrabold text-[#0D1F3D]">Step 5: Trial & Commercial Rules</h2>
+                  <h2 className="text-base font-extrabold text-primary">Step 5: Trial & Commercial Rules</h2>
                   <p className="text-xs text-slate-500 font-medium">
                     Configure trial policy, subscription auto-renewal, lifecycle rules, and cancellation policies.
                   </p>
                 </div>
 
                 <div className="space-y-3">
-                  <h3 className="text-xs font-extrabold text-[#0D1F3D] uppercase tracking-wider">
+                  <h3 className="text-xs font-extrabold text-primary uppercase tracking-wider">
                     Section A — Trial Settings
                   </h3>
 
@@ -1037,7 +1037,7 @@ function WizardContent() {
                       })
                     }
                     label={
-                      <span className="text-xs font-extrabold text-[#0D1F3D]">
+                      <span className="text-xs font-extrabold text-primary">
                         Enable Free Trial for New Tenants on This Plan
                       </span>
                     }
@@ -1057,7 +1057,7 @@ function WizardContent() {
                               },
                             })
                           }
-                          className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                          className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                         >
                           <option value={7}>7 Days</option>
                           <option value={14}>14 Days (Recommended)</option>
@@ -1079,7 +1079,7 @@ function WizardContent() {
                               },
                             })
                           }
-                          className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                          className="w-full h-10 px-3 text-xs font-bold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                         />
                       </div>
 
@@ -1095,7 +1095,7 @@ function WizardContent() {
                               },
                             })
                           }
-                          className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                          className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                         >
                           <option value="Use Plan Modules">Use All Plan Modules</option>
                           <option value="Restricted">Restricted (Core CRM Only)</option>
@@ -1106,7 +1106,7 @@ function WizardContent() {
                 </div>
 
                 <div className="space-y-3 border-t border-slate-100 pt-3">
-                  <h3 className="text-xs font-extrabold text-[#0D1F3D] uppercase tracking-wider">
+                  <h3 className="text-xs font-extrabold text-primary uppercase tracking-wider">
                     Section B — Subscription Rules & Commitments
                   </h3>
 
@@ -1123,7 +1123,7 @@ function WizardContent() {
                             },
                           })
                         }
-                        className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                        className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                       >
                         <option value="None">None (Cancel Anytime)</option>
                         <option value="1 Month">1 Month</option>
@@ -1145,7 +1145,7 @@ function WizardContent() {
                             },
                           })
                         }
-                        className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                        className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                       >
                         <option value="Next Billing Cycle">Next Billing Cycle (Recommended)</option>
                         <option value="Immediately">Immediately</option>
@@ -1164,7 +1164,7 @@ function WizardContent() {
                             },
                           })
                         }
-                        className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-[#0D1F3D]"
+                        className="w-full h-10 px-3 text-xs font-semibold rounded-sm border border-slate-200 bg-[#F8FAFC] text-slate-800 focus:outline-none focus:border-primary"
                       >
                         <option value="Read Only">Read Only (Export allowed)</option>
                         <option value="Blocked">Blocked (Complete lock out)</option>
@@ -1181,7 +1181,7 @@ function WizardContent() {
                         })
                       }
                       label={
-                        <span className="text-xs font-extrabold text-[#0D1F3D]">
+                        <span className="text-xs font-extrabold text-primary">
                           Auto-Renew Subscriptions by Default
                         </span>
                       }
@@ -1195,7 +1195,7 @@ function WizardContent() {
                         })
                       }
                       label={
-                        <span className="text-xs font-extrabold text-[#0D1F3D]">
+                        <span className="text-xs font-extrabold text-primary">
                           Allow Self-Serve Upgrades
                         </span>
                       }
@@ -1210,7 +1210,7 @@ function WizardContent() {
               <div className="space-y-6">
                 <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
                   <div>
-                    <h2 className="text-base font-extrabold text-[#0D1F3D]">Step 6: Review & Publish Plan</h2>
+                    <h2 className="text-base font-extrabold text-primary">Step 6: Review & Publish Plan</h2>
                     <p className="text-xs text-slate-500 font-medium">
                       Review all commercial plan parameters before publishing to the platform catalog.
                     </p>
@@ -1222,7 +1222,7 @@ function WizardContent() {
 
                 <div className="rounded-sm border border-slate-200 bg-[#F8FAFC] p-4 space-y-2">
                   <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
-                    <h3 className="text-xs font-extrabold text-[#0D1F3D] uppercase tracking-wider">
+                    <h3 className="text-xs font-extrabold text-primary uppercase tracking-wider">
                       1. Basic Information
                     </h3>
                     <button
@@ -1236,7 +1236,7 @@ function WizardContent() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1">
                     <div>
                       <span className="text-slate-500 text-[11px] block">Plan Name</span>
-                      <span className="font-extrabold text-[#0D1F3D]">{formState.name}</span>
+                      <span className="font-extrabold text-primary">{formState.name}</span>
                     </div>
                     <div>
                       <span className="text-slate-500 text-[11px] block">Code</span>
@@ -1255,7 +1255,7 @@ function WizardContent() {
 
                 <div className="rounded-sm border border-slate-200 bg-[#F8FAFC] p-4 space-y-2">
                   <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
-                    <h3 className="text-xs font-extrabold text-[#0D1F3D] uppercase tracking-wider">
+                    <h3 className="text-xs font-extrabold text-primary uppercase tracking-wider">
                       2. Pricing Configuration
                     </h3>
                     <button
@@ -1273,7 +1273,7 @@ function WizardContent() {
                     </div>
                     <div>
                       <span className="text-slate-500 text-[11px] block">Monthly Price</span>
-                      <span className="font-extrabold text-[#0D1F3D]">
+                      <span className="font-extrabold text-primary">
                         {formatPlanMonthlyPrice(formState.pricing)}
                       </span>
                     </div>
@@ -1294,7 +1294,7 @@ function WizardContent() {
 
                 <div className="rounded-sm border border-slate-200 bg-[#F8FAFC] p-4 space-y-2">
                   <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
-                    <h3 className="text-xs font-extrabold text-[#0D1F3D] uppercase tracking-wider">
+                    <h3 className="text-xs font-extrabold text-primary uppercase tracking-wider">
                       3. Seats & Limits
                     </h3>
                     <button
@@ -1308,7 +1308,7 @@ function WizardContent() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1">
                     <div>
                       <span className="text-slate-500 text-[11px] block">Min / Default Seats</span>
-                      <span className="font-mono font-bold text-[#0D1F3D]">
+                      <span className="font-mono font-bold text-primary">
                         {formState.limits.minimumSeats} / {formState.limits.defaultSeatLimit}
                       </span>
                     </div>
@@ -1331,7 +1331,7 @@ function WizardContent() {
 
                 <div className="rounded-sm border border-slate-200 bg-[#F8FAFC] p-4 space-y-2">
                   <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
-                    <h3 className="text-xs font-extrabold text-[#0D1F3D] uppercase tracking-wider">
+                    <h3 className="text-xs font-extrabold text-primary uppercase tracking-wider">
                       4. Included Modules ({formState.includedModuleCodes.length})
                     </h3>
                     <button
@@ -1348,7 +1348,7 @@ function WizardContent() {
                       return (
                         <span
                           key={code}
-                          className="inline-flex items-center gap-1 rounded-md bg-white border border-slate-200 px-2.5 py-1 text-xs font-bold text-[#0D1F3D] shadow-2xs"
+                          className="inline-flex items-center gap-1 rounded-md bg-white border border-slate-200 px-2.5 py-1 text-xs font-bold text-primary shadow-2xs"
                         >
                           <Check className="h-3.5 w-3.5 text-emerald-600 stroke-[3]" />
                           {mod ? mod.name : code}
@@ -1360,7 +1360,7 @@ function WizardContent() {
 
                 <div className="rounded-sm border border-slate-200 bg-[#F8FAFC] p-4 space-y-2">
                   <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
-                    <h3 className="text-xs font-extrabold text-[#0D1F3D] uppercase tracking-wider">
+                    <h3 className="text-xs font-extrabold text-primary uppercase tracking-wider">
                       5. Trial & Commercial Rules
                     </h3>
                     <button
@@ -1443,14 +1443,14 @@ function WizardContent() {
         {/* Right Live Plan Summary Panel (100% Identical to CreateTenantWizardPage.tsx) */}
         <div className="lg:col-span-4 space-y-4">
           <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-4 text-xs font-sans">
-            <h3 className="text-base font-extrabold text-[#0D1F3D] border-b border-slate-100 pb-3">
+            <h3 className="text-base font-extrabold text-primary border-b border-slate-100 pb-3">
               Plan Summary
             </h3>
 
             <div className="space-y-3">
               <div>
                 <span className="text-[11px] text-slate-500 font-semibold block">Plan Identity</span>
-                <div className="font-extrabold text-[#0D1F3D] text-sm flex items-center gap-2">
+                <div className="font-extrabold text-primary text-sm flex items-center gap-2">
                   {formState.name || 'Unnamed Plan'}
                   {formState.code && (
                     <span className="font-mono text-xs text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded-xs border border-indigo-100">
@@ -1463,11 +1463,11 @@ function WizardContent() {
               <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-2">
                 <div>
                   <span className="text-[11px] text-slate-500 font-semibold block">Pricing Model</span>
-                  <span className="font-extrabold text-[#0D1F3D]">{formState.pricing.model}</span>
+                  <span className="font-extrabold text-primary">{formState.pricing.model}</span>
                 </div>
                 <div>
                   <span className="text-[11px] text-slate-500 font-semibold block">Monthly Price</span>
-                  <span className="font-extrabold text-[#0D1F3D]">
+                  <span className="font-extrabold text-primary">
                     {formatPlanMonthlyPrice(formState.pricing)}
                   </span>
                 </div>
@@ -1530,7 +1530,7 @@ function WizardContent() {
               <AlertTriangle className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="text-base font-extrabold text-[#0D1F3D]">Unsaved Changes</h3>
+              <h3 className="text-base font-extrabold text-primary">Unsaved Changes</h3>
               <p className="text-xs text-slate-500 font-medium mt-1">
                 You have unsaved changes in the wizard. Are you sure you want to discard them and leave?
               </p>

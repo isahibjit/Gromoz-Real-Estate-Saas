@@ -4,8 +4,11 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "ui";
 
 import { DashboardSidebar } from "../../../dashboard/DashboardSidebar";
-import { TopHeader } from "../../../../../components/layout/TopHeader";
-import { PageHeader } from "../../../../../components/layout/PageHeader";
+import { DashboardHeader } from "../../../dashboard/DashboardHeader";
+import {
+  PageHeader,
+  WorkspacePage,
+} from "../../../../../components/layout/PageHeader";
 import { InfoNote } from "../../../../../components/ui/InfoNote";
 import { AuditLogFiltersCard } from "./components/AuditLogFiltersCard";
 import { AuditLogTableCard } from "./components/AuditLogTableCard";
@@ -15,7 +18,6 @@ import { ViewAuditLogDetailsModal } from "./components/ViewAuditLogDetailsModal"
 export function AuditLogScreen() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [search, setSearch] = useState("");
   const navigate = useNavigate();
 
   const [selectedAuditRecord, setSelectedAuditRecord] =
@@ -28,7 +30,7 @@ export function AuditLogScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 lg:flex">
+    <>
       <DashboardSidebar
         activeItem="Masters"
         activeChild="Leads"
@@ -38,53 +40,43 @@ export function AuditLogScreen() {
         onMobileClose={() => setMobileOpen(false)}
       />
 
-      <div className="min-w-0 flex-1 flex flex-col h-screen overflow-hidden">
-        <TopHeader
-          search={search}
-          onSearchChange={setSearch}
-          onMobileMenuOpen={() => setMobileOpen(true)}
-          onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
-          breadcrumbs={[
-            { label: "Masters" },
-            { label: "Leads" },
-            { label: "Audit Log", isLast: true },
-          ]}
+      <DashboardHeader
+        onMobileMenuOpen={() => setMobileOpen(true)}
+        onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
+        breadcrumbs={<span>Audit log</span>}
+      />
+
+      <WorkspacePage>
+        <PageHeader
+          title="Audit log"
+          subtitle="Track all changes and activities performed in lead masters."
+          actions={
+            <Button
+              variant="outline"
+              onClick={() => navigate("/leads/masters")}
+              className="h-10 gap-2 bg-white text-sm font-bold text-blue-600 border-blue-200 hover:bg-blue-50 shadow-none"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to lead masters
+            </Button>
+          }
         />
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-5 lg:p-6">
-          <div className="mx-auto">
-            <PageHeader
-              title="Audit Log"
-              subtitle="Track all changes and activities performed in Lead Masters."
-              actions={
-                <Button
-                  variant="outline"
-                  onClick={() => navigate("/leads/masters")}
-                  className="h-10 gap-2 bg-white text-sm font-bold text-blue-600 border-blue-200 hover:bg-blue-50 shadow-none"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back to Lead Masters
-                </Button>
-              }
-            />
+        <AuditLogFiltersCard />
 
-            <AuditLogFiltersCard />
+        <AuditLogTableCard
+          data={auditLogRecords}
+          onRowClick={handleRowClick}
+        />
 
-            <AuditLogTableCard
-              data={auditLogRecords}
-              onRowClick={handleRowClick}
-            />
+        <InfoNote>Audit logs are retained for 180 days.</InfoNote>
 
-            <InfoNote>Audit logs are retained for 180 days.</InfoNote>
-
-            <ViewAuditLogDetailsModal
-              open={isAuditModalOpen}
-              onOpenChange={setIsAuditModalOpen}
-              record={selectedAuditRecord}
-            />
-          </div>
-        </main>
-      </div>
-    </div>
+        <ViewAuditLogDetailsModal
+          open={isAuditModalOpen}
+          onOpenChange={setIsAuditModalOpen}
+          record={selectedAuditRecord}
+        />
+      </WorkspacePage>
+    </>
   );
 }

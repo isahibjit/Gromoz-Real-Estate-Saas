@@ -35,7 +35,7 @@ export function PlanDetailsPage() {
     return (
       <div className="flex h-96 w-full items-center justify-center font-sans">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-[#0D1F3D]" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-primary" />
           <span className="text-xs font-semibold text-slate-500">Loading plan configuration...</span>
         </div>
       </div>
@@ -49,7 +49,7 @@ export function PlanDetailsPage() {
           <AlertTriangle className="h-7 w-7" />
         </div>
         <div>
-          <h2 className="text-xl font-extrabold text-[#0D1F3D]">Plan Not Found</h2>
+          <h2 className="text-xl font-extrabold text-primary">Plan Not Found</h2>
           <p className="text-xs text-slate-500 font-medium mt-1">
             {error || `The requested commercial plan '${planId}' does not exist or has been removed.`}
           </p>

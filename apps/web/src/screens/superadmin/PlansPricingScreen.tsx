@@ -310,7 +310,7 @@ export function PlansPricingScreen() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-[#0D1F3D]">Pricing & Plans</h1>
+            <h1 className="text-2xl font-extrabold text-primary">Pricing & Plans</h1>
             <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
               <CreditCard className="h-4 w-4" />
             </span>
@@ -332,7 +332,7 @@ export function PlansPricingScreen() {
           <Button
             size="sm"
             onClick={openCreateModal}
-            className="gap-2 font-bold bg-[#E20613] text-white hover:bg-[#c00510] shadow-xs"
+            className="gap-2 font-bold bg-tertiary text-white hover:bg-[#c00510] shadow-xs"
           >
             <Plus className="h-4 w-4" /> Create Commercial Plan
           </Button>
@@ -346,7 +346,7 @@ export function PlansPricingScreen() {
             <p className="text-xs font-semibold text-slate-500">Commercial Packages</p>
             <Layers className="h-4 w-4 text-indigo-600" />
           </div>
-          <p className="text-2xl font-extrabold text-[#0D1F3D] mt-2">{plans.length}</p>
+          <p className="text-2xl font-extrabold text-primary mt-2">{plans.length}</p>
           <p className="text-[11px] font-medium text-slate-400 mt-0.5">Live Subscription Tiers</p>
         </div>
 
@@ -402,7 +402,7 @@ export function PlansPricingScreen() {
               onClick={() => setSelectedStatus(st)}
               className={`px-3 py-1 rounded-sm text-xs font-bold transition ${
                 selectedStatus === st
-                  ? "bg-[#0D1F3D] text-white"
+                  ? "bg-primary text-white"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
@@ -415,8 +415,8 @@ export function PlansPricingScreen() {
       {/* Plan Cards Grid or Empty/Loading State */}
       {loading ? (
         <div className="rounded-sm border border-slate-200 bg-white p-12 text-center shadow-xs">
-          <div className="inline-block animate-spin h-7 w-7 border-2 border-[#0D1F3D] border-t-transparent rounded-full mb-3" />
-          <p className="text-sm font-bold text-[#0D1F3D]">Loading Commercial Plans...</p>
+          <div className="inline-block animate-spin h-7 w-7 border-2 border-primary border-t-transparent rounded-full mb-3" />
+          <p className="text-sm font-bold text-primary">Loading Commercial Plans...</p>
           <p className="text-xs text-slate-400 mt-1">Retrieving subscription tiers and capacity rules</p>
         </div>
       ) : filteredPlans.length === 0 ? (
@@ -424,7 +424,7 @@ export function PlansPricingScreen() {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500 mb-3">
             <CreditCard className="h-6 w-6 text-slate-400" />
           </div>
-          <h3 className="text-base font-extrabold text-[#0D1F3D]">No Commercial Plans Found</h3>
+          <h3 className="text-base font-extrabold text-primary">No Commercial Plans Found</h3>
           <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
             {searchTerm || selectedStatus !== "All"
               ? `No commercial tiers match your active filter (Status: "${selectedStatus}"${
@@ -449,7 +449,7 @@ export function PlansPricingScreen() {
             <Button
               size="sm"
               onClick={openCreateModal}
-              className="font-bold bg-[#0D1F3D] text-white hover:bg-[#132d56]"
+              className="font-bold bg-primary text-white hover:bg-[#132d56]"
             >
               <Plus className="h-3.5 w-3.5 mr-1" /> Create Commercial Plan
             </Button>
@@ -460,7 +460,7 @@ export function PlansPricingScreen() {
           {filteredPlans.map((plan) => (
           <div
             key={plan.id}
-            className="rounded-sm border border-slate-200 bg-white shadow-xs p-6 flex flex-col justify-between relative overflow-hidden group hover:border-[#0D1F3D] transition-all"
+            className="rounded-sm border border-slate-200 bg-white shadow-xs p-6 flex flex-col justify-between relative overflow-hidden group hover:border-primary transition-all"
           >
             <div
               className="absolute top-0 left-0 right-0 h-1.5"
@@ -505,7 +505,7 @@ export function PlansPricingScreen() {
 
               <div className="mt-4 pt-4 border-t border-slate-100">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-extrabold text-[#0D1F3D]">
+                  <span className="text-3xl font-extrabold text-primary">
                     ₹{plan.pricing.monthlyPricePerSeat}
                   </span>
                   <span className="text-xs text-slate-500 font-medium">/ user / month</span>
@@ -537,7 +537,7 @@ export function PlansPricingScreen() {
 
               {/* Features List */}
               <div className="mt-4 space-y-2">
-                <p className="text-xs font-bold text-[#0D1F3D]">Included Commercial Capabilities:</p>
+                <p className="text-xs font-bold text-primary">Included Commercial Capabilities:</p>
                 {plan.features.map((feat, fIdx) => (
                   <div key={fIdx} className="flex items-start gap-2 text-xs font-medium text-slate-700">
                     <Check className="h-3.5 w-3.5 text-emerald-600 mt-0.5 shrink-0" />
@@ -550,7 +550,7 @@ export function PlansPricingScreen() {
             <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
               <div>
                 <span className="text-[11px] text-slate-400 font-medium">Live Adoption:</span>
-                <p className="text-xs font-bold text-[#0D1F3D]">
+                <p className="text-xs font-bold text-primary">
                   {platformMetrics.tenantsByPlan[plan.code] || 0} Tenants
                 </p>
               </div>
@@ -594,7 +594,7 @@ export function PlansPricingScreen() {
       {/* Analytics Breakdown Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
         <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs">
-          <h3 className="text-sm font-bold text-[#0D1F3D] mb-4">Tenants by Commercial Plan</h3>
+          <h3 className="text-sm font-bold text-primary mb-4">Tenants by Commercial Plan</h3>
           <div className="flex items-center gap-4">
             <div className="relative h-28 w-28 shrink-0">
               <ResponsiveContainer width="100%" height="100%">
@@ -613,14 +613,14 @@ export function PlansPricingScreen() {
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={{ backgroundColor: "#0D1F3D", borderRadius: "4px", border: "none", color: "#fff" }}
+                    contentStyle={{ backgroundColor: "hsl(var(--primary))", borderRadius: "var(--radius-xs)", border: "none", color: "#fff" }}
                     itemStyle={{ color: "#FFFFFF", fontWeight: 600, fontSize: "11px" }}
                     formatter={(val: any) => [`${val} Tenants`, "Adoption"]}
                   />
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-base font-extrabold text-[#0D1F3D]">
+                <span className="text-base font-extrabold text-primary">
                   {platformMetrics.totalTenants}
                 </span>
                 <span className="text-[9px] font-bold text-slate-400">Total</span>
@@ -633,7 +633,7 @@ export function PlansPricingScreen() {
                     <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
                     <span className="text-slate-600">{p.name}</span>
                   </div>
-                  <span className="text-[#0D1F3D] font-bold">
+                  <span className="text-primary font-bold">
                     {platformMetrics.tenantsByPlan[p.code] || 0}
                   </span>
                 </div>
@@ -643,14 +643,14 @@ export function PlansPricingScreen() {
         </div>
 
         <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs">
-          <h3 className="text-sm font-bold text-[#0D1F3D] mb-4">Revenue Contribution by Plan</h3>
+          <h3 className="text-sm font-bold text-primary mb-4">Revenue Contribution by Plan</h3>
           <div className="h-36 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={barChartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip formatter={(val: any) => [`₹${Number(val).toLocaleString("en-IN")}`, "MRR"]} />
-                <Bar dataKey="mrr" fill="#0D1F3D" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="mrr" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -660,9 +660,9 @@ export function PlansPricingScreen() {
       {/* CREATE / EDIT COMMERCIAL PLAN MODAL */}
       <Dialog open={isPlanModalOpen} onOpenChange={setIsPlanModalOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 border-0 rounded-md shadow-2xl">
-          <div className="bg-[#0D1F3D] !text-white p-5">
+          <div className="bg-primary !text-white p-5">
             <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-sm bg-[#E20613] text-white">
+              <span className="flex h-7 w-7 items-center justify-center rounded-sm bg-tertiary text-white">
                 <Sparkles className="h-4 w-4" />
               </span>
               <h3 className="text-base font-extrabold !text-white">
@@ -685,7 +685,7 @@ export function PlansPricingScreen() {
                   placeholder="e.g. Scale Automation Suite"
                   value={planForm.name}
                   onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })}
-                  className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:border-[#0D1F3D] focus:outline-none"
+                  className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none"
                 />
               </div>
 
@@ -702,7 +702,7 @@ export function PlansPricingScreen() {
                       code: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ""),
                     })
                   }
-                  className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-slate-50 px-3 text-xs font-mono font-bold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                  className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-slate-50 px-3 text-xs font-mono font-bold text-slate-800 focus:border-primary focus:outline-none"
                 />
               </div>
             </div>
@@ -715,7 +715,7 @@ export function PlansPricingScreen() {
                   placeholder="e.g. High Growth"
                   value={planForm.badge}
                   onChange={(e) => setPlanForm({ ...planForm, badge: e.target.value })}
-                  className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                  className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-primary focus:outline-none"
                 />
               </div>
 
@@ -732,7 +732,7 @@ export function PlansPricingScreen() {
                     type="text"
                     value={planForm.color}
                     onChange={(e) => setPlanForm({ ...planForm, color: e.target.value })}
-                    className="h-10 flex-1 rounded-sm border border-slate-200 bg-white px-2.5 text-xs font-mono font-bold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                    className="h-10 flex-1 rounded-sm border border-slate-200 bg-white px-2.5 text-xs font-mono font-bold text-slate-800 focus:border-primary focus:outline-none"
                   />
                 </div>
               </div>
@@ -742,7 +742,7 @@ export function PlansPricingScreen() {
                 <select
                   value={planForm.status}
                   onChange={(e) => setPlanForm({ ...planForm, status: e.target.value as any })}
-                  className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                  className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-primary focus:outline-none"
                 >
                   <option value="Active">Active (Live in Wizard)</option>
                   <option value="Draft">Draft (Internal Only)</option>
@@ -758,13 +758,13 @@ export function PlansPricingScreen() {
                 placeholder="Short tagline explaining target real estate team or segment"
                 value={planForm.description}
                 onChange={(e) => setPlanForm({ ...planForm, description: e.target.value })}
-                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:border-[#0D1F3D] focus:outline-none"
+                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none"
               />
             </div>
 
             {/* Pricing Section */}
             <div className="rounded-sm border border-slate-200 bg-slate-50/70 p-4 space-y-3">
-              <h4 className="text-xs font-extrabold uppercase text-[#0D1F3D] tracking-wider">
+              <h4 className="text-xs font-extrabold uppercase text-primary tracking-wider">
                 Seat Pricing & Commercials (₹ INR)
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -775,7 +775,7 @@ export function PlansPricingScreen() {
                     min={0}
                     value={planForm.monthlyPricePerSeat}
                     onChange={(e) => setPlanForm({ ...planForm, monthlyPricePerSeat: Number(e.target.value) })}
-                    className="mt-1 h-9 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-bold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                    className="mt-1 h-9 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-bold text-slate-800 focus:border-primary focus:outline-none"
                   />
                 </div>
 
@@ -786,7 +786,7 @@ export function PlansPricingScreen() {
                     min={0}
                     value={planForm.annualPricePerSeat}
                     onChange={(e) => setPlanForm({ ...planForm, annualPricePerSeat: Number(e.target.value) })}
-                    className="mt-1 h-9 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-bold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                    className="mt-1 h-9 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-bold text-slate-800 focus:border-primary focus:outline-none"
                   />
                 </div>
 
@@ -797,7 +797,7 @@ export function PlansPricingScreen() {
                     min={0}
                     value={planForm.setupFee}
                     onChange={(e) => setPlanForm({ ...planForm, setupFee: Number(e.target.value) })}
-                    className="mt-1 h-9 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-bold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                    className="mt-1 h-9 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-bold text-slate-800 focus:border-primary focus:outline-none"
                   />
                 </div>
               </div>
@@ -805,7 +805,7 @@ export function PlansPricingScreen() {
 
             {/* Capacity & Limits */}
             <div className="rounded-sm border border-slate-200 bg-slate-50/70 p-4 space-y-3">
-              <h4 className="text-xs font-extrabold uppercase text-[#0D1F3D] tracking-wider">
+              <h4 className="text-xs font-extrabold uppercase text-primary tracking-wider">
                 Capacity Quotas & Limits
               </h4>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -816,7 +816,7 @@ export function PlansPricingScreen() {
                     min={1}
                     value={planForm.defaultSeatLimit}
                     onChange={(e) => setPlanForm({ ...planForm, defaultSeatLimit: Number(e.target.value) })}
-                    className="mt-1 h-9 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-bold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                    className="mt-1 h-9 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-bold text-slate-800 focus:border-primary focus:outline-none"
                   />
                 </div>
 
@@ -827,7 +827,7 @@ export function PlansPricingScreen() {
                     min={100}
                     value={planForm.leadLimit}
                     onChange={(e) => setPlanForm({ ...planForm, leadLimit: Number(e.target.value) })}
-                    className="mt-1 h-9 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-bold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                    className="mt-1 h-9 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-bold text-slate-800 focus:border-primary focus:outline-none"
                   />
                 </div>
 
@@ -838,7 +838,7 @@ export function PlansPricingScreen() {
                     min={1}
                     value={planForm.storageGb}
                     onChange={(e) => setPlanForm({ ...planForm, storageGb: Number(e.target.value) })}
-                    className="mt-1 h-9 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-bold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                    className="mt-1 h-9 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-bold text-slate-800 focus:border-primary focus:outline-none"
                   />
                 </div>
 
@@ -849,7 +849,7 @@ export function PlansPricingScreen() {
                     min={1}
                     value={planForm.projectLimit}
                     onChange={(e) => setPlanForm({ ...planForm, projectLimit: Number(e.target.value) })}
-                    className="mt-1 h-9 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-bold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                    className="mt-1 h-9 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-bold text-slate-800 focus:border-primary focus:outline-none"
                   />
                 </div>
               </div>
@@ -866,7 +866,7 @@ export function PlansPricingScreen() {
                 value={planForm.featuresText}
                 onChange={(e) => setPlanForm({ ...planForm, featuresText: e.target.value })}
                 placeholder="Multi-pipeline Lead Management&#10;GPS Site Visit Verification&#10;Custom Role & RBAC..."
-                className="mt-1 w-full rounded-sm border border-slate-200 bg-white p-3 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:border-[#0D1F3D] focus:outline-none"
+                className="mt-1 w-full rounded-sm border border-slate-200 bg-white p-3 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -882,7 +882,7 @@ export function PlansPricingScreen() {
               <Button
                 type="submit"
                 disabled={isSaving}
-                className="font-bold bg-[#0D1F3D] text-white hover:bg-[#132d56]"
+                className="font-bold bg-primary text-white hover:bg-[#132d56]"
               >
                 {isSaving ? "Saving..." : editingPlanId ? "Update Plan" : "Create & Publish Plan"}
               </Button>

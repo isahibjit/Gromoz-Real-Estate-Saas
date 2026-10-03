@@ -29,6 +29,7 @@ import {
   Textarea,
   cn,
 } from "ui";
+import { WorkspacePage } from "../../components/layout/PageHeader";
 
 import { api } from "../../common/api";
 import { useAppSelector } from "../../store";
@@ -488,7 +489,7 @@ export function EmployeeTasksScreen() {
   }));
 
   return (
-    <main className="space-y-5 p-4 sm:p-6">
+    <WorkspacePage>
       <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-extrabold text-secondary">
@@ -704,6 +705,6 @@ export function EmployeeTasksScreen() {
           onOpenChange={setDialogOpen}
         />
       ) : null}
-    </main>
+    </WorkspacePage>
   );
 }

@@ -28,6 +28,7 @@ import {
 } from "ui";
 
 import { api } from "../../common/api";
+import { WorkspacePage } from "../../components/layout/PageHeader";
 import { scheduledInputToIso } from "../../common/time";
 import { ClockTimePicker } from "../admin/leads/assignment/ClockTimePicker";
 import { SiteVisitsScreen } from "../admin/leads/site-visits/SiteVisitsScreen";
@@ -56,7 +57,7 @@ export function FieldExecutiveLeadsScreen() {
   });
   const rows = leads.data?.data ?? [];
   return (
-    <main className="space-y-5 p-4 sm:p-6">
+    <WorkspacePage>
       <section>
         <h1 className="text-2xl font-extrabold text-secondary">My Leads</h1>
         <p className="mt-1 text-sm font-semibold text-muted-foreground">
@@ -121,7 +122,7 @@ export function FieldExecutiveLeadsScreen() {
           </TableBody>
         </Table>
       </Card>
-    </main>
+    </WorkspacePage>
   );
 }
 
@@ -138,19 +139,19 @@ export function FieldExecutiveLeadDetailsScreen() {
   });
   if (lead.isLoading)
     return (
-      <main className="p-6 text-sm text-muted-foreground">
+      <WorkspacePage className="text-sm text-muted-foreground">
         Loading lead context...
-      </main>
+      </WorkspacePage>
     );
   if (!lead.data)
     return (
-      <main className="p-6 text-sm text-destructive">
+      <WorkspacePage className="text-sm text-destructive">
         This lead is unavailable for your field handoff.
-      </main>
+      </WorkspacePage>
     );
   const data = lead.data;
   return (
-    <main className="space-y-5 p-4 sm:p-6">
+    <WorkspacePage>
       <Link
         to="/field-executive/leads"
         className="text-sm font-bold text-primary"
@@ -229,7 +230,7 @@ export function FieldExecutiveLeadDetailsScreen() {
           </div>
         </Card>
       </div>
-    </main>
+    </WorkspacePage>
   );
 }
 

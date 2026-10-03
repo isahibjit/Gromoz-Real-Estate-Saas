@@ -139,11 +139,11 @@ export function ModulesFeaturesPage() {
           onClick={() => navigate(`/platform/modules/${module.id}`)}
           className="flex items-center gap-3 text-left group"
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-slate-200 bg-slate-50 text-[#0D1F3D] group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-slate-200 bg-slate-50 text-primary group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
             <Package className="h-4 w-4" />
           </span>
           <span className="min-w-0">
-            <span className="block font-extrabold text-[#0D1F3D] text-xs group-hover:text-indigo-600 transition-colors">
+            <span className="block font-extrabold text-primary text-xs group-hover:text-indigo-600 transition-colors">
               {module.name}
             </span>
             <span className="block max-w-xs truncate text-[11px] font-medium text-slate-500">
@@ -239,7 +239,7 @@ export function ModulesFeaturesPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-[#0D1F3D]">Modules & Features</h1>
+            <h1 className="text-2xl font-extrabold text-primary">Modules & Features</h1>
             <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
               <Puzzle className="h-4 w-4" />
             </span>
@@ -338,7 +338,7 @@ export function ModulesFeaturesPage() {
       {error ? (
         <div className="rounded-sm border border-rose-200 bg-white p-8 text-center space-y-3 max-w-md mx-auto shadow-xs">
           <AlertTriangle className="h-8 w-8 text-rose-600 mx-auto" />
-          <h3 className="text-base font-extrabold text-[#0D1F3D]">
+          <h3 className="text-base font-extrabold text-primary">
             Unable to Load Modules Catalog
           </h3>
           <p className="text-xs text-slate-500 font-medium">{error}</p>

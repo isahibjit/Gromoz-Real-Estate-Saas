@@ -11,6 +11,7 @@ import { useDashboardLayout } from "../../admin/dashboard/DashboardLayoutContext
 import { useAppSelector } from "../../../store";
 import { DashboardAttendanceCard } from "../../hr/components/DashboardAttendanceCard";
 import { PerformanceRankingCard } from "../../../common/dashboard/PerformanceRankingCard";
+import { WorkspacePage } from "../../../components/layout/PageHeader";
 import { telecallerSidebarItems } from "./telecallerDashboardData";
 import {
   TelecallerCallingTrendChart,
@@ -55,29 +56,29 @@ export function TelecallerDashboardScreen() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <WorkspacePage className="flex min-h-[70vh] items-center justify-center">
         <div className="flex items-center gap-3 text-sm font-semibold text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
           Loading dashboard...
         </div>
-      </div>
+      </WorkspacePage>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <WorkspacePage className="flex min-h-[70vh] items-center justify-center">
         <div className="flex items-center gap-2 text-destructive">
           <AlertCircle className="size-5" />
           <span className="font-semibold">Failed to load dashboard data</span>
         </div>
-      </div>
+      </WorkspacePage>
     );
   }
 
   return (
     <>
-        <main className="crm-main-scrollbar flex-1 overflow-x-hidden p-4">
+        <WorkspacePage className="crm-main-scrollbar overflow-x-hidden">
           <div className="w-full">
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
               {/* Left Column - Main Content */}
@@ -127,7 +128,7 @@ export function TelecallerDashboardScreen() {
               </aside>
             </div>
           </div>
-        </main>
+        </WorkspacePage>
     </>
   );
 }

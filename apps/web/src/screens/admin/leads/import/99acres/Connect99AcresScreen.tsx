@@ -32,6 +32,7 @@ import {
 } from "ui";
 
 import { DashboardSidebar } from "../../../dashboard/DashboardSidebar";
+import { WorkspacePage } from "../../../../../components/layout/PageHeader";
 import { assignLeadsSidebarItems } from "../../assignment/leadAssignmentData";
 
 import {
@@ -543,7 +544,7 @@ export function Connect99AcresScreen() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -553,14 +554,13 @@ export function Connect99AcresScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1 flex flex-col">
-        <Header
+      <Header
           search={search}
           onSearchChange={setSearch}
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
-        />
-        <main className="flex-1 space-y-5 p-4 sm:p-6 overflow-x-hidden">
+      />
+      <WorkspacePage className="overflow-x-hidden">
           <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-extrabold text-secondary">
@@ -622,8 +622,7 @@ export function Connect99AcresScreen() {
               <ConnectionHelpCard />
             </aside>
           </div>
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

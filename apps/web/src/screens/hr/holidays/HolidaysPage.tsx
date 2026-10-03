@@ -42,6 +42,7 @@ import {
 import { CalendarGrid } from '../components/attendance-calendar/CalendarGrid';
 import { AttendanceCalendarDay } from '../components/attendance-calendar/types';
 import { useAppSelector } from '../../../store';
+import { WorkspacePage } from '../../../components/layout/PageHeader';
 
 interface Holiday {
   id: string;
@@ -118,16 +119,6 @@ const isSameMonth = (left: Date, right: Date) =>
 const addMonths = (date: Date, amount: number) => new Date(date.getFullYear(), date.getMonth() + amount, 1);
 const subMonths = (date: Date, amount: number) => addMonths(date, -amount);
 
-function AnimatedPage({
-  className,
-  children,
-}: {
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return <main className={className}>{children}</main>;
-}
-
 function DataTable<T>({
   columns,
   data,
@@ -154,7 +145,7 @@ function DataTable<T>({
               <TableHead
                 key={column.id}
                 className={cn(
-                  "h-12 border-b border-slate-200 text-[12px] font-extrabold uppercase tracking-[0.08em] text-slate-500",
+                  "h-12 border-b border-slate-200 text-[12px] font-extrabold text-slate-500",
                   column.headerClassName,
                   column.align === 'right' && 'text-right',
                 )}
@@ -515,7 +506,7 @@ const createDefaultHolidayFormData = (d: Date = new Date()): HolidayFormData => 
   }, [selectedMonth, filteredHolidays]);
 
   return (
-        <AnimatedPage className="space-y-6 pb-20">
+        <WorkspacePage className="space-y-6 pb-20">
           {/* 🚀 HEADER SECTION */}
           <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -625,7 +616,7 @@ const createDefaultHolidayFormData = (d: Date = new Date()): HolidayFormData => 
                   <ChevronLeft className="w-5 h-5" />
                 </Button>
                 <span className="min-w-[140px] px-4 text-sm font-bold text-secondary text-center">
-                  {formatDate(selectedMonth, { month: 'long', year: 'numeric' }).toUpperCase()}
+                  {formatDate(selectedMonth, { month: 'long', year: 'numeric' })}
                 </span>
                 <Button variant="outline" size="sm" onClick={() => setSelectedMonth(addMonths(selectedMonth, 1))} className="h-8 w-8 rounded-md p-0 shadow-none">
                   <ChevronRight className="w-5 h-5" />
@@ -1083,12 +1074,12 @@ const createDefaultHolidayFormData = (d: Date = new Date()): HolidayFormData => 
                     disabled={isDeleting}
                     className="h-12 flex-1 rounded-md bg-destructive font-bold text-destructive-foreground hover:bg-destructive/90 shadow-none"
                   >
-                    {isDeleting ? 'Deleting...' : 'Delete Entry'}
+                    {isDeleting ? 'Deleting...' : 'Delete entry'}
                   </Button>
                 </div>
               </div>
             </DialogContent>
           </Dialog>
-        </AnimatedPage>
+        </WorkspacePage>
   );
 };

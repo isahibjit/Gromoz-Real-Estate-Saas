@@ -11,6 +11,7 @@ import {
 
 import { DashboardSidebar } from "../../admin/dashboard/DashboardSidebar";
 import { DashboardHeader } from "../../admin/dashboard/DashboardHeader";
+import { WorkspacePage } from "../../../components/layout/PageHeader";
 import { telecallerSidebarItems } from "../dashboard/telecallerDashboardData";
 import { SiteVisitsWorkspace } from "../../admin/leads/site-visits/SiteVisitsScreen";
 
@@ -20,7 +21,7 @@ export function VisitHistoryScreen() {
   const [search, setSearch] = useState("");
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -29,8 +30,7 @@ export function VisitHistoryScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1">
-        <DashboardHeader
+      <DashboardHeader
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={
@@ -70,15 +70,14 @@ export function VisitHistoryScreen() {
               </SelectContent>
             </Select>
           </div>
-        </DashboardHeader>
-        <main className="space-y-5 p-4 sm:p-6">
+      </DashboardHeader>
+      <WorkspacePage>
           <SiteVisitsWorkspace
             fieldExecutiveRoute={false}
             search={search}
             onSearchChange={setSearch}
           />
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

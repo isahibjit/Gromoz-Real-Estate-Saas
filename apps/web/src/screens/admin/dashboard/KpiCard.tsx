@@ -19,7 +19,7 @@ export function KpiCard({ item }: { item: KpiItem }) {
     >
       <div
         className={cn(
-          "flex size-11 shrink-0 items-center justify-center rounded-full p-2 text-white sm:size-[55px] sm:p-3",
+          "flex size-11 shrink-0 items-center justify-center rounded-md p-2 text-white sm:size-[55px] sm:p-3",
           item.tone,
         )}
       >

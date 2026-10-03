@@ -32,6 +32,7 @@ import {
 import { useAppSelector } from "../../../store";
 import { useLiveFieldExecutiveLocations } from "../../field-executive/useFieldExecutive";
 import { PerformanceRankingCard } from "../../../common/dashboard/PerformanceRankingCard";
+import { WorkspacePage } from "../../../components/layout/PageHeader";
 
 const rangeOptions: Array<{ value: AdminDashboardRange; label: string }> = [
   { value: "today", label: "Today" },
@@ -157,7 +158,7 @@ export function DashboardScreen() {
 
   return (
     <>
-      <main className="admin-dashboard min-w-0 space-y-5 bg-background p-4 pb-24 sm:p-6 sm:pb-24">
+      <WorkspacePage className="admin-dashboard min-w-0 pb-24 sm:pb-24">
         <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_180px] xl:items-end">
           <DashboardQuickActions />
           <div className="flex flex-col gap-2">
@@ -225,7 +226,7 @@ export function DashboardScreen() {
           <LeadFunnelChart data={data.conversionFunnel} />
           <RecentActivityPanel rows={filteredRecentActivity} />
         </section>
-      </main>
+      </WorkspacePage>
 
       <footer className="flex flex-col gap-1 border-t bg-white px-6 py-3 text-xs text-muted-foreground sm:flex-row sm:justify-between">
         <span>© 2025 Trueroot Realty CRM. All rights reserved.</span>

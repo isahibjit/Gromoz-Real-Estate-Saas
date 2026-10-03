@@ -124,7 +124,7 @@ export function AuditLogsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-[#0D1F3D] tracking-tight">
+            <h1 className="text-2xl font-extrabold text-primary tracking-tight">
               Platform Operational Audit Logs
             </h1>
             <span className="flex h-7 w-7 items-center justify-center rounded-sm bg-indigo-100 text-indigo-700">
@@ -205,7 +205,7 @@ export function AuditLogsPage() {
             variant="accent"
             size="sm"
             onClick={() => loadLogs()}
-            className="w-full h-8 font-bold bg-[#0D1F3D] hover:bg-[#1A365D] text-white justify-center"
+            className="w-full h-8 font-bold bg-primary hover:bg-[#1A365D] text-white justify-center"
           >
             Apply Filters
           </Button>
@@ -240,7 +240,7 @@ export function AuditLogsPage() {
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-slate-500 font-sans">
                     <Shield className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-                    <p className="text-sm font-bold text-[#0D1F3D]">No audit records found</p>
+                    <p className="text-sm font-bold text-primary">No audit records found</p>
                     <p className="text-xs text-slate-400 font-medium">No events match the selected criteria.</p>
                   </td>
                 </tr>
@@ -250,7 +250,7 @@ export function AuditLogsPage() {
                     <td className="py-3 px-4 font-mono text-[11px] text-slate-500">
                       {new Date(log.createdAt).toLocaleString()}
                     </td>
-                    <td className="py-3 px-4 font-mono text-xs font-bold text-[#0D1F3D]">
+                    <td className="py-3 px-4 font-mono text-xs font-bold text-primary">
                       {log.action}
                     </td>
                     <td className="py-3 px-4">
@@ -314,7 +314,7 @@ export function AuditLogsPage() {
               <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-sm border border-slate-200">
                 <div>
                   <span className="text-slate-400 block text-[10px]">Action</span>
-                  <span className="font-mono font-bold text-[#0D1F3D]">{selectedDetail.action}</span>
+                  <span className="font-mono font-bold text-primary">{selectedDetail.action}</span>
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px]">Category & Outcome</span>

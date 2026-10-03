@@ -154,7 +154,7 @@ export function AllTenantsPage() {
     if (t.tenantStatus === 'Suspended') return 'bg-rose-100 text-rose-800 font-extrabold';
     if (t.tenantStatus === 'Past Due') return 'bg-amber-100 text-amber-800 font-extrabold';
     if (t.tenantStatus === 'Trial') return 'bg-amber-100 text-amber-800 font-extrabold';
-    return 'bg-[#0D1F3D] text-white font-extrabold';
+    return 'bg-primary text-white font-extrabold';
   };
 
   const getStatusBadge = (status: TenantStatus) => {
@@ -186,7 +186,7 @@ export function AllTenantsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-[#0D1F3D]">All Tenants</h1>
+            <h1 className="text-2xl font-extrabold text-primary">All Tenants</h1>
             <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
               <Building2 className="h-4 w-4" />
             </span>
@@ -245,7 +245,7 @@ export function AllTenantsPage() {
           subValue={totalTenants > 0 ? `${((suspendedTenants / totalTenants) * 100).toFixed(1)}% of total` : '0%'}
           icon={AlertOctagon}
           iconBgColor="bg-red-50"
-          iconTextColor="text-[#E20613]"
+          iconTextColor="text-tertiary"
         />
         <KpiCard
           title="Total SaaS Users"
@@ -342,16 +342,16 @@ export function AllTenantsPage() {
         <div className="lg:col-span-2 rounded-sm border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-[#0D1F3D]">All Tenants</h3>
+              <h3 className="text-sm font-bold text-primary">All Tenants</h3>
               <span className="text-xs font-medium text-slate-500">
-                Showing <span className="font-bold text-[#0D1F3D]">{filteredTenants.length}</span> of <span className="font-bold text-[#0D1F3D]">{totalTenants}</span> tenants
+                Showing <span className="font-bold text-primary">{filteredTenants.length}</span> of <span className="font-bold text-primary">{totalTenants}</span> tenants
               </span>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs whitespace-nowrap">
                 <thead>
-                  <tr className="border-b border-slate-200 text-xs font-bold text-[#0D1F3D]">
+                  <tr className="border-b border-slate-200 text-xs font-bold text-primary">
                     <th className="pb-3 w-8">#</th>
                     <th className="pb-3">Tenant Name</th>
                     <th className="pb-3">Tenant Code</th>
@@ -376,7 +376,7 @@ export function AllTenantsPage() {
                     <tr>
                       <td colSpan={10} className="py-12 text-center text-slate-500 font-sans">
                         <Building2 className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-                        <p className="text-sm font-bold text-[#0D1F3D]">No tenants found</p>
+                        <p className="text-sm font-bold text-primary">No tenants found</p>
                         <p className="text-xs text-slate-400 font-medium">Try adjusting search query or filters.</p>
                       </td>
                     </tr>
@@ -392,7 +392,7 @@ export function AllTenantsPage() {
                             <div>
                               <p
                                 onClick={() => navigate(`/platform/tenants/${t.id}`)}
-                                className="font-bold text-[#0D1F3D] hover:text-blue-600 hover:underline cursor-pointer"
+                                className="font-bold text-primary hover:text-blue-600 hover:underline cursor-pointer"
                               >
                                 {t.companyName}
                               </p>
@@ -404,7 +404,7 @@ export function AllTenantsPage() {
                         <td className="py-3.5 text-slate-600 font-semibold">{t.industryLabel}</td>
                         <td className="py-3.5 text-slate-700 font-bold">{t.planName}</td>
                         <td className="py-3.5 text-slate-700 font-semibold">{t.userLicensesCount}</td>
-                        <td className="py-3.5 font-bold text-[#0D1F3D]">{formatCurrency(t.mrr)}</td>
+                        <td className="py-3.5 font-bold text-primary">{formatCurrency(t.mrr)}</td>
                         <td className="py-3.5">{getStatusBadge(t.tenantStatus)}</td>
                         <td className="py-3.5 text-slate-500 font-medium">{t.createdAt.split(' ·')[0]}</td>
                         <td className="py-3.5 text-right">
@@ -451,7 +451,7 @@ export function AllTenantsPage() {
         {/* Right Analytics Widgets Column */}
         <div className="space-y-6">
           <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs">
-            <h3 className="text-sm font-bold text-[#0D1F3D] mb-4">Tenants by Industry</h3>
+            <h3 className="text-sm font-bold text-primary mb-4">Tenants by Industry</h3>
             <div className="flex items-center gap-4">
               <div className="relative h-28 w-28 shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
@@ -463,14 +463,14 @@ export function AllTenantsPage() {
                     </Pie>
                     <Tooltip
                       wrapperStyle={{ zIndex: 100 }}
-                      contentStyle={{ backgroundColor: '#0D1F3D', borderRadius: '4px', border: 'none', color: '#fff' }}
+                      contentStyle={{ backgroundColor: 'hsl(var(--primary))', borderRadius: 'var(--radius-xs)', border: 'none', color: '#fff' }}
                       itemStyle={{ color: '#FFFFFF', fontWeight: 600, fontSize: '11px' }}
                       formatter={(val: any) => [`${val} Tenants`, 'Count']}
                     />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-base font-extrabold text-[#0D1F3D]">{totalTenants}</span>
+                  <span className="text-base font-extrabold text-primary">{totalTenants}</span>
                   <span className="text-[9px] font-bold text-slate-400 uppercase">Total</span>
                 </div>
               </div>
@@ -481,7 +481,7 @@ export function AllTenantsPage() {
                       <span className={`h-2 w-2 rounded-full ${ind.color}`} />
                       <span className="text-slate-600">{ind.name}</span>
                     </div>
-                    <span className="text-[#0D1F3D] font-bold">{ind.count} ({ind.percentage})</span>
+                    <span className="text-primary font-bold">{ind.count} ({ind.percentage})</span>
                   </div>
                 ))}
               </div>
@@ -489,7 +489,7 @@ export function AllTenantsPage() {
           </div>
 
           <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs">
-            <h3 className="text-sm font-bold text-[#0D1F3D] mb-4">Tenants by Plan</h3>
+            <h3 className="text-sm font-bold text-primary mb-4">Tenants by Plan</h3>
             <div className="flex items-center gap-4">
               <div className="relative h-28 w-28 shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
@@ -501,14 +501,14 @@ export function AllTenantsPage() {
                     </Pie>
                     <Tooltip
                       wrapperStyle={{ zIndex: 100 }}
-                      contentStyle={{ backgroundColor: '#0D1F3D', borderRadius: '4px', border: 'none', color: '#fff' }}
+                      contentStyle={{ backgroundColor: 'hsl(var(--primary))', borderRadius: 'var(--radius-xs)', border: 'none', color: '#fff' }}
                       itemStyle={{ color: '#FFFFFF', fontWeight: 600, fontSize: '11px' }}
                       formatter={(val: any) => [`${val} Tenants`, 'Count']}
                     />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-base font-extrabold text-[#0D1F3D]">{totalTenants}</span>
+                  <span className="text-base font-extrabold text-primary">{totalTenants}</span>
                   <span className="text-[9px] font-bold text-slate-400 uppercase">Total</span>
                 </div>
               </div>
@@ -519,7 +519,7 @@ export function AllTenantsPage() {
                       <span className={`h-2 w-2 rounded-full ${pl.color}`} />
                       <span className="text-slate-600">{pl.name}</span>
                     </div>
-                    <span className="text-[#0D1F3D] font-bold">{pl.count} ({pl.percentage})</span>
+                    <span className="text-primary font-bold">{pl.count} ({pl.percentage})</span>
                   </div>
                 ))}
               </div>
@@ -536,7 +536,7 @@ export function AllTenantsPage() {
               <ShieldAlert className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="text-base font-extrabold text-[#0D1F3D]">Suspend Tenant?</h3>
+              <h3 className="text-base font-extrabold text-primary">Suspend Tenant?</h3>
               <p className="text-xs text-slate-500 font-medium mt-1">
                 Suspending <strong>{suspendTarget.companyName}</strong> will temporarily restrict executive logins until reactivated.
               </p>

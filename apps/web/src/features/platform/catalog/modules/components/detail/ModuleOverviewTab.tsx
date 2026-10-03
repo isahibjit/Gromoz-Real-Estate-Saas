@@ -53,7 +53,7 @@ export function ModuleOverviewTab({ module }: ModuleOverviewTabProps) {
         <section className="rounded-sm border border-slate-200 bg-white p-6 shadow-xs space-y-5">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
             <Info className="h-4 w-4 text-indigo-600 shrink-0" />
-            <h3 className="text-sm font-extrabold text-[#0D1F3D]">Module Information</h3>
+            <h3 className="text-sm font-extrabold text-primary">Module Information</h3>
           </div>
 
           <div className="space-y-4 text-xs font-semibold">
@@ -61,7 +61,7 @@ export function ModuleOverviewTab({ module }: ModuleOverviewTabProps) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex items-center justify-between sm:justify-start sm:gap-8">
                 <span className="text-slate-500 w-32 font-semibold">Module Name</span>
-                <span className="font-extrabold text-[#0D1F3D]">{module.name}</span>
+                <span className="font-extrabold text-primary">{module.name}</span>
               </div>
               <div className="flex items-center justify-between sm:justify-start sm:gap-8">
                 <span className="text-slate-500 w-32 font-semibold">Module Code</span>
@@ -106,7 +106,7 @@ export function ModuleOverviewTab({ module }: ModuleOverviewTabProps) {
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
               <Layers className="h-4 w-4 text-indigo-600 shrink-0" />
-              <h3 className="text-sm font-extrabold text-[#0D1F3D]">Capability Summary</h3>
+              <h3 className="text-sm font-extrabold text-primary">Capability Summary</h3>
             </div>
             <span className="text-[11px] font-bold text-slate-500">
               {features.length} Features Registered
@@ -121,7 +121,7 @@ export function ModuleOverviewTab({ module }: ModuleOverviewTabProps) {
                     {getFeatureIcon(idx)}
                   </div>
                   <div className="space-y-0.5 flex-1 min-w-0">
-                    <span className="font-extrabold text-xs text-[#0D1F3D] block truncate">
+                    <span className="font-extrabold text-xs text-primary block truncate">
                       {feat.name}
                     </span>
                     <p className="text-[11px] font-medium text-slate-500 leading-snug">
@@ -156,7 +156,7 @@ export function ModuleOverviewTab({ module }: ModuleOverviewTabProps) {
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
               <GitBranch className="h-4 w-4 text-indigo-600 shrink-0" />
-              <h3 className="text-sm font-extrabold text-[#0D1F3D]">Dependency Summary</h3>
+              <h3 className="text-sm font-extrabold text-primary">Dependency Summary</h3>
             </div>
           </div>
 
@@ -225,7 +225,7 @@ export function ModuleOverviewTab({ module }: ModuleOverviewTabProps) {
         <section className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-4">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
             <History className="h-4 w-4 text-indigo-600 shrink-0" />
-            <h3 className="text-sm font-extrabold text-[#0D1F3D]">Lifecycle</h3>
+            <h3 className="text-sm font-extrabold text-primary">Lifecycle</h3>
           </div>
 
           <div className="space-y-3.5 text-xs font-semibold">
@@ -263,7 +263,7 @@ export function ModuleOverviewTab({ module }: ModuleOverviewTabProps) {
         <section className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-4">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
             <GitBranch className="h-4 w-4 text-indigo-600 shrink-0" />
-            <h3 className="text-sm font-extrabold text-[#0D1F3D]">Platform Relationships</h3>
+            <h3 className="text-sm font-extrabold text-primary">Platform Relationships</h3>
           </div>
 
           <div className="space-y-1 text-xs font-semibold">

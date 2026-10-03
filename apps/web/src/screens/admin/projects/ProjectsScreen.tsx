@@ -10,7 +10,6 @@ import {
   Eye,
   FileText,
   Filter,
-  FolderKanban,
   Grid2X2,
   Home,
   ImagePlus,
@@ -61,6 +60,10 @@ import {
 } from "ui";
 
 import { usePermission } from "../../../common/access/usePermission";
+import {
+  PageHeader,
+  WorkspacePage,
+} from "../../../components/layout/PageHeader";
 import { DashboardHeader } from "../dashboard/DashboardHeader";
 import { DashboardSidebar } from "../dashboard/DashboardSidebar";
 import { ProjectGeofencePicker } from "./ProjectGeofencePicker";
@@ -1057,7 +1060,7 @@ export function ProjectsScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -1065,27 +1068,19 @@ export function ProjectsScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1">
-        <DashboardHeader
-          search={search}
-          onSearchChange={setSearch}
-          onMobileMenuOpen={() => setMobileOpen(true)}
-          onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
-          breadcrumbs={<span>Projects</span>}
-        />
-        <main className="space-y-5 p-4 sm:p-6">
-          <section className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
-            <div>
-              <h1 className="flex items-center gap-2 text-3xl font-extrabold text-secondary">
-                <FolderKanban className="size-7 text-primary" />
-                Projects
-              </h1>
-              <p className="mt-2 text-sm font-semibold text-muted-foreground">
-                Project-owned inventory, lead demand, and visit activity in one
-                operational view.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
+      <DashboardHeader
+        search={search}
+        onSearchChange={setSearch}
+        onMobileMenuOpen={() => setMobileOpen(true)}
+        onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
+        breadcrumbs={<span>Projects</span>}
+      />
+      <WorkspacePage>
+        <PageHeader
+          title="Projects"
+          subtitle="Project-owned inventory, lead demand, and visit activity in one operational view."
+          actions={
+            <>
               {canCreate ? (
                 <Button
                   type="button"
@@ -1116,167 +1111,166 @@ export function ProjectsScreen() {
               >
                 <Filter className="size-4" />
               </Button>
+            </>
+          }
+        />
+
+        {projectMessage ? (
+          <div className="rounded-md border border-success/20 bg-success/10 px-4 py-3 text-sm font-extrabold text-success">
+            {projectMessage}
+          </div>
+        ) : null}
+
+        <section className="grid gap-3 sm:gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))]">
+          <ProjectStatCard
+            label="Total Projects"
+            value={`${projects.length}`}
+            helper="Projects in your CRM"
+            icon={Building2}
+            tone="bg-blue-50 text-blue-700"
+          />
+          <ProjectStatCard
+            label="Total Units"
+            value={`${totalUnits}`}
+            helper="Across active inventory"
+            icon={Home}
+            tone="bg-slate-100 text-secondary"
+          />
+          <ProjectStatCard
+            label="Available Units"
+            value={`${availableUnits}`}
+            helper="Ready for lead matching"
+            icon={CalendarCheck}
+            tone="bg-green-50 text-success"
+          />
+          <ProjectStatCard
+            label="Linked Leads"
+            value={`${projects.reduce(
+              (sum, project) => sum + project.linkedLeads.length,
+              0,
+            )}`}
+            helper="Project interest records"
+            icon={UsersRound}
+            tone="bg-orange-50 text-primary"
+          />
+        </section>
+
+        <Card className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-card">
+          <div className="flex flex-col gap-3 border-b border-slate-100 px-4 sm:flex-row sm:items-center sm:justify-between p-2">
+            <div className="flex gap-6 overflow-x-auto">
+              {projectTabs.map((tab) => {
+                const selected = activeTab === tab.id;
+                const count = tab.status
+                  ? projects.filter((project) => project.status === tab.status)
+                      .length
+                  : projects.length;
+                return (
+                  <Button
+                    key={tab.id}
+                    type="button"
+                    variant="ghost"
+                    className={cn(
+                      "h-10 shrink-0 rounded-md px-3 text-sm font-extrabold text-secondary hover:bg-slate-50",
+                      selected && "bg-blue-50 text-blue-700",
+                    )}
+                    onClick={() => setActiveTab(tab.id)}
+                  >
+                    {tab.label} ({count})
+                  </Button>
+                );
+              })}
             </div>
-          </section>
-
-          {projectMessage ? (
-            <div className="rounded-md border border-success/20 bg-success/10 px-4 py-3 text-sm font-extrabold text-success">
-              {projectMessage}
+            <div className="flex gap-1 pb-3 sm:pb-0">
+              <Button
+                type="button"
+                variant={viewMode === "cards" ? "navy" : "outline"}
+                size="icon"
+                className="size-9 rounded-md shadow-none p-1"
+                aria-label="Card view"
+                title="Card view"
+                onClick={() => setViewMode("cards")}
+              >
+                <Grid2X2 className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                variant={viewMode === "list" ? "navy" : "outline"}
+                size="icon"
+                className="size-9 rounded-md shadow-none p-1"
+                aria-label="List view"
+                title="List view"
+                onClick={() => setViewMode("list")}
+              >
+                <List className="size-4" />
+              </Button>
             </div>
-          ) : null}
-
-          <section className="grid gap-3 sm:gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))]">
-            <ProjectStatCard
-              label="Total Projects"
-              value={`${projects.length}`}
-              helper="Projects in your CRM"
-              icon={Building2}
-              tone="bg-blue-50 text-blue-700"
+          </div>
+          <div className="border-b border-slate-100 px-4 py-3">
+            <SearchInput
+              aria-label="Search projects"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search projects by name, location, or developer..."
+              className="h-10 max-w-xl text-sm"
             />
-            <ProjectStatCard
-              label="Total Units"
-              value={`${totalUnits}`}
-              helper="Across active inventory"
-              icon={Home}
-              tone="bg-slate-100 text-secondary"
-            />
-            <ProjectStatCard
-              label="Available Units"
-              value={`${availableUnits}`}
-              helper="Ready for lead matching"
-              icon={CalendarCheck}
-              tone="bg-green-50 text-success"
-            />
-            <ProjectStatCard
-              label="Linked Leads"
-              value={`${projects.reduce(
-                (sum, project) => sum + project.linkedLeads.length,
-                0,
-              )}`}
-              helper="Project interest records"
-              icon={UsersRound}
-              tone="bg-orange-50 text-primary"
-            />
-          </section>
-
-          <Card className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-card">
-            <div className="flex flex-col gap-3 border-b border-slate-100 px-4 sm:flex-row sm:items-center sm:justify-between p-2">
-              <div className="flex gap-6 overflow-x-auto">
-                {projectTabs.map((tab) => {
-                  const selected = activeTab === tab.id;
-                  const count = tab.status
-                    ? projects.filter(
-                        (project) => project.status === tab.status,
-                      ).length
-                    : projects.length;
-                  return (
+          </div>
+          {viewMode === "cards" ? (
+            <div className="p-4">
+              {filteredProjects.length === 0 ? (
+                <div className="flex min-h-72 flex-col items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50/60 px-6 py-12 text-center">
+                  <span className="flex size-12 items-center justify-center rounded-md bg-blue-50 text-blue-700">
+                    <Building2 className="size-6" />
+                  </span>
+                  <h3 className="mt-4 text-base font-extrabold text-secondary">
+                    No projects yet
+                  </h3>
+                  <p className="mt-2 max-w-md text-sm font-semibold text-muted-foreground">
+                    Create your first project to start managing inventory, site
+                    visits, and linked leads.
+                  </p>
+                  {canCreate ? (
                     <Button
-                      key={tab.id}
                       type="button"
-                      variant="ghost"
-                      className={cn(
-                        "h-10 shrink-0 rounded-md px-3 text-sm font-extrabold text-secondary hover:bg-slate-50",
-                        selected && "bg-blue-50 text-blue-700",
-                      )}
-                      onClick={() => setActiveTab(tab.id)}
+                      className="mt-5 h-10 rounded-md px-5"
+                      onClick={openCreateProjectForm}
                     >
-                      {tab.label} ({count})
+                      <Plus className="size-4" />
+                      Add Project
                     </Button>
-                  );
-                })}
-              </div>
-              <div className="flex gap-1 pb-3 sm:pb-0">
-                <Button
-                  type="button"
-                  variant={viewMode === "cards" ? "navy" : "outline"}
-                  size="icon"
-                  className="size-9 rounded-md shadow-none p-1"
-                  aria-label="Card view"
-                  title="Card view"
-                  onClick={() => setViewMode("cards")}
-                >
-                  <Grid2X2 className="size-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant={viewMode === "list" ? "navy" : "outline"}
-                  size="icon"
-                  className="size-9 rounded-md shadow-none p-1"
-                  aria-label="List view"
-                  title="List view"
-                  onClick={() => setViewMode("list")}
-                >
-                  <List className="size-4" />
-                </Button>
-              </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+                  {filteredProjects.map((project) => (
+                    <ProjectCard
+                      key={project.id}
+                      project={project}
+                      onView={setViewingProject}
+                      onShare={setSharingProject}
+                      onSharePdf={shareProjectPdf}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="border-b border-slate-100 px-4 py-3">
-              <SearchInput
-                aria-label="Search projects"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search projects by name, location, or developer..."
-                className="h-10 max-w-xl text-sm"
-              />
+          ) : filteredProjects.length === 0 ? (
+            <div className="px-6 py-16 text-center">
+              <p className="text-base font-extrabold text-secondary">
+                No projects yet
+              </p>
+              <p className="mt-2 text-sm font-semibold text-muted-foreground">
+                Create a project to populate this table.
+              </p>
             </div>
-            {viewMode === "cards" ? (
-              <div className="p-4">
-                {filteredProjects.length === 0 ? (
-                  <div className="flex min-h-72 flex-col items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50/60 px-6 py-12 text-center">
-                    <span className="flex size-12 items-center justify-center rounded-md bg-blue-50 text-blue-700">
-                      <Building2 className="size-6" />
-                    </span>
-                    <h3 className="mt-4 text-base font-extrabold text-secondary">
-                      No projects yet
-                    </h3>
-                    <p className="mt-2 max-w-md text-sm font-semibold text-muted-foreground">
-                      Create your first project to start managing inventory,
-                      site visits, and linked leads.
-                    </p>
-                    {canCreate ? (
-                      <Button
-                        type="button"
-                        className="mt-5 h-10 rounded-md px-5"
-                        onClick={openCreateProjectForm}
-                      >
-                        <Plus className="size-4" />
-                        Add Project
-                      </Button>
-                    ) : null}
-                  </div>
-                ) : (
-                  <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-                    {filteredProjects.map((project) => (
-                      <ProjectCard
-                        key={project.id}
-                        project={project}
-                        onView={setViewingProject}
-                        onShare={setSharingProject}
-                        onSharePdf={shareProjectPdf}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : filteredProjects.length === 0 ? (
-              <div className="px-6 py-16 text-center">
-                <p className="text-base font-extrabold text-secondary">
-                  No projects yet
-                </p>
-                <p className="mt-2 text-sm font-semibold text-muted-foreground">
-                  Create a project to populate this table.
-                </p>
-              </div>
-            ) : (
-              <ProjectsTable
-                projects={filteredProjects}
-                onView={setViewingProject}
-                onShare={setSharingProject}
-              />
-            )}
-          </Card>
-        </main>
-      </div>
+          ) : (
+            <ProjectsTable
+              projects={filteredProjects}
+              onView={setViewingProject}
+              onShare={setSharingProject}
+            />
+          )}
+        </Card>
+      </WorkspacePage>
       <Dialog open={projectFormOpen} onOpenChange={setProjectFormOpen}>
         <DialogContent className="max-h-[90vh] max-w-[1320px] overflow-hidden rounded-md border border-slate-200 bg-[#fbfcff] p-0 shadow-[0_24px_80px_rgba(15,37,68,0.18)]">
           <div className="grid max-h-[90vh] lg:grid-cols-[400px_minmax(0,1fr)] 2xl:grid-cols-[440px_minmax(0,1fr)]">
@@ -2173,6 +2167,6 @@ export function ProjectsScreen() {
         onOpenChange={setIsVideoPreviewOpen}
         onConfirmUpload={handleConfirmVideoUpload}
       />
-    </div>
+    </>
   );
 }

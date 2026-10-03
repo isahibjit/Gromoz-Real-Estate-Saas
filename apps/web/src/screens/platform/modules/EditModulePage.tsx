@@ -76,7 +76,7 @@ export function EditModulePage() {
   if (!module) {
     return (
       <div className="p-8 text-center space-y-3 font-sans">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-[#0D1F3D] mx-auto" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-primary mx-auto" />
         <p className="text-xs font-semibold text-slate-500">Loading module editor...</p>
       </div>
     );
@@ -88,7 +88,7 @@ export function EditModulePage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-[#0D1F3D]">Edit Module Operational Metadata: {module.name}</h1>
+            <h1 className="text-2xl font-extrabold text-primary">Edit Module Operational Metadata: {module.name}</h1>
             <span className="font-mono text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-sm border border-indigo-200">
               {module.code}
             </span>
@@ -127,7 +127,7 @@ export function EditModulePage() {
           {/* Card 1: Read-Only Code Registry Metadata */}
           <section className="rounded-sm border border-slate-200 bg-white p-6 shadow-xs space-y-4">
             <div className="border-b border-slate-100 pb-3">
-              <h2 className="text-base font-extrabold text-[#0D1F3D]">Developer-Owned Code Registry</h2>
+              <h2 className="text-base font-extrabold text-primary">Developer-Owned Code Registry</h2>
               <p className="text-xs font-medium text-slate-500">
                 Canonical capability fields synchronized from developer registry.
               </p>
@@ -157,7 +157,7 @@ export function EditModulePage() {
           {/* Card 2: Editable Operational Metadata */}
           <section className="rounded-sm border border-slate-200 bg-white p-6 shadow-xs space-y-4">
             <div className="border-b border-slate-100 pb-3">
-              <h2 className="text-base font-extrabold text-[#0D1F3D]">Editable Operational Metadata</h2>
+              <h2 className="text-base font-extrabold text-primary">Editable Operational Metadata</h2>
               <p className="text-xs font-medium text-slate-500">
                 Admin lifecycle status and internal operational notes.
               </p>
@@ -185,7 +185,7 @@ export function EditModulePage() {
                   value={internalNotes}
                   onChange={(e) => setInternalNotes(e.target.value)}
                   placeholder="Enter internal release, compliance, or operational notes..."
-                  className="w-full rounded-sm border border-slate-200 bg-white p-3 text-xs font-medium text-[#0D1F3D] placeholder-slate-400 focus:border-[#0D1F3D] focus:outline-none"
+                  className="w-full rounded-sm border border-slate-200 bg-white p-3 text-xs font-medium text-primary placeholder-slate-400 focus:border-primary focus:outline-none"
                 />
               </div>
             </div>
@@ -205,7 +205,7 @@ export function EditModulePage() {
             <Button
               type="submit"
               isLoading={saving}
-              className="font-extrabold bg-[#0D1F3D] text-white hover:bg-[#162e57] px-6 gap-2"
+              className="font-extrabold bg-primary text-white hover:bg-[#162e57] px-6 gap-2"
             >
               <Save className="h-4 w-4" />
               {saving ? 'Saving...' : 'Save Operational Metadata'}
@@ -218,7 +218,7 @@ export function EditModulePage() {
           <section className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-4 font-sans">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
               <Package className="h-4 w-4 text-indigo-600 shrink-0" />
-              <h3 className="text-sm font-extrabold text-[#0D1F3D]">Module Operational State</h3>
+              <h3 className="text-sm font-extrabold text-primary">Module Operational State</h3>
             </div>
 
             <div className="rounded-sm border border-slate-200 bg-slate-50/80 p-4 space-y-3 text-xs">

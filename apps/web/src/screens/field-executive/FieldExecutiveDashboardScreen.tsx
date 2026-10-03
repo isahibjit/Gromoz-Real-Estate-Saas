@@ -48,6 +48,7 @@ import { ClockTimePicker } from "../admin/leads/assignment/ClockTimePicker";
 import { getApiErrorMessage } from "../../common/apiError";
 import { scheduledInputToIso } from "../../common/time";
 import { DashboardKpiCard } from "../../common/dashboard/DashboardKpiCard";
+import { WorkspacePage } from "../../components/layout/PageHeader";
 import { PerformanceRankingCard } from "../../common/dashboard/PerformanceRankingCard";
 import { useSiteVisits } from "../admin/leads/site-visits/useSiteVisits";
 import { DashboardAttendanceCard } from "../hr/components/DashboardAttendanceCard";
@@ -469,15 +470,15 @@ export function FieldExecutiveDashboardScreen() {
 
   if (dashboard.isLoading || siteVisits.isLoading)
     return (
-      <main className="flex min-h-[70vh] items-center justify-center text-sm font-semibold text-muted-foreground">
+      <WorkspacePage className="flex min-h-[70vh] items-center justify-center text-sm font-semibold text-muted-foreground">
         Loading your field dashboard...
-      </main>
+      </WorkspacePage>
     );
   if (!dashboard.data || siteVisits.isError)
     return (
-      <main className="p-6 text-sm font-semibold text-destructive">
+      <WorkspacePage className="text-sm font-semibold text-destructive">
         Unable to load your field dashboard.
-      </main>
+      </WorkspacePage>
     );
   const { data } = dashboard;
   const checkedIn = todaySchedule.filter((visit) => visit.checkedInAt).length;
@@ -660,7 +661,7 @@ export function FieldExecutiveDashboardScreen() {
   );
 
   return (
-    <main className="space-y-5 p-4 sm:p-6">
+    <WorkspacePage>
       <section className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <h1 className="text-2xl font-extrabold text-secondary">Dashboard</h1>
@@ -1174,6 +1175,6 @@ export function FieldExecutiveDashboardScreen() {
         onClose={closeCompletionDialog}
         onSubmit={completeVisit}
       />
-    </main>
+    </WorkspacePage>
   );
 }

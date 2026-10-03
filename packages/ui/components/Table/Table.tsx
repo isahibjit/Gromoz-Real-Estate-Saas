@@ -9,6 +9,7 @@ export const Table = React.forwardRef<
   <div className="w-full overflow-auto">
     <table
       ref={ref}
+      data-slot="table"
       className={cn("w-full caption-bottom text-sm", className)}
       {...props}
     />
@@ -22,6 +23,7 @@ export const TableHeader = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <thead
     ref={ref}
+    data-slot="table-header"
     className={cn("bg-muted/70 [&_tr]:border-b", className)}
     {...props}
   />
@@ -34,6 +36,7 @@ export const TableBody = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <tbody
     ref={ref}
+    data-slot="table-body"
     className={cn("[&_tr:last-child]:border-0", className)}
     {...props}
   />
@@ -46,20 +49,25 @@ export const TableRow = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <tr
     ref={ref}
+    data-slot="table-row"
     className={cn("border-b transition-colors hover:bg-muted/50", className)}
     {...props}
   />
 ));
 TableRow.displayName = "TableRow";
 
+export interface TableHeadProps
+  extends React.ThHTMLAttributes<HTMLTableCellElement> {}
+
 export const TableHead = React.forwardRef<
   HTMLTableCellElement,
-  React.ThHTMLAttributes<HTMLTableCellElement>
+  TableHeadProps
 >(({ className, ...props }, ref) => (
   <th
     ref={ref}
+    data-slot="table-head"
     className={cn(
-      "h-10 px-3 text-left align-middle text-xs font-bold text-muted-foreground",
+      "h-10 whitespace-nowrap px-3 text-left align-middle text-xs font-bold text-foreground",
       className,
     )}
     {...props}
@@ -67,13 +75,17 @@ export const TableHead = React.forwardRef<
 ));
 TableHead.displayName = "TableHead";
 
+export interface TableCellProps
+  extends React.TdHTMLAttributes<HTMLTableCellElement> {}
+
 export const TableCell = React.forwardRef<
   HTMLTableCellElement,
-  React.TdHTMLAttributes<HTMLTableCellElement>
+  TableCellProps
 >(({ className, ...props }, ref) => (
   <td
     ref={ref}
-    className={cn("px-3 py-3 align-middle text-[13px]", className)}
+    data-slot="table-cell"
+    className={cn("whitespace-nowrap px-3 py-3 align-middle text-[13px]", className)}
     {...props}
   />
 ));

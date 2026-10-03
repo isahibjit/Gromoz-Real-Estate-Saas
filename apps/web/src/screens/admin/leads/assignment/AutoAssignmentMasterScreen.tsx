@@ -35,6 +35,7 @@ import {
 } from "ui";
 
 import { api } from "../../../../common/api";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 import { useDashboardLayout } from "../../dashboard/DashboardLayoutContext";
 import { addLeadSidebarItems } from "../add/addLeadData";
 import { useLeadListFilterOptions } from "../all/useAllLeads";
@@ -393,7 +394,7 @@ export function AutoAssignmentMasterScreen() {
 
   return (
     <>
-      <main className="space-y-5 p-4 sm:p-6">
+      <WorkspacePage>
         <Card className="rounded-md border border-slate-200 bg-white p-6 shadow-card">
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -967,7 +968,7 @@ export function AutoAssignmentMasterScreen() {
             )}
           </div>
         </Card>
-      </main>
+      </WorkspacePage>
 
       <ConfirmDeleteDialog
         open={!!deletingRule}

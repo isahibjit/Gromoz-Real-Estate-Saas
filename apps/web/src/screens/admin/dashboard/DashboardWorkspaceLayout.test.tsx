@@ -13,6 +13,12 @@ jest.mock("../../../common/services/auth.api", () => ({
   logout: jest.fn(),
 }));
 
+jest.mock("../../../common/api", () => ({
+  api: {
+    get: jest.fn(),
+  },
+}));
+
 function LegacyPage() {
   return (
     <div className="min-h-screen bg-background lg:flex">
@@ -56,7 +62,9 @@ function renderFrame() {
   return render(
     <QueryClientProvider client={new QueryClient()}>
       <Provider store={store}>
-        <MemoryRouter>
+        <MemoryRouter
+          future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        >
           <DashboardWorkspaceFrame>
             <LegacyPage />
           </DashboardWorkspaceFrame>

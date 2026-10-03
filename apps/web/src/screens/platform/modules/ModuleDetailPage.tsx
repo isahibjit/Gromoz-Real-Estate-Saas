@@ -24,7 +24,7 @@ export function ModuleDetailPage() {
   if (loading || !module) {
     return (
       <div className="min-h-[50vh] flex flex-col items-center justify-center p-8 text-center font-sans space-y-3">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-[#0D1F3D]" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-primary" />
         <p className="text-xs font-semibold text-slate-500">
           Loading module details...
         </p>

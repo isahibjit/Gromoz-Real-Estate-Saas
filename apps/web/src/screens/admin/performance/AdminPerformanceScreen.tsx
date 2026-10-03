@@ -39,6 +39,10 @@ import {
 
 import { api } from "../../../common/api";
 import { currentOrganizationId } from "../../../common/tenantRequestScope";
+import {
+  PageHeader,
+  WorkspacePage,
+} from "../../../components/layout/PageHeader";
 import { DashboardHeader } from "../dashboard/DashboardHeader";
 import { DashboardSidebar } from "../dashboard/DashboardSidebar";
 import { sidebarItems } from "../dashboard/dashboardData";
@@ -112,7 +116,12 @@ interface PerformanceResponse {
   users: PerformanceUserRow[];
   activity: PerformanceActivityRow[];
   filters: {
-    employees: Array<{ id: string; name: string; role: string; teamId?: string | null }>;
+    employees: Array<{
+      id: string;
+      name: string;
+      role: string;
+      teamId?: string | null;
+    }>;
     teams: Array<{ id: string; name: string }>;
     roles: string[];
     activityTypes: string[];
@@ -181,11 +190,18 @@ function StatCard({
   return (
     <Card className="min-w-0 overflow-hidden rounded-md border border-slate-200 bg-white p-3 shadow-none sm:p-4">
       <div className="flex min-w-0 items-start gap-3">
-        <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-md", tone)}>
+        <span
+          className={cn(
+            "flex size-10 shrink-0 items-center justify-center rounded-md",
+            tone,
+          )}
+        >
           <Icon className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-extrabold text-muted-foreground">{label}</p>
+          <p className="truncate text-xs font-extrabold text-muted-foreground">
+            {label}
+          </p>
           <p className="mt-1 truncate text-xl font-extrabold text-secondary sm:text-2xl">
             {formatNumber(value)}
           </p>
@@ -303,7 +319,7 @@ export function AdminPerformanceScreen() {
     : [];
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -313,396 +329,404 @@ export function AdminPerformanceScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1">
-        <DashboardHeader
-          onMobileMenuOpen={() => setMobileOpen(true)}
-          onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
-          breadcrumbs={
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-              <span>Dashboard</span>
-              <ChevronRight className="size-3.5" />
-              <span>Employees</span>
-              <ChevronRight className="size-3.5" />
-              <span className="text-foreground">Performance</span>
-            </div>
-          }
-        >
-          <div className="relative w-full max-w-xl">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              aria-label="Search performance"
-              placeholder="Search employee, activity, or lead..."
-              className="h-10 rounded-md border-slate-200 pl-11 text-sm font-semibold shadow-none"
+      <DashboardHeader
+        onMobileMenuOpen={() => setMobileOpen(true)}
+        onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
+        breadcrumbs={
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+            <span>Dashboard</span>
+            <ChevronRight className="size-3.5" />
+            <span>Employees</span>
+            <ChevronRight className="size-3.5" />
+            <span className="text-foreground">Performance</span>
+          </div>
+        }
+      >
+        <div className="relative w-full max-w-xl">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            aria-label="Search performance"
+            placeholder="Search employee, activity, or lead..."
+            className="h-10 rounded-md border-slate-200 pl-11 text-sm font-semibold shadow-none"
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+      </DashboardHeader>
+
+      <WorkspacePage>
+        <PageHeader
+          title="Employee performance"
+          subtitle="See who did what and when across calls, follow-ups, site visits, remarks, tasks, and bookings."
+        />
+
+        <Card className="rounded-md border border-slate-200 bg-white p-4 shadow-none">
+          <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))]">
+            <DatePicker
+              aria-label="Date from"
+              value={dateFrom}
+              className="h-10 rounded-md"
               onChange={(event) => {
-                setSearch(event.target.value);
+                setDateFrom(event.target.value);
                 setPage(1);
               }}
             />
-          </div>
-        </DashboardHeader>
-
-        <main className="space-y-5 p-4 sm:p-6">
-          <section>
-            <h1 className="text-3xl font-extrabold text-secondary">
-              Employee Performance
-            </h1>
-            <p className="mt-2 text-sm font-semibold text-blue-900">
-              See who did what and when across calls, follow-ups, site visits,
-              remarks, tasks, and bookings.
-            </p>
-          </section>
-
-          <Card className="rounded-md border border-slate-200 bg-white p-4 shadow-none">
-            <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))]">
-              <DatePicker
-                aria-label="Date from"
-                value={dateFrom}
-                className="h-10 rounded-md"
-                onChange={(event) => {
-                  setDateFrom(event.target.value);
-                  setPage(1);
-                }}
-              />
-              <DatePicker
-                aria-label="Date to"
-                value={dateTo}
-                className="h-10 rounded-md"
-                onChange={(event) => {
-                  setDateTo(event.target.value);
-                  setPage(1);
-                }}
-              />
-              <Select
-                value={role}
-                onValueChange={(value) => {
-                  setRole(value);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="h-10 rounded-md shadow-none">
-                  <SelectValue placeholder="All roles" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All roles</SelectItem>
-                  {(data?.filters.roles ?? []).map((item) => (
-                    <SelectItem key={item} value={item}>
-                      {roleLabel(item)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={teamId}
-                onValueChange={(value) => {
-                  setTeamId(value);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="h-10 rounded-md shadow-none">
-                  <SelectValue placeholder="All teams" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All teams</SelectItem>
-                  {(data?.filters.teams ?? []).map((team) => (
-                    <SelectItem key={team.id} value={team.id}>
-                      {team.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={userId}
-                onValueChange={(value) => {
-                  setUserId(value);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="h-10 rounded-md shadow-none">
-                  <SelectValue placeholder="All employees" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All employees</SelectItem>
-                  {(data?.filters.employees ?? []).map((employee) => (
-                    <SelectItem key={employee.id} value={employee.id}>
-                      {employee.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={activityType}
-                onValueChange={(value) => {
-                  setActivityType(value);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="h-10 rounded-md shadow-none">
-                  <SelectValue placeholder="All activity" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All activity</SelectItem>
-                  {(data?.filters.activityTypes ?? []).map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {activityLabel(type)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </Card>
-
-          {performanceQuery.isLoading ? (
-            <Card className="rounded-md border border-slate-200 bg-white p-10 text-center text-sm font-semibold text-muted-foreground shadow-none">
-              Loading performance data...
-            </Card>
-          ) : performanceQuery.isError ? (
-            <Card className="rounded-md border border-red-200 bg-red-50 p-10 text-center text-sm font-extrabold text-red-700 shadow-none">
-              Could not load employee performance.
-            </Card>
-          ) : data ? (
-            <>
-              <section className="grid gap-3 sm:gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))]">
-                {stats.map((stat) => (
-                  <StatCard key={stat.label} {...stat} />
+            <DatePicker
+              aria-label="Date to"
+              value={dateTo}
+              className="h-10 rounded-md"
+              onChange={(event) => {
+                setDateTo(event.target.value);
+                setPage(1);
+              }}
+            />
+            <Select
+              value={role}
+              onValueChange={(value) => {
+                setRole(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-10 rounded-md shadow-none">
+                <SelectValue placeholder="All roles" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All roles</SelectItem>
+                {(data?.filters.roles ?? []).map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {roleLabel(item)}
+                  </SelectItem>
                 ))}
-              </section>
+              </SelectContent>
+            </Select>
+            <Select
+              value={teamId}
+              onValueChange={(value) => {
+                setTeamId(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-10 rounded-md shadow-none">
+                <SelectValue placeholder="All teams" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All teams</SelectItem>
+                {(data?.filters.teams ?? []).map((team) => (
+                  <SelectItem key={team.id} value={team.id}>
+                    {team.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={userId}
+              onValueChange={(value) => {
+                setUserId(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-10 rounded-md shadow-none">
+                <SelectValue placeholder="All employees" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All employees</SelectItem>
+                {(data?.filters.employees ?? []).map((employee) => (
+                  <SelectItem key={employee.id} value={employee.id}>
+                    {employee.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={activityType}
+              onValueChange={(value) => {
+                setActivityType(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-10 rounded-md shadow-none">
+                <SelectValue placeholder="All activity" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All activity</SelectItem>
+                {(data?.filters.activityTypes ?? []).map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {activityLabel(type)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </Card>
 
-              <Card className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-none">
-                <div className="border-b border-slate-100 px-4 py-3">
+        {performanceQuery.isLoading ? (
+          <Card className="rounded-md border border-slate-200 bg-white p-10 text-center text-sm font-semibold text-muted-foreground shadow-none">
+            Loading performance data...
+          </Card>
+        ) : performanceQuery.isError ? (
+          <Card className="rounded-md border border-red-200 bg-red-50 p-10 text-center text-sm font-extrabold text-red-700 shadow-none">
+            Could not load employee performance.
+          </Card>
+        ) : data ? (
+          <>
+            <section className="grid gap-3 sm:gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))]">
+              {stats.map((stat) => (
+                <StatCard key={stat.label} {...stat} />
+              ))}
+            </section>
+
+            <Card className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-none">
+              <div className="border-b border-slate-100 px-4 py-3">
+                <h2 className="text-base font-extrabold text-secondary">
+                  User performance
+                </h2>
+                <p className="text-xs font-semibold text-muted-foreground">
+                  Activity totals for each employee in the selected range.
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-slate-50">
+                    <TableRow>
+                      {[
+                        "Rank",
+                        "Employee",
+                        "Leads",
+                        "Score earned",
+                        "Calls",
+                        "Follow-ups",
+                        "Visits",
+                        "Remarks",
+                        "Tasks",
+                        "Bookings",
+                        "Latest activity",
+                      ].map((head) => (
+                        <TableHead
+                          key={head}
+                          className="h-11 whitespace-nowrap px-4 text-xs font-extrabold text-secondary"
+                        >
+                          {head}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.users.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell className="px-4 py-3 text-xs font-extrabold text-secondary">
+                          {user.scoreRank ? `#${user.scoreRank}` : "-"}
+                        </TableCell>
+                        <TableCell className="min-w-[240px] px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-9 w-9">
+                              <AvatarImage
+                                src={user.image ?? undefined}
+                                alt={user.name}
+                              />
+                              <AvatarFallback>
+                                {initials(user.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="text-xs font-extrabold text-secondary">
+                                {user.name}
+                              </p>
+                              <p className="text-xs font-semibold text-muted-foreground">
+                                {roleLabel(user.role)} · {user.teamName}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-xs font-bold">
+                          {user.leadsAssigned} assigned · {user.leadsCreated}{" "}
+                          created
+                        </TableCell>
+                        <TableCell className="min-w-[190px] px-4 py-3">
+                          <p className="text-xs font-extrabold text-green-700">
+                            {formatNumber(user.scoreEarned)}
+                          </p>
+                          <p className="mt-1 line-clamp-2 text-[11px] font-semibold text-muted-foreground">
+                            {scoreBreakdownLabel(user)}
+                          </p>
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-xs font-bold">
+                          {user.calls} total · {user.connectedCalls} connected
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-xs font-bold">
+                          {user.followUpsCompleted} done ·{" "}
+                          {user.overdueFollowUps} overdue
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-xs font-bold">
+                          {user.siteVisitsCompleted} done ·{" "}
+                          {user.siteVisitsScheduled} scheduled
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-xs font-bold">
+                          {user.remarksAdded}
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-xs font-bold">
+                          {user.tasksCompleted}
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-xs font-bold">
+                          {user.bookingsDone}
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-xs font-semibold text-muted-foreground">
+                          {formatDateTime(user.latestActivityAt)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {!data.users.length ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={11}
+                          className="px-4 py-10 text-center text-sm font-semibold text-muted-foreground"
+                        >
+                          No employee performance found for this filter.
+                        </TableCell>
+                      </TableRow>
+                    ) : null}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+
+            <Card className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-none">
+              <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 md:flex-row md:items-center md:justify-between">
+                <div>
                   <h2 className="text-base font-extrabold text-secondary">
-                    User performance
+                    Who did what and when
                   </h2>
                   <p className="text-xs font-semibold text-muted-foreground">
-                    Activity totals for each employee in the selected range.
+                    Unified activity timeline across CRM operations.
                   </p>
                 </div>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader className="bg-slate-50">
-                      <TableRow>
-                        {[
-                          "Rank",
-                          "Employee",
-                          "Leads",
-                          "Score earned",
-                          "Calls",
-                          "Follow-ups",
-                          "Visits",
-                          "Remarks",
-                          "Tasks",
-                          "Bookings",
-                          "Latest activity",
-                        ].map((head) => (
-                          <TableHead
-                            key={head}
-                            className="h-11 whitespace-nowrap px-4 text-xs font-extrabold text-secondary"
-                          >
-                            {head}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data.users.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell className="px-4 py-3 text-xs font-extrabold text-secondary">
-                            {user.scoreRank ? `#${user.scoreRank}` : "-"}
-                          </TableCell>
-                          <TableCell className="min-w-[240px] px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-9 w-9">
-                                <AvatarImage src={user.image ?? undefined} alt={user.name} />
-                                <AvatarFallback>{initials(user.name)}</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="text-xs font-extrabold text-secondary">
-                                  {user.name}
-                                </p>
-                                <p className="text-xs font-semibold text-muted-foreground">
-                                  {roleLabel(user.role)} · {user.teamName}
-                                </p>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="px-4 py-3 text-xs font-bold">
-                            {user.leadsAssigned} assigned · {user.leadsCreated} created
-                          </TableCell>
-                          <TableCell className="min-w-[190px] px-4 py-3">
-                            <p className="text-xs font-extrabold text-green-700">
-                              {formatNumber(user.scoreEarned)}
-                            </p>
-                            <p className="mt-1 line-clamp-2 text-[11px] font-semibold text-muted-foreground">
-                              {scoreBreakdownLabel(user)}
-                            </p>
-                          </TableCell>
-                          <TableCell className="px-4 py-3 text-xs font-bold">
-                            {user.calls} total · {user.connectedCalls} connected
-                          </TableCell>
-                          <TableCell className="px-4 py-3 text-xs font-bold">
-                            {user.followUpsCompleted} done · {user.overdueFollowUps} overdue
-                          </TableCell>
-                          <TableCell className="px-4 py-3 text-xs font-bold">
-                            {user.siteVisitsCompleted} done · {user.siteVisitsScheduled} scheduled
-                          </TableCell>
-                          <TableCell className="px-4 py-3 text-xs font-bold">
-                            {user.remarksAdded}
-                          </TableCell>
-                          <TableCell className="px-4 py-3 text-xs font-bold">
-                            {user.tasksCompleted}
-                          </TableCell>
-                          <TableCell className="px-4 py-3 text-xs font-bold">
-                            {user.bookingsDone}
-                          </TableCell>
-                          <TableCell className="px-4 py-3 text-xs font-semibold text-muted-foreground">
-                            {formatDateTime(user.latestActivityAt)}
-                          </TableCell>
-                        </TableRow>
+                <Badge className="w-fit border-0 bg-blue-50 text-blue-700">
+                  {formatNumber(data.meta.totalActivity)} activities
+                </Badge>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-slate-50">
+                    <TableRow>
+                      {["Actor", "Action", "Lead", "When"].map((head) => (
+                        <TableHead
+                          key={head}
+                          className="h-11 whitespace-nowrap px-4 text-xs font-extrabold text-secondary"
+                        >
+                          {head}
+                        </TableHead>
                       ))}
-                      {!data.users.length ? (
-                        <TableRow>
-                          <TableCell
-                            colSpan={11}
-                            className="px-4 py-10 text-center text-sm font-semibold text-muted-foreground"
-                          >
-                            No employee performance found for this filter.
-                          </TableCell>
-                        </TableRow>
-                      ) : null}
-                    </TableBody>
-                  </Table>
-                </div>
-              </Card>
-
-              <Card className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-none">
-                <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <h2 className="text-base font-extrabold text-secondary">
-                      Who did what and when
-                    </h2>
-                    <p className="text-xs font-semibold text-muted-foreground">
-                      Unified activity timeline across CRM operations.
-                    </p>
-                  </div>
-                  <Badge className="w-fit border-0 bg-blue-50 text-blue-700">
-                    {formatNumber(data.meta.totalActivity)} activities
-                  </Badge>
-                </div>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader className="bg-slate-50">
-                      <TableRow>
-                        {["Actor", "Action", "Lead", "When"].map((head) => (
-                          <TableHead
-                            key={head}
-                            className="h-11 whitespace-nowrap px-4 text-xs font-extrabold text-secondary"
-                          >
-                            {head}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data.activity.map((activity) => (
-                        <TableRow key={activity.id}>
-                          <TableCell className="min-w-[220px] px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-9 w-9">
-                                <AvatarImage
-                                  src={activity.actorImage ?? undefined}
-                                  alt={activity.actorName}
-                                />
-                                <AvatarFallback>{initials(activity.actorName)}</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="text-xs font-extrabold text-secondary">
-                                  {activity.actorName}
-                                </p>
-                                <p className="text-xs font-semibold text-muted-foreground">
-                                  {roleLabel(activity.actorRole)}
-                                </p>
-                              </div>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.activity.map((activity) => (
+                      <TableRow key={activity.id}>
+                        <TableCell className="min-w-[220px] px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-9 w-9">
+                              <AvatarImage
+                                src={activity.actorImage ?? undefined}
+                                alt={activity.actorName}
+                              />
+                              <AvatarFallback>
+                                {initials(activity.actorName)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="text-xs font-extrabold text-secondary">
+                                {activity.actorName}
+                              </p>
+                              <p className="text-xs font-semibold text-muted-foreground">
+                                {roleLabel(activity.actorRole)}
+                              </p>
                             </div>
-                          </TableCell>
-                          <TableCell className="min-w-[320px] px-4 py-3">
-                            <Badge className="mb-2 border-0 bg-slate-100 text-slate-700">
-                              {activityLabel(activity.type)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="min-w-[320px] px-4 py-3">
+                          <Badge className="mb-2 border-0 bg-slate-100 text-slate-700">
+                            {activityLabel(activity.type)}
+                          </Badge>
+                          <p className="text-xs font-extrabold text-secondary">
+                            {activity.title}
+                          </p>
+                          {Number(activity.statusScoreEarned ?? 0) > 0 ? (
+                            <Badge className="mt-1 w-fit border-0 bg-green-50 text-green-700">
+                              {formatNumber(activity.statusScoreEarned ?? 0)}{" "}
+                              total score
+                              {activity.statusScoreName
+                                ? ` · ${activity.statusScoreName}`
+                                : ""}
                             </Badge>
-                            <p className="text-xs font-extrabold text-secondary">
-                              {activity.title}
-                            </p>
-                            {Number(activity.statusScoreEarned ?? 0) > 0 ? (
-                              <Badge className="mt-1 w-fit border-0 bg-green-50 text-green-700">
-                                {formatNumber(activity.statusScoreEarned ?? 0)} total score
-                                {activity.statusScoreName
-                                  ? ` · ${activity.statusScoreName}`
-                                  : ""}
-                              </Badge>
-                            ) : null}
-                            <p className="line-clamp-2 text-xs font-semibold text-muted-foreground">
-                              {activity.description || "-"}
-                            </p>
-                          </TableCell>
-                          <TableCell className="min-w-[180px] px-4 py-3 text-xs font-semibold text-secondary">
-                            {activity.leadName ? (
-                              <>
-                                <p className="font-extrabold">{activity.leadName}</p>
-                                <p className="text-muted-foreground">
-                                  {activity.leadDisplayId ?? activity.leadId}
-                                </p>
-                              </>
-                            ) : (
-                              "-"
-                            )}
-                          </TableCell>
-                          <TableCell className="min-w-[170px] px-4 py-3 text-xs font-semibold text-muted-foreground">
-                            {formatDateTime(activity.occurredAt)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {!data.activity.length ? (
-                        <TableRow>
-                          <TableCell
-                            colSpan={4}
-                            className="px-4 py-10 text-center text-sm font-semibold text-muted-foreground"
-                          >
-                            No activities found for this filter.
-                          </TableCell>
-                        </TableRow>
-                      ) : null}
-                    </TableBody>
-                  </Table>
+                          ) : null}
+                          <p className="line-clamp-2 text-xs font-semibold text-muted-foreground">
+                            {activity.description || "-"}
+                          </p>
+                        </TableCell>
+                        <TableCell className="min-w-[180px] px-4 py-3 text-xs font-semibold text-secondary">
+                          {activity.leadName ? (
+                            <>
+                              <p className="font-extrabold">
+                                {activity.leadName}
+                              </p>
+                              <p className="text-muted-foreground">
+                                {activity.leadDisplayId ?? activity.leadId}
+                              </p>
+                            </>
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                        <TableCell className="min-w-[170px] px-4 py-3 text-xs font-semibold text-muted-foreground">
+                          {formatDateTime(activity.occurredAt)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {!data.activity.length ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={4}
+                          className="px-4 py-10 text-center text-sm font-semibold text-muted-foreground"
+                        >
+                          No activities found for this filter.
+                        </TableCell>
+                      </TableRow>
+                    ) : null}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
+                <p className="text-xs font-semibold text-muted-foreground">
+                  Page {page} of {totalPages}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-8 w-8 rounded-md p-0 shadow-none"
+                    disabled={page <= 1}
+                    onClick={() => setPage((value) => Math.max(1, value - 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-8 w-8 rounded-md p-0 shadow-none"
+                    disabled={page >= totalPages}
+                    onClick={() =>
+                      setPage((value) => Math.min(totalPages, value + 1))
+                    }
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
                 </div>
-                <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
-                  <p className="text-xs font-semibold text-muted-foreground">
-                    Page {page} of {totalPages}
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-8 w-8 rounded-md p-0 shadow-none"
-                      disabled={page <= 1}
-                      onClick={() => setPage((value) => Math.max(1, value - 1))}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-8 w-8 rounded-md p-0 shadow-none"
-                      disabled={page >= totalPages}
-                      onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            </>
-          ) : null}
-        </main>
-      </div>
-    </div>
+              </div>
+            </Card>
+          </>
+        ) : null}
+      </WorkspacePage>
+    </>
   );
 }

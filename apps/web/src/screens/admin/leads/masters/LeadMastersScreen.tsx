@@ -12,6 +12,7 @@ import { MasterRecordModal } from "./components/MasterRecordModal";
 import { MasterWarningNote } from "./components/MasterWarningNote";
 import { CustomizeStatsAndPillsModal } from "../components/CustomizeStatsAndPillsModal";
 import { api } from "../../../../common/api";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 import { useDashboardLayout } from "../../dashboard/DashboardLayoutContext";
 import { usePermission } from "../../../../common/access/usePermission";
 import {
@@ -618,7 +619,7 @@ export function LeadMastersScreen() {
 
   return (
     <>
-        <main className="flex-1 overflow-y-auto p-4 sm:p-5 lg:p-6">
+        <WorkspacePage>
           <div className="mx-auto space-y-6">
             <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -789,7 +790,7 @@ export function LeadMastersScreen() {
               </div>
             </div>
           </div>
-        </main>
+        </WorkspacePage>
 
       <MasterRecordModal
         open={recordModalOpen}

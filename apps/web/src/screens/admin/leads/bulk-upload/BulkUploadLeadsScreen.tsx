@@ -39,6 +39,7 @@ import {
 import { api } from "../../../../common/api";
 import { DashboardSidebar } from "../../dashboard/DashboardSidebar";
 import { DashboardHeader } from "../../dashboard/DashboardHeader";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 import { useProjects } from "../../projects/useProjectsApi";
 import { useLeadListFilterOptions } from "../all/useAllLeads";
 import { assignLeadsSidebarItems } from "../assignment/leadAssignmentData";
@@ -1805,7 +1806,7 @@ export function BulkUploadLeadsScreen() {
   const [search, setSearch] = useState("");
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -1815,8 +1816,7 @@ export function BulkUploadLeadsScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1">
-        <DashboardHeader
+      <DashboardHeader
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={
@@ -1858,11 +1858,10 @@ export function BulkUploadLeadsScreen() {
               </SelectContent>
             </Select>
           </div>
-        </DashboardHeader>
-        <main className="space-y-5 p-4 sm:p-6">
+      </DashboardHeader>
+      <WorkspacePage>
           <BulkUploadLeadsWorkspace />
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

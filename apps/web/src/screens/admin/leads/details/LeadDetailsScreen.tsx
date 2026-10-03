@@ -57,6 +57,7 @@ import {
 import { SlaBadge } from "../../../../common/sla/SlaBadge";
 import { getAdminLeadSla } from "../../../../common/sla/slaData";
 import type { SlaStatus } from "../../../../common/sla/slaTypes";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 import { fieldExecutiveSidebarItems } from "../../../field-executive/fieldExecutiveData";
 import {
   buildFieldExecutiveLeadSiteVisitsPath,
@@ -1722,15 +1723,15 @@ export function LeadDetailsScreen() {
 
   if (leadQuery.isLoading) {
     return (
-      <main className="p-6 text-sm font-semibold text-muted-foreground">
+      <WorkspacePage className="text-sm font-semibold text-muted-foreground">
         Loading lead details...
-      </main>
+      </WorkspacePage>
     );
   }
 
   return (
     <>
-      <main className="space-y-5 p-4 sm:p-6">
+      <WorkspacePage>
         <div className="flex flex-wrap justify-end gap-3">
           <Button
             type="button"
@@ -1838,7 +1839,7 @@ export function LeadDetailsScreen() {
             onViewFullTimeline={() => setActiveTab("Activities Timeline")}
           />
         )}
-      </main>
+      </WorkspacePage>
       {!fieldExecutiveRoute ? (
         <CreateSiteVisitActionDialog
           lead={{

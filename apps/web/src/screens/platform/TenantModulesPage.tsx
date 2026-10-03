@@ -155,7 +155,7 @@ export function TenantModulesPage() {
           <AlertCircle className="h-7 w-7" />
         </div>
         <div>
-          <h2 className="text-xl font-extrabold text-[#0D1F3D]">Tenant Not Found</h2>
+          <h2 className="text-xl font-extrabold text-primary">Tenant Not Found</h2>
           <p className="text-xs text-slate-500 font-medium mt-1">
             This tenant could not be found or may no longer be available.
           </p>
@@ -192,7 +192,7 @@ export function TenantModulesPage() {
             <button
               type="button"
               onClick={() => navigate("/platform/dashboard")}
-              className="hover:text-[#0D1F3D]"
+              className="hover:text-primary"
             >
               Dashboard
             </button>
@@ -200,7 +200,7 @@ export function TenantModulesPage() {
             <button
               type="button"
               onClick={() => navigate("/platform/tenants")}
-              className="hover:text-[#0D1F3D]"
+              className="hover:text-primary"
             >
               Tenants
             </button>
@@ -208,16 +208,16 @@ export function TenantModulesPage() {
             <button
               type="button"
               onClick={() => navigate(`/platform/tenants/${tenantId}`)}
-              className="hover:text-[#0D1F3D]"
+              className="hover:text-primary"
             >
               {tenant?.companyName}
             </button>
             <span>›</span>
-            <span className="font-extrabold text-[#0D1F3D]">Modules & Plan Membership</span>
+            <span className="font-extrabold text-primary">Modules & Plan Membership</span>
           </div>
 
           <div className="flex items-center gap-2 mt-1.5">
-            <h1 className="text-2xl font-extrabold text-[#0D1F3D] tracking-tight">
+            <h1 className="text-2xl font-extrabold text-primary tracking-tight">
               Tenant Modules & Plan Membership
             </h1>
             <span className="flex h-7 w-7 items-center justify-center rounded-sm bg-purple-100 text-purple-700">
@@ -313,7 +313,7 @@ export function TenantModulesPage() {
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-extrabold text-[#0D1F3D]">{tenant.companyName}</h2>
+              <h2 className="text-base font-extrabold text-primary">{tenant.companyName}</h2>
               <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
                 {tenant.tenantStatus}
               </span>
@@ -339,7 +339,7 @@ export function TenantModulesPage() {
               Not Available / API Exposure Required
             </span>
           </div>
-          <p className="text-xs font-extrabold text-[#0D1F3D]" data-testid="subscription-status">
+          <p className="text-xs font-extrabold text-primary" data-testid="subscription-status">
             Subscription Status: {subscription?.status || tenant.subscriptionStatus}
           </p>
         </div>
@@ -364,7 +364,7 @@ export function TenantModulesPage() {
                   onClick={() => setTab("core")}
                   className={`px-3 py-1.5 text-xs font-extrabold rounded-xs transition-colors ${
                     activeTab === "core"
-                      ? "bg-[#0D1F3D] text-white shadow-xs"
+                      ? "bg-primary text-white shadow-xs"
                       : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >
@@ -375,7 +375,7 @@ export function TenantModulesPage() {
                   onClick={() => setTab("advanced")}
                   className={`px-3 py-1.5 text-xs font-extrabold rounded-xs transition-colors ${
                     activeTab === "advanced"
-                      ? "bg-[#0D1F3D] text-white shadow-xs"
+                      ? "bg-primary text-white shadow-xs"
                       : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >
@@ -386,7 +386,7 @@ export function TenantModulesPage() {
                   onClick={() => setTab("integrations")}
                   className={`px-3 py-1.5 text-xs font-extrabold rounded-xs transition-colors ${
                     activeTab === "integrations"
-                      ? "bg-[#0D1F3D] text-white shadow-xs"
+                      ? "bg-primary text-white shadow-xs"
                       : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >
@@ -437,7 +437,7 @@ export function TenantModulesPage() {
                                 <Icon className="h-4 w-4" />
                               </div>
                               <div>
-                                <span className="font-extrabold text-[#0D1F3D] block">{m.name}</span>
+                                <span className="font-extrabold text-primary block">{m.name}</span>
                                 <span className="text-[11px] text-slate-500 font-medium max-w-sm truncate block">
                                   {m.description}
                                 </span>
@@ -501,7 +501,7 @@ export function TenantModulesPage() {
         {/* Right Sidebar: Summary Cards */}
         <div className="lg:col-span-4 space-y-4">
           <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-4">
-            <h3 className="text-sm font-extrabold text-[#0D1F3D] border-b border-slate-100 pb-3">
+            <h3 className="text-sm font-extrabold text-primary border-b border-slate-100 pb-3">
               Module Summary
             </h3>
 
@@ -511,7 +511,7 @@ export function TenantModulesPage() {
                   <span className="text-[11px] text-slate-500 font-medium block">
                     Subscribed Plan Modules
                   </span>
-                  <span className="text-lg font-extrabold text-[#0D1F3D]" data-testid="total-subscribed-count">
+                  <span className="text-lg font-extrabold text-primary" data-testid="total-subscribed-count">
                     {totalSubscribedInPlan} / {modules.length} Modules
                   </span>
                   <span className="text-[10px] text-indigo-700 block font-bold mt-0.5">
@@ -528,7 +528,7 @@ export function TenantModulesPage() {
                   <span className="text-[11px] text-slate-500 font-medium block">
                     Industry Recommendations
                   </span>
-                  <span className="text-lg font-extrabold text-[#0D1F3D]" data-testid="total-recommended-count">
+                  <span className="text-lg font-extrabold text-primary" data-testid="total-recommended-count">
                     {totalRecommended} Modules
                   </span>
                   <span className="text-[10px] text-amber-700 block font-bold mt-0.5">

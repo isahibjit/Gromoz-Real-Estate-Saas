@@ -159,16 +159,16 @@ export function IndustryManagementPage() {
             <button
               type="button"
               onClick={() => navigate('/platform/dashboard')}
-              className="hover:text-[#0D1F3D]"
+              className="hover:text-primary"
             >
               Dashboard
             </button>
             <span>›</span>
-            <span className="font-extrabold text-[#0D1F3D]">Industry Verticals</span>
+            <span className="font-extrabold text-primary">Industry Verticals</span>
           </div>
 
           <div className="flex items-center gap-2 mt-1.5">
-            <h1 className="text-2xl font-extrabold text-[#0D1F3D] tracking-tight">
+            <h1 className="text-2xl font-extrabold text-primary tracking-tight">
               Industry Verticals & Templates
             </h1>
             <span className="flex h-7 w-7 items-center justify-center rounded-sm bg-blue-100 text-blue-700">
@@ -186,7 +186,7 @@ export function IndustryManagementPage() {
             size="sm"
             onClick={() => setDraftModalOpen(true)}
             disabled={!selectedIndustry}
-            className="gap-1.5 font-bold bg-[#0D1F3D] hover:bg-[#1A365D] text-white shadow-xs"
+            className="gap-1.5 font-bold bg-primary hover:bg-[#1A365D] text-white shadow-xs"
           >
             <Plus className="h-4 w-4" /> Create Next Draft
           </Button>
@@ -246,7 +246,7 @@ export function IndustryManagementPage() {
                   >
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-xs text-[#0D1F3D]">{ind.name}</span>
+                        <span className="font-extrabold text-xs text-primary">{ind.name}</span>
                         <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-xs bg-slate-100 font-bold text-slate-600">
                           {ind.code}
                         </span>
@@ -270,7 +270,7 @@ export function IndustryManagementPage() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-extrabold text-[#0D1F3D]">
+                      <h2 className="text-lg font-extrabold text-primary">
                         {selectedIndustry.name}
                       </h2>
                       <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
@@ -291,7 +291,7 @@ export function IndustryManagementPage() {
               {/* Version List & Version Detail Card */}
               <div className="rounded-sm border border-slate-200 bg-white p-5 shadow-xs space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <h3 className="text-sm font-extrabold text-[#0D1F3D]">
+                  <h3 className="text-sm font-extrabold text-primary">
                     Template Versions ({versions.length})
                   </h3>
                   <span className="text-xs text-slate-500 font-medium">
@@ -321,7 +321,7 @@ export function IndustryManagementPage() {
                             onClick={() => setSelectedVersion(v)}
                             className={`px-3 py-1.5 rounded-sm text-xs font-bold transition-all flex items-center gap-2 border ${
                               isSelected
-                                ? 'bg-[#0D1F3D] text-white border-[#0D1F3D] shadow-xs'
+                                ? 'bg-primary text-white border-primary shadow-xs'
                                 : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                             }`}
                           >
@@ -346,7 +346,7 @@ export function IndustryManagementPage() {
                         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
                           <div>
                             <div className="flex items-center gap-2">
-                              <h4 className="text-sm font-extrabold text-[#0D1F3D]">
+                              <h4 className="text-sm font-extrabold text-primary">
                                 Version {selectedVersion.version}
                               </h4>
                               <span
@@ -388,7 +388,7 @@ export function IndustryManagementPage() {
                         {/* Snapshot Detail Sections */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="rounded-sm border border-slate-200 bg-white p-3 space-y-2">
-                            <span className="text-xs font-bold text-[#0D1F3D] block">
+                            <span className="text-xs font-bold text-primary block">
                               Recommended Modules (Advisory)
                             </span>
                             <div className="flex flex-wrap gap-1.5">
@@ -411,7 +411,7 @@ export function IndustryManagementPage() {
                           </div>
 
                           <div className="rounded-sm border border-slate-200 bg-white p-3 space-y-2">
-                            <span className="text-xs font-bold text-[#0D1F3D] block">
+                            <span className="text-xs font-bold text-primary block">
                               Approval Reference & Provenance
                             </span>
                             <p className="text-xs text-slate-600 font-medium">
@@ -427,7 +427,7 @@ export function IndustryManagementPage() {
 
                         {/* Terminology & Master Defaults (Schema v1 Empty Snapshot) */}
                         <div className="rounded-sm border border-slate-200 bg-white p-3 space-y-1">
-                          <span className="text-xs font-bold text-[#0D1F3D] block">
+                          <span className="text-xs font-bold text-primary block">
                             Terminology & Master Defaults Snapshot
                           </span>
                           <p className="text-xs text-slate-500 font-medium">
@@ -443,7 +443,7 @@ export function IndustryManagementPage() {
           ) : (
             <div className="min-h-[40vh] flex flex-col items-center justify-center p-8 text-center border border-slate-200 bg-white rounded-sm">
               <Building className="h-10 w-10 text-slate-300 mb-2" />
-              <p className="text-sm font-bold text-[#0D1F3D]">No Industry Vertical Selected</p>
+              <p className="text-sm font-bold text-primary">No Industry Vertical Selected</p>
               <p className="text-xs text-slate-400 font-medium mt-0.5">
                 Select an industry vertical from the left column to view its version history.
               </p>
@@ -556,7 +556,7 @@ export function IndustryManagementPage() {
                 size="sm"
                 type="submit"
                 disabled={creatingDraft}
-                className="font-bold bg-[#0D1F3D] hover:bg-[#1A365D] text-white"
+                className="font-bold bg-primary hover:bg-[#1A365D] text-white"
               >
                 {creatingDraft ? 'Creating...' : 'Create Draft'}
               </Button>

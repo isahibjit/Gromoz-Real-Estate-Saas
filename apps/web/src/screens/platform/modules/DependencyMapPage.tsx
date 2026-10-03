@@ -106,7 +106,7 @@ export function DependencyMapPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-[#0D1F3D]">Modules & Features</h1>
+            <h1 className="text-2xl font-extrabold text-primary">Modules & Features</h1>
             <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
               <GitBranch className="h-4 w-4" />
             </span>
@@ -169,7 +169,7 @@ export function DependencyMapPage() {
                 onClick={() => setViewMode('grid')}
                 className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-xs transition-colors ${
                   viewMode === 'grid'
-                    ? 'bg-white text-[#0D1F3D] shadow-xs'
+                    ? 'bg-white text-primary shadow-xs'
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
@@ -181,7 +181,7 @@ export function DependencyMapPage() {
                 onClick={() => setViewMode('matrix')}
                 className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-xs transition-colors ${
                   viewMode === 'matrix'
-                    ? 'bg-white text-[#0D1F3D] shadow-xs'
+                    ? 'bg-white text-primary shadow-xs'
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
@@ -209,7 +209,7 @@ export function DependencyMapPage() {
       {error ? (
         <div className="rounded-sm border border-rose-200 bg-white p-8 text-center space-y-3 max-w-md mx-auto shadow-xs">
           <AlertTriangle className="h-8 w-8 text-rose-600 mx-auto" />
-          <h3 className="text-base font-extrabold text-[#0D1F3D]">Unable to Load Dependency Map</h3>
+          <h3 className="text-base font-extrabold text-primary">Unable to Load Dependency Map</h3>
           <p className="text-xs text-slate-500 font-medium">{error}</p>
           <Button variant="accent" size="sm" onClick={handleRefresh} className="font-extrabold bg-indigo-600 text-white">
             Retry Loading
@@ -233,7 +233,7 @@ export function DependencyMapPage() {
                         <Package className="h-5 w-5" />
                       </div>
                       <div>
-                        <h4 className="font-extrabold text-sm text-[#0D1F3D]">{mod.name}</h4>
+                        <h4 className="font-extrabold text-sm text-primary">{mod.name}</h4>
                         <span className="font-mono text-xs font-bold text-indigo-700 bg-indigo-50/80 px-2 py-0.5 rounded-sm border border-indigo-200 inline-block mt-0.5">
                           {mod.code}
                         </span>
@@ -245,7 +245,7 @@ export function DependencyMapPage() {
                   <div className="grid grid-cols-2 gap-4 pt-4 text-xs">
                     {/* Prerequisite Parent Requirements */}
                     <div className="space-y-2">
-                      <span className="text-xs font-extrabold text-[#0D1F3D] flex items-center gap-1.5">
+                      <span className="text-xs font-extrabold text-primary flex items-center gap-1.5">
                         <ArrowRight className="h-3.5 w-3.5 text-indigo-600" />
                         Required Parents ({parents.length}):
                       </span>
@@ -270,7 +270,7 @@ export function DependencyMapPage() {
 
                     {/* Downstream Dependents */}
                     <div className="space-y-2">
-                      <span className="text-xs font-extrabold text-[#0D1F3D] flex items-center gap-1.5">
+                      <span className="text-xs font-extrabold text-primary flex items-center gap-1.5">
                         <CheckCircle className="h-3.5 w-3.5 text-purple-600" />
                         Downstream Dependents ({dependents.length}):
                       </span>
@@ -304,7 +304,7 @@ export function DependencyMapPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-extrabold text-[#0D1F3D] uppercase tracking-normal">
+                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-extrabold text-primary uppercase tracking-normal">
                   <th className="p-3.5">Module Name & Code</th>
                   <th className="p-3.5">Category</th>
                   <th className="p-3.5">Prerequisite Parents</th>
@@ -320,7 +320,7 @@ export function DependencyMapPage() {
                   return (
                     <tr key={mod.code} className="hover:bg-slate-50/60 transition-colors">
                       <td className="p-3.5">
-                        <p className="font-extrabold text-[#0D1F3D]">{mod.name}</p>
+                        <p className="font-extrabold text-primary">{mod.name}</p>
                         <span className="font-mono text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-sm border border-indigo-200 inline-block mt-0.5">
                           {mod.code}
                         </span>

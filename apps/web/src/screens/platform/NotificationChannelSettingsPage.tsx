@@ -93,7 +93,7 @@ export function NotificationChannelSettingsPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-5 p-4 pb-16 text-left font-sans">
       <div>
-        <h1 className="text-2xl font-extrabold text-[#0D1F3D]">
+        <h1 className="text-2xl font-extrabold text-primary">
           Notification channel & trigger settings
         </h1>
         <p className="mt-1 text-sm text-slate-600">
@@ -124,9 +124,9 @@ export function NotificationChannelSettingsPage() {
         <form onSubmit={save} className="space-y-4">
           <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-start gap-3">
-              <Bell className="mt-1 h-5 w-5 text-[#0D1F3D]" />
+              <Bell className="mt-1 h-5 w-5 text-primary" />
               <div>
-                <h2 className="text-base font-bold text-[#0D1F3D]">
+                <h2 className="text-base font-bold text-primary">
                   Mobile push notifications (FCM)
                 </h2>
                 <p className="mt-1 text-sm text-slate-600">
@@ -154,7 +154,7 @@ export function NotificationChannelSettingsPage() {
             </p>
           </section>
           <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-base font-bold text-[#0D1F3D]">
+            <h2 className="text-base font-bold text-primary">
               Follow-up triggers
             </h2>
             <p className="text-sm text-slate-600">
@@ -181,9 +181,9 @@ export function NotificationChannelSettingsPage() {
           </section>
           <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-start gap-3">
-              <MessageCircle className="mt-1 h-5 w-5 text-[#0D1F3D]" />
+              <MessageCircle className="mt-1 h-5 w-5 text-primary" />
               <div>
-                <h2 className="text-base font-bold text-[#0D1F3D]">
+                <h2 className="text-base font-bold text-primary">
                   WhatsApp Business API
                 </h2>
                 <p className="mt-1 text-sm text-slate-600">

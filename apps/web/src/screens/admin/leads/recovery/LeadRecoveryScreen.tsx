@@ -34,6 +34,7 @@ import {
 
 import { DashboardSidebar } from "../../dashboard/DashboardSidebar";
 import { DashboardHeader } from "../../dashboard/DashboardHeader";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 import {
   StatsRow as SharedStatsRow,
   type LeadStatsRowItem,
@@ -660,7 +661,7 @@ export function LeadRecoveryScreen() {
   );
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -669,8 +670,7 @@ export function LeadRecoveryScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1">
-        <DashboardHeader
+      <DashboardHeader
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={
@@ -710,8 +710,8 @@ export function LeadRecoveryScreen() {
               </SelectContent>
             </Select>
           </div>
-        </DashboardHeader>
-        <main className="space-y-5 p-4 sm:p-6">
+      </DashboardHeader>
+      <WorkspacePage>
           <section className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
             <div>
               <div className="flex items-center gap-2">
@@ -763,8 +763,7 @@ export function LeadRecoveryScreen() {
             />
             <RightRail />
           </section>
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

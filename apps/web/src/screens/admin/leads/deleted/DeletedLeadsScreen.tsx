@@ -27,6 +27,7 @@ import {
 } from "ui";
 
 import { api } from "../../../../common/api";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 import { useDashboardLayout } from "../../dashboard/DashboardLayoutContext";
 
 interface DeletedLeadRow {
@@ -536,7 +537,7 @@ export function DeletedLeadsScreen() {
   );
 
   return (
-    <main className="space-y-5 p-4 sm:p-6">
+    <WorkspacePage>
       <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-extrabold text-secondary">
@@ -767,6 +768,6 @@ export function DeletedLeadsScreen() {
         onCancel={() => setBulkPermanentDeleteOpen(false)}
         onClose={() => setBulkPermanentDeleteOpen(false)}
       />
-    </main>
+    </WorkspacePage>
   );
 }

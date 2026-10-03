@@ -22,6 +22,7 @@ import {
 import { api } from "../../../../../common/api";
 import { currentOrganizationId } from "../../../../../common/tenantRequestScope";
 import { DashboardSidebar } from "../../../dashboard/DashboardSidebar";
+import { WorkspacePage } from "../../../../../components/layout/PageHeader";
 import { assignLeadsSidebarItems } from "../../assignment/leadAssignmentData";
 import { housingIntegrationQueryKey } from "./housingIntegrationQuery";
 
@@ -92,7 +93,7 @@ export function MapHousingFieldsScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -102,12 +103,11 @@ export function MapHousingFieldsScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1 flex flex-col font-sans text-secondary antialiased">
-        <main className="flex-1 space-y-6 p-4 sm:p-6 overflow-x-hidden">
+      <WorkspacePage className="space-y-6 overflow-x-hidden">
           <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-black text-secondary tracking-tight">
-                Housing.com Field Mapping
+                Housing.com field mapping
               </h1>
               <p className="text-xs font-semibold text-muted-foreground">
                 Map Housing.com JSON payload keys to Truroot CRM Lead attributes.
@@ -225,8 +225,7 @@ export function MapHousingFieldsScreen() {
               </Button>
             </div>
           </Card>
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

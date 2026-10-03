@@ -60,6 +60,7 @@ import { followUpQueueSlaMetrics } from "../../../../common/sla/slaData";
 import { SlaBadge } from "../../../../common/sla/SlaBadge";
 import { DashboardHeader } from "../../dashboard/DashboardHeader";
 import { DashboardSidebar } from "../../dashboard/DashboardSidebar";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 import { projectsCatalog } from "../../projects/projectsData";
 import { telecallerSidebarItems } from "../../../telecaller/dashboard/telecallerDashboardData";
 import { addLeadSidebarItems } from "../add/addLeadData";
@@ -3555,7 +3556,7 @@ export function FollowUpLeadsScreen() {
   const selectedCalendarDate = activeTabName === "Today" ? "20" : "21";
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -3565,8 +3566,7 @@ export function FollowUpLeadsScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1">
-        <DashboardHeader
+      <DashboardHeader
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={
@@ -3600,9 +3600,9 @@ export function FollowUpLeadsScreen() {
               </span>
             </div>
           </div>
-        </DashboardHeader>
+      </DashboardHeader>
 
-        <main className="space-y-5 p-4 sm:p-6">
+      <WorkspacePage>
           <section>
             <div className="flex items-center gap-2">
               <h1 className="text-3xl font-extrabold text-secondary">
@@ -3683,8 +3683,7 @@ export function FollowUpLeadsScreen() {
               />
             </div>
           </section>
-        </main>
-      </div>
+      </WorkspacePage>
 
       <FollowUpLeadUpdateDialog
         lead={updatingLead}
@@ -4133,6 +4132,6 @@ export function FollowUpLeadsScreen() {
           ) : null}
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

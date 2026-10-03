@@ -119,14 +119,14 @@ const BG_OPTIONS = [
   { id: "transparent", label: "Transparent", value: "transparent", border: "border-slate-300" },
   { id: "white", label: "White Card", value: "#ffffff", border: "border-slate-200 shadow-2xs" },
   { id: "slate", label: "Slate Soft", value: "#f1f5f9", border: "border-slate-200" },
-  { id: "navy", label: "Dark Navy", value: "#0d1f3d", border: "border-[#0d1f3d]" },
+  { id: "navy", label: "Dark Navy", value: "#0d1f3d", border: "border-primary" },
 ];
 
 const HEADER_BG_PRESETS = [
   { id: "transparent", label: "Transparent", value: "transparent", border: "border-slate-300" },
   { id: "white", label: "White", value: "#ffffff", border: "border-slate-200 shadow-2xs" },
   { id: "light", label: "Light Gray", value: "#f8fafc", border: "border-slate-200" },
-  { id: "navy", label: "Dark Navy", value: "#0d1f3d", border: "border-[#0d1f3d]" },
+  { id: "navy", label: "Dark Navy", value: "#0d1f3d", border: "border-primary" },
   { id: "blue", label: "Deep Blue", value: "#0b2e6b", border: "border-[#0b2e6b]" },
 ];
 
@@ -456,7 +456,7 @@ export function SidebarLogoCustomizerModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-[#0D1F3D]/70"
+            className="fixed inset-0 bg-primary/70"
           />
 
           {/* Hidden File Inputs */}
@@ -486,11 +486,11 @@ export function SidebarLogoCustomizerModal({
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-3.5 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#0D1F3D] text-white shadow-xs">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-white shadow-xs">
                   <Sparkles className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-base font-extrabold text-[#0D1F3D] tracking-tight">
+                  <h2 className="text-base font-extrabold text-primary tracking-tight">
                     Sidebar Brand Logo Customizer
                   </h2>
                   <p className="text-xs text-slate-500 font-medium">
@@ -518,7 +518,7 @@ export function SidebarLogoCustomizerModal({
                   }}
                   className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
                     activeTab === "expanded"
-                      ? "bg-[#0D1F3D] text-white shadow-xs"
+                      ? "bg-primary text-white shadow-xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
                   }`}
                 >
@@ -533,7 +533,7 @@ export function SidebarLogoCustomizerModal({
                   }}
                   className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
                     activeTab === "collapsed"
-                      ? "bg-[#0D1F3D] text-white shadow-xs"
+                      ? "bg-primary text-white shadow-xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
                   }`}
                 >
@@ -558,8 +558,8 @@ export function SidebarLogoCustomizerModal({
                   /* Expanded Logo Tab Content */
                   <div className="space-y-3.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#0D1F3D] flex items-center gap-1.5">
-                        <CropIcon className="h-4 w-4 text-[#0D1F3D]" />
+                      <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                        <CropIcon className="h-4 w-4 text-primary" />
                         1. Crop & Scale Main Logo
                       </span>
                       <button
@@ -567,7 +567,7 @@ export function SidebarLogoCustomizerModal({
                         onClick={() => mainFileInputRef.current?.click()}
                         className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition shadow-2xs"
                       >
-                        <Upload className="h-3 w-3 text-[#0D1F3D]" /> Change Image
+                        <Upload className="h-3 w-3 text-primary" /> Change Image
                       </button>
                     </div>
 
@@ -594,7 +594,7 @@ export function SidebarLogoCustomizerModal({
 
                     {/* Aspect Ratio Selector */}
                     <div className="space-y-1.5">
-                      <span className="text-[11px] font-semibold text-[#0D1F3D] block">
+                      <span className="text-[11px] font-semibold text-primary block">
                         Crop Aspect Ratio
                       </span>
                       <div className="grid grid-cols-4 gap-1.5">
@@ -605,7 +605,7 @@ export function SidebarLogoCustomizerModal({
                             onClick={() => setAspect(opt.value)}
                             className={`py-1 text-[11px] font-semibold rounded border text-center transition ${
                               aspect === opt.value
-                                ? "border-[#0D1F3D] bg-[#0D1F3D] text-white shadow-2xs"
+                                ? "border-primary bg-primary text-white shadow-2xs"
                                 : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                             }`}
                           >
@@ -620,10 +620,10 @@ export function SidebarLogoCustomizerModal({
                       {/* Zoom Control */}
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-[11px]">
-                          <span className="font-semibold text-[#0D1F3D] flex items-center gap-1">
-                            <ZoomIn className="h-3 w-3 text-[#0D1F3D]" /> Zoom
+                          <span className="font-semibold text-primary flex items-center gap-1">
+                            <ZoomIn className="h-3 w-3 text-primary" /> Zoom
                           </span>
-                          <span className="font-mono font-bold text-[#0D1F3D]">{zoom.toFixed(1)}x</span>
+                          <span className="font-mono font-bold text-primary">{zoom.toFixed(1)}x</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <button
@@ -640,7 +640,7 @@ export function SidebarLogoCustomizerModal({
                             step="0.1"
                             value={zoom}
                             onChange={(e) => setZoom(Number(e.target.value))}
-                            className="w-full accent-[#0D1F3D] h-1.5 bg-slate-200 rounded cursor-pointer"
+                            className="w-full accent-primary h-1.5 bg-slate-200 rounded cursor-pointer"
                           />
                           <button
                             type="button"
@@ -655,10 +655,10 @@ export function SidebarLogoCustomizerModal({
                       {/* Rotation Control */}
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-[11px]">
-                          <span className="font-semibold text-[#0D1F3D] flex items-center gap-1">
-                            <RotateCw className="h-3 w-3 text-[#0D1F3D]" /> Rotation
+                          <span className="font-semibold text-primary flex items-center gap-1">
+                            <RotateCw className="h-3 w-3 text-primary" /> Rotation
                           </span>
-                          <span className="font-mono font-bold text-[#0D1F3D]">{rotation}°</span>
+                          <span className="font-mono font-bold text-primary">{rotation}°</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <button
@@ -683,8 +683,8 @@ export function SidebarLogoCustomizerModal({
                   /* Collapsed Logo Tab Content */
                   <div className="space-y-3.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-extrabold text-[#0D1F3D] flex items-center gap-1.5">
-                        <Minimize2 className="h-4 w-4 text-[#0D1F3D]" />
+                      <span className="text-xs font-extrabold text-primary flex items-center gap-1.5">
+                        <Minimize2 className="h-4 w-4 text-primary" />
                         2. Collapsed Icon Configuration
                       </span>
                     </div>
@@ -697,9 +697,9 @@ export function SidebarLogoCustomizerModal({
                           name="collapsedLogoMode"
                           checked={!useCustomCollapsedLogo}
                           onChange={() => setUseCustomCollapsedLogo(false)}
-                          className="accent-[#0D1F3D]"
+                          className="accent-primary"
                         />
-                        <span className="text-xs font-semibold text-[#0D1F3D]">
+                        <span className="text-xs font-semibold text-primary">
                           Use main logo automatically (Auto-scaled)
                         </span>
                       </label>
@@ -709,9 +709,9 @@ export function SidebarLogoCustomizerModal({
                           name="collapsedLogoMode"
                           checked={useCustomCollapsedLogo}
                           onChange={() => setUseCustomCollapsedLogo(true)}
-                          className="accent-[#0D1F3D]"
+                          className="accent-primary"
                         />
-                        <span className="text-xs font-semibold text-[#0D1F3D]">
+                        <span className="text-xs font-semibold text-primary">
                           Upload dedicated mini icon / emblem (1:1 Square)
                         </span>
                       </label>
@@ -720,7 +720,7 @@ export function SidebarLogoCustomizerModal({
                     {useCustomCollapsedLogo ? (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-semibold text-[#0D1F3D]">
+                          <span className="text-[11px] font-semibold text-primary">
                             Crop Collapsed Mini Icon (1:1)
                           </span>
                           <button
@@ -728,7 +728,7 @@ export function SidebarLogoCustomizerModal({
                             onClick={() => collapsedFileInputRef.current?.click()}
                             className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition shadow-2xs"
                           >
-                            <Upload className="h-3 w-3 text-[#0D1F3D]" /> Upload Icon File
+                            <Upload className="h-3 w-3 text-primary" /> Upload Icon File
                           </button>
                         </div>
 
@@ -756,8 +756,8 @@ export function SidebarLogoCustomizerModal({
                         {/* Zoom Control */}
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-[11px]">
-                            <span className="font-semibold text-[#0D1F3D]">Icon Zoom</span>
-                            <span className="font-mono font-bold text-[#0D1F3D]">
+                            <span className="font-semibold text-primary">Icon Zoom</span>
+                            <span className="font-mono font-bold text-primary">
                               {collapsedZoom.toFixed(1)}x
                             </span>
                           </div>
@@ -768,7 +768,7 @@ export function SidebarLogoCustomizerModal({
                             step="0.1"
                             value={collapsedZoom}
                             onChange={(e) => setCollapsedZoom(Number(e.target.value))}
-                            className="w-full accent-[#0D1F3D] h-1.5 bg-slate-200 rounded cursor-pointer"
+                            className="w-full accent-primary h-1.5 bg-slate-200 rounded cursor-pointer"
                           />
                         </div>
                       </div>
@@ -795,8 +795,8 @@ export function SidebarLogoCustomizerModal({
               <div className="lg:col-span-6 p-5 space-y-4 flex flex-col justify-between">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-extrabold text-[#0D1F3D] flex items-center gap-1.5">
-                      <Maximize2 className="h-4 w-4 text-[#0D1F3D]" />
+                    <span className="text-xs font-extrabold text-primary flex items-center gap-1.5">
+                      <Maximize2 className="h-4 w-4 text-primary" />
                       Live Sidebar Header Preview
                     </span>
                     <div className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5 shadow-2xs">
@@ -805,7 +805,7 @@ export function SidebarLogoCustomizerModal({
                         onClick={() => setPreviewMode("expanded")}
                         className={`px-2.5 py-1 text-[10px] font-bold rounded transition ${
                           previewMode === "expanded"
-                            ? "bg-[#0D1F3D] text-white shadow-2xs"
+                            ? "bg-primary text-white shadow-2xs"
                             : "text-slate-600 hover:text-slate-900"
                         }`}
                       >
@@ -816,7 +816,7 @@ export function SidebarLogoCustomizerModal({
                         onClick={() => setPreviewMode("collapsed")}
                         className={`px-2.5 py-1 text-[10px] font-bold rounded transition ${
                           previewMode === "collapsed"
-                            ? "bg-[#0D1F3D] text-white shadow-2xs"
+                            ? "bg-primary text-white shadow-2xs"
                             : "text-slate-600 hover:text-slate-900"
                         }`}
                       >
@@ -874,7 +874,7 @@ export function SidebarLogoCustomizerModal({
                                 >
                                   {/* Canva Floating Dimension Badge (Floats OUTSIDE above image with z-50) */}
                                   {(isLogoSelected || isDraggingLogo) && (
-                                    <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-[#0D1F3D] text-white px-2.5 py-0.5 rounded text-[10px] font-mono font-bold shadow-xl border border-sky-400/40 flex items-center gap-1 z-50 whitespace-nowrap animate-in fade-in duration-150 pointer-events-none">
+                                    <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-primary text-white px-2.5 py-0.5 rounded text-[10px] font-mono font-bold shadow-xl border border-sky-400/40 flex items-center gap-1 z-50 whitespace-nowrap animate-in fade-in duration-150 pointer-events-none">
                                       <Sparkles className="h-2.5 w-2.5 text-sky-400" />
                                       <span>Height: {logoHeight}px</span>
                                     </div>
@@ -994,8 +994,8 @@ export function SidebarLogoCustomizerModal({
                           <div
                             className={`flex items-center rounded-sm py-2 transition-all ${
                               previewMode === "expanded"
-                                ? "px-3 gap-3 justify-start bg-[#0D1F3D] text-white text-[13px] font-semibold shadow-xs"
-                                : "w-11 h-9 mx-auto justify-center px-0 bg-[#0D1F3D] text-white shadow-xs font-semibold"
+                                ? "px-3 gap-3 justify-start bg-primary text-white text-[13px] font-semibold shadow-xs"
+                                : "w-11 h-9 mx-auto justify-center px-0 bg-primary text-white shadow-xs font-semibold"
                             }`}
                             title="Dashboard"
                           >
@@ -1022,7 +1022,7 @@ export function SidebarLogoCustomizerModal({
                                 {previewMode === "expanded" && <span className="truncate">Sales Pipeline</span>}
                               </div>
                               {previewMode === "expanded" && (
-                                <span className="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-extrabold bg-red-50 text-[#E20613] border border-red-200/60">
+                                <span className="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-extrabold bg-red-50 text-tertiary border border-red-200/60">
                                   ₹2.46 Cr
                                 </span>
                               )}
@@ -1041,7 +1041,7 @@ export function SidebarLogoCustomizerModal({
                                 {previewMode === "expanded" && <span className="truncate">Leads Management</span>}
                               </div>
                               {previewMode === "expanded" && (
-                                <span className="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-extrabold bg-red-50 text-[#E20613] border border-red-200/60">
+                                <span className="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-extrabold bg-red-50 text-tertiary border border-red-200/60">
                                   1,250 Leads
                                 </span>
                               )}
@@ -1053,12 +1053,12 @@ export function SidebarLogoCustomizerModal({
                       {/* Mini Sidebar Bottom Profile Card matching AppShell 100% */}
                       <div className={`p-2 border-t border-slate-100 bg-slate-50/70 flex items-center ${previewMode === "expanded" ? "justify-between" : "justify-center"}`}>
                         <div className={`flex items-center ${previewMode === "expanded" ? "gap-2 min-w-0" : "justify-center"}`}>
-                          <div className="h-7 w-7 rounded-full bg-[#0D1F3D] text-white flex items-center justify-center font-semibold text-[10px] shrink-0">
+                          <div className="h-7 w-7 rounded-full bg-primary text-white flex items-center justify-center font-semibold text-[10px] shrink-0">
                             AD
                           </div>
                           {previewMode === "expanded" && (
                             <div className="min-w-0">
-                              <p className="text-[11px] font-semibold text-[#0D1F3D] truncate">Super Admin</p>
+                              <p className="text-[11px] font-semibold text-primary truncate">Super Admin</p>
                               <p className="text-[9px] text-slate-500 font-medium truncate">admin@visiblo.com</p>
                             </div>
                           )}
@@ -1074,7 +1074,7 @@ export function SidebarLogoCustomizerModal({
                   <div className="space-y-2 p-3 rounded-lg bg-slate-50 border border-slate-200">
                     <div className="flex items-center justify-between">
                       <div>
-                        <label className="text-xs font-bold text-[#0D1F3D] block">
+                        <label className="text-xs font-bold text-primary block">
                           Sidebar Header Background Color
                         </label>
                         <p className="text-[10px] text-slate-500">
@@ -1094,7 +1094,7 @@ export function SidebarLogoCustomizerModal({
                           value={headerBg}
                           onChange={(e) => setHeaderBg(e.target.value)}
                           placeholder="#ffffff or transparent"
-                          className="w-28 px-2 py-0.5 text-xs font-mono font-bold text-slate-800 bg-white border border-slate-300 rounded focus:outline-none focus:border-[#0D1F3D]"
+                          className="w-28 px-2 py-0.5 text-xs font-mono font-bold text-slate-800 bg-white border border-slate-300 rounded focus:outline-none focus:border-primary"
                         />
                       </div>
                     </div>
@@ -1107,7 +1107,7 @@ export function SidebarLogoCustomizerModal({
                           onClick={() => setHeaderBg(opt.value)}
                           className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded border text-center transition ${
                             headerBg === opt.value
-                              ? "border-[#0D1F3D] bg-white font-semibold ring-1 ring-[#0D1F3D]/30"
+                              ? "border-primary bg-white font-semibold ring-1 ring-primary/30"
                               : "border-slate-200 bg-white/70 hover:bg-white text-slate-600"
                           }`}
                         >
@@ -1129,10 +1129,10 @@ export function SidebarLogoCustomizerModal({
                   {/* Sidebar Logo Height Slider */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <label className="font-semibold text-[#0D1F3D]">
+                      <label className="font-semibold text-primary">
                         Expanded Logo Height Scale
                       </label>
-                      <span className="font-mono font-bold text-[#0D1F3D] bg-slate-100 px-2 py-0.5 rounded border border-slate-300 text-xs">
+                      <span className="font-mono font-bold text-primary bg-slate-100 px-2 py-0.5 rounded border border-slate-300 text-xs">
                         {logoHeight}px
                       </span>
                     </div>
@@ -1143,13 +1143,13 @@ export function SidebarLogoCustomizerModal({
                       step="2"
                       value={logoHeight}
                       onChange={(e) => setLogoHeight(Number(e.target.value))}
-                      className="w-full accent-[#0D1F3D] cursor-pointer h-2 bg-slate-200 rounded-lg"
+                      className="w-full accent-primary cursor-pointer h-2 bg-slate-200 rounded-lg"
                     />
                   </div>
 
                   {/* Logo Alignment Feature */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-[#0D1F3D] block">
+                    <label className="text-xs font-semibold text-primary block">
                       Logo Alignment
                     </label>
                     <div className="grid grid-cols-3 gap-2">
@@ -1162,7 +1162,7 @@ export function SidebarLogoCustomizerModal({
                             onClick={() => setLogoAlign(opt.id)}
                             className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded border text-xs font-semibold transition ${
                               logoAlign === opt.id
-                                ? "border-[#0D1F3D] bg-[#0D1F3D] text-white shadow-2xs"
+                                ? "border-primary bg-primary text-white shadow-2xs"
                                 : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                             }`}
                           >
@@ -1176,7 +1176,7 @@ export function SidebarLogoCustomizerModal({
 
                   {/* Logo Card Background Fill */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-[#0D1F3D] block">
+                    <label className="text-xs font-semibold text-primary block">
                       Logo Card Fill
                     </label>
                     <div className="grid grid-cols-4 gap-1.5">
@@ -1187,7 +1187,7 @@ export function SidebarLogoCustomizerModal({
                           onClick={() => setLogoBg(opt.value)}
                           className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded border text-center transition ${
                             logoBg === opt.value
-                              ? "border-[#0D1F3D] bg-slate-100 font-semibold ring-1 ring-[#0D1F3D]/30"
+                              ? "border-primary bg-slate-100 font-semibold ring-1 ring-primary/30"
                               : "border-slate-200 bg-white hover:bg-slate-50"
                           }`}
                         >
@@ -1208,7 +1208,7 @@ export function SidebarLogoCustomizerModal({
 
                   {/* Container Corner Radius */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-[#0D1F3D] block">
+                    <label className="text-xs font-semibold text-primary block">
                       Container Radius
                     </label>
                     <div className="grid grid-cols-4 gap-1.5">
@@ -1219,7 +1219,7 @@ export function SidebarLogoCustomizerModal({
                           onClick={() => setLogoRadius(opt.value)}
                           className={`py-1 text-[11px] font-semibold rounded border text-center transition ${
                             logoRadius === opt.value
-                              ? "border-[#0D1F3D] bg-[#0D1F3D] text-white shadow-2xs"
+                              ? "border-primary bg-primary text-white shadow-2xs"
                               : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                           }`}
                         >
@@ -1232,7 +1232,7 @@ export function SidebarLogoCustomizerModal({
 
                 {/* Sidebar Header Toggle */}
                 <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-[#0D1F3D]">
+                  <span className="text-xs font-semibold text-primary">
                     Show Logo in Sidebar Header
                   </span>
                   <Checkbox
@@ -1273,7 +1273,7 @@ export function SidebarLogoCustomizerModal({
                   size="sm"
                   onClick={handleConfirmSave}
                   disabled={isProcessing}
-                  className="gap-1.5 font-semibold text-xs shadow-md bg-[#0D1F3D] hover:bg-[#071326] text-white min-w-[190px] justify-center"
+                  className="gap-1.5 font-semibold text-xs shadow-md bg-primary hover:bg-[#071326] text-white min-w-[190px] justify-center"
                 >
                   {isProcessing ? (
                     <>

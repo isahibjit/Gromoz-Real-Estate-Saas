@@ -50,6 +50,7 @@ import { useNavigate } from "react-router-dom";
 
 import { DashboardSidebar } from "../../dashboard/DashboardSidebar";
 import { DashboardHeader } from "../../dashboard/DashboardHeader";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 import { addLeadSidebarItems } from "../add/addLeadData";
 import { downloadCsvFile } from "../components/exportCsv";
 import { LeadActionsMenu } from "../components/LeadActionsMenu";
@@ -1073,7 +1074,7 @@ export function ColdLeadsScreen() {
     !coldLeadsQuery.isFetching &&
     filteredRows.length === 0;
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -1084,8 +1085,7 @@ export function ColdLeadsScreen() {
         onMobileClose={() => setMobileOpen(false)}
       />
 
-      <div className="min-w-0 flex-1">
-        <DashboardHeader
+      <DashboardHeader
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={
@@ -1113,9 +1113,9 @@ export function ColdLeadsScreen() {
               </span>
             </div>
           </div>
-        </DashboardHeader>
+      </DashboardHeader>
 
-        <main className="space-y-5 p-4 sm:p-6">
+      <WorkspacePage>
           <section>
             <div className="flex items-center gap-2">
               <h1 className="flex items-center gap-2 text-3xl font-extrabold text-secondary">
@@ -1171,8 +1171,7 @@ export function ColdLeadsScreen() {
           <div className="">
             <ReactivationCampaignPerformanceCard />
           </div>
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

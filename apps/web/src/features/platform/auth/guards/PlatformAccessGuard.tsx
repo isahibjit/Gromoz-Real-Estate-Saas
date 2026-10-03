@@ -30,9 +30,9 @@ export function PlatformAccessGuard({
 
   if (loading || (!loaded && isAuthenticated)) {
     return (
-      <div className="min-h-screen bg-[#F3F5F7] flex items-center justify-center p-6 font-sans">
+      <div className="min-h-screen bg-background flex items-center justify-center p-6 font-sans">
         <div className="text-center space-y-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#0D1F3D] border-t-transparent mx-auto" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
           <p className="text-xs font-semibold text-slate-500">Verifying platform permissions...</p>
         </div>
       </div>
@@ -41,13 +41,13 @@ export function PlatformAccessGuard({
 
   if (!hasAccess) {
     return (
-      <div className="min-h-screen bg-[#F3F5F7] flex items-center justify-center p-6 font-sans">
+      <div className="min-h-screen bg-background flex items-center justify-center p-6 font-sans">
         <div className="max-w-md w-full rounded-sm border border-slate-200 bg-white p-8 shadow-xl text-center space-y-4">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-100 text-rose-600">
             <ShieldAlert className="h-7 w-7" />
           </div>
           <div>
-            <h2 className="text-xl font-extrabold text-[#0D1F3D]">Access Restricted</h2>
+            <h2 className="text-xl font-extrabold text-primary">Access Restricted</h2>
             <p className="text-xs text-slate-500 font-medium mt-1">
               You do not have permission to access the Smart Field Work Platform Console or this specific resource ({requiredPermission}).
             </p>

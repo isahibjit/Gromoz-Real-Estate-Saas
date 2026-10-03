@@ -46,7 +46,7 @@ export function PlatformSettingsScreen() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-[#0D1F3D]">Platform Settings</h1>
+            <h1 className="text-2xl font-extrabold text-primary">Platform Settings</h1>
             <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
               <Settings className="h-4 w-4" />
             </span>
@@ -59,7 +59,7 @@ export function PlatformSettingsScreen() {
         <Button
           onClick={handleSave}
           disabled={saving}
-          className="gap-2 font-bold bg-[#0D1F3D] text-white hover:bg-[#132d56] shadow-xs"
+          className="gap-2 font-bold bg-primary text-white hover:bg-[#132d56] shadow-xs"
         >
           <Save className="h-4 w-4" /> {saving ? "Saving..." : "Save Platform Settings"}
         </Button>
@@ -70,7 +70,7 @@ export function PlatformSettingsScreen() {
         <div className="rounded-sm border border-slate-200 bg-white p-6 shadow-xs space-y-4">
           <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
             <Globe className="h-4 w-4 text-blue-600" />
-            <h3 className="text-sm font-bold text-[#0D1F3D]">Global Platform Identity</h3>
+            <h3 className="text-sm font-bold text-primary">Global Platform Identity</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -80,7 +80,7 @@ export function PlatformSettingsScreen() {
                 type="text"
                 value={form.platformName}
                 onChange={(e) => setForm({ ...form, platformName: e.target.value })}
-                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -100,7 +100,7 @@ export function PlatformSettingsScreen() {
                 type="email"
                 value={form.supportEmail}
                 onChange={(e) => setForm({ ...form, supportEmail: e.target.value })}
-                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -110,7 +110,7 @@ export function PlatformSettingsScreen() {
                 type="text"
                 value={form.supportPhone}
                 onChange={(e) => setForm({ ...form, supportPhone: e.target.value })}
-                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-primary focus:outline-none"
               />
             </div>
           </div>
@@ -120,7 +120,7 @@ export function PlatformSettingsScreen() {
         <div className="rounded-sm border border-slate-200 bg-white p-6 shadow-xs space-y-4">
           <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
             <CreditCard className="h-4 w-4 text-emerald-600" />
-            <h3 className="text-sm font-bold text-[#0D1F3D]">Commercial Billing & Payment Gateway</h3>
+            <h3 className="text-sm font-bold text-primary">Commercial Billing & Payment Gateway</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -130,7 +130,7 @@ export function PlatformSettingsScreen() {
                 type="text"
                 value={form.razorpayKeyId}
                 onChange={(e) => setForm({ ...form, razorpayKeyId: e.target.value })}
-                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-mono font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-mono font-semibold text-slate-800 focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -140,7 +140,7 @@ export function PlatformSettingsScreen() {
                 type="password"
                 value={form.razorpaySecret}
                 onChange={(e) => setForm({ ...form, razorpaySecret: e.target.value })}
-                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-mono font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-mono font-semibold text-slate-800 focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -150,7 +150,7 @@ export function PlatformSettingsScreen() {
                 type="number"
                 value={form.defaultTrialDays}
                 onChange={(e) => setForm({ ...form, defaultTrialDays: Number(e.target.value) })}
-                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -160,7 +160,7 @@ export function PlatformSettingsScreen() {
                 type="number"
                 value={form.defaultStorageGb}
                 onChange={(e) => setForm({ ...form, defaultStorageGb: Number(e.target.value) })}
-                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-primary focus:outline-none"
               />
             </div>
           </div>
@@ -170,7 +170,7 @@ export function PlatformSettingsScreen() {
         <div className="rounded-sm border border-slate-200 bg-white p-6 shadow-xs space-y-4">
           <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
             <Mail className="h-4 w-4 text-purple-600" />
-            <h3 className="text-sm font-bold text-[#0D1F3D]">Global Communication & Delivery Gateways</h3>
+            <h3 className="text-sm font-bold text-primary">Global Communication & Delivery Gateways</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -180,7 +180,7 @@ export function PlatformSettingsScreen() {
                 type="text"
                 value={form.smtpHost}
                 onChange={(e) => setForm({ ...form, smtpHost: e.target.value })}
-                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -190,7 +190,7 @@ export function PlatformSettingsScreen() {
                 type="text"
                 value={form.smsGatewayProvider}
                 onChange={(e) => setForm({ ...form, smsGatewayProvider: e.target.value })}
-                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0D1F3D] focus:outline-none"
+                className="mt-1 h-10 w-full rounded-sm border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-primary focus:outline-none"
               />
             </div>
           </div>

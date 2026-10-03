@@ -519,7 +519,7 @@ export function LoginPageCmsModal({
                     <div className="h-6 bg-slate-100 rounded border border-slate-200 px-2 flex items-center text-[9px] text-slate-400">
                       ••••••••
                     </div>
-                    <div className="h-6 bg-[#0D1F3D] text-white rounded font-semibold text-[9px] flex items-center justify-center">
+                    <div className="h-6 bg-primary text-white rounded font-semibold text-[9px] flex items-center justify-center">
                       Login
                     </div>
                   </div>

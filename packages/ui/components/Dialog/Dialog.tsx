@@ -16,7 +16,7 @@ export const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "crm-dialog-overlay fixed inset-0 z-50 bg-slate-900/20",
+      "crm-dialog-overlay fixed inset-0 z-50 bg-slate-900/20 backdrop-blur-sm",
       className,
     )}
     {...props}
@@ -34,8 +34,9 @@ export const DialogContent = React.forwardRef<
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      data-slot="dialog-content"
       className={cn(
-        "crm-dialog-content fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border bg-card p-6 shadow-[0_18px_50px_rgba(15,37,68,0.18)] focus:outline-none",
+        "crm-dialog-content fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border bg-card p-6 shadow-dropdown focus:outline-none",
         className,
       )}
       {...props}
@@ -106,4 +107,3 @@ export const DialogFooter = ({
   />
 );
 DialogFooter.displayName = "DialogFooter";
-

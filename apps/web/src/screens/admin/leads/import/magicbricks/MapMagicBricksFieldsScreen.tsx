@@ -10,6 +10,7 @@ import {
 } from "ui";
 
 import { DashboardSidebar } from "../../../dashboard/DashboardSidebar";
+import { WorkspacePage } from "../../../../../components/layout/PageHeader";
 import { assignLeadsSidebarItems } from "../../assignment/leadAssignmentData";
 import {
   ConnectionStepper,
@@ -75,7 +76,7 @@ export function MapMagicBricksFieldsScreen() {
       .every((option) => Object.values(mapping).includes(option.value));
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -85,15 +86,14 @@ export function MapMagicBricksFieldsScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1 flex-col">
-        <Header
+      <Header
           search={search}
           onSearchChange={setSearch}
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={["Connect to MagicBricks", "Map fields"]}
-        />
-        <main className="space-y-5 p-4 sm:p-6">
+      />
+      <WorkspacePage>
           <section>
             <h1 className="text-2xl font-extrabold text-secondary">
               Map MagicBricks fields
@@ -309,8 +309,7 @@ export function MapMagicBricksFieldsScreen() {
               </p>
             </Card>
           )}
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

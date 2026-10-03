@@ -1,20 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Bell,
-  CalendarDays,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Download,
   Filter,
-  Info,
-  Menu,
   MessageCircle,
   MoreHorizontal,
   Phone,
   RefreshCcw,
-  Search,
   ArrowRight,
   Eye,
 } from "lucide-react";
@@ -40,7 +34,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Input,
   Select,
   SelectContent,
   SelectItem,
@@ -52,7 +45,11 @@ import {
   cn,
 } from "ui";
 
-import { useAppSelector } from "../../../store";
+import {
+  PageHeader,
+  WorkspacePage,
+} from "../../../components/layout/PageHeader";
+import { DashboardHeader } from "../dashboard/DashboardHeader";
 import { DashboardSidebar } from "../dashboard/DashboardSidebar";
 import { addLeadSidebarItems } from "../leads/add/addLeadData";
 
@@ -68,168 +65,6 @@ import {
 } from "./aiPredictionData";
 
 
-
-function Header({
-  search,
-  onSearchChange,
-  onMobileMenuOpen,
-  onDesktopSidebarToggle,
-}: {
-  search: string;
-  onSearchChange: (value: string) => void;
-  onMobileMenuOpen: () => void;
-  onDesktopSidebarToggle: () => void;
-}) {
-  const user = useAppSelector((state) => state.auth.user);
-  return (
-    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-        <div className="flex items-center gap-3">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            aria-label="Open navigation"
-            onClick={onMobileMenuOpen}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="hidden lg:inline-flex"
-            aria-label="Toggle sidebar"
-            onClick={onDesktopSidebarToggle}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-          <div className="hidden items-center gap-2 text-sm font-bold text-muted-foreground md:flex">
-            <span>Dashboard</span>
-            <ChevronRight className="h-4 w-4" />
-            <span>Lead Management</span>
-            <ChevronRight className="h-4 w-4" />
-            <span className="text-secondary">AI Lead Prediction Center</span>
-          </div>
-        </div>
-        <div className="grid flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_220px_auto] xl:items-center">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              aria-label="Search leads"
-              value={search}
-              placeholder="Search leads, customers, projects..."
-              className="h-11 rounded-md border-slate-200 pl-11 pr-14 text-sm font-semibold shadow-none"
-              onChange={(event) => onSearchChange(event.target.value)}
-            />
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-extrabold text-muted-foreground">
-              ⌘ K
-            </span>
-          </div>
-          <Select defaultValue="date">
-            <SelectTrigger
-              aria-label="Date range"
-              className="h-11 rounded-md text-sm font-bold shadow-none"
-            >
-              <CalendarDays className="h-4 w-4 text-info" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="date">May 20, 2025</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="ml-auto flex items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="relative rounded-md border border-slate-200 bg-white"
-            >
-              <Bell className="h-4 w-4 text-secondary" />
-              <Badge className="absolute -right-1 -top-1 min-w-4 border-0 bg-primary px-1 py-0 text-[9px] text-white bg-orange-500">
-                12
-              </Badge>
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="relative rounded-md border border-slate-200 bg-white"
-            >
-              <MessageCircle className="h-4 w-4 text-secondary" />
-              <Badge className="absolute -right-1 -top-1 min-w-4 border-0 bg-primary px-1 py-0 text-[9px] text-white bg-orange-500">
-                5
-              </Badge>
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-auto rounded-md border border-slate-200 px-2 py-1.5"
-            >
-              <Avatar className="h-10 w-10">
-                <AvatarFallback>AK</AvatarFallback>
-              </Avatar>
-              <span className="hidden text-left md:block">
-                <span className="block text-sm font-extrabold text-secondary">
-                  {user?.fullName || "Amit Kumar"}
-                </span>
-                <span className="block text-xs font-semibold text-muted-foreground">
-                  Admin
-                </span>
-              </span>
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            </Button>
-          </div>
-        </div>
-      </div>
-    </header>
-  );
-}
-
-function PageHeader() {
-  return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-extrabold text-secondary">
-            AI Lead Prediction Center
-          </h1>
-          <Info className="h-4 w-4 text-blue-500" />
-        </div>
-        <p className="mt-1 text-sm font-semibold text-muted-foreground">
-          AI-powered insights to predict lead conversion probability and
-          prioritize follow-ups for better results.
-        </p>
-      </div>
-      <div className="flex items-center gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          className="h-10 rounded-md border-slate-200 font-bold text-secondary shadow-none"
-        >
-          <Download className="mr-2 h-4 w-4" />
-          Export Report
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-10 rounded-md border-slate-200 font-bold text-secondary shadow-none"
-        >
-          <Filter className="mr-2 h-4 w-4" />
-          Filters
-        </Button>
-        <Button
-          type="button"
-          className="h-10 rounded-md bg-gradient-to-r from-blue-600 to-indigo-600 font-bold text-white border-0 shadow-none hover:opacity-90"
-        >
-          <RefreshCcw className="mr-2 h-4 w-4" />
-          Refresh AI Scores
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 function StatsRow() {
   return (
@@ -863,10 +698,9 @@ function TopAIScoreLeadsTable() {
 export function AiLeadPredictionScreen() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [search, setSearch] = useState("");
 
   return (
-    <div className="min-h-screen bg-slate-50/50 lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -876,35 +710,50 @@ export function AiLeadPredictionScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1 flex flex-col">
-        <Header
-          search={search}
-          onSearchChange={setSearch}
-          onMobileMenuOpen={() => setMobileOpen(true)}
-          onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
+      <DashboardHeader
+        onMobileMenuOpen={() => setMobileOpen(true)}
+        onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
+        breadcrumbs={<span>AI lead prediction</span>}
+      />
+      <WorkspacePage>
+        <PageHeader
+          title="AI lead prediction center"
+          subtitle="AI-powered insights to predict lead conversion probability and prioritize follow-ups."
+          actions={
+            <>
+              <Button type="button" variant="outline">
+                <Download className="mr-2 h-4 w-4" />
+                Export report
+              </Button>
+              <Button type="button" variant="outline">
+                <Filter className="mr-2 h-4 w-4" />
+                Filters
+              </Button>
+              <Button type="button">
+                <RefreshCcw className="mr-2 h-4 w-4" />
+                Refresh AI scores
+              </Button>
+            </>
+          }
         />
-        <main className="flex-1 space-y-5">
-          <PageHeader />
-          <StatsRow />
-          <div className="grid gap-6 xl:grid-cols-[1fr_320px] items-start">
-            <div className="space-y-6 min-w-0">
-              <div className="grid gap-6 lg:grid-cols-3">
-                <LeadScoreDistributionCard />
-                <AiScoreFactorsCard />
-                <ConversionProbabilityByScoreCard />
-              </div>
-              <TopAIScoreLeadsTable />
+        <StatsRow />
+        <div className="grid items-start gap-6 xl:grid-cols-[1fr_320px]">
+          <div className="min-w-0 space-y-6">
+            <div className="grid gap-6 lg:grid-cols-3">
+              <LeadScoreDistributionCard />
+              <AiScoreFactorsCard />
+              <ConversionProbabilityByScoreCard />
             </div>
-            <div className="hidden xl:block">
-              <RightSidebarCards />
-            </div>
-            {/* Show below table on smaller screens */}
-            <div className="xl:hidden">
-              <RightSidebarCards />
-            </div>
+            <TopAIScoreLeadsTable />
           </div>
-        </main>
-      </div>
-    </div>
+          <div className="hidden xl:block">
+            <RightSidebarCards />
+          </div>
+          <div className="xl:hidden">
+            <RightSidebarCards />
+          </div>
+        </div>
+      </WorkspacePage>
+    </>
   );
 }

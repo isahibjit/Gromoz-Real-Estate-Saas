@@ -81,8 +81,8 @@ test("highlights only the selected import method", () => {
 
   expect(
     screen.getByRole("link", { name: /Portal Integrations/ }),
-  ).not.toHaveClass("bg-[#0D1F3D]");
+  ).not.toHaveClass("bg-primary");
   expect(screen.getByRole("link", { name: "Import CSV Leads" })).toHaveClass(
-    "bg-[#0D1F3D]",
+    "bg-primary",
   );
 });

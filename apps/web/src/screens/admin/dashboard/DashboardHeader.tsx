@@ -120,19 +120,26 @@ export function DashboardHeader({
         <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-slate-500 flex-shrink-0">
           <NavLink
             to={isPlatformSuperAdminView ? "/superadmin" : "/admin/dashboard"}
-            className="flex items-center text-slate-400 hover:text-[#0D1F3D] transition-colors"
+            className="flex items-center text-slate-400 hover:text-primary transition-colors"
             title="Home"
           >
             <Home className="h-4 w-4" />
           </NavLink>
 
-          {breadcrumbList.map((crumb, idx) => {
+          {breadcrumbs ? (
+            <>
+              <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-slate-300" />
+              <span className="rounded-sm border border-slate-200/60 bg-slate-100 px-2.5 py-1 font-extrabold text-primary shadow-xs">
+                {breadcrumbs}
+              </span>
+            </>
+          ) : breadcrumbList.map((crumb, idx) => {
             const isLast = idx === breadcrumbList.length - 1;
             return (
               <React.Fragment key={crumb + idx}>
                 <ChevronRight className="h-3.5 w-3.5 text-slate-300 flex-shrink-0" />
                 {isLast ? (
-                  <span className="font-extrabold text-[#0D1F3D] bg-slate-100 px-2.5 py-1 rounded-sm border border-slate-200/60 shadow-xs">
+                  <span className="font-extrabold text-primary bg-slate-100 px-2.5 py-1 rounded-sm border border-slate-200/60 shadow-xs">
                     {crumb}
                   </span>
                 ) : (
@@ -159,7 +166,7 @@ export function DashboardHeader({
         {!isPlatformSuperAdminView && (
           <Button
             asChild
-            className="hidden h-9 px-3.5 text-xs font-bold sm:inline-flex bg-[#0D1F3D] hover:bg-[#0D1F3D]/90 text-white rounded-sm shadow-xs"
+            className="hidden h-9 px-3.5 text-xs font-bold sm:inline-flex bg-primary hover:bg-primary/90 text-white rounded-sm shadow-xs"
           >
             <Link to="/leads/all" state={{ openAddLead: true }}>
               <Plus className="size-3.5 mr-1" />
@@ -184,16 +191,16 @@ export function DashboardHeader({
                   className="h-9 w-9 rounded-sm object-cover shadow-xs border border-slate-200"
                 />
               ) : (
-                <div className="flex h-9 w-9 items-center justify-center rounded-sm bg-[#0D1F3D] text-xs font-bold text-white shadow-sm">
+                <div className="flex h-9 w-9 items-center justify-center rounded-sm bg-primary text-xs font-bold text-white shadow-sm">
                   {profileName.slice(0, 2).toUpperCase()}
                 </div>
               )}
 
               <div className="hidden sm:block text-left">
-                <p className="text-xs font-bold text-[#0D1F3D] max-w-[140px] truncate">
+                <p className="text-xs font-bold text-primary max-w-[140px] truncate">
                   {profileName}
                 </p>
-                <p className="text-[11px] font-semibold text-[#E20613] max-w-[140px] truncate">
+                <p className="text-[11px] font-semibold text-tertiary max-w-[140px] truncate">
                   {userRoleText}
                 </p>
               </div>
@@ -205,7 +212,7 @@ export function DashboardHeader({
             {headerMenuOpen && (
               <div className="absolute right-0 top-full mt-2 w-56 rounded-sm border border-slate-200 bg-white p-2 shadow-2xl space-y-1 z-50">
                 <div className="px-3 py-2 border-b border-slate-100 mb-1">
-                  <p className="text-xs font-bold text-[#0D1F3D] truncate">
+                  <p className="text-xs font-bold text-primary truncate">
                     {profileName}
                   </p>
                   <p className="text-[11px] text-slate-400 truncate">
@@ -215,14 +222,14 @@ export function DashboardHeader({
                 <NavLink
                   to="/employee/me"
                   onClick={() => setHeaderMenuOpen(false)}
-                  className="flex items-center gap-2.5 rounded-sm px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-[#0D1F3D]"
+                  className="flex items-center gap-2.5 rounded-sm px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-primary"
                 >
-                  <User className="h-4 w-4 text-[#E20613]" /> My Profile
+                  <User className="h-4 w-4 text-tertiary" /> My Profile
                 </NavLink>
                 <NavLink
                   to="/employee/settings"
                   onClick={() => setHeaderMenuOpen(false)}
-                  className="flex items-center gap-2.5 rounded-sm px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-[#0D1F3D]"
+                  className="flex items-center gap-2.5 rounded-sm px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-primary"
                 >
                   <Shield className="h-4 w-4 text-blue-600" /> Security & 2FA
                 </NavLink>

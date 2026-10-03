@@ -11,6 +11,7 @@ export const TabsList = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.List
     ref={ref}
+    data-slot="tabs-list"
     className={cn(
       "inline-flex h-10 items-center rounded-md bg-muted p-1",
       className,
@@ -26,6 +27,7 @@ export const TabsTrigger = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.Trigger
     ref={ref}
+    data-slot="tabs-trigger"
     className={cn(
       "inline-flex h-8 items-center justify-center rounded-sm px-3 text-xs font-bold text-muted-foreground transition-colors hover:text-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm",
       className,

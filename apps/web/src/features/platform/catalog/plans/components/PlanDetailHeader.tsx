@@ -127,7 +127,7 @@ export function PlanDetailHeader({ plan, activeTab, onRefresh }: PlanDetailHeade
 
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="text-2xl font-extrabold text-[#0D1F3D]">{plan.name}</h1>
+              <h1 className="text-2xl font-extrabold text-primary">{plan.name}</h1>
               <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-extrabold border ${statusBadge.className}`}>
                 {statusBadge.label}
               </span>
@@ -257,7 +257,7 @@ export function PlanDetailHeader({ plan, activeTab, onRefresh }: PlanDetailHeade
               <AlertTriangle className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="text-base font-extrabold text-[#0D1F3D]">Archive Commercial Plan</h3>
+              <h3 className="text-base font-extrabold text-primary">Archive Commercial Plan</h3>
               <p className="text-xs text-slate-600 font-medium mt-1">
                 Archived plans will no longer be available for new tenant subscriptions. Existing tenant records subscribed to{' '}
                 <strong>{plan.name}</strong> will not be deleted.
@@ -295,7 +295,7 @@ export function PlanDetailHeader({ plan, activeTab, onRefresh }: PlanDetailHeade
               <Sparkles className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="text-base font-extrabold text-[#0D1F3D]">Publish Plan with Beta Modules</h3>
+              <h3 className="text-base font-extrabold text-primary">Publish Plan with Beta Modules</h3>
               <p className="text-xs text-slate-600 font-medium mt-1">
                 This plan includes BETA stage modules (e.g. AI Copilot). Do you want to acknowledge beta module inclusion and publish <strong>{plan.name}</strong> as Active?
               </p>

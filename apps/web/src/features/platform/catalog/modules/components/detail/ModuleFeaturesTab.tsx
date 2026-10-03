@@ -39,7 +39,7 @@ export function ModuleFeaturesTab({ module }: ModuleFeaturesTabProps) {
       {/* Header Bar */}
       <div className="border-b border-slate-200 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-base font-extrabold text-[#0D1F3D]">
+          <h2 className="text-base font-extrabold text-primary">
             Registered Code-Backed Features ({features.length})
           </h2>
           <p className="text-xs font-medium text-slate-500 mt-0.5">
@@ -70,7 +70,7 @@ export function ModuleFeaturesTab({ module }: ModuleFeaturesTabProps) {
                   {getFeatureIcon(idx)}
                 </div>
                 <div className="space-y-0.5 min-w-0">
-                  <span className="font-extrabold text-xs text-[#0D1F3D] block truncate">
+                  <span className="font-extrabold text-xs text-primary block truncate">
                     {feat.name}
                   </span>
                   <span className="text-[11px] font-medium text-slate-500 block truncate max-w-md">

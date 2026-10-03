@@ -13,6 +13,7 @@ import toast from "react-hot-toast";
 import { Badge, Button, Card, Input, Textarea } from "ui";
 
 import { DashboardSidebar } from "../../../dashboard/DashboardSidebar";
+import { WorkspacePage } from "../../../../../components/layout/PageHeader";
 import { assignLeadsSidebarItems } from "../../assignment/leadAssignmentData";
 import {
   ConnectionStepper,
@@ -66,7 +67,7 @@ export function TestMagicBricksConnectionScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -76,15 +77,14 @@ export function TestMagicBricksConnectionScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1 flex-col">
-        <Header
+      <Header
           search={search}
           onSearchChange={setSearch}
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={["Connect to MagicBricks", "Test connection"]}
-        />
-        <main className="space-y-5 p-4 sm:p-6">
+      />
+      <WorkspacePage>
           <section>
             <h1 className="text-2xl font-extrabold text-secondary">
               Test MagicBricks connection
@@ -395,8 +395,7 @@ export function TestMagicBricksConnectionScreen() {
               </p>
             </Card>
           )}
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

@@ -32,6 +32,7 @@ import {
 } from "ui";
 
 import { DashboardSidebar } from "../../../dashboard/DashboardSidebar";
+import { WorkspacePage } from "../../../../../components/layout/PageHeader";
 import { useProjects } from "../../../projects/useProjectsApi";
 import { useLeadListFilterOptions } from "../../all/useAllLeads";
 import { assignLeadsSidebarItems } from "../../assignment/leadAssignmentData";
@@ -297,7 +298,7 @@ export function ConnectWebsiteScreen() {
   }, [integration?.endpointUrl]);
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -307,15 +308,14 @@ export function ConnectWebsiteScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1">
-        <Header
+      <Header
           search={search}
           onSearchChange={setSearch}
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={["Import leads", "Website Source"]}
-        />
-        <main className="mx-auto w-full max-w-[1600px] space-y-6 p-4 sm:p-6">
+      />
+      <WorkspacePage className="space-y-6">
           <section className="flex flex-col gap-5 border-b border-slate-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <div className="flex items-center gap-2 text-sm font-bold text-primary">
@@ -1185,8 +1185,7 @@ export function ConnectWebsiteScreen() {
               </Card>
             </>
           )}
-        </main>
-      </div>
+      </WorkspacePage>
 
       {/* Add Website Modal */}
       <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
@@ -1229,6 +1228,6 @@ export function ConnectWebsiteScreen() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

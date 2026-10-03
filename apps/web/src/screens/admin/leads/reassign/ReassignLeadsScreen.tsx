@@ -41,6 +41,7 @@ import {
 
 import { DashboardSidebar } from "../../dashboard/DashboardSidebar";
 import { DashboardHeader } from "../../dashboard/DashboardHeader";
+import { WorkspacePage } from "../../../../components/layout/PageHeader";
 import { assignLeadsSidebarItems } from "../assignment/leadAssignmentData";
 import {
   approvalSteps,
@@ -824,7 +825,7 @@ export function ReassignLeadsScreen() {
   const [search, setSearch] = useState("");
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <>
       <DashboardSidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -834,8 +835,7 @@ export function ReassignLeadsScreen() {
         onCollapse={() => setCollapsed((value) => !value)}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="min-w-0 flex-1">
-        <DashboardHeader
+      <DashboardHeader
           onMobileMenuOpen={() => setMobileOpen(true)}
           onDesktopSidebarToggle={() => setCollapsed((value) => !value)}
           breadcrumbs={
@@ -875,8 +875,8 @@ export function ReassignLeadsScreen() {
               </SelectContent>
             </Select>
           </div>
-        </DashboardHeader>
-        <main className="space-y-5 p-4 sm:p-6">
+      </DashboardHeader>
+      <WorkspacePage>
           <section className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
             <div>
               <h1 className="text-3xl font-extrabold text-secondary">
@@ -922,8 +922,7 @@ export function ReassignLeadsScreen() {
               <HelpCard />
             </aside>
           </section>
-        </main>
-      </div>
-    </div>
+      </WorkspacePage>
+    </>
   );
 }

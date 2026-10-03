@@ -24,16 +24,16 @@ export function PlatformPlaceholderPage({
             <button
               type="button"
               onClick={() => navigate('/platform/dashboard')}
-              className="hover:text-[#0D1F3D]"
+              className="hover:text-primary"
             >
               Dashboard
             </button>
             <span>›</span>
             <span>{category}</span>
             <span>›</span>
-            <span className="font-extrabold text-[#0D1F3D]">{title}</span>
+            <span className="font-extrabold text-primary">{title}</span>
           </div>
-          <h1 className="text-2xl font-extrabold text-[#0D1F3D] tracking-tight mt-1.5">
+          <h1 className="text-2xl font-extrabold text-primary tracking-tight mt-1.5">
             {title}
           </h1>
         </div>
@@ -53,7 +53,7 @@ export function PlatformPlaceholderPage({
           <Layers className="h-8 w-8" />
         </div>
         <div>
-          <h2 className="text-xl font-extrabold text-[#0D1F3D]">{title} Module</h2>
+          <h2 className="text-xl font-extrabold text-primary">{title} Module</h2>
           <p className="text-xs text-slate-500 font-medium mt-1.5 max-w-md mx-auto">
             {description}
           </p>

@@ -17,10 +17,25 @@ module.exports = {
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
+          hover: "hsl(var(--secondary-hover))",
+        },
+        tertiary: {
+          DEFAULT: "hsl(var(--tertiary))",
+          foreground: "hsl(var(--tertiary-foreground))",
+          hover: "hsl(var(--tertiary-hover))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
+        },
+        surface: {
+          DEFAULT: "hsl(var(--surface))",
+          subtle: "hsl(var(--surface-subtle))",
+          raised: "hsl(var(--surface-raised))",
         },
         card: {
           DEFAULT: "hsl(var(--card))",
@@ -57,9 +72,12 @@ module.exports = {
         },
       },
       borderRadius: {
-        lg: "var(--radius-card)",
+        xs: "var(--radius-xs)",
+        sm: "var(--radius-sm)",
         md: "var(--radius-control)",
-        sm: "6px",
+        lg: "var(--radius-card)",
+        xl: "var(--radius-dialog)",
+        "2xl": "var(--radius-dialog)",
       },
       boxShadow: {
         xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
