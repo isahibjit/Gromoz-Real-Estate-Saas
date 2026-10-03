@@ -9,6 +9,10 @@ interface DashboardKpiCardProps {
   helper?: string;
   badge?: string;
   onClick?: () => void;
+  iconPosition?: "leading" | "trailing";
+  className?: string;
+  iconContainerClassName?: string;
+  helperClassName?: string;
 }
 
 export function DashboardKpiCard({
@@ -19,23 +23,35 @@ export function DashboardKpiCard({
   helper = "Live data",
   badge,
   onClick,
+  iconPosition = "leading",
+  className,
+  iconContainerClassName,
+  helperClassName,
 }: DashboardKpiCardProps) {
+  const iconElement = (
+    <span
+      className={cn(
+        "flex size-10 shrink-0 items-center justify-center rounded-md p-2",
+        toneClassName,
+        iconContainerClassName,
+      )}
+    >
+      <Icon className="size-5" strokeWidth={1.5} />
+    </span>
+  );
+
   return (
     <Card
       className={cn(
         "flex min-h-[96px] min-w-0 items-start gap-3 overflow-hidden border-border p-4",
-        onClick && "cursor-pointer transition-colors hover:border-primary/25 hover:bg-muted/30",
+        iconPosition === "trailing" && "justify-between",
+        onClick &&
+          "cursor-pointer transition-colors hover:border-primary/25 hover:bg-muted/30",
+        className,
       )}
       onClick={onClick}
     >
-      <span
-        className={cn(
-          "flex size-10 shrink-0 items-center justify-center rounded-md p-2",
-          toneClassName,
-        )}
-      >
-        <Icon className="size-5" strokeWidth={1.5} />
-      </span>
+      {iconPosition === "leading" ? iconElement : null}
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-start justify-between gap-2">
           <p className="truncate text-xs font-bold text-muted-foreground">
@@ -50,10 +66,16 @@ export function DashboardKpiCard({
         <p className="mt-1 truncate text-xl font-extrabold text-secondary sm:text-2xl">
           {value}
         </p>
-        <p className="truncate text-[11px] font-semibold text-muted-foreground">
+        <p
+          className={cn(
+            "truncate text-[11px] font-semibold text-muted-foreground",
+            helperClassName,
+          )}
+        >
           {helper}
         </p>
       </div>
+      {iconPosition === "trailing" ? iconElement : null}
     </Card>
   );
 }

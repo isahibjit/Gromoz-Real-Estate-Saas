@@ -1,26 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  BarChart3,
   ArrowRight,
   Building2,
   CalendarCheck,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Eye,
   FolderKanban,
-  GripVertical,
   IndianRupee,
   Info,
   ListFilter,
   Loader2,
   Plus,
   RefreshCw,
+  Target,
+  Trophy,
   Users,
   UserCheck,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import { getApiErrorMessage } from "../../../../common/apiError";
 import {
@@ -68,7 +66,6 @@ import type {
   PipelineSourcePerformance,
   PipelineStagePerformance,
   PipelineStatus,
-  PipelineSummary,
 } from "./useLeadPipeline";
 import {
   useLeadPipeline,
@@ -113,47 +110,6 @@ const lostReasons = [
   "Not Interested",
   "Other",
 ];
-
-const summaryCardStyles: ReadonlyArray<{
-  keywords: readonly string[];
-  icon: LucideIcon;
-  toneClassName: string;
-}> = [
-  {
-    keywords: ["total"],
-    icon: FolderKanban,
-    toneClassName: "bg-primary/10 text-primary",
-  },
-  {
-    keywords: ["site visit", "meeting"],
-    icon: CalendarCheck,
-    toneClassName: "bg-warning/10 text-warning",
-  },
-  {
-    keywords: ["booked", "won", "converted"],
-    icon: CheckCircle2,
-    toneClassName: "bg-success/10 text-success",
-  },
-  {
-    keywords: ["assigned"],
-    icon: UserCheck,
-    toneClassName: "bg-secondary/10 text-secondary",
-  },
-];
-
-const defaultSummaryCardStyle = {
-  icon: Users,
-  toneClassName: "bg-info/10 text-info",
-};
-
-const getSummaryCardStyle = (label: string) => {
-  const normalizedLabel = label.toLowerCase();
-  return (
-    summaryCardStyles.find(({ keywords }) =>
-      keywords.some((keyword) => normalizedLabel.includes(keyword)),
-    ) ?? defaultSummaryCardStyle
-  );
-};
 
 const initials = (name: string) =>
   name
@@ -229,7 +185,7 @@ function PipelineSelect({
 function LeadCard({
   lead,
   statuses,
-  currentStatusId,
+  currentStatus,
   disabled,
   onDragStart,
   onDragEnd,
@@ -237,7 +193,7 @@ function LeadCard({
 }: {
   lead: PipelineLead;
   statuses: PipelineStatus[];
-  currentStatusId: string;
+  currentStatus: PipelineStatus;
   disabled: boolean;
   onDragStart: (lead: PipelineLead) => void;
   onDragEnd: () => void;
@@ -252,75 +208,85 @@ function LeadCard({
       }}
       onDragEnd={onDragEnd}
       className={cn(
-        "group cursor-grab rounded-lg border-slate-200 bg-card p-3 shadow-none transition hover:border-primary/35 hover:shadow-sm active:cursor-grabbing",
+        "group cursor-grab space-y-2.5 rounded-md border-slate-200/90 bg-white p-3 text-left shadow-xs transition-all hover:border-violet-600 hover:shadow-md active:cursor-grabbing",
         disabled && "cursor-default opacity-70",
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <GripVertical
-            className="size-4 shrink-0 text-muted-foreground/60"
-            aria-hidden="true"
-          />
-          <Avatar className="size-8">
-            <AvatarFallback className="bg-primary/10 text-[11px] text-primary">
-              {initials(lead.name)}
-            </AvatarFallback>
-          </Avatar>
+      <div className="flex items-start gap-2">
+        <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md border border-violet-100 bg-violet-50 text-violet-700">
+          <Building2 className="size-3.5" aria-hidden="true" />
+        </div>
+        <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="truncate text-xs font-extrabold text-foreground">
+            <p className="truncate text-xs font-extrabold text-primary transition-colors group-hover:text-violet-600">
               {lead.name}
             </p>
-            <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+            <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-semibold text-slate-400">
               <span className="truncate">{lead.mobile}</span>
               <span aria-hidden="true">·</span>
               <span className="shrink-0">{lead.displayId}</span>
             </div>
           </div>
+          <Button
+            asChild
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7 shrink-0 text-primary hover:text-violet-600"
+          >
+            <Link to={`/leads/${lead.id}`} aria-label={`View ${lead.name}`}>
+              <Eye className="size-3.5" />
+            </Link>
+          </Button>
         </div>
-        <Button
-          asChild
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-7 shrink-0 text-secondary"
-        >
-          <Link to={`/leads/${lead.id}`} aria-label={`View ${lead.name}`}>
-            <Eye className="size-3.5" />
-          </Link>
-        </Button>
       </div>
 
-      <div className="mt-3 space-y-2 text-[11px] font-semibold text-muted-foreground">
+      <div className="space-y-1.5 text-[11px] font-semibold text-slate-500">
+        <p className="truncate text-primary">{lead.propertyRequirement}</p>
         <div className="flex items-center justify-between gap-2">
-          <Badge className="max-w-32 truncate px-2 py-0 text-[10px]">
-            {lead.source}
-          </Badge>
-          <span className="shrink-0 font-extrabold text-secondary">
+          <span className="max-w-28 truncate text-[10px] text-slate-400">
+            {lead.project ?? lead.source}
+          </span>
+          <span className="shrink-0 text-xs font-extrabold text-primary">
             {lead.budget}
           </span>
         </div>
-        <p className="truncate text-foreground">{lead.propertyRequirement}</p>
-        {lead.project ? <p className="truncate">{lead.project}</p> : null}
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
-        <div className="min-w-0">
-          <p className="truncate text-[10px] font-bold text-muted-foreground">
-            {lead.assignedUser?.name ?? "Unassigned"}
-          </p>
-          <p className="text-[10px] font-semibold text-muted-foreground">
-            {lead.lastActivity}
-          </p>
+      <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Avatar className="size-5 border border-slate-200">
+            <AvatarFallback className="bg-primary text-[9px] font-bold text-white">
+              {initials(lead.assignedUser?.name ?? "Unassigned")}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="max-w-24 truncate text-[10px] font-semibold text-slate-600">
+              {lead.assignedUser?.name ?? "Unassigned"}
+            </p>
+            <p className="text-[9px] font-medium text-slate-400">
+              {lead.lastActivity}
+            </p>
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          <span
+            className="max-w-24 truncate rounded-full border px-2 py-0.5 text-[9px] font-extrabold"
+            style={{
+              borderColor: `color-mix(in srgb, ${currentStatus.color} 20%, white)`,
+              backgroundColor: `color-mix(in srgb, ${currentStatus.color} 8%, white)`,
+              color: currentStatus.color,
+            }}
+          >
+            {currentStatus.name}
+          </span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="size-7 text-primary"
+                className="size-7 text-slate-500 hover:text-violet-600"
                 aria-label={`Move ${lead.name} to another stage`}
                 disabled={disabled}
               >
@@ -331,7 +297,7 @@ function LeadCard({
               <DropdownMenuLabel>Move to stage</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {statuses
-                .filter((status) => status.id !== currentStatusId)
+                .filter((status) => status.id !== currentStatus.id)
                 .map((status) => (
                   <DropdownMenuItem
                     key={status.id}
@@ -381,8 +347,10 @@ function PipelineColumnCard({
   return (
     <section
       className={cn(
-        "flex max-h-[660px] min-h-[520px] w-72 shrink-0 flex-col overflow-hidden rounded-lg border bg-muted/35 transition-colors",
-        active ? "border-primary/50 bg-primary/5" : "border-border",
+        "flex min-h-[460px] flex-col space-y-3 rounded-md border p-3 transition-all",
+        active
+          ? "border-violet-400 bg-violet-50/80 ring-2 ring-violet-400/30"
+          : "border-slate-200/80 bg-slate-100/70",
       )}
       aria-label={`${column.name} stage, ${column.count} leads`}
       onDragOver={(event) => {
@@ -392,38 +360,36 @@ function PipelineColumnCard({
       onDragLeave={onDragLeave}
       onDrop={() => onDropLead(status)}
     >
-      <span
-        className="h-1 w-full shrink-0"
-        style={{ backgroundColor: column.color }}
-        aria-hidden="true"
-      />
-      <div className="sticky top-0 z-10 border-b border-border bg-card/95 p-4 backdrop-blur">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h2 className="truncate text-sm font-extrabold text-foreground">
-                {column.name}
-              </h2>
-              <Badge className="px-2 py-0 text-[10px]">
-                {column.count.toLocaleString("en-IN")}
-              </Badge>
-            </div>
-            <p className="mt-1 text-[11px] font-semibold text-muted-foreground">
-              {column.valueLabel}
-            </p>
-          </div>
-          <GripVertical className="mt-0.5 size-4 text-muted-foreground/50" />
+      <div className="flex items-center justify-between rounded-md border border-slate-200/90 bg-white p-2.5 text-left shadow-xs">
+        <div className="min-w-0">
+          <h2
+            aria-label={column.name}
+            className="truncate text-xs font-extrabold text-primary"
+          >
+            {column.name}{" "}
+            <span className="font-bold text-slate-500">
+              ({column.count.toLocaleString("en-IN")})
+            </span>
+          </h2>
+          <p className="mt-0.5 text-[10px] font-semibold text-slate-400">
+            {column.valueLabel}
+          </p>
         </div>
+        <span
+          className="size-2.5 shrink-0 rounded-full"
+          style={{ backgroundColor: column.color }}
+          aria-hidden="true"
+        />
       </div>
 
-      <div className="crm-sidebar-scrollbar flex-1 space-y-3 overflow-y-auto p-3">
+      <div className="min-h-[280px] flex-1 space-y-2.5">
         {column.leads.length ? (
           column.leads.map((lead) => (
             <LeadCard
               key={lead.id}
               lead={lead}
               statuses={statuses}
-              currentStatusId={status.id}
+              currentStatus={status}
               disabled={disabled}
               onDragStart={onDragStart}
               onDragEnd={onDragEnd}
@@ -431,14 +397,14 @@ function PipelineColumnCard({
             />
           ))
         ) : (
-          <div className="flex min-h-[180px] items-center justify-center rounded-lg border border-dashed border-slate-200 bg-card px-4 text-center">
-            <p className="text-xs font-semibold text-muted-foreground">
-              No leads in this stage.
+          <div className="flex min-h-[112px] items-center justify-center rounded-md border-2 border-dashed border-slate-200 bg-white/50 px-4 text-center">
+            <p className="text-[11px] font-semibold text-slate-400">
+              No leads in {column.name}
             </p>
           </div>
         )}
         {column.hiddenCount > 0 ? (
-          <p className="rounded-md border border-dashed border-border bg-card px-3 py-2 text-center text-[11px] font-semibold text-muted-foreground">
+          <p className="rounded-md border border-dashed border-slate-200 bg-white px-3 py-2 text-center text-[11px] font-semibold text-slate-500">
             {column.hiddenCount.toLocaleString("en-IN")} more leads match this
             stage
           </p>
@@ -731,7 +697,8 @@ function MoveDetailsDialog({
                       </p>
                       <p className="mt-1 text-xs font-semibold leading-5 text-muted-foreground">
                         Confirming the booking will automatically mark the
-                        selected unit as &quot;Booked&quot; and convert the lead.
+                        selected unit as &quot;Booked&quot; and convert the
+                        lead.
                       </p>
                     </div>
                   </div>
@@ -1131,9 +1098,22 @@ export function LeadPipelineScreen() {
     ([key, value]) => key !== "search" && value && value !== "all",
   ).length;
   const visibleLeadCount =
-    data?.columns.reduce((total, column) => total + column.leads.length, 0) ?? 0;
+    data?.columns.reduce((total, column) => total + column.leads.length, 0) ??
+    0;
   const hiddenLeadCount =
     data?.columns.reduce((total, column) => total + column.hiddenCount, 0) ?? 0;
+  const countStages = (...keywords: string[]) =>
+    data?.columns.reduce((total, column) => {
+      const stage = `${column.name} ${column.code}`.toLowerCase();
+      return keywords.some((keyword) => stage.includes(keyword))
+        ? total + column.count
+        : total;
+    }, 0) ?? 0;
+  const siteVisitCount = countStages("site visit", "meeting");
+  const convertedLeadCount = countStages("booked", "won", "converted");
+  const conversionRate = data?.meta.totalLeads
+    ? Math.round((convertedLeadCount / data.meta.totalLeads) * 100)
+    : 0;
 
   useDashboardLayout(
     {
@@ -1162,7 +1142,7 @@ export function LeadPipelineScreen() {
 
   return (
     <>
-      <WorkspacePage>
+      <WorkspacePage className="min-h-screen bg-slate-50/50 pb-16 text-left">
         <PageHeader
           title="Lead pipeline"
           subtitle="Review pipeline value, spot stage bottlenecks, and move leads to their next action."
@@ -1171,6 +1151,8 @@ export function LeadPipelineScreen() {
               <Button
                 type="button"
                 variant="outline"
+                size="sm"
+                className="border-slate-200 bg-white font-bold text-slate-700"
                 onClick={() => void pipelineQuery.refetch()}
                 disabled={pipelineQuery.isFetching}
               >
@@ -1184,14 +1166,8 @@ export function LeadPipelineScreen() {
               </Button>
               <Button
                 type="button"
-                variant="outline"
-                onClick={() => navigate("/leads/conversion-analytics")}
-              >
-                <BarChart3 className="size-4" />
-                View analytics
-              </Button>
-              <Button
-                type="button"
+                size="sm"
+                className="bg-tertiary px-4 font-bold text-white shadow-xs hover:bg-tertiary-hover"
                 onClick={() =>
                   navigate("/leads/all", { state: { openAddLead: true } })
                 }
@@ -1203,28 +1179,70 @@ export function LeadPipelineScreen() {
           }
         />
 
-        {data?.summary.length ? (
+        {data ? (
           <section
             aria-label="Pipeline summary"
-            className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"
+            className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 xl:grid-cols-5"
           >
-            {data.summary.slice(0, 5).map((item: PipelineSummary) => {
-              const style = getSummaryCardStyle(item.label);
-              return (
-                <DashboardKpiCard
-                  key={item.label}
-                  label={item.label}
-                  value={item.count.toLocaleString("en-IN")}
-                  icon={style.icon}
-                  toneClassName={style.toneClassName}
-                  helper={item.valueLabel}
-                />
-              );
-            })}
+            <DashboardKpiCard
+              label="Total pipeline value"
+              value={data.meta.totalValueLabel}
+              icon={IndianRupee}
+              toneClassName="border border-blue-100 bg-blue-50 text-blue-600"
+              helper="Live workspace total"
+              helperClassName="text-emerald-600"
+              iconPosition="trailing"
+              iconContainerClassName="size-11"
+              className="rounded-md border-slate-200 bg-white shadow-xs"
+            />
+            <DashboardKpiCard
+              label="Active leads"
+              value={data.meta.totalLeads.toLocaleString("en-IN")}
+              icon={Users}
+              toneClassName="border border-indigo-100 bg-indigo-50 text-indigo-600"
+              helper="Active opportunities"
+              helperClassName="text-emerald-600"
+              iconPosition="trailing"
+              iconContainerClassName="size-11"
+              className="rounded-md border-slate-200 bg-white shadow-xs"
+            />
+            <DashboardKpiCard
+              label="Site visits"
+              value={siteVisitCount.toLocaleString("en-IN")}
+              icon={CalendarCheck}
+              toneClassName="border border-violet-100 bg-violet-50 text-violet-600"
+              helper="Scheduled visits"
+              helperClassName="text-emerald-600"
+              iconPosition="trailing"
+              iconContainerClassName="size-11"
+              className="rounded-md border-slate-200 bg-white shadow-xs"
+            />
+            <DashboardKpiCard
+              label="Converted leads"
+              value={convertedLeadCount.toLocaleString("en-IN")}
+              icon={Trophy}
+              toneClassName="border border-amber-100 bg-amber-50 text-amber-600"
+              helper="Closed successfully"
+              helperClassName="text-emerald-600"
+              iconPosition="trailing"
+              iconContainerClassName="size-11"
+              className="rounded-md border-slate-200 bg-white shadow-xs"
+            />
+            <DashboardKpiCard
+              label="Conversion rate"
+              value={`${conversionRate}%`}
+              icon={Target}
+              toneClassName="border border-emerald-100 bg-emerald-50 text-emerald-600"
+              helper="Overall conversion"
+              helperClassName="text-emerald-600"
+              iconPosition="trailing"
+              iconContainerClassName="size-11"
+              className="rounded-md border-slate-200 bg-white shadow-xs"
+            />
           </section>
         ) : null}
 
-        <Card className="border-border p-3 shadow-none">
+        <Card className="rounded-md border-slate-200 bg-white p-3 shadow-xs">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <SearchInput
               aria-label="Search pipeline leads"
@@ -1366,38 +1384,34 @@ export function LeadPipelineScreen() {
         {data ? (
           <>
             <section
-              className="overflow-hidden rounded-lg border border-border bg-card shadow-none"
+              className="space-y-3"
               aria-labelledby="pipeline-stages-heading"
             >
-              <div className="flex flex-col gap-2 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="flex items-center gap-2">
-                    <FolderKanban className="size-4 text-primary" />
                     <h2
                       id="pipeline-stages-heading"
-                      className="text-sm font-extrabold text-foreground"
+                      className="text-sm font-extrabold text-primary"
                     >
-                      Pipeline stages
+                      Lead pipeline stages
                     </h2>
-                    <Badge>
-                      {data.columns.length.toLocaleString("en-IN")} stages
-                    </Badge>
                   </div>
-                  <p className="mt-1 text-xs font-medium text-muted-foreground">
-                    Drag cards between columns or use each card&apos;s move action.
-                  </p>
                 </div>
-                <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
                   {pipelineQuery.isFetching ? (
-                    <Loader2 className="size-3.5 animate-spin text-primary" />
+                    <RefreshCw className="size-3 animate-spin text-slate-400" />
                   ) : null}
-                  <span>{data.meta.totalLeads.toLocaleString("en-IN")} leads</span>
-                  <span aria-hidden="true">·</span>
-                  <span>{data.meta.totalValueLabel}</span>
+                  <span>
+                    {data.columns.length.toLocaleString("en-IN")} active stages
+                    {data.columns.length
+                      ? " · Drag lead cards to change stage"
+                      : ""}
+                  </span>
                 </div>
               </div>
               {data.columns.length ? (
-                <div className="crm-sidebar-scrollbar flex gap-3 overflow-x-auto p-3">
+                <div className="grid min-h-[460px] grid-cols-1 items-start gap-3.5 md:grid-cols-3 xl:grid-cols-6">
                   {data.columns.map((column: PipelineColumn) => {
                     const status = statusMap.get(column.id);
                     if (!status) return null;
@@ -1423,13 +1437,13 @@ export function LeadPipelineScreen() {
                   })}
                 </div>
               ) : (
-                <div className="flex min-h-64 items-center justify-center px-6 text-center">
+                <div className="flex min-h-64 items-center justify-center rounded-md border border-slate-200 bg-white px-6 text-center">
                   <div className="max-w-sm">
-                    <FolderKanban className="mx-auto size-8 text-muted-foreground" />
-                    <h3 className="mt-3 text-sm font-extrabold text-foreground">
+                    <FolderKanban className="mx-auto size-8 text-slate-400" />
+                    <h3 className="mt-3 text-sm font-extrabold text-primary">
                       No pipeline stages configured
                     </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <p className="mt-1 text-sm text-slate-500">
                       Add lead statuses in lead masters before managing this
                       pipeline.
                     </p>
@@ -1438,45 +1452,45 @@ export function LeadPipelineScreen() {
               )}
             </section>
 
-            <section className="grid gap-4 lg:grid-cols-3">
-              <Card className="border-border p-5 shadow-none">
-                <div className="flex items-center gap-2">
-                  <IndianRupee className="size-4 text-primary" />
-                  <h2 className="text-sm font-extrabold text-foreground">
+            <section className="grid gap-4 pt-2 md:grid-cols-3">
+              <Card className="space-y-3 rounded-md border-slate-200 bg-white p-4 shadow-xs">
+                <div className="flex items-center gap-1.5 border-b border-slate-100 pb-2">
+                  <IndianRupee className="size-4 text-amber-500" />
+                  <h2 className="text-xs font-extrabold text-primary">
                     Pipeline overview
                   </h2>
                 </div>
-                <dl className="mt-4 divide-y divide-border text-sm">
-                  <div className="flex items-center justify-between gap-4 py-2.5 first:pt-0">
-                    <dt className="text-muted-foreground">Total value</dt>
-                    <dd className="font-extrabold text-foreground">
+                <dl className="divide-y divide-slate-100 text-xs font-semibold">
+                  <div className="flex items-center justify-between gap-4 py-2 first:pt-0">
+                    <dt className="text-slate-600">Total value</dt>
+                    <dd className="font-extrabold text-primary">
                       {data.meta.totalValueLabel}
                     </dd>
                   </div>
-                  <div className="flex items-center justify-between gap-4 py-2.5">
-                    <dt className="text-muted-foreground">Total leads</dt>
-                    <dd className="font-extrabold text-foreground">
+                  <div className="flex items-center justify-between gap-4 py-2">
+                    <dt className="text-slate-600">Total leads</dt>
+                    <dd className="font-extrabold text-primary">
                       {data.meta.totalLeads.toLocaleString("en-IN")}
                     </dd>
                   </div>
-                  <div className="flex items-center justify-between gap-4 py-2.5">
-                    <dt className="text-muted-foreground">Cards shown</dt>
-                    <dd className="font-extrabold text-foreground">
+                  <div className="flex items-center justify-between gap-4 py-2">
+                    <dt className="text-slate-600">Cards shown</dt>
+                    <dd className="font-extrabold text-primary">
                       {visibleLeadCount.toLocaleString("en-IN")}
                     </dd>
                   </div>
-                  <div className="flex items-center justify-between gap-4 py-2.5 last:pb-0">
-                    <dt className="text-muted-foreground">Additional matches</dt>
-                    <dd className="font-extrabold text-foreground">
+                  <div className="flex items-center justify-between gap-4 py-2 last:pb-0">
+                    <dt className="text-slate-600">Additional matches</dt>
+                    <dd className="font-extrabold text-primary">
                       {hiddenLeadCount.toLocaleString("en-IN")}
                     </dd>
                   </div>
                 </dl>
               </Card>
 
-              <Card className="border-border p-5 shadow-none">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-sm font-extrabold text-foreground">
+              <Card className="space-y-3 rounded-md border-slate-200 bg-white p-4 shadow-xs">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2">
+                  <h2 className="text-xs font-extrabold text-primary">
                     Stage distribution
                   </h2>
                   <Button
@@ -1489,37 +1503,37 @@ export function LeadPipelineScreen() {
                     <Link to="/leads/conversion-analytics">View report</Link>
                   </Button>
                 </div>
-                <div className="mt-5 space-y-3">
+                <div className="space-y-3 pt-1">
                   {data.stagePerformance.map(
                     (item: PipelineStagePerformance) => (
-                    <div
-                      key={item.stage}
-                      className="grid grid-cols-[110px_1fr_42px] items-center gap-3 text-xs font-bold"
-                    >
-                      <span className="truncate text-foreground">
-                        {item.stage}
-                      </span>
-                      <div className="h-2.5 rounded-full bg-slate-100">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: item.width,
-                            backgroundColor: item.color,
-                          }}
-                        />
+                      <div
+                        key={item.stage}
+                        className="grid grid-cols-[110px_1fr_42px] items-center gap-3 text-xs font-bold"
+                      >
+                        <span className="truncate text-slate-600">
+                          {item.stage}
+                        </span>
+                        <div className="h-2.5 rounded-full bg-slate-100">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: item.width,
+                              backgroundColor: item.color,
+                            }}
+                          />
+                        </div>
+                        <span className="text-right text-primary">
+                          {item.percent}%
+                        </span>
                       </div>
-                      <span className="text-right text-muted-foreground">
-                        {item.percent}%
-                      </span>
-                    </div>
                     ),
                   )}
                 </div>
               </Card>
 
-              <Card className="border-border p-5 shadow-none">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-sm font-extrabold text-foreground">
+              <Card className="space-y-3 rounded-md border-slate-200 bg-white p-4 shadow-xs">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2">
+                  <h2 className="text-xs font-extrabold text-primary">
                     Top lead sources
                   </h2>
                   <Button
@@ -1532,17 +1546,17 @@ export function LeadPipelineScreen() {
                     <Link to="/reports/lead-source-analytics">View report</Link>
                   </Button>
                 </div>
-                <div className="mt-5 space-y-3">
+                <div className="space-y-3 pt-1">
                   {data.topSources.length ? (
                     data.topSources.map((item: PipelineSourcePerformance) => (
                       <div
                         key={item.name}
                         className="grid grid-cols-[100px_56px_1fr_44px] items-center gap-3 text-xs font-bold"
                       >
-                        <span className="truncate text-foreground">
+                        <span className="truncate text-slate-600">
                           {item.name}
                         </span>
-                        <span className="text-muted-foreground">
+                        <span className="text-slate-400">
                           {item.count} leads
                         </span>
                         <div className="h-2.5 rounded-full bg-slate-100">
@@ -1551,7 +1565,7 @@ export function LeadPipelineScreen() {
                             style={{ width: `${item.percent}%` }}
                           />
                         </div>
-                        <span className="text-right text-muted-foreground">
+                        <span className="text-right text-primary">
                           {item.percent}%
                         </span>
                       </div>

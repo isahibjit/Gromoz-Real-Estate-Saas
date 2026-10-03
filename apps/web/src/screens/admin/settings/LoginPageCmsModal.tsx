@@ -63,7 +63,7 @@ export const defaultLoginPageCms: LoginPageCmsData = {
   trustBadgeDescription: "Your data is protected with enterprise grade security.",
   cardTitle: "Login to Your Account",
   cardSubtitle: "Welcome back! Please login to continue.",
-  passwordHint: "Enter your password first. If two-factor authentication is enabled for your role or employee profile, we will send an SMS OTP before signing you in.",
+  passwordHint: "",
   downloadAppLabel: "Download Android app",
   downloadAppUrl: "/download-app",
   showDownloadApp: true,

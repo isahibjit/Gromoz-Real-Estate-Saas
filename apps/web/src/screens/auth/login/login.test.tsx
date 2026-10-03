@@ -91,9 +91,6 @@ test("renders the login screen content", () => {
     screen.getByRole("link", { name: "Forgot Password?" }),
   ).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Login" })).toBeInTheDocument();
-  expect(
-    screen.getByText(/If two-factor authentication is enabled/i),
-  ).toBeInTheDocument();
   expect(screen.getByText("Manage Leads")).toBeInTheDocument();
   expect(screen.getByText("Track Activities")).toBeInTheDocument();
   expect(
@@ -392,9 +389,6 @@ test("disables login actions while submission is pending", async () => {
       screen.getByRole("button", { name: "Signing in..." }),
     ).toBeDisabled();
   });
-  expect(
-    screen.getByText(/If two-factor authentication is enabled/i),
-  ).toBeInTheDocument();
 
   resolveLogin!({
     accessToken: "access-token",
