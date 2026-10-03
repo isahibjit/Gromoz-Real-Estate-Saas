@@ -255,8 +255,8 @@ function LeadCard({
 
       <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
         <div className="flex min-w-0 items-center gap-1.5">
-          <Avatar className="size-5 border border-slate-200">
-            <AvatarFallback className="bg-primary text-[9px] font-bold text-white">
+          <Avatar className="size-6 border border-slate-200 bg-primary p-0.5">
+            <AvatarFallback className="bg-primary text-[8px] font-bold leading-none text-white">
               {initials(lead.assignedUser?.name ?? "Unassigned")}
             </AvatarFallback>
           </Avatar>
