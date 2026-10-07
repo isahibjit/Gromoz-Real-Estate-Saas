@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import {
+  keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
@@ -545,6 +546,7 @@ export function useAllLeads(
       page,
     ],
     enabled: Boolean(user?.id),
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const leadsRes = await api.get<LeadsResponse>("/leads", {
         params: {
@@ -698,6 +700,7 @@ export function useTeamLeadWorkspace(
       limit,
     ],
     enabled: enabled && Boolean(user?.id),
+    placeholderData: keepPreviousData,
     retry: false,
     queryFn: async () => {
       const response = await api.get<
