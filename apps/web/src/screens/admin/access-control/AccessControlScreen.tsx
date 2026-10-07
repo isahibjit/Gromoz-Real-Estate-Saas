@@ -37,7 +37,6 @@ import {
 } from "ui";
 import type { ModulePermission } from "@truroot/shared/auth";
 import { getUserRoleLabel } from "../../../common/roleLabels";
-import { WorkspacePage } from "../../../components/layout/PageHeader";
 
 import { api } from "../../../common/api";
 import { useDashboardLayout } from "../dashboard/DashboardLayoutContext";
@@ -460,20 +459,17 @@ export function AccessControlScreen() {
     employeeTotalRows === 0
       ? 0
       : Math.min(employeeRangeStart + employees.length - 1, employeeTotalRows);
-  const roleOptions = Array.from(new Set(templates.map((template: AccessTemplate) => template.role))) as string[];
-  const templateRoleOptions = roleOptions.filter((role) => role !== "SUPER_ADMIN");
-  const columnRoleOptions: string[] = roleOptions.length
-    ? roleOptions
-    : [
-        "SUPER_ADMIN",
-        "ADMIN",
-        "HR",
-        "SALES_MANAGER",
-        "TEAM_LEADER",
-        "SALES_AGENT",
-        "TELECALLER",
-        "MARKETING",
-      ];
+  const ACTIVE_CRM_ROLES = [
+    "ADMIN",
+    "MANAGER",
+    "TEAM_LEADER",
+    "TELECALLER",
+    "SALES_AGENT",
+    "BACKEND",
+    "HR",
+  ];
+  const templateRoleOptions = ACTIVE_CRM_ROLES;
+  const columnRoleOptions: string[] = ["SUPER_ADMIN", ...ACTIVE_CRM_ROLES];
   const leadColumnPreference = leadColumnPreferenceQuery.data;
   const lockedLeadColumns = new Set(leadColumnPreference?.lockedColumns ?? []);
   const systemLeadColumns = leadColumnPreference?.systemColumns ?? [];
@@ -764,7 +760,7 @@ export function AccessControlScreen() {
   };
 
   return (
-    <WorkspacePage>
+    <main className="space-y-5 p-4 sm:p-6">
       <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-extrabold text-secondary">
@@ -1416,6 +1412,6 @@ export function AccessControlScreen() {
           ) : null}
         </DialogContent>
       </Dialog>
-    </WorkspacePage>
+    </main>
   );
 }

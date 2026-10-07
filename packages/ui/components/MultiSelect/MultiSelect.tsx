@@ -57,8 +57,8 @@ export function MultiSelect({
   noOptionsText = "No matching options",
   selectedLabelText = "option",
   selectedLabelTextPlural = "options",
-  showTriggerIcon = true,
-  showTriggerSummary = true,
+  showTriggerIcon = false,
+  showTriggerSummary = false,
   modal = true,
   portaled = true,
 }: MultiSelectProps) {
@@ -307,15 +307,16 @@ export function MultiSelect({
           disabled={disabled}
           aria-label={ariaLabel ?? label ?? placeholder}
           className={cn(
-            "h-auto min-h-12 w-full items-center justify-between rounded-md border-slate-200 px-3 py-2 text-left text-secondary shadow-none hover:bg-white",
+            "min-h-11 h-auto w-full items-center justify-between rounded-md border-slate-200 px-3 py-1.5 text-left text-secondary shadow-none hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/20",
             open && "border-primary/50 ring-2 ring-ring/15",
             className,
           )}
+          style={{ height: "auto" }}
         >
-          <span className="flex min-w-0 flex-1 items-center gap-2.5">
+          <span className="flex min-w-0 flex-1 items-center gap-2">
             {showTriggerIcon ? (
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-slate-100 text-secondary">
-                <SlidersHorizontal className="size-4" />
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-slate-100 text-secondary">
+                <SlidersHorizontal className="size-3.5" />
               </span>
             ) : null}
             <span className="min-w-0 flex-1">
@@ -324,14 +325,14 @@ export function MultiSelect({
                   {placeholder}
                 </span>
               ) : (
-                <span className="flex flex-wrap items-center gap-1.5">
+                <span className="flex flex-wrap items-center gap-1.5 py-0.5">
                   {primaryOptions.map((selectedOption) => (
                     <Badge
                       key={selectedOption.value}
-                      className="inline-flex items-center gap-1.5 rounded-md border-primary/15 bg-primary/10 px-2 py-1 text-[11px] font-extrabold text-primary"
+                      className="inline-flex max-w-[260px] items-center gap-1.5 rounded-md border-primary/15 bg-primary/10 px-2.5 py-0.5 text-[11px] font-extrabold text-primary"
                     >
                       {selectedOption.avatarUrl ? (
-                        <Avatar className="h-4 w-4 shrink-0 border-0 bg-transparent">
+                        <Avatar className="h-3.5 w-3.5 shrink-0 border-0 bg-transparent">
                           <AvatarImage
                             src={selectedOption.avatarUrl}
                             alt={selectedOption.label}
@@ -341,21 +342,19 @@ export function MultiSelect({
                           </AvatarFallback>
                         </Avatar>
                       ) : null}
-                      {selectedOption.label}
+                      <span className="truncate">{selectedOption.label}</span>
                     </Badge>
                   ))}
                   {remainingCount > 0 ? (
-                    <Badge className="rounded-md border-slate-200 bg-slate-100 px-2 py-1 text-[11px] font-extrabold text-secondary">
+                    <Badge className="rounded-md border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-extrabold text-secondary">
                       +{remainingCount} more
                     </Badge>
                   ) : null}
                 </span>
               )}
-              {showTriggerSummary ? (
-                <span className="mt-1 block text-[11px] font-bold text-muted-foreground">
-                  {selectedLabels.length === 0
-                    ? `No ${selectedLabelTextPlural} selected`
-                    : `${selectedLabels.length} selected`}
+              {showTriggerSummary && selectedLabels.length === 0 ? (
+                <span className="mt-0.5 block text-[11px] font-bold text-muted-foreground">
+                  No {selectedLabelTextPlural} selected
                 </span>
               ) : null}
             </span>

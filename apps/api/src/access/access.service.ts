@@ -33,6 +33,12 @@ const EMPLOYEE_SELF_SERVICE_READ_MODULES = new Set<string>([
   'payroll',
   'payslips',
   'performance',
+  'employees',
+  'leads',
+  'projects',
+  'lead_masters',
+  'property_masters',
+  'teams',
 ]);
 
 function normalizeRole(role: unknown): Role {

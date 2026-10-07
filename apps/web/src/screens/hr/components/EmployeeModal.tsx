@@ -23,6 +23,7 @@ import {
   EyeOff,
   Network,
   ShieldCheck,
+  Trophy,
   UserPlus,
 } from "lucide-react";
 import { ImageCropModal } from "./ImageCropModal";
@@ -1263,7 +1264,397 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                       )}
                     </div>
 
+                    <div className="space-y-2 sm:col-span-2">
+                      <span className={fieldLabelClassName}>Joining date</span>
+                      <DatePicker
+                        value={formData.joiningDate}
+                        onChange={(event) => {
+                          setFormData({
+                            ...formData,
+                            joiningDate: event.target.value,
+                          });
+                        }}
+                        disabled={isSubmitting}
+                        className="w-full"
+                      />
+                    </div>
                   </div>
+                </div>
+              </ModalSection>
+
+              <ModalSection
+                icon={<BriefcaseBusiness className="h-4 w-4" />}
+                title="Role, payroll and security"
+                description="Define the employee role, shift, login requirements, salary, and justification target."
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <span className={fieldLabelClassName}>
+                      Role designation
+                    </span>
+                    <SearchableSelect
+                      value={String(formData.role || "")}
+                      onValueChange={(value) => {
+                        const nextReportingRoles = reportingRolesForRole(value);
+                        const currentManager = managerOptions.find(
+                          (manager) =>
+                            manager.id === formData.reportingManagerId,
+                        );
+                        const keepReportingManager = Boolean(
+                          currentManager &&
+                            nextReportingRoles.has(currentManager.role),
+                        );
+                        const nextIsTeamLeaderRole =
+                          roleForHierarchy(value) === "TEAM_LEADER";
+                        const nextIsManagerRole = teamLeaderReportingRoles.has(
+                          roleForHierarchy(value),
+                        );
+
+                        setFormData({
+                          ...formData,
+                          role: value,
+                          teamId:
+                            value === "TELECALLER" ||
+                            value === "FIELD_EXECUTIVE"
+                              ? formData.teamId
+                              : "",
+                          reportingManagerId: keepReportingManager
+                            ? formData.reportingManagerId
+                            : "",
+                          manager: keepReportingManager ? formData.manager : "",
+                          monitorTeamIds: nextIsTeamLeaderRole
+                            ? formData.monitorTeamIds
+                            : [],
+                          monitorUserIds: nextIsTeamLeaderRole
+                            ? formData.monitorUserIds
+                            : [],
+                          managedTeamIds: nextIsManagerRole
+                            ? formData.managedTeamIds
+                            : [],
+                          leaderOfTeamId: nextIsTeamLeaderRole
+                            ? formData.leaderOfTeamId
+                            : "",
+                          leaderOfTeamName: nextIsTeamLeaderRole
+                            ? formData.leaderOfTeamName
+                            : "",
+                          permissions: permissionsForRole(value),
+                        });
+                      }}
+                      options={roleSelectOptions}
+                      placeholder="Select role"
+                      searchPlaceholder="Search role..."
+                      className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary focus:border-primary"
+                      disabled={isSubmitting}
+                      modal
+                    />
+                    {errors.role && (
+                      <p className="mt-1 text-[11px] font-bold text-red-500">
+                        {errors.role}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label
+                        className={fieldLabelClassName}
+                        htmlFor={`${generatedId}-password`}
+                      >
+                        {employee ? "Employee password" : "Login password"}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors focus:outline-none"
+                      >
+                        {showPassword ? (
+                          <>
+                            <EyeOff className="size-3.5" />
+                            <span>Hide password</span>
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="size-3.5" />
+                            <span>Show password</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Input
+                        id={`${generatedId}-password`}
+                        type={showPassword ? "text" : "password"}
+                        value={formData.password || ""}
+                        onChange={(event) =>
+                          setFormData({
+                            ...formData,
+                            password: event.target.value,
+                          })
+                        }
+                        placeholder={
+                          employee
+                            ? "Employee password"
+                            : "Default: ChangeMe@123"
+                        }
+                        className={`${inputClassName} pr-10 font-mono`}
+                        disabled={isSubmitting}
+                        autoComplete="new-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                        title={showPassword ? "Hide password" : "Show password"}
+                        tabIndex={-1}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-[11px] font-semibold text-muted-foreground">
+                      {employee
+                        ? "View the employee password or enter a new one to update it."
+                        : "Leave blank to create the employee with the default temporary password (ChangeMe@123)."}
+                    </p>
+                    {errors.password && (
+                      <p className="mt-1 text-[11px] font-bold text-red-500">
+                        {errors.password}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <span className={fieldLabelClassName}>Assigned shift</span>
+                    <SearchableSelect
+                      value={formData.shiftId || "none"}
+                      onValueChange={(value) => {
+                        const selectedShift = shiftOptions.find(
+                          (shift) => shift.id === value,
+                        );
+                        setFormData({
+                          ...formData,
+                          shiftId: value === "none" ? "" : value,
+                          shiftName:
+                            value === "none" ? "" : selectedShift?.name || "",
+                        });
+                      }}
+                      options={[
+                        { value: "none", label: "No shift assigned" },
+                        ...(formData.shiftId &&
+                        !selectedShiftExists &&
+                        formData.shiftName
+                          ? [
+                              {
+                                value: formData.shiftId,
+                                label: formData.shiftName,
+                              },
+                            ]
+                          : []),
+                        ...shiftOptions.map((shift) => ({
+                          value: shift.id,
+                          label: shift.name,
+                          description: `${formatShiftTime(
+                            shift.startTimeMinutes,
+                          )} - ${formatShiftTime(shift.endTimeMinutes)}`,
+                        })),
+                      ]}
+                      placeholder={
+                        isLoadingShifts ? "Loading..." : selectedShiftLabel
+                      }
+                      searchPlaceholder="Search shift..."
+                      className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary focus:border-primary"
+                      disabled={isLoadingShifts || isSubmitting}
+                      modal
+                    />
+                    <p className="text-[11px] font-semibold text-muted-foreground">
+                      Shift timing controls punch-in grace, late counts, and
+                      half-day rules.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor={`${generatedId}-designation`}>
+                      <span className={fieldLabelClassName}>
+                        Employee title / Designation
+                      </span>
+                      <Input
+                        id={`${generatedId}-designation`}
+                        value={formData.designation || ""}
+                        onChange={(event) =>
+                          setFormData({
+                            ...formData,
+                            designation: event.target.value,
+                          })
+                        }
+                        placeholder="e.g. Pre Sales Executive"
+                        className={inputClassName}
+                        disabled={isSubmitting}
+                      />
+                    </label>
+                    {errors.designation && (
+                      <p className="mt-1 text-[11px] font-bold text-red-500">
+                        {errors.designation}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 sm:col-span-2">
+                    <label
+                      htmlFor={`${generatedId}-two-factor`}
+                      className="flex items-start gap-3"
+                    >
+                      <Checkbox
+                        id={`${generatedId}-two-factor`}
+                        checked={Boolean(formData.twoFactorEnabled)}
+                        onChange={(event) =>
+                          setFormData((current) => ({
+                            ...current,
+                            twoFactorEnabled: event.currentTarget.checked,
+                          }))
+                        }
+                        disabled={isSubmitting}
+                      />
+                      <span>
+                        <span className="block text-sm font-bold text-secondary">
+                          Require OTP after password login
+                        </span>
+                        <span className="mt-1 block text-xs font-semibold leading-5 text-muted-foreground">
+                          This employee must verify SMS OTP after entering the
+                          correct password.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+
+                  <label
+                    className="space-y-2"
+                    htmlFor={`${generatedId}-monthlyBasic`}
+                  >
+                    <span className={fieldLabelClassName}>
+                      Base monthly salary (INR)
+                    </span>
+                    <Input
+                      id={`${generatedId}-monthlyBasic`}
+                      type="number"
+                      min="0"
+                      value={formData.monthlyBasic ?? 0}
+                      onChange={(event) =>
+                        setFormData({
+                          ...formData,
+                          monthlyBasic: Number(event.target.value),
+                        })
+                      }
+                      placeholder="42000"
+                      className={inputClassName}
+                      disabled={isSubmitting}
+                    />
+                    {errors.monthlyBasic && (
+                      <p className="mt-1 text-[11px] font-bold text-red-500">
+                        {errors.monthlyBasic}
+                      </p>
+                    )}
+                  </label>
+
+                  <div className="space-y-2">
+                    <label
+                      className={fieldLabelClassName}
+                      htmlFor={`${generatedId}-justificationMode`}
+                    >
+                      Justification method
+                    </label>
+                    <SearchableSelect
+                      value={formData.justificationMode ?? "MULTIPLIER"}
+                      onValueChange={(value) =>
+                        setFormData({
+                          ...formData,
+                          justificationMode:
+                            value === "MANUAL" ? "MANUAL" : "MULTIPLIER",
+                        })
+                      }
+                      options={justificationModeOptions}
+                      placeholder="Select method"
+                      searchPlaceholder="Search method..."
+                      className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary"
+                      disabled={isSubmitting}
+                      modal
+                    />
+                  </div>
+
+                  {usesManualJustification ? (
+                    <label
+                      className="space-y-2 sm:col-span-2"
+                      htmlFor={`${generatedId}-justificationAmount`}
+                    >
+                      <span className={fieldLabelClassName}>
+                        Manual justification target (INR)
+                      </span>
+                      <Input
+                        id={`${generatedId}-justificationAmount`}
+                        type="number"
+                        min="0"
+                        value={formData.justificationAmount ?? 0}
+                        onChange={(event) =>
+                          setFormData({
+                            ...formData,
+                            justificationAmount: Number(event.target.value),
+                          })
+                        }
+                        placeholder="150000"
+                        className={inputClassName}
+                        disabled={isSubmitting}
+                      />
+                      <p className="text-[11px] font-semibold text-muted-foreground">
+                        Monthly justification target: INR{" "}
+                        {Math.round(monthlyJustificationTarget).toLocaleString(
+                          "en-IN",
+                        )}
+                      </p>
+                      {errors.justificationAmount && (
+                        <p className="mt-1 text-[11px] font-bold text-red-500">
+                          {errors.justificationAmount}
+                        </p>
+                      )}
+                    </label>
+                  ) : (
+                    <label
+                      className="space-y-2 sm:col-span-2"
+                      htmlFor={`${generatedId}-justificationMultiplier`}
+                    >
+                      <span className={fieldLabelClassName}>
+                        Justification multiplier
+                      </span>
+                      <Input
+                        id={`${generatedId}-justificationMultiplier`}
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={formData.justificationMultiplier ?? 0}
+                        onChange={(event) =>
+                          setFormData({
+                            ...formData,
+                            justificationMultiplier: Number(event.target.value),
+                          })
+                        }
+                        placeholder="3"
+                        className={inputClassName}
+                        disabled={isSubmitting}
+                      />
+                      <p className="text-[11px] font-semibold text-muted-foreground">
+                        Monthly justification target: INR{" "}
+                        {Math.round(monthlyJustificationTarget).toLocaleString(
+                          "en-IN",
+                        )}
+                      </p>
+                      {errors.justificationMultiplier && (
+                        <p className="mt-1 text-[11px] font-bold text-red-500">
+                          {errors.justificationMultiplier}
+                        </p>
+                      )}
+                    </label>
+                  )}
                 </div>
               </ModalSection>
 
@@ -1539,394 +1930,10 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
               />
 
               <ModalSection
-                icon={<BriefcaseBusiness className="h-4 w-4" />}
-                title="Role, payroll and security"
-                description="Define the employee role, shift, login requirements, salary, and justification target."
+                icon={<Trophy className="h-4 w-4" />}
+                title="Performance ranking visibility"
+                description="Configure which teams' leaderboards and ranking performance this employee can view."
               >
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <span className={fieldLabelClassName}>
-                      Role designation
-                    </span>
-                    <SearchableSelect
-                      value={String(formData.role || "")}
-                      onValueChange={(value) => {
-                        const nextReportingRoles = reportingRolesForRole(value);
-                        const currentManager = managerOptions.find(
-                          (manager) =>
-                            manager.id === formData.reportingManagerId,
-                        );
-                        const keepReportingManager = Boolean(
-                          currentManager &&
-                            nextReportingRoles.has(currentManager.role),
-                        );
-                        const nextIsTeamLeaderRole =
-                          roleForHierarchy(value) === "TEAM_LEADER";
-                        const nextIsManagerRole = teamLeaderReportingRoles.has(
-                          roleForHierarchy(value),
-                        );
-
-                        setFormData({
-                          ...formData,
-                          role: value,
-                          teamId:
-                            value === "TELECALLER" ||
-                            value === "FIELD_EXECUTIVE"
-                              ? formData.teamId
-                              : "",
-                          reportingManagerId: keepReportingManager
-                            ? formData.reportingManagerId
-                            : "",
-                          manager: keepReportingManager ? formData.manager : "",
-                          monitorTeamIds: nextIsTeamLeaderRole
-                            ? formData.monitorTeamIds
-                            : [],
-                          monitorUserIds: nextIsTeamLeaderRole
-                            ? formData.monitorUserIds
-                            : [],
-                          managedTeamIds: nextIsManagerRole
-                            ? formData.managedTeamIds
-                            : [],
-                          leaderOfTeamId: nextIsTeamLeaderRole
-                            ? formData.leaderOfTeamId
-                            : "",
-                          leaderOfTeamName: nextIsTeamLeaderRole
-                            ? formData.leaderOfTeamName
-                            : "",
-                          permissions: permissionsForRole(value),
-                        });
-                      }}
-                      options={roleSelectOptions}
-                      placeholder="Select role"
-                      searchPlaceholder="Search role..."
-                      className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary focus:border-primary"
-                      disabled={isSubmitting}
-                      modal
-                    />
-                    {errors.role && (
-                      <p className="mt-1 text-[11px] font-bold text-red-500">
-                        {errors.role}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label
-                        className={fieldLabelClassName}
-                        htmlFor={`${generatedId}-password`}
-                      >
-                        {employee ? "Employee password" : "Login password"}
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((prev) => !prev)}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors focus:outline-none"
-                      >
-                        {showPassword ? (
-                          <>
-                            <EyeOff className="size-3.5" />
-                            <span>Hide password</span>
-                          </>
-                        ) : (
-                          <>
-                            <Eye className="size-3.5" />
-                            <span>Show password</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <Input
-                        id={`${generatedId}-password`}
-                        type={showPassword ? "text" : "password"}
-                        value={formData.password || ""}
-                        onChange={(event) =>
-                          setFormData({
-                            ...formData,
-                            password: event.target.value,
-                          })
-                        }
-                        placeholder={
-                          employee
-                            ? "Employee password"
-                            : "Default: ChangeMe@123"
-                        }
-                        className={`${inputClassName} pr-10 font-mono`}
-                        disabled={isSubmitting}
-                        autoComplete="new-password"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((prev) => !prev)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
-                        title={showPassword ? "Hide password" : "Show password"}
-                        tabIndex={-1}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                    <p className="text-[11px] font-semibold text-muted-foreground">
-                      {employee
-                        ? "View the employee password or enter a new one to update it."
-                        : "Leave blank to create the employee with the default temporary password (ChangeMe@123)."}
-                    </p>
-                    {errors.password && (
-                      <p className="mt-1 text-[11px] font-bold text-red-500">
-                        {errors.password}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <span className={fieldLabelClassName}>Assigned shift</span>
-                    <SearchableSelect
-                      value={formData.shiftId || "none"}
-                      onValueChange={(value) => {
-                        const selectedShift = shiftOptions.find(
-                          (shift) => shift.id === value,
-                        );
-                        setFormData({
-                          ...formData,
-                          shiftId: value === "none" ? "" : value,
-                          shiftName:
-                            value === "none" ? "" : selectedShift?.name || "",
-                        });
-                      }}
-                      options={[
-                        { value: "none", label: "No shift assigned" },
-                        ...(formData.shiftId &&
-                        !selectedShiftExists &&
-                        formData.shiftName
-                          ? [
-                              {
-                                value: formData.shiftId,
-                                label: formData.shiftName,
-                              },
-                            ]
-                          : []),
-                        ...shiftOptions.map((shift) => ({
-                          value: shift.id,
-                          label: shift.name,
-                          description: `${formatShiftTime(
-                            shift.startTimeMinutes,
-                          )} - ${formatShiftTime(shift.endTimeMinutes)}`,
-                        })),
-                      ]}
-                      placeholder={
-                        isLoadingShifts ? "Loading..." : selectedShiftLabel
-                      }
-                      searchPlaceholder="Search shift..."
-                      className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary focus:border-primary"
-                      disabled={isLoadingShifts || isSubmitting}
-                      modal
-                    />
-                    <p className="text-[11px] font-semibold text-muted-foreground">
-                      Shift timing controls punch-in grace, late counts, and
-                      half-day rules.
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label htmlFor={`${generatedId}-designation`}>
-                      <span className={fieldLabelClassName}>
-                        Employee title / Designation
-                      </span>
-                      <Input
-                        id={`${generatedId}-designation`}
-                        value={formData.designation || ""}
-                        onChange={(event) =>
-                          setFormData({
-                            ...formData,
-                            designation: event.target.value,
-                          })
-                        }
-                        placeholder="e.g. Pre Sales Executive"
-                        className={inputClassName}
-                        disabled={isSubmitting}
-                      />
-                    </label>
-                    {errors.designation && (
-                      <p className="mt-1 text-[11px] font-bold text-red-500">
-                        {errors.designation}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                    <label
-                      htmlFor={`${generatedId}-two-factor`}
-                      className="flex items-start gap-3"
-                    >
-                      <Checkbox
-                        id={`${generatedId}-two-factor`}
-                        checked={Boolean(formData.twoFactorEnabled)}
-                        onChange={(event) =>
-                          setFormData((current) => ({
-                            ...current,
-                            twoFactorEnabled: event.currentTarget.checked,
-                          }))
-                        }
-                        disabled={isSubmitting}
-                      />
-                      <span>
-                        <span className="block text-sm font-bold text-secondary">
-                          Require OTP after password login
-                        </span>
-                        <span className="mt-1 block text-xs font-semibold leading-5 text-muted-foreground">
-                          This employee must verify SMS OTP after entering the
-                          correct password.
-                        </span>
-                      </span>
-                    </label>
-                  </div>
-
-                  <div className="space-y-2">
-                    <span className={fieldLabelClassName}>Joining date</span>
-                    <DatePicker
-                      value={formData.joiningDate}
-                      onChange={(event) => {
-                        setFormData({
-                          ...formData,
-                          joiningDate: event.target.value,
-                        });
-                      }}
-                      disabled={isSubmitting}
-                      className="w-full"
-                    />
-                  </div>
-
-                  <label
-                    className="space-y-2"
-                    htmlFor={`${generatedId}-monthlyBasic`}
-                  >
-                    <span className={fieldLabelClassName}>
-                      Base monthly salary (INR)
-                    </span>
-                    <Input
-                      id={`${generatedId}-monthlyBasic`}
-                      type="number"
-                      min="0"
-                      value={formData.monthlyBasic ?? 0}
-                      onChange={(event) =>
-                        setFormData({
-                          ...formData,
-                          monthlyBasic: Number(event.target.value),
-                        })
-                      }
-                      placeholder="42000"
-                      className={inputClassName}
-                      disabled={isSubmitting}
-                    />
-                    {errors.monthlyBasic && (
-                      <p className="mt-1 text-[11px] font-bold text-red-500">
-                        {errors.monthlyBasic}
-                      </p>
-                    )}
-                  </label>
-
-                  <div className="space-y-2">
-                    <label
-                      className={fieldLabelClassName}
-                      htmlFor={`${generatedId}-justificationMode`}
-                    >
-                      Justification method
-                    </label>
-                    <SearchableSelect
-                      value={formData.justificationMode ?? "MULTIPLIER"}
-                      onValueChange={(value) =>
-                        setFormData({
-                          ...formData,
-                          justificationMode:
-                            value === "MANUAL" ? "MANUAL" : "MULTIPLIER",
-                        })
-                      }
-                      options={justificationModeOptions}
-                      placeholder="Select method"
-                      searchPlaceholder="Search method..."
-                      className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary"
-                      disabled={isSubmitting}
-                      modal
-                    />
-                  </div>
-
-                  {usesManualJustification ? (
-                    <label
-                      className="space-y-2"
-                      htmlFor={`${generatedId}-justificationAmount`}
-                    >
-                      <span className={fieldLabelClassName}>
-                        Manual justification target (INR)
-                      </span>
-                      <Input
-                        id={`${generatedId}-justificationAmount`}
-                        type="number"
-                        min="0"
-                        value={formData.justificationAmount ?? 0}
-                        onChange={(event) =>
-                          setFormData({
-                            ...formData,
-                            justificationAmount: Number(event.target.value),
-                          })
-                        }
-                        placeholder="150000"
-                        className={inputClassName}
-                        disabled={isSubmitting}
-                      />
-                      <p className="text-[11px] font-semibold text-muted-foreground">
-                        Monthly justification target: INR{" "}
-                        {Math.round(monthlyJustificationTarget).toLocaleString(
-                          "en-IN",
-                        )}
-                      </p>
-                      {errors.justificationAmount && (
-                        <p className="mt-1 text-[11px] font-bold text-red-500">
-                          {errors.justificationAmount}
-                        </p>
-                      )}
-                    </label>
-                  ) : (
-                    <label
-                      className="space-y-2"
-                      htmlFor={`${generatedId}-justificationMultiplier`}
-                    >
-                      <span className={fieldLabelClassName}>
-                        Justification multiplier
-                      </span>
-                      <Input
-                        id={`${generatedId}-justificationMultiplier`}
-                        type="number"
-                        min="0"
-                        step="0.1"
-                        value={formData.justificationMultiplier ?? 0}
-                        onChange={(event) =>
-                          setFormData({
-                            ...formData,
-                            justificationMultiplier: Number(event.target.value),
-                          })
-                        }
-                        placeholder="3"
-                        className={inputClassName}
-                        disabled={isSubmitting}
-                      />
-                      <p className="text-[11px] font-semibold text-muted-foreground">
-                        Monthly justification target: INR{" "}
-                        {Math.round(monthlyJustificationTarget).toLocaleString(
-                          "en-IN",
-                        )}
-                      </p>
-                      {errors.justificationMultiplier && (
-                        <p className="mt-1 text-[11px] font-bold text-red-500">
-                          {errors.justificationMultiplier}
-                        </p>
-                      )}
-                    </label>
-                  )}
-                </div>
                 <RankingTeamAccessEditor
                   teams={teamOptions}
                   value={formData.rankingTeamIds ?? []}
@@ -1936,7 +1943,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                   assignedTeamId={formData.teamId}
                   assignedTeamName={formData.teamName}
                   disabled={isLoadingTeams || isSubmitting}
-                  className="mt-4 bg-slate-50"
+                  className="bg-slate-50"
                 />
               </ModalSection>
 

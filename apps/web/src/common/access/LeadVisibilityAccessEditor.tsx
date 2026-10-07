@@ -1,5 +1,22 @@
-import { Eye, EyeOff, Network } from "lucide-react";
-import { MultiSelect, cn } from "ui";
+import { useMemo, useState } from "react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff,
+  Network,
+  Search,
+  ShieldAlert,
+} from "lucide-react";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+  Badge,
+  Input,
+  MultiSelect,
+  cn,
+} from "ui";
 
 export type LeadVisibilityEmployeeOption = {
   id: string;
@@ -132,6 +149,9 @@ export function LeadVisibilityAccessEditor({
   disabled,
   className,
 }: LeadVisibilityAccessEditorProps) {
+  const [isHierarchyExpanded, setIsHierarchyExpanded] = useState(false);
+  const [hierarchyQuery, setHierarchyQuery] = useState("");
+
   const hierarchyUserIds = resolveHierarchyUserIds(
     employees,
     viewerId,
@@ -143,6 +163,27 @@ export function LeadVisibilityAccessEditor({
     .filter(
       (employee): employee is LeadVisibilityEmployeeOption => Boolean(employee),
     );
+
+  const filteredHierarchyEmployees = useMemo(() => {
+    if (!hierarchyQuery.trim()) return hierarchyEmployees;
+    const q = hierarchyQuery.trim().toLowerCase();
+    return hierarchyEmployees.filter(
+      (emp) =>
+        emp.name.toLowerCase().includes(q) ||
+        (emp.role && roleLabel(emp.role).toLowerCase().includes(q)) ||
+        (emp.teamName && emp.teamName.toLowerCase().includes(q)),
+    );
+  }, [hierarchyEmployees, hierarchyQuery]);
+
+  const displayedHierarchyEmployees = useMemo(() => {
+    if (isHierarchyExpanded || hierarchyQuery.trim()) {
+      return filteredHierarchyEmployees;
+    }
+    return filteredHierarchyEmployees.slice(0, 5);
+  }, [filteredHierarchyEmployees, isHierarchyExpanded, hierarchyQuery]);
+
+  const hasOverflow = hierarchyEmployees.length > 5;
+
   const allowedNames = selectedNames(allowedUserIds, employees);
   const blockedNames = selectedNames(blockedUserIds, employees);
   const normalizedAllowedIds = allowedUserIds.filter(
@@ -219,37 +260,129 @@ export function LeadVisibilityAccessEditor({
       </div>
 
       <div className="grid gap-4 px-4 py-4 lg:grid-cols-[1fr_1fr]">
-        <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-          <p className="text-xs font-extrabold text-secondary">
-            Automatic hierarchy
-          </p>
+        <div className="flex flex-col rounded-lg border border-slate-200/90 bg-slate-50/60 p-3.5 transition-all">
+          <div className="flex items-center justify-between pb-2">
+            <div className="flex items-center gap-2">
+              <span className="flex size-5 items-center justify-center rounded-md bg-blue-50 text-[11px] font-extrabold text-blue-700">
+                {hierarchyEmployees.length}
+              </span>
+              <p className="text-xs font-extrabold text-secondary">
+                Automatic hierarchy
+              </p>
+            </div>
+            {hasOverflow ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsHierarchyExpanded((prev) => !prev);
+                  if (isHierarchyExpanded) setHierarchyQuery("");
+                }}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-extrabold text-primary transition-colors hover:bg-primary/10 cursor-pointer outline-none"
+              >
+                <span>
+                  {isHierarchyExpanded
+                    ? "Show less"
+                    : `+${hierarchyEmployees.length - 5} more`}
+                </span>
+                {isHierarchyExpanded ? (
+                  <ChevronUp className="size-3.5" />
+                ) : (
+                  <ChevronDown className="size-3.5" />
+                )}
+              </button>
+            ) : null}
+          </div>
+
+          {isHierarchyExpanded && hasOverflow ? (
+            <div className="relative mb-2.5 mt-1">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                aria-label="Filter hierarchy members"
+                value={hierarchyQuery}
+                placeholder="Search hierarchy members..."
+                className="h-8 rounded-md bg-white pl-8 pr-3 text-xs font-semibold"
+                onChange={(e) => setHierarchyQuery(e.target.value)}
+              />
+            </div>
+          ) : null}
+
           {hierarchyEmployees.length ? (
-            <div className="mt-3 grid gap-2">
-              {hierarchyEmployees.slice(0, 5).map((employee) => (
-                <div
-                  key={employee.id}
-                  className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-extrabold text-secondary">
-                      {employee.name}
-                    </p>
-                    <p className="truncate text-[11px] font-semibold text-muted-foreground">
-                      {roleLabel(employee.role)}
-                      {employee.teamName ? ` - ${employee.teamName}` : ""}
-                    </p>
+            <div className="mt-1 grid gap-2">
+              {displayedHierarchyEmployees.map((employee) => {
+                const isBlocked = normalizedBlockedIds.includes(employee.id);
+                const initials = employee.name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase();
+
+                return (
+                  <div
+                    key={employee.id}
+                    className={cn(
+                      "flex items-center justify-between gap-3 rounded-md border border-slate-200/80 bg-white px-3 py-2 shadow-2xs transition-all hover:border-slate-300 hover:shadow-xs",
+                      isBlocked && "border-red-200/80 bg-red-50/40",
+                    )}
+                  >
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <Avatar className="size-7 shrink-0 border border-slate-100 bg-slate-50">
+                        <AvatarImage
+                          src={employee.image ?? undefined}
+                          alt={employee.name}
+                        />
+                        <AvatarFallback className="bg-blue-50 text-[9px] font-extrabold text-blue-700">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-extrabold text-secondary">
+                          {employee.name}
+                        </p>
+                        <p className="truncate text-[11px] font-semibold text-muted-foreground">
+                          {roleLabel(employee.role)}
+                          {employee.teamName ? ` - ${employee.teamName}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    {isBlocked ? (
+                      <Badge className="shrink-0 gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-extrabold text-red-600 shadow-none">
+                        <ShieldAlert className="size-3" />
+                        Blocked
+                      </Badge>
+                    ) : null}
                   </div>
-                  {normalizedBlockedIds.includes(employee.id) ? (
-                    <span className="shrink-0 rounded-md border border-red-100 bg-red-50 px-2 py-1 text-[10px] font-extrabold text-red-600">
-                      Blocked
-                    </span>
-                  ) : null}
-                </div>
-              ))}
-              {hierarchyEmployees.length > 5 ? (
-                <p className="text-[11px] font-semibold text-muted-foreground">
-                  +{hierarchyEmployees.length - 5} more from hierarchy
-                </p>
+                );
+              })}
+
+              {!isHierarchyExpanded && hasOverflow ? (
+                <button
+                  type="button"
+                  onClick={() => setIsHierarchyExpanded(true)}
+                  className="mt-1.5 flex w-full items-center justify-between rounded-md border border-dashed border-slate-300 bg-white px-3 py-2 text-xs font-bold text-primary transition-all hover:border-primary/50 hover:bg-primary/5 cursor-pointer outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <span className="font-extrabold">
+                    +{hierarchyEmployees.length - 5} more from hierarchy
+                  </span>
+                  <span className="flex items-center gap-1 text-[11px] font-extrabold text-primary">
+                    View all ({hierarchyEmployees.length})
+                    <ChevronDown className="size-3.5" />
+                  </span>
+                </button>
+              ) : null}
+
+              {isHierarchyExpanded && hasOverflow ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsHierarchyExpanded(false);
+                    setHierarchyQuery("");
+                  }}
+                  className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-extrabold text-secondary transition-all hover:bg-slate-100 hover:text-primary cursor-pointer outline-none"
+                >
+                  <span>Show less</span>
+                  <ChevronUp className="size-3.5" />
+                </button>
               ) : null}
             </div>
           ) : (

@@ -78,7 +78,6 @@ import { usePermission } from "../../../../common/access/usePermission";
 import { ExecutiveCell } from "../../../../common/components/DataTableCells";
 import { scheduledInputToIso } from "../../../../common/time";
 import { useAppSelector } from "../../../../store";
-import { WorkspacePage } from "../../../../components/layout/PageHeader";
 
 import { useLocation, useNavigate } from "react-router-dom";
 import { getAdminLeadSla } from "../../../../common/sla/slaData";
@@ -110,6 +109,11 @@ import {
 } from "../site-visits/useSiteVisits";
 import { AddLeadModal, EditLeadModal } from "./AddLeadModal";
 import type { LeadRow } from "./allLeadsTypes";
+import { countLeadMasterValueMatches } from "./leadMasterMatching";
+import {
+  canStartSiteVisitStatusTransition,
+  splitSiteVisitLeadUpdate,
+} from "./siteVisitStatusTransition";
 import {
   LEAD_TABLE_MAX_ROWS,
   useAllLeads,
@@ -140,6 +144,17 @@ type LeadBucketFilter =
   | "revisit-completed"
   | "booked"
   | "not-interested";
+
+interface PendingSiteVisitLeadUpdate {
+  lead: LeadRow;
+  leadIds: string[];
+  payload: Record<string, string>;
+  statusId: string;
+  shouldCreateFollowUp: boolean;
+  followUpRemark: string;
+  successMessage: string;
+  ordinaryUpdatesPersisted: boolean;
+}
 type DateRangeFilter =
   | "all"
   | "today"
@@ -1244,13 +1259,19 @@ export function LeadsTable({
     value: string;
     kind?: "status" | "temperature";
     color?: string;
+    isMasterBacked?: boolean;
   }>;
   appliedStatusIds?: string[];
   appliedTemperatureIds?: string[];
   onQuickLeadStatusFilter?: (
     filter:
       | string
-      | { label: string; value: string; kind?: "status" | "temperature" },
+      | {
+          label: string;
+          value: string;
+          kind?: "status" | "temperature";
+          isMasterBacked?: boolean;
+        },
   ) => void;
   filters?: LeadListFilters;
   dateRange?: DateRangeFilter;
@@ -1351,6 +1372,8 @@ export function LeadsTable({
   const siteVisitOptionsQuery = useSiteVisitOptions("");
   const siteVisitMutations = useSiteVisitMutations();
   const [triggerSiteVisitOpen, setTriggerSiteVisitOpen] = useState(false);
+  const [pendingSiteVisitLeadUpdate, setPendingSiteVisitLeadUpdate] =
+    useState<PendingSiteVisitLeadUpdate | null>(null);
   const [triggerBookingLead, setTriggerBookingLead] = useState<{
     id: string;
     name: string;
@@ -1974,12 +1997,7 @@ export function LeadsTable({
 
     const leadId = lead.backendId ?? lead.id;
     if (triggerAction === "CREATE_SITE_VISIT") {
-      setTriggerSiteVisitForm({
-        ...createDefaultSiteVisitForm(leadId),
-        projectId: lead.projectId ?? "",
-      });
-      setTriggerSiteVisitOpen(true);
-      toast.success(`${successMessage}. Continue with the site visit details.`);
+      toast.error("Schedule the site visit before applying this lead status.");
       return;
     }
 
@@ -2013,7 +2031,9 @@ export function LeadsTable({
   };
 
   const submitTriggerSiteVisit = async () => {
+    const pendingUpdate = pendingSiteVisitLeadUpdate;
     if (
+      !pendingUpdate ||
       !triggerSiteVisitForm.leadId ||
       !triggerSiteVisitForm.projectId ||
       !triggerSiteVisitForm.date ||
@@ -2025,8 +2045,44 @@ export function LeadsTable({
       return;
     }
 
+    if (!pendingUpdate.ordinaryUpdatesPersisted) {
+      if (Object.keys(pendingUpdate.payload).length > 0) {
+        await bulkPatch.mutateAsync({
+          leadIds: pendingUpdate.leadIds,
+          payload: pendingUpdate.payload,
+        });
+      }
+      if (pendingUpdate.shouldCreateFollowUp) {
+        await api.post(
+          `/leads/${
+            pendingUpdate.lead.backendId ?? pendingUpdate.lead.id
+          }/follow-ups`,
+          {
+            scheduledAt: pendingUpdate.payload.nextFollowUpAt,
+            assignedToId:
+              pendingUpdate.lead.telecallerId ||
+              pendingUpdate.lead.fieldExecutiveId ||
+              pendingUpdate.lead.ownerId ||
+              undefined,
+            status: "Scheduled",
+            remarks: pendingUpdate.followUpRemark,
+            notes: pendingUpdate.followUpRemark,
+          },
+        );
+        patchLeadRemarkCache(
+          queryClient,
+          pendingUpdate.leadIds,
+          pendingUpdate.followUpRemark,
+        );
+      }
+      setPendingSiteVisitLeadUpdate((current) =>
+        current ? { ...current, ordinaryUpdatesPersisted: true } : current,
+      );
+    }
+
     await siteVisitMutations.createVisit.mutateAsync({
       leadId: triggerSiteVisitForm.leadId,
+      leadStatusId: pendingUpdate.statusId,
       projectId: triggerSiteVisitForm.projectId,
       unitId: triggerSiteVisitForm.unitId || undefined,
       visitType: triggerSiteVisitForm.visitType,
@@ -2042,12 +2098,28 @@ export function LeadsTable({
       specialRequest: triggerSiteVisitForm.specialRequest || undefined,
       status: "Scheduled",
     });
-    toast.success("Site visit created");
+    toast.success(`${pendingUpdate.successMessage} and site visit created`);
+    setSelectedLeadIds([]);
+    setPendingSiteVisitLeadUpdate(null);
     setTriggerSiteVisitOpen(false);
     setTriggerSiteVisitForm(createDefaultSiteVisitForm());
+    closeUpdateModal();
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["leads"] }),
+      queryClient.invalidateQueries({ queryKey: ["lead-details"] }),
+      queryClient.invalidateQueries({ queryKey: ["lead-remarks"] }),
+      queryClient.invalidateQueries({ queryKey: ["follow-ups"] }),
+      queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    ]);
   };
 
   const submitLeadUpdate = async () => {
+    const triggerAction = selectedStatusTriggerAction;
+    if (!canStartSiteVisitStatusTransition(triggerAction, selectedCount)) {
+      toast.error("Select exactly one lead before scheduling a site visit");
+      return;
+    }
+
     const followUpAllowedForSelectedStatus = selectedStatusAllowsFollowUp;
     const trimmedRemark = selectedRemark.trim();
     const hasStatusUpdate =
@@ -2130,10 +2202,47 @@ export function LeadsTable({
     }
 
     const hasLeadUpdates = Object.keys(payload).length > 0;
+    const successMessage =
+      (requiresFollowUp || shouldCreateFollowUp) && hasLeadUpdates
+        ? selectedCount === 1
+          ? "Lead updated and follow-up created"
+          : "Selected leads updated and follow-ups created"
+        : requiresFollowUp || shouldCreateFollowUp
+        ? selectedCount === 1
+          ? "Follow-up created"
+          : "Follow-ups created"
+        : selectedCount === 1
+        ? "Lead updated"
+        : "Selected leads updated";
+    const triggerLead = selectedRows[0];
+
+    if (triggerAction === "CREATE_SITE_VISIT" && triggerLead) {
+      const { ordinaryPayload, leadStatusId } = splitSiteVisitLeadUpdate(
+        payload,
+        selectedStatusId,
+      );
+      setPendingSiteVisitLeadUpdate({
+        lead: triggerLead,
+        leadIds: [...selectedBackendLeadIds],
+        payload: ordinaryPayload,
+        statusId: leadStatusId,
+        shouldCreateFollowUp,
+        followUpRemark: trimmedRemark,
+        successMessage,
+        ordinaryUpdatesPersisted: false,
+      });
+      setTriggerSiteVisitForm({
+        ...createDefaultSiteVisitForm(triggerLead.backendId ?? triggerLead.id),
+        projectId: triggerLead.projectId ?? "",
+      });
+      setActiveUpdateModal(null);
+      setTriggerSiteVisitOpen(true);
+      toast.success("Complete the site visit details to apply this status.");
+      return;
+    }
+
     let leadUpdateCompleted = false;
     try {
-      const triggerAction = selectedStatusTriggerAction;
-      const triggerLead = selectedRows[0];
       if (hasLeadUpdates) {
         await bulkPatch.mutateAsync({
           leadIds: selectedBackendLeadIds,
@@ -2173,18 +2282,6 @@ export function LeadsTable({
         queryClient.invalidateQueries({ queryKey: ["follow-ups"] }),
         queryClient.invalidateQueries({ queryKey: ["notifications"] }),
       ]);
-      const successMessage =
-        (requiresFollowUp || shouldCreateFollowUp) && hasLeadUpdates
-          ? selectedCount === 1
-            ? "Lead updated and follow-up created"
-            : "Selected leads updated and follow-ups created"
-          : requiresFollowUp || shouldCreateFollowUp
-          ? selectedCount === 1
-            ? "Follow-up created"
-            : "Follow-ups created"
-          : selectedCount === 1
-          ? "Lead updated"
-          : "Selected leads updated";
       if (hasLeadUpdates && selectedStatusId) {
         openTriggerFlow(triggerAction, triggerLead, successMessage);
         return;
@@ -2339,10 +2436,10 @@ export function LeadsTable({
       {
         id: "number",
         header: "Number",
-        className: "w-[104px] max-w-[104px]",
-        headerClassName: "w-[104px]",
+        className: "w-[145px] max-w-[145px]",
+        headerClassName: "w-[145px]",
         cell: (lead) => (
-          <span className="block truncate text-[11px] font-semibold text-secondary">
+          <span className="block truncate whitespace-nowrap text-[11px] font-semibold text-secondary">
             {lead.mobile}
           </span>
         ),
@@ -2679,7 +2776,7 @@ export function LeadsTable({
   ]);
 
   useEffect(() => {
-    if (currentPage > totalPages) {
+    if (totalPages > 0 && currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
@@ -2913,20 +3010,25 @@ export function LeadsTable({
                     );
 
                 const count = isTemperature
-                  ? countSource.filter((lead) => {
-                      if (
-                        lead.temperatureId &&
-                        lead.temperatureId === filter.value
+                  ? filter.isMasterBacked
+                    ? countLeadMasterValueMatches(
+                        countSource,
+                        "lead_type",
+                        filter.value,
                       )
-                        return true;
-                      const p = (lead.priority || "").trim().toLowerCase();
-                      const l = (lead.leadType || "").trim().toLowerCase();
-                      const target = filter.label.trim().toLowerCase();
-                      return (p && p === target) || (l && l === target);
-                    }).length
+                    : countSource.filter((lead) => {
+                        const p = (lead.priority || "").trim().toLowerCase();
+                        const l = (lead.leadType || "").trim().toLowerCase();
+                        const target = filter.label.trim().toLowerCase();
+                        return (p && p === target) || (l && l === target);
+                      }).length
+                  : filter.isMasterBacked
+                  ? countLeadMasterValueMatches(
+                      countSource,
+                      "status",
+                      filter.value,
+                    )
                   : countSource.filter((lead) => {
-                      if (lead.statusId && lead.statusId === filter.value)
-                        return true;
                       const s = (lead.status || "").trim().toLowerCase();
                       const stage = (lead.stage || "").trim().toLowerCase();
                       const target = filter.label.trim().toLowerCase();
@@ -2936,17 +3038,14 @@ export function LeadsTable({
                       )
                         return true;
                       if (stage && stage === target) return true;
-                      if (
+                      return Boolean(
                         filterBucket &&
-                        activeLeadBucketFilter === filterBucket
-                      ) {
-                        return matchesLeadBucketFilter(
-                          lead,
-                          filterBucket,
-                          completedSiteVisitLeadIds,
-                        );
-                      }
-                      return false;
+                          matchesLeadBucketFilter(
+                            lead,
+                            filterBucket,
+                            completedSiteVisitLeadIds,
+                          ),
+                      );
                     }).length;
 
                 const getPillTone = () => {
@@ -3597,12 +3696,16 @@ export function LeadsTable({
         form={triggerSiteVisitForm}
         rows={[]}
         optionsData={siteVisitOptionsQuery.data}
-        isSaving={siteVisitMutations.createVisit.isPending}
+        isSaving={
+          bulkPatch.isPending || siteVisitMutations.createVisit.isPending
+        }
         lockedLeadId={triggerSiteVisitForm.leadId}
         onOpenChange={(open) => {
           setTriggerSiteVisitOpen(open);
           if (!open) {
+            setPendingSiteVisitLeadUpdate(null);
             setTriggerSiteVisitForm(createDefaultSiteVisitForm());
+            closeUpdateModal();
           }
         }}
         onChange={updateTriggerSiteVisitForm}
@@ -4321,6 +4424,7 @@ export function AllLeadsScreen() {
               ? ("temperature" as const)
               : ("status" as const),
           color: pill.displayColor,
+          isMasterBacked: pill.category !== "core",
         }));
     }
 
@@ -4333,6 +4437,7 @@ export function AllLeadsScreen() {
               value: status.id,
               kind: "status" as const,
               color: status.displayColor,
+              isMasterBacked: true,
             }))
         : [
             { label: "New Lead", value: "new", kind: "status" as const },
@@ -4366,6 +4471,7 @@ export function AllLeadsScreen() {
         value: type.id,
         kind: "temperature" as const,
         color: type.displayColor,
+        isMasterBacked: true,
       }));
 
     return [...statusPills, ...leadTypePills];
@@ -4484,22 +4590,6 @@ export function AllLeadsScreen() {
       !fieldExecutiveRoute &&
       !telecallerRoute
     ) {
-      const bucketKeyMap: Record<string, LeadBucketFilter> = {
-        "new lead": "new",
-        new: "new",
-        interested: "interested",
-        "hot lead": "hot",
-        hot: "hot",
-        "site visit schedule": "site-visit",
-        "site visit scheduled": "site-visit",
-        "site visit done": "site-visit-completed",
-        "revisit done": "revisit-completed",
-        "re-visit done": "revisit-completed",
-        "bookings done": "booked",
-        booked: "booked",
-        "not interested": "not-interested",
-      };
-
       const hasTotalLeadsInConfig = activeCardsList.some(
         (i) =>
           i.id === "core:total-leads" || i.name.toLowerCase() === "total leads",
@@ -4538,14 +4628,11 @@ export function AllLeadsScreen() {
           }
 
           if (item.category === "lead_type") {
-            const count = summaryRows.filter(
-              (lead) =>
-                lead.temperatureId === item.id ||
-                (lead.priority &&
-                  lead.priority
-                    .toLowerCase()
-                    .includes(item.name.toLowerCase())),
-            ).length;
+            const count = countLeadMasterValueMatches(
+              summaryRows,
+              "lead_type",
+              item.id,
+            );
             return {
               label: item.name,
               value: count,
@@ -4561,20 +4648,11 @@ export function AllLeadsScreen() {
             };
           }
 
-          const bucket = bucketKeyMap[item.name.toLowerCase()];
-          const count = bucket
-            ? countByBucket(bucket)
-            : summaryRows.filter(
-                (lead) =>
-                  lead.statusId === item.id ||
-                  (lead.statusId &&
-                    lead.statusId.toLowerCase() === item.id.toLowerCase()) ||
-                  (lead.statusName &&
-                    lead.statusName.toLowerCase() ===
-                      item.name.toLowerCase()) ||
-                  (lead.status &&
-                    lead.status.toLowerCase() === item.name.toLowerCase()),
-              ).length;
+          const count = countLeadMasterValueMatches(
+            summaryRows,
+            "status",
+            item.id,
+          );
           return {
             label: item.name,
             value: count,
@@ -5029,7 +5107,7 @@ export function AllLeadsScreen() {
   };
 
   return (
-    <WorkspacePage className="space-y-8">
+    <main className="mx-auto  space-y-8 p-4 sm:p-6">
       <section className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
         <div>
           <h1 className="flex items-center gap-2 text-3xl font-extrabold text-secondary">
@@ -5262,7 +5340,7 @@ export function AllLeadsScreen() {
         rowCount={exportRows.length}
         onExport={handleConfirmExportLeads}
       />
-    </WorkspacePage>
+    </main>
   );
 }
 

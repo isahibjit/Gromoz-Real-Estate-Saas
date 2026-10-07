@@ -611,6 +611,44 @@ export class HrService {
     return employee;
   }
 
+  private async generateNextUniqueEmployeeCode(
+    requestedCode?: string | null,
+    excludeProfileId?: string,
+  ): Promise<string> {
+    if (requestedCode && requestedCode.trim()) {
+      const code = requestedCode.trim().toUpperCase();
+      const existing = await this.prisma.employeeProfile.findFirst({
+        where: {
+          employeeCode: code,
+          ...(excludeProfileId ? { id: { not: excludeProfileId } } : {}),
+        },
+      });
+      if (existing) {
+        throw new ConflictException(
+          `Employee code "${code}" is already in use by another employee`,
+        );
+      }
+      return code;
+    }
+
+    const count = await this.prisma.employeeProfile.count();
+    let nextNum = count + 1;
+
+    while (true) {
+      const candidate = `EMP-${String(nextNum).padStart(5, '0')}`;
+      const existing = await this.prisma.employeeProfile.findFirst({
+        where: {
+          employeeCode: candidate,
+          ...(excludeProfileId ? { id: { not: excludeProfileId } } : {}),
+        },
+      });
+      if (!existing) {
+        return candidate;
+      }
+      nextNum++;
+    }
+  }
+
   async createEmployee(body: Record<string, unknown>, actor: Actor) {
     const organizationId = this.tenants.organizationId;
     await this.tenants.validateEmployeeReferences(body);
@@ -627,11 +665,9 @@ export class HrService {
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing)
       throw new ConflictException('An employee with this email already exists');
-    const count = await this.prisma.employeeProfile.count();
-    const employeeCode =
-      typeof body.employeeCode === 'string' && body.employeeCode.trim()
-        ? body.employeeCode.trim().toUpperCase()
-        : `EMP-${String(count + 1).padStart(5, '0')}`;
+    const employeeCode = await this.generateNextUniqueEmployeeCode(
+      typeof body.employeeCode === 'string' ? body.employeeCode : undefined,
+    );
     const password =
       typeof body.password === 'string' && body.password.length >= 8
         ? body.password
@@ -1492,6 +1528,74 @@ export class HrService {
     return this.buildTodayAttendance(profile, updated, dayContext);
   }
 
+  private async getScopedUserIdsForHR(actor: Actor): Promise<string[] | null> {
+    if (ADMIN_ROLES.has(actor.role)) return null;
+
+    const userIds = new Set<string>([actor.sub]);
+
+    if (
+      actor.role === 'TEAM_LEADER' ||
+      actor.role === 'MANAGER' ||
+      actor.role === 'SALES_MANAGER'
+    ) {
+      const [teams, grants, directReports, profile] = await Promise.all([
+        this.prisma.team.findMany({
+          where: {
+            organizationId: this.tenants.organizationId,
+            isActive: true,
+            OR: [
+              { leaderId: actor.sub },
+              { visibilityGrants: { some: { leaderUserId: actor.sub } } },
+            ],
+          },
+          select: {
+            id: true,
+            members: { select: { userId: true } },
+          },
+        }),
+        this.prisma.teamLeaderVisibilityGrant.findMany({
+          where: { leaderUserId: actor.sub },
+          select: {
+            userId: true,
+            team: {
+              select: {
+                members: { select: { userId: true } },
+              },
+            },
+          },
+        }),
+        this.prisma.employeeProfile.findMany({
+          where: {
+            reportingToId: actor.sub,
+            user: { AND: [this.tenants.employeeWhere()], isActive: true },
+          },
+          select: { userId: true },
+        }),
+        this.prisma.employeeProfile.findUnique({
+          where: { userId: actor.sub },
+          select: { teamId: true },
+        }),
+      ]);
+
+      teams.forEach((t) => t.members.forEach((m) => userIds.add(m.userId)));
+      grants.forEach((g) => {
+        if (g.userId) userIds.add(g.userId);
+        g.team?.members.forEach((m) => userIds.add(m.userId));
+      });
+      directReports.forEach((r) => userIds.add(r.userId));
+
+      if (profile?.teamId) {
+        const teamMembers = await this.prisma.teamMembership.findMany({
+          where: { teamId: profile.teamId },
+          select: { userId: true },
+        });
+        teamMembers.forEach((m) => userIds.add(m.userId));
+      }
+    }
+
+    return [...userIds];
+  }
+
   async listAttendance(query: Record<string, string>, actor: Actor) {
     const today = dayDate(new Date());
     const month = Number(query.month) || today.getUTCMonth() + 1;
@@ -1514,32 +1618,51 @@ export class HrService {
       throw new BadRequestException('Attendance range cannot exceed 31 days');
     const end = new Date(endInclusive);
     end.setUTCDate(end.getUTCDate() + 1);
-    const isAdmin = ADMIN_ROLES.has(actor.role);
-    const employeeId = isAdmin ? query.employeeId : actor.sub;
+        const scopedUserIds = await this.getScopedUserIdsForHR(actor);
+    const requestedEmployeeId = this.text(query.employeeId);
+    let allowedEmployeeIds: string[] | undefined = undefined;
+
+    if (scopedUserIds !== null) {
+      if (requestedEmployeeId && requestedEmployeeId !== 'all') {
+        if (scopedUserIds.includes(requestedEmployeeId)) {
+          allowedEmployeeIds = [requestedEmployeeId];
+        } else {
+          allowedEmployeeIds = [];
+        }
+      } else {
+        allowedEmployeeIds = scopedUserIds;
+      }
+    } else if (requestedEmployeeId && requestedEmployeeId !== 'all') {
+      allowedEmployeeIds = [requestedEmployeeId];
+    }
     const normalizedStatus = this.text(query.status);
     const role =
       query.role === 'FIELD_EXECUTIVE' ? 'SALES_AGENT' : this.text(query.role);
     const search = this.text(query.search);
     const teamId = this.text(query.teamId);
 
-    const employeeWhere: Prisma.UserWhereInput = isAdmin
-      ? {
+    const employeeWhere: Prisma.UserWhereInput = {
+      AND: [this.tenants.employeeWhere()],
       isActive: true,
-      role: role
-        ? (role as any)
+      ...(role
+        ? { role: role as any }
         : {
-            in: [
-              'ADMIN',
-              'HR',
-              'TEAM_LEADER',
-              'MANAGER',
-              'TELECALLER',
-              'SALES_AGENT',
-              'MARKETING',
-              'BACKEND',
-            ],
-          },
-      ...(employeeId ? { id: employeeId } : {}),
+            role: {
+              in: [
+                'ADMIN',
+                'HR',
+                'TEAM_LEADER',
+                'MANAGER',
+                'TELECALLER',
+                'SALES_AGENT',
+                'MARKETING',
+                'BACKEND',
+              ],
+            },
+          }),
+      ...(allowedEmployeeIds !== undefined
+        ? { id: { in: allowedEmployeeIds } }
+        : {}),
       ...(teamId
         ? { employeeProfile: { is: { teamId } } }
         : { employeeProfile: { isNot: null } }),
@@ -1558,11 +1681,7 @@ export class HrService {
             ],
           }
         : {}),
-    }
-      : {
-          id: actor.sub,
-          isActive: true,
-        };
+    };
 
     const [employees, records, settings, holidaysInRange, approvedLeaves] =
       await Promise.all([
@@ -1588,7 +1707,7 @@ export class HrService {
       this.prisma.attendanceRecord.findMany({
         where: {
           attendanceDate: { gte: start, lt: end },
-          ...(employeeId ? { employeeId } : {}),
+          ...(allowedEmployeeIds !== undefined ? { employeeId: { in: allowedEmployeeIds } } : {}),
         },
         include: {
           shift: true,

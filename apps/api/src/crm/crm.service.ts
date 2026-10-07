@@ -7589,7 +7589,220 @@ export class CrmService {
     return candidate;
   }
 
-  async listLeads(query: Query, user?: Body) {
+  
+  private async buildProjectAndRequirementWhere(
+    projectIds: string[],
+    propertyTypes: string[],
+    configurations: string[],
+  ): Promise<Prisma.LeadWhereInput[]> {
+    const conditions: Prisma.LeadWhereInput[] = [];
+
+    if (propertyTypes.length > 0) {
+      const matchingProjects = await this.db()
+        .project.findMany({
+          where: {
+            propertyType: { in: propertyTypes, mode: 'insensitive' },
+          },
+          select: { id: true },
+          take: 500,
+        })
+        .catch(() => []);
+      const matchedProjIds = matchingProjects.map((p: any) => p.id);
+
+      const propTypeOrs: Prisma.LeadWhereInput[] = [
+        {
+          requirement: {
+            is: { propertyType: { in: propertyTypes } },
+          },
+        },
+      ];
+      if (matchedProjIds.length > 0) {
+        propTypeOrs.push({
+          requirement: {
+            is: { preferredProjectId: { in: matchedProjIds } },
+          },
+        });
+        propTypeOrs.push({
+          projectInterests: {
+            some: { projectId: { in: matchedProjIds } },
+          },
+        });
+      }
+      conditions.push({ OR: propTypeOrs });
+    }
+
+    if (configurations.length > 0) {
+      conditions.push({
+        requirement: {
+          is: { configuration: { in: configurations } },
+        },
+      });
+    }
+
+    if (projectIds.length > 0) {
+      conditions.push({
+        OR: [
+          {
+            requirement: {
+              is: { preferredProjectId: { in: projectIds } },
+            },
+          },
+          {
+            projectInterests: {
+              some: { projectId: { in: projectIds } },
+            },
+          },
+          {
+            siteVisits: {
+              some: { projectId: { in: projectIds } },
+            },
+          },
+          {
+            bookings: {
+              some: { projectId: { in: projectIds } },
+            },
+          },
+        ],
+      });
+    }
+
+    return conditions;
+  }
+
+  private async buildLeadSearchConditions(
+    searchRaw: unknown,
+  ): Promise<Prisma.LeadWhereInput[]> {
+    const search = String(searchRaw ?? '').trim();
+    if (!search) return [];
+
+    const [matchingProjects, matchingPropTypeProjects, matchingSources] =
+      await Promise.all([
+        this.db()
+          .project.findMany({
+            where: {
+              OR: [
+                { name: { contains: search, mode: 'insensitive' } },
+                { location: { contains: search, mode: 'insensitive' } },
+                { developer: { contains: search, mode: 'insensitive' } },
+              ],
+            },
+            select: { id: true },
+            take: 200,
+          })
+          .catch(() => []),
+        this.db()
+          .project.findMany({
+            where: {
+              propertyType: { contains: search, mode: 'insensitive' },
+            },
+            select: { id: true },
+            take: 200,
+          })
+          .catch(() => []),
+        this.db()
+          .leadMasterValue.findMany({
+            where: {
+              name: { contains: search, mode: 'insensitive' },
+            },
+            select: { id: true },
+            take: 200,
+          })
+          .catch(() => []),
+      ]);
+
+    const matchedProjIds = matchingProjects.map((p: any) => p.id);
+    const matchedPropTypeProjIds = matchingPropTypeProjects.map(
+      (p: any) => p.id,
+    );
+    const matchedSourceIds = matchingSources.map((s: any) => s.id);
+
+    const conditions: Prisma.LeadWhereInput[] = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { mobile: { contains: search, mode: 'insensitive' } },
+      { alternateMobile: { contains: search, mode: 'insensitive' } },
+      { email: { contains: search, mode: 'insensitive' } },
+      { displayId: { contains: search, mode: 'insensitive' } },
+      { heardAboutUs: { contains: search, mode: 'insensitive' } },
+      {
+        requirement: {
+          is: {
+            propertyType: { contains: search, mode: 'insensitive' },
+          },
+        },
+      },
+      {
+        requirement: {
+          is: {
+            preferredLocation: { contains: search, mode: 'insensitive' },
+          },
+        },
+      },
+      {
+        requirement: {
+          is: {
+            configuration: { contains: search, mode: 'insensitive' },
+          },
+        },
+      },
+      ...(matchedSourceIds.length > 0
+        ? [{ sourceId: { in: matchedSourceIds } }]
+        : []),
+      ...(matchedProjIds.length > 0
+        ? [
+            {
+              requirement: {
+                is: {
+                  preferredProjectId: { in: matchedProjIds },
+                },
+              },
+            },
+            {
+              projectInterests: {
+                some: {
+                  projectId: { in: matchedProjIds },
+                },
+              },
+            },
+            {
+              siteVisits: {
+                some: {
+                  projectId: { in: matchedProjIds },
+                },
+              },
+            },
+            {
+              bookings: {
+                some: {
+                  projectId: { in: matchedProjIds },
+                },
+              },
+            },
+          ]
+        : []),
+      ...(matchedPropTypeProjIds.length > 0
+        ? [
+            {
+              requirement: {
+                is: {
+                  preferredProjectId: { in: matchedPropTypeProjIds },
+                },
+              },
+            },
+            {
+              projectInterests: {
+                some: {
+                  projectId: { in: matchedPropTypeProjIds },
+                },
+              },
+            },
+          ]
+        : []),
+    ];
+
+    return conditions;
+  }
+
+async listLeads(query: Query, user?: Body) {
     const { page, limit, skip } = pageMeta(query);
     const activeTenantId =
       this.tenantAccess.selectedOrganizationId ||

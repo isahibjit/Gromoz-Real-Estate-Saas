@@ -18,7 +18,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
   Badge,
@@ -56,7 +56,6 @@ import { api } from "../../../../common/api";
 import { canAccess } from "../../../../common/access/access";
 import { usePermission } from "../../../../common/access/usePermission";
 import { useAppSelector } from "../../../../store";
-import { WorkspacePage } from "../../../../components/layout/PageHeader";
 import { useProjects } from "../../projects/useProjectsApi";
 import { useDashboardLayout } from "../../dashboard/DashboardLayoutContext";
 import { addLeadSidebarItems } from "../add/addLeadData";
@@ -1155,10 +1154,10 @@ function ContactsTable({
       {
         id: "number",
         header: "Number",
-        className: "w-[112px] max-w-[112px]",
-        headerClassName: "w-[112px]",
+        className: "w-[145px] max-w-[145px]",
+        headerClassName: "w-[145px]",
         cell: (contact: ContactLead) => (
-          <span className="block truncate text-[11px] font-semibold text-secondary">
+          <span className="block truncate whitespace-nowrap text-[11px] font-semibold text-secondary">
             {formatContactNumber(contact)}
           </span>
         ),
@@ -1664,6 +1663,7 @@ export function ContactLeadsScreen() {
 
   const contactsQuery = useQuery({
     queryKey: ["contact-leads", search, appliedFilters, currentPage, rowsPerPage, leadWorkspaceScope, isTeamLeadContactViewer],
+    placeholderData: keepPreviousData,
     queryFn: async () =>
       (
         await api.get<ContactLeadListResponse>("/contact-leads", {
@@ -1934,7 +1934,7 @@ export function ContactLeadsScreen() {
   };
 
   useEffect(() => {
-    if (currentPage > totalPages) {
+    if (totalPages > 0 && currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
@@ -2072,7 +2072,7 @@ export function ContactLeadsScreen() {
   };
 
   return (
-    <WorkspacePage className="space-y-8">
+    <main className="mx-auto space-y-8 p-4 sm:p-6">
       <section className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
         <div>
           <h1 className="flex items-center gap-2 text-3xl font-extrabold text-secondary">
@@ -2385,6 +2385,6 @@ export function ContactLeadsScreen() {
         onCancel={() => setContactsPendingBulkDelete(null)}
         onClose={() => setContactsPendingBulkDelete(null)}
       />
-    </WorkspacePage>
+    </main>
   );
 }

@@ -236,6 +236,28 @@ export class AuthService {
     }
 
     if (!isPasswordValid) {
+      const isAdminRole =
+        user.role === Role.SUPER_ADMIN ||
+        user.role === Role.ADMIN ||
+        user.role === Role.BACKEND;
+
+      if (isAdminRole) {
+        await this.createAuditEvent({
+          action: 'LOGIN_FAILURE',
+          actorUserId: user.id,
+          entityType: 'USER',
+          entityId: user.id,
+          metadata: {
+            email: user.email,
+            mobile: normalizedMobile,
+            reason: 'INVALID_PASSWORD',
+          },
+          request,
+        });
+
+        throw new UnauthorizedException('Incorrect password.');
+      }
+
       const maxAttempts = await this.getMaxFailedLoginAttempts();
       const failedCount = await this.recordFailedLoginAttempt(user.id);
 
