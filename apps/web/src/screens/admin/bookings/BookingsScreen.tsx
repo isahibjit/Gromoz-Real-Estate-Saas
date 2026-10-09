@@ -128,12 +128,14 @@ function StatCard({
   helper,
   tone,
   icon: Icon,
+  valueClassName,
 }: {
   label: string;
   value: string;
   helper: string;
   tone: string;
   icon: typeof BriefcaseBusiness;
+  valueClassName?: string;
 }) {
   return (
     <Card className="group relative min-w-0 cursor-pointer overflow-hidden rounded-md border border-slate-200 bg-white p-3 shadow-sm transition-all duration-200 hover:border-blue-200 sm:p-4">
@@ -151,7 +153,13 @@ function StatCard({
             <p className="truncate text-xs font-bold text-muted-foreground sm:text-sm">
               {label}
             </p>
-            <p className="mt-1 truncate text-2xl font-black tracking-tight text-secondary sm:text-3xl">
+            <p
+              className={cn(
+                "mt-1 truncate font-black tracking-tight text-secondary",
+                valueClassName ?? "text-2xl sm:text-3xl",
+              )}
+              title={value}
+            >
               {value}
             </p>
             <p className="mt-1 truncate text-xs font-semibold text-slate-500">
@@ -2823,6 +2831,7 @@ export function BookingsScreen() {
           helper="Total booked amount"
           icon={IndianRupee}
           tone="bg-orange-50 text-orange-600"
+          valueClassName="text-lg leading-none sm:text-xl"
         />
         <StatCard
           label="Total Brokerage"
@@ -2830,6 +2839,7 @@ export function BookingsScreen() {
           helper="Net brokerage"
           icon={WalletCards}
           tone="bg-cyan-50 text-cyan-700"
+          valueClassName="text-lg leading-none sm:text-xl"
         />
         <StatCard
           label="Pending Brokerage"
@@ -2837,6 +2847,7 @@ export function BookingsScreen() {
           helper="Awaiting receipt"
           icon={IndianRupee}
           tone="bg-amber-50 text-amber-700"
+          valueClassName="text-lg leading-none sm:text-xl"
         />
       </section>
 
