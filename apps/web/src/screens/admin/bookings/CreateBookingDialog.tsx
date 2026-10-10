@@ -22,6 +22,7 @@ import {
   DialogTitle,
   Input,
   Select,
+  SearchableSelect,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -1037,24 +1038,19 @@ export function CreateBookingDialog({
 
                   <label className="space-y-1.5 text-xs font-extrabold text-secondary">
                     Property / Unit Type
-                    <Select
-                      value={unitType || "none"}
-                      onValueChange={(value) =>
-                        setUnitType(value === "none" ? "" : value)
-                      }
-                    >
-                      <SelectTrigger className="h-11 rounded-md bg-card text-sm font-bold shadow-none">
-                        <SelectValue placeholder="Select property / unit type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Select property / unit type</SelectItem>
-                        {configurationOptions.map((config) => (
-                          <SelectItem key={config} value={config}>
-                            {config}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={unitType}
+                      onValueChange={(value) => setUnitType(value)}
+                      options={configurationOptions.map((config) => ({
+                        label: config,
+                        value: config,
+                      }))}
+                      placeholder="Select property / unit type"
+                      searchPlaceholder="Search configurations..."
+                      noOptionsText="No matching configurations"
+                      ariaLabel="Select property / unit type"
+                      className="h-11 rounded-md bg-card text-sm font-bold shadow-none"
+                    />
                   </label>
 
                   <label className="space-y-1.5 text-xs font-extrabold text-secondary">
