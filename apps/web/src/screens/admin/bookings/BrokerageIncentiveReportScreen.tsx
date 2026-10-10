@@ -31,6 +31,7 @@ import { DashboardHeader } from "../dashboard/DashboardHeader";
 import { DashboardSidebar } from "../dashboard/DashboardSidebar";
 import { addLeadSidebarItems } from "../leads/add/addLeadData";
 import { useProjects } from "../projects/useProjectsApi";
+import { useMasterOptions } from "../projects/useProjectMasters";
 import { useSiteVisitOptions } from "../leads/site-visits/useSiteVisits";
 import {
   formatBookingAmount,
@@ -98,7 +99,7 @@ export function BrokerageIncentiveReportScreen() {
   const [executiveId, setExecutiveId] = useState("all");
   const [status, setStatus] = useState("all");
   const [teamId, setTeamId] = useState("all");
-  const [configuration, setConfiguration] = useState("");
+  const [configuration, setConfiguration] = useState("all");
   const [paymentStatus, setPaymentStatus] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -108,6 +109,7 @@ export function BrokerageIncentiveReportScreen() {
 
   const projectsQuery = useProjects();
   const optionsQuery = useSiteVisitOptions();
+  const configurationMasters = useMasterOptions("project_configuration", []);
   const projects = projectsQuery.data?.projects ?? [];
   const executives = optionsQuery.data?.executives ?? [];
   const teamsQuery = useQuery({
@@ -125,7 +127,7 @@ export function BrokerageIncentiveReportScreen() {
       executiveId,
       status,
       teamId,
-      configuration: configuration || undefined,
+      configuration: configuration && configuration !== "all" ? configuration : undefined,
       paymentStatus,
       dateFrom: preset === "custom" ? dateFrom : undefined,
       dateTo: preset === "custom" ? dateTo : undefined,
@@ -156,6 +158,19 @@ export function BrokerageIncentiveReportScreen() {
       description: executive.email,
       avatarUrl: executive.image,
     })),
+  ];
+  const configurationOptions = [
+    { label: "All configurations", value: "all" },
+    ...Array.from(
+      new Set(
+        [
+          ...configurationMasters.options.map((option) => option.value),
+          ...projects.flatMap((project: any) =>
+            Array.isArray(project.configurations) ? project.configurations : [],
+          ),
+        ].filter((item) => item !== null && item !== undefined && String(item).trim()),
+      ),
+    ).map((item) => ({ label: String(item), value: String(item) })),
   ];
 
   const resetPage = () => setPage(1);
@@ -348,12 +363,15 @@ export function BrokerageIncentiveReportScreen() {
                 options={[{ label: "All teams", value: "all" }, ...teams.map((team) => ({ label: team.name, value: team.id }))]}
                 searchPlaceholder="Search teams..."
               />
-              <Input
+              <SearchableSelect
                 value={configuration}
-                aria-label="Filter by configuration"
-                placeholder="Configuration (e.g. 2 BHK)"
+                onValueChange={(value) => { setConfiguration(value); resetPage(); }}
+                options={configurationOptions}
+                ariaLabel="Filter by configuration"
+                placeholder="All configurations"
+                searchPlaceholder="Search configurations..."
+                noOptionsText="No matching configurations"
                 className="h-10 rounded-md text-sm font-semibold shadow-none"
-                onChange={(event) => { setConfiguration(event.target.value); resetPage(); }}
               />
               <SearchableSelect
                 value={paymentStatus}

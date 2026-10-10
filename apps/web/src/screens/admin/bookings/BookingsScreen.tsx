@@ -50,6 +50,7 @@ import { useDashboardLayout } from "../dashboard/DashboardLayoutContext";
 import { addLeadSidebarItems } from "../leads/add/addLeadData";
 import { useSiteVisitOptions } from "../leads/site-visits/useSiteVisits";
 import { useProjects } from "../projects/useProjectsApi";
+import { useMasterOptions } from "../projects/useProjectMasters";
 import { useAppSelector } from "../../../store";
 import { canAccess } from "../../../common/access/access";
 import { WorkspacePage } from "../../../components/layout/PageHeader";
@@ -2408,6 +2409,7 @@ export function BookingsScreen() {
   const projectsQuery = useProjects();
   const optionsQuery = useSiteVisitOptions();
   const bookingMutations = useBookingMutations();
+  const configurationMasters = useMasterOptions("project_configuration", []);
 
   const rows = bookingsQuery.data?.rows ?? [];
   const totalRows = bookingsQuery.data?.total ?? 0;
@@ -2470,9 +2472,12 @@ export function BookingsScreen() {
     { label: "All configurations", value: "all" },
     ...Array.from(
       new Set(
-        projects.flatMap((project: any) =>
-          Array.isArray(project.configurations) ? project.configurations : [],
-        ),
+        [
+          ...configurationMasters.options.map((option) => option.value),
+          ...projects.flatMap((project: any) =>
+            Array.isArray(project.configurations) ? project.configurations : [],
+          ),
+        ].filter((item) => item !== null && item !== undefined && String(item).trim()),
       ),
     ).map((item) => ({ label: String(item), value: String(item) })),
   ];
