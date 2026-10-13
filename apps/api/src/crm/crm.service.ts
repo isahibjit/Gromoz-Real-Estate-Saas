@@ -1582,7 +1582,7 @@ export class CrmService {
           )
         : false;
 
-    await this.prisma.$transaction(async (tx) => {
+    const persistNotification = async (tx: Prisma.TransactionClient) => {
       await tx.notification.create({
         data: {
           ...notificationData,
@@ -1607,7 +1607,13 @@ export class CrmService {
           context: resolved.context,
         });
       }
-    });
+    };
+    const assignmentTransaction = this.assignmentTransaction.getStore();
+    if (assignmentTransaction) {
+      await persistNotification(assignmentTransaction.tx);
+    } else {
+      await this.prisma.$transaction(persistNotification);
+    }
     return payload;
   }
 
@@ -1617,7 +1623,7 @@ export class CrmService {
         ? notificationData.userId
         : undefined;
     const recipient = recipientId
-      ? await this.prisma.user.findUnique({
+      ? await this.db().user.findUnique({
           where: { id: recipientId },
           select: { fullName: true },
         })
@@ -1650,7 +1656,7 @@ export class CrmService {
       notificationData.entityType === 'Lead' &&
       typeof notificationData.entityId === 'string'
     ) {
-      const lead = await this.prisma.lead.findUnique({
+      const lead = await this.db().lead.findUnique({
         where: { id: notificationData.entityId },
         select: { organizationId: true, name: true, displayId: true },
       });
@@ -1663,7 +1669,7 @@ export class CrmService {
       notificationData.entityType === 'SiteVisit' &&
       typeof notificationData.entityId === 'string'
     ) {
-      const visit = await this.prisma.siteVisit.findUnique({
+      const visit = await this.db().siteVisit.findUnique({
         where: { id: notificationData.entityId },
         select: {
           scheduledAt: true,

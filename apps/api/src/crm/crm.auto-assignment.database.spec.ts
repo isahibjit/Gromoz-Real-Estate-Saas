@@ -19,6 +19,7 @@ databaseSuite(
   'Rotation PostgreSQL isolation, upgrade, rollback, and concurrency',
   () => {
     const databaseName = `rotation_test_${randomUUID().replace(/-/g, '')}`;
+    const organizationId = randomUUID();
     const root = new PrismaClient();
     let db: PrismaClient;
     let service: CrmService;
@@ -54,7 +55,7 @@ databaseSuite(
     async function createService() {
       const module = await Test.createTestingModule({
         providers: [
-          ...referenceTenantProviders(),
+          ...referenceTenantProviders(organizationId),
           CrmService,
           { provide: PrismaService, useValue: db },
           { provide: RealtimeService, useValue: {} },
@@ -107,6 +108,13 @@ databaseSuite(
       const freshUrl = new URL(databaseUrl.toString());
       freshUrl.searchParams.set('schema', 'fresh_verification');
       migrate(freshUrl.toString());
+      await db.organization.create({
+        data: {
+          id: organizationId,
+          name: 'Rotation verification',
+          slug: `rotation-verification-${organizationId}`,
+        },
+      });
       users = await Promise.all(
         ['TELECALLER', 'SALES_AGENT', 'MANAGER', 'ADMIN'].map(
           async (role, index) => {
@@ -141,6 +149,10 @@ databaseSuite(
     });
 
     afterEach(async () => {
+      await db?.user.updateMany({
+        where: { id: { in: users ?? [] } },
+        data: { isActive: true },
+      });
       await db?.autoAssignmentEvent.updateMany({
         where: { status: 'ACTIVE', id: { not: 'legacy-active' } },
         data: { status: 'STOPPED' },
@@ -313,13 +325,13 @@ databaseSuite(
           await db.notification.count({
             where: { entityId: lead.id, type: 'AUTO_ASSIGNMENT_EXHAUSTED' },
           }),
-        ).toBe(1);
+        ).toBe(0);
         await service.runAutoAssignmentTransfers();
         expect(
           await db.notification.count({
             where: { entityId: lead.id, type: 'AUTO_ASSIGNMENT_EXHAUSTED' },
           }),
-        ).toBe(1);
+        ).toBe(0);
       },
     );
 
@@ -572,7 +584,7 @@ databaseSuite(
       });
     });
 
-    it('stops and alerts once when the next user is unavailable', async () => {
+    it('stops legacy runs without tenant alerts when the next user is unavailable', async () => {
       const { lead, event } = await fixture();
       await db.user.update({
         where: { id: users[1] },
@@ -594,7 +606,7 @@ databaseSuite(
         await db.notification.count({
           where: { entityId: lead.id, type: 'AUTO_ASSIGNMENT_STOPPED' },
         }),
-      ).toBe(1);
+      ).toBe(0);
       await db.user.update({
         where: { id: users[1] },
         data: { isActive: true },

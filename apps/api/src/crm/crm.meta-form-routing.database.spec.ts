@@ -19,8 +19,15 @@ databaseTest(
       await expect(
         prisma.$transaction(
           async (tx) => {
+            const organization = await tx.organization.create({
+              data: {
+                name: 'Routing verification',
+                slug: `routing-verification-${randomUUID()}`,
+              },
+            });
             const fixture = await tx.portalIntegration.create({
               data: {
+                organizationId: organization.id,
                 provider: `routing-verification-${randomUUID()}`,
                 displayName: 'Routing verification fixture',
                 webhookKeyId: randomUUID(),
@@ -38,7 +45,7 @@ databaseTest(
             });
             const module = await Test.createTestingModule({
               providers: [
-                ...referenceTenantProviders(),
+                ...referenceTenantProviders(organization.id),
                 CrmService,
                 {
                   provide: PrismaService,

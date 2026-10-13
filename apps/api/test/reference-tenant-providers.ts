@@ -4,11 +4,11 @@ import { TenantNotificationService } from '../src/crm/notifications/tenant-notif
 import { WhatsAppDispatchService } from '../src/crm/notifications/whatsapp-dispatch.service';
 
 // Reference tests use unowned legacy leads. Tenant-specific tests provide their own scopes.
-export const referenceTenantProviders = () => [
+export const referenceTenantProviders = (organizationId = 'tenant-a') => [
   {
     provide: TenantAccessService,
     useValue: {
-      organizationId: 'tenant-a',
+      organizationId,
       selectedOrganizationId: undefined,
       employeeWhere: () => ({}),
       assertEmployee: jest.fn(),
@@ -19,8 +19,8 @@ export const referenceTenantProviders = () => [
   {
     provide: TenantContextService,
     useValue: {
-      getTenantId: () => 'tenant-a',
-      getTenant: () => ({ organizationId: 'tenant-a', role: 'ADMIN' }),
+      getTenantId: () => organizationId,
+      getTenant: () => ({ organizationId, role: 'ADMIN' }),
     },
   },
   {
