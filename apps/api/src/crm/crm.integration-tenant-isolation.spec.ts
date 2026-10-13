@@ -1,3 +1,4 @@
+import { LeadSourceConnectionsService } from "./lead-source-connections.service";
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../persistence/prisma/prisma.service';
@@ -24,7 +25,7 @@ describe('Portal connection tenant isolation', () => {
     leadMasterValue: { findMany: jest.fn(), findFirst: jest.fn() },
     leadImport: { count: jest.fn() },
     autoAssignmentRule: { findFirst: jest.fn(), findUnique: jest.fn() },
-    autoAssignmentEvent: { update: jest.fn() },
+    autoAssignmentEvent: { update: jest.fn(), findUnique: jest.fn() },
     $transaction: jest.fn(),
     organizationMember: { findMany: jest.fn() },
     portalIntegration: {
@@ -33,9 +34,11 @@ describe('Portal connection tenant isolation', () => {
       create: jest.fn(),
       update: jest.fn(),
     },
+    leadSourceConnection: { findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn() },
     housingIntegration: { upsert: jest.fn(), findUnique: jest.fn() },
     $executeRawUnsafe: jest.fn(),
     $queryRawUnsafe: jest.fn(),
+    $queryRaw: jest.fn(),
   };
   let service: CrmService;
   let housing: HousingIntegrationsService;
@@ -50,6 +53,7 @@ describe('Portal connection tenant isolation', () => {
       providers: [
         CrmService,
         HousingIntegrationsService,
+        LeadSourceConnectionsService,
         { provide: PrismaService, useValue: prisma },
         { provide: RealtimeService, useValue: {} },
         { provide: LeadVisibilityService, useValue: {} },
@@ -63,7 +67,7 @@ describe('Portal connection tenant isolation', () => {
         },
         {
           provide: TenantContextService,
-          useValue: { getTenantId: () => 'tenant-a' },
+          useValue: { getTenantId: () => 'tenant-a', getTenant: () => ({ role: 'ADMIN', organizationId: 'tenant-a' }) },
         },
         {
           provide: TenantNotificationService,
@@ -155,20 +159,16 @@ describe('Portal connection tenant isolation', () => {
     ).resolves.toBe('tenant-b');
   });
 
-  it('creates a separate Housing connection without adopting an unowned connection', async () => {
-    prisma.housingIntegration.upsert.mockResolvedValue({
-      organizationId: 'tenant-a',
-    });
+  it('creates a separate Housing account without adopting an unowned account', async () => {
+    prisma.leadSourceConnection.findFirst.mockResolvedValueOnce(null).mockResolvedValue({ id: 'account-a', organizationId: 'tenant-a' });
+    prisma.leadSourceConnection.create.mockResolvedValue({ id: 'account-a', organizationId: 'tenant-a' });
     await housing.ensureHousingIntegration('user-a', 'tenant-a');
-    expect(prisma.housingIntegration.upsert).toHaveBeenCalledWith({
-      where: { organizationId: 'tenant-a' },
-      update: {},
-      create: expect.objectContaining({
-        organizationId: 'tenant-a',
-        createdById: 'user-a',
-        webhookKeyId: expect.any(String),
-      }),
+    expect(prisma.leadSourceConnection.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ organizationId: 'tenant-a', createdById: 'user-a' }),
     });
+    expect(prisma.leadSourceConnection.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ organizationId: 'tenant-a', provider: 'housing' }),
+    }));
     expect(prisma.$executeRawUnsafe).not.toHaveBeenCalled();
   });
 
@@ -214,10 +214,10 @@ describe('Portal connection tenant isolation', () => {
         lastLeadReceivedAt: null,
       },
     ]);
-    prisma.housingIntegration.findUnique.mockResolvedValue({
-      isActive: true,
-      lastWebhookReceivedAt: null,
-    });
+    prisma.leadSourceConnection.findMany.mockResolvedValue([
+      { provider: 'magicbricks', isActive: false, status: 'Paused', lastTestStatus: null, lastLeadReceivedAt: null },
+      { provider: 'housing', isActive: true, status: 'Configured', lastTestStatus: null, lastLeadReceivedAt: null },
+    ]);
 
     const result = await service.getLeadImportStats();
 
@@ -231,8 +231,8 @@ describe('Portal connection tenant isolation', () => {
         where: expect.objectContaining({ organizationId: 'tenant-a' }),
       }),
     );
-    expect(prisma.housingIntegration.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { organizationId: 'tenant-a' } }),
+    expect(prisma.leadSourceConnection.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ organizationId: 'tenant-a', archivedAt: null }) }),
     );
     expect(result.connectors).toEqual([
       expect.objectContaining({ id: 'magicbricks', state: 'PAUSED' }),
@@ -306,6 +306,8 @@ describe('Portal connection tenant isolation', () => {
       assignment.findAutoAssignmentRuleForLead({ organizationId: 'tenant-a' }),
     ).resolves.toBeNull();
     expect(prisma.autoAssignmentRule.findFirst).not.toHaveBeenCalled();
+    prisma.$transaction.mockImplementation(async (callback) => callback(prisma));
+    prisma.autoAssignmentEvent.findUnique.mockResolvedValue({ id: 'event-a', leadId: 'lead-a', ruleId: 'global-rule', status: 'ACTIVE', dueAt: new Date(0) });
     prisma.lead.findUnique.mockResolvedValue({ organizationId: 'tenant-a' });
     prisma.autoAssignmentRule.findUnique.mockResolvedValue({ isEnabled: true });
     await assignment.processAutoAssignmentEvent({

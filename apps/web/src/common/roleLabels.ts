@@ -2,7 +2,8 @@ export function getUserRoleLabel(role?: string | null) {
   if (!role) return "-";
   const normalized = role.trim().toUpperCase();
   if (normalized === "SUPER_ADMIN" || normalized === "ADMIN") return "Admin";
-  if (normalized === "SALES_MANAGER" || normalized === "MANAGER") return "Manager";
+  if (normalized === "SALES_MANAGER") return "Sales Manager";
+  if (normalized === "MANAGER") return "Manager";
   if (normalized === "TEAM_LEADER" || normalized === "TL") return "Team Leader";
   if (
     normalized === "TELECALLER" ||

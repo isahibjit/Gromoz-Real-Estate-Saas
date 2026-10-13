@@ -1,6 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { isAxiosError } from "axios";
-import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   ArrowRight,
@@ -306,12 +305,6 @@ export function LoginFormCard() {
               label="Remember me"
               className="font-semibold"
             />
-            <Link
-              to="/forgot-password"
-              className="text-sm font-extrabold text-info transition-colors hover:text-secondary 2xl:text-base"
-            >
-              Forgot Password?
-            </Link>
           </div>
 
           <Button

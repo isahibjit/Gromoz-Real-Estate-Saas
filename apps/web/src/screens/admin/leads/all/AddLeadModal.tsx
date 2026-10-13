@@ -403,13 +403,20 @@ function LeadCaptureModal({
 
   const projectOptions = useMemo(
     () =>
-      (projectsQuery.data?.projects ?? []).map((project: ProjectCatalogItem) => ({
-        value: project.id,
-        label: project.name,
-        description: [project.location, project.developer || project.priceRange]
-          .filter(Boolean)
-          .join(" · "),
-      })),
+      (projectsQuery.data?.projects ?? [])
+        .map((project: ProjectCatalogItem) => ({
+          value: project.id,
+          label: project.name,
+          description: [project.location, project.developer || project.priceRange]
+            .filter(Boolean)
+            .join(" · "),
+        }))
+        .sort((a: { label: string }, b: { label: string }) =>
+          a.label.localeCompare(b.label, undefined, {
+            sensitivity: "base",
+            numeric: true,
+          }),
+        ),
     [projectsQuery.data?.projects],
   );
   const locationOptions = useMemo(
@@ -570,11 +577,18 @@ function LeadCaptureModal({
 
   const assigneeSearchOptions = useMemo(
     () =>
-      assigneeOptions.map((option) => ({
-        value: option.value,
-        label: option.label,
-        description: roleLabel(option.role),
-      })),
+      assigneeOptions
+        .map((option) => ({
+          value: option.value,
+          label: option.label,
+          description: roleLabel(option.role),
+        }))
+        .sort((a: { label: string }, b: { label: string }) =>
+          a.label.localeCompare(b.label, undefined, {
+            sensitivity: "base",
+            numeric: true,
+          }),
+        ),
     [assigneeOptions],
   );
   const manualAssigneeValue =
@@ -1017,6 +1031,7 @@ function LeadCaptureModal({
                         }
                         className="h-11 rounded-[10px]"
                         options={projectOptions}
+                        sortAlphabetical={true}
                         modal={false}
                         portaled={false}
                       />
@@ -1117,6 +1132,7 @@ function LeadCaptureModal({
                     noOptionsText="No matching users found"
                     className="h-11 rounded-[10px] bg-white"
                     options={assigneeSearchOptions}
+                    sortAlphabetical={true}
                     disabled={canAssignToSelf && assignmentMode === "self"}
                     modal={false}
                     portaled={false}

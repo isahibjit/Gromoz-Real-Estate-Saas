@@ -22,7 +22,7 @@ describe('HR tenant isolation', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
-    employeeProfile: { count: jest.fn() },
+    employeeProfile: { count: jest.fn(), findFirst: jest.fn().mockResolvedValue(null) },
     team: { count: jest.fn() },
     $transaction: jest.fn((operations: Promise<unknown>[]) =>
       Promise.all(operations),

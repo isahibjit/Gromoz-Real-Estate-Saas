@@ -27,6 +27,8 @@ export interface LeadRow {
   lastUpdate: string;
   source: string;
   sourceId?: string | null;
+  integrationConnectionId?: string;
+  integrationAccountName?: string;
   statusId?: string | null;
   temperatureId?: string | null;
   budgetRange?: string | null;

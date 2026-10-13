@@ -40,6 +40,41 @@ export interface MultiSelectProps {
   showTriggerSummary?: boolean;
   modal?: boolean;
   portaled?: boolean;
+  sortAlphabetical?: boolean;
+}
+
+function getMultiSelectMatchScore(
+  label: string | undefined,
+  normalizedQuery: string,
+): number {
+  if (!normalizedQuery) return 0;
+
+  const cleanLabel = (label ?? "").trim().toLowerCase();
+
+  // 1. Exact match
+  if (cleanLabel === normalizedQuery) return 1000;
+
+  // 2. Starts with query
+  if (cleanLabel.startsWith(normalizedQuery)) return 800;
+
+  // 3. Any word starts with query
+  const words = cleanLabel.split(/[\s,._\-/()]+/);
+  if (words.some((word) => word.startsWith(normalizedQuery))) return 600;
+
+  // 4. Substring match
+  if (cleanLabel.includes(normalizedQuery)) return 400;
+
+  // 5. Multi-token match
+  const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
+  if (tokens.length > 1) {
+    if (tokens.every((token) => cleanLabel.includes(token))) {
+      if (cleanLabel.startsWith(tokens[0])) return 500;
+      if (words.some((w) => w.startsWith(tokens[0]))) return 450;
+      return 350;
+    }
+  }
+
+  return 0;
 }
 
 export function MultiSelect({
@@ -61,6 +96,7 @@ export function MultiSelect({
   showTriggerSummary = false,
   modal = true,
   portaled = true,
+  sortAlphabetical = false,
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
@@ -110,9 +146,40 @@ export function MultiSelect({
 
   const selectedLabels = selectedOptions.map((option) => option.label);
 
-  const visibleOptions = options.filter((option) =>
-    option.label.toLowerCase().includes(query.trim().toLowerCase()),
-  );
+  const normalizedQuery = query.trim().toLowerCase();
+
+  const visibleOptions = React.useMemo(() => {
+    if (!normalizedQuery) {
+      if (sortAlphabetical) {
+        return [...options].sort((a, b) =>
+          (a.label ?? "").localeCompare(b.label ?? "", undefined, {
+            sensitivity: "base",
+            numeric: true,
+          }),
+        );
+      }
+      return options;
+    }
+
+    const scored = options
+      .map((option) => ({
+        option,
+        score: getMultiSelectMatchScore(option.label, normalizedQuery),
+      }))
+      .filter((item) => item.score > 0);
+
+    scored.sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+      return (a.option.label ?? "").localeCompare(b.option.label ?? "", undefined, {
+        sensitivity: "base",
+        numeric: true,
+      });
+    });
+
+    return scored.map((item) => item.option);
+  }, [options, normalizedQuery, sortAlphabetical]);
 
   const primaryOptions = selectedOptions.slice(0, maxLabelCount);
   const remainingCount = Math.max(

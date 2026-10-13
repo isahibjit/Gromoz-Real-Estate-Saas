@@ -2752,7 +2752,7 @@ export function SiteVisitsWorkspace({
             feedback: completionRemarks.trim(),
             outcome: completionOutcome,
             rating: completionRating,
-            leadStatus: completionLeadStatus,
+            leadStatusId: completionLeadStatus,
             followUpDate: completionFollowUpDate,
             followUpTime: completionFollowUpTime,
             nextFollowUpAt,
@@ -2773,7 +2773,7 @@ export function SiteVisitsWorkspace({
           )
         : undefined;
       await updateVisitStatus(completionVisit.id, "Completed", {
-        leadStatus: completionLeadStatus,
+        leadStatusId: completionLeadStatus,
         followUpDate: completionFollowUpDate,
         followUpTime: completionFollowUpTime,
         nextFollowUpAt,
@@ -2792,45 +2792,6 @@ export function SiteVisitsWorkspace({
             .filter(Boolean)
             .join(" | ") || undefined,
       });
-    }
-
-    // Sync Lead Status, Follow-up date & append Visit Remarks to Lead record
-    try {
-      const leadRouteId = completionVisit.leadId;
-      if (leadRouteId) {
-        const nextFollowUpAt = completionFollowUpDate
-          ? scheduledInputToIso(
-              completionFollowUpDate,
-              completionFollowUpTime || "10:00 AM",
-            )
-          : undefined;
-        await api
-          .patch(`/leads/${leadRouteId}`, {
-            status: completionLeadStatus,
-            statusId: completionLeadStatus,
-            followUpDate: nextFollowUpAt || completionFollowUpDate || undefined,
-            nextFollowUpAt: nextFollowUpAt || undefined,
-            remarks: completionRemarks.trim()
-              ? `[Site Visit Remark] ${completionRemarks.trim()}`
-              : undefined,
-          })
-          .catch(() => null);
-
-        if (completionFollowUpDate) {
-          const followUpTimeStr = completionFollowUpTime || "10:00 AM";
-          await api
-            .post(`/leads/${leadRouteId}/follow-ups`, {
-              scheduledAt: nextFollowUpAt,
-              followUpDate: completionFollowUpDate,
-              followUpTime: followUpTimeStr,
-              nextAction: `Follow-up after site visit: ${completionOutcome}`,
-              notes: completionRemarks.trim() || "Site visit completed",
-            })
-            .catch(() => null);
-        }
-      }
-    } catch {
-      // Ignore background lead update failure
     }
 
     if (completionOutcome === "Ready for Booking") {

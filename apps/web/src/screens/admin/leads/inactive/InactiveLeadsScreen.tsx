@@ -56,6 +56,7 @@ type DateRangeFilter =
 
 const initialLeadFilters: LeadListFilters = {
   sourceId: [],
+  integrationConnectionId: [],
   statusId: [],
   stageId: [],
   temperatureId: [],

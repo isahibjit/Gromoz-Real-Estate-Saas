@@ -22,7 +22,6 @@ import {
   Plus,
   RotateCcw,
   Search,
-  Send,
   Target,
   Trash2,
   UserPlus,
@@ -95,6 +94,7 @@ import { addLeadSidebarItems } from "../add/addLeadData";
 import { ClockTimePicker } from "../assignment/ClockTimePicker";
 import { LeadActionsMenu } from "../components/LeadActionsMenu";
 import { LeadPreviewDialog } from "../components/LeadPreviewDialog";
+import { LeadUpdateDialog } from "../components/LeadUpdateDialog";
 
 import { StatsRow, type LeadStatsRowItem } from "../components/StatsRow";
 import { downloadLeadRowsCsv } from "../components/exportCsv";
@@ -109,6 +109,7 @@ import {
 } from "../site-visits/useSiteVisits";
 import { AddLeadModal, EditLeadModal } from "./AddLeadModal";
 import type { LeadRow } from "./allLeadsTypes";
+import { buildLeadAssignmentChanges } from "./leadAssignmentChanges";
 import { countLeadMasterValueMatches } from "./leadMasterMatching";
 import {
   canStartSiteVisitStatusTransition,
@@ -198,7 +199,10 @@ const exportColumnFallback = [
   { id: "remark", label: "Remark" },
 ] as const;
 
-const exportOnlyColumnOptions = [{ id: "email", label: "Email" }] as const;
+const exportOnlyColumnOptions = [
+  { id: "email", label: "Email" },
+  { id: "sourceAccount", label: "Source Account" },
+] as const;
 
 type ExportColumnOption = {
   id: string;
@@ -244,6 +248,7 @@ const assignmentEntries = (lead: LeadRow) => {
 
 const initialLeadFilters: LeadListFilters = {
   sourceId: [],
+  integrationConnectionId: [],
   statusId: [],
   stageId: [],
   temperatureId: [],
@@ -544,24 +549,6 @@ function buildPaginationItems(
   ];
 }
 
-type LeadRemarkDetails = {
-  id: string;
-  name: string;
-  remarks?: string | null;
-  notes?: LeadRemarkNote[];
-};
-
-type LeadRemarkNote = {
-  id: string;
-  text?: string | null;
-  authorName?: string | null;
-  authorImage?: string | null;
-  createdAt?: string | null;
-  isPinned?: boolean | null;
-};
-
-type RemarkTab = "add" | "history";
-
 type LeadsCache = {
   rows: LeadRow[];
   total: number;
@@ -591,377 +578,6 @@ function patchLeadRemarkCache(
   );
 }
 
-const formatRemarkTimestamp = (value?: string | null) => {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-  return `${date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })}, ${date.toLocaleTimeString("en-IN", {
-    hour: "2-digit",
-    minute: "2-digit",
-  })}`;
-};
-
-const initialsFromName = (value?: string | null) =>
-  String(value ?? "TM")
-    .split(" ")
-    .filter(Boolean)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-
-function RemarksDialog({
-  lead,
-  open,
-  onOpenChange,
-}: {
-  lead: {
-    id: string;
-    name: string;
-    remark: string;
-    mobile?: string;
-    requirement?: string;
-    ownerId?: string;
-    telecallerId?: string;
-    fieldExecutiveId?: string;
-  } | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const lastLeadRef = useRef(lead);
-  if (lead) {
-    lastLeadRef.current = lead;
-  }
-  const activeLead = lead || lastLeadRef.current;
-  const queryClient = useQueryClient();
-  const filterOptionsQuery = useLeadListFilterOptions();
-  const [activeTab, setActiveTab] = useState<RemarkTab>("add");
-  const [newRemark, setNewRemark] = useState("");
-  const [followUpDate, setFollowUpDate] = useState("");
-  const [followUpTime, setFollowUpTime] = useState("10:00 AM");
-  const [selectedBudgetRange, setSelectedBudgetRange] = useState("");
-  const [selectedConfiguration, setSelectedConfiguration] = useState("");
-  const [latestSavedRemark, setLatestSavedRemark] =
-    useState<LeadRemarkNote | null>(null);
-
-  const budgetSearchOptions = filterOptionsQuery.options.budgetOptions.map(
-    (option) => ({ label: option.label, value: option.value }),
-  );
-  const configurationSearchOptions =
-    filterOptionsQuery.options.configurationOptions.map((option) => ({
-      label: option.label,
-      value: option.value,
-    }));
-
-  useEffect(() => {
-    if (!open) return;
-    setActiveTab("add");
-    setNewRemark("");
-    setFollowUpDate("");
-    setFollowUpTime("10:00 AM");
-    setSelectedBudgetRange("");
-    setSelectedConfiguration("");
-    setLatestSavedRemark(null);
-  }, [activeLead?.id, open]);
-
-  const detailsQuery = useQuery({
-    queryKey: ["lead-remarks", activeLead?.id],
-    enabled: open && Boolean(activeLead?.id),
-    queryFn: async () => {
-      const { data } = await api.get<LeadRemarkDetails>(
-        `/leads/${activeLead?.id}`,
-      );
-      return data;
-    },
-  });
-
-  const addRemark = useMutation({
-    mutationFn: async () => {
-      if (!activeLead?.id) throw new Error("Lead is required");
-      const text = newRemark.trim();
-      if (!text) throw new Error("Please enter a remark");
-      if (!followUpDate) throw new Error("Please select a follow-up date");
-      const leadPatchPayload: Record<string, string> = { remarks: text };
-      if (selectedBudgetRange)
-        leadPatchPayload.budgetRange = selectedBudgetRange;
-      if (selectedConfiguration)
-        leadPatchPayload.configuration = selectedConfiguration;
-      await api.patch(`/leads/${activeLead.id}`, leadPatchPayload);
-      const { data } = await api.post<LeadRemarkNote>(
-        `/leads/${activeLead.id}/notes`,
-        {
-          text,
-          isPinned: false,
-        },
-      );
-      await api.post(`/leads/${activeLead.id}/follow-ups`, {
-        scheduledAt: scheduledInputToIso(followUpDate, followUpTime),
-        assignedToId:
-          activeLead.telecallerId ??
-          activeLead.fieldExecutiveId ??
-          activeLead.ownerId,
-        status: "Scheduled",
-        remarks: text,
-        notes: text,
-      });
-      return data;
-    },
-    onSuccess: async (createdNote) => {
-      toast.success(
-        followUpDate ? "Remark and follow-up saved" : "Remark added",
-      );
-      setLatestSavedRemark(createdNote);
-      queryClient.setQueryData<LeadRemarkDetails | undefined>(
-        ["lead-remarks", activeLead?.id],
-        (current?: LeadRemarkDetails) => {
-          if (!current) return current;
-          const remainingNotes =
-            current.notes?.filter(
-              (note: LeadRemarkNote) => note.id !== createdNote.id,
-            ) ?? [];
-          return {
-            ...current,
-            notes: [createdNote, ...remainingNotes],
-          };
-        },
-      );
-      patchLeadRemarkCache(
-        queryClient,
-        activeLead?.id ? [activeLead.id] : [],
-        createdNote.text?.trim() || newRemark.trim(),
-      );
-      setNewRemark("");
-      setFollowUpDate("");
-      setFollowUpTime("10:00 AM");
-      setSelectedBudgetRange("");
-      setSelectedConfiguration("");
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ["lead-remarks", activeLead?.id],
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ["lead-details", activeLead?.id],
-        }),
-        queryClient.invalidateQueries({ queryKey: ["leads"] }),
-        queryClient.invalidateQueries({ queryKey: ["follow-ups"] }),
-        queryClient.invalidateQueries({ queryKey: ["notifications"] }),
-      ]);
-    },
-    onError: (error: unknown) => {
-      toast.error(
-        error instanceof Error ? error.message : "Could not save remark",
-      );
-    },
-  });
-
-  const notes = detailsQuery.data?.notes ?? [];
-  const latestRemark = latestSavedRemark ?? notes[0] ?? null;
-
-  return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-[min(94vw,52rem)] max-w-3xl rounded-xl p-0">
-          <DialogHeader className="border-b border-slate-100 px-5 py-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <DialogTitle className="text-xl font-extrabold text-secondary">
-                  Remarks
-                </DialogTitle>
-                <p className="text-sm font-semibold text-muted-foreground">
-                  {activeLead?.name ?? "Lead"}
-                </p>
-              </div>
-            </div>
-          </DialogHeader>
-
-          <div className="border-b border-slate-100 px-5 py-3">
-            <div className="flex gap-2">
-              {[
-                { id: "add", label: "Add New Remarks" },
-                { id: "history", label: "Remarks History" },
-              ].map((tab) => {
-                const selected = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    className={cn(
-                      "rounded-md px-3 py-2 text-sm font-extrabold transition-colors",
-                      selected
-                        ? "bg-primary text-white"
-                        : "bg-slate-100 text-secondary hover:bg-slate-200",
-                    )}
-                    onClick={() => setActiveTab(tab.id as RemarkTab)}
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="px-5 py-4">
-            {activeTab === "add" ? (
-              <div className="space-y-4">
-                {latestRemark ? (
-                  <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-extrabold text-secondary">
-                          Latest remark
-                        </p>
-                        <p className="mt-1 text-sm font-semibold leading-6 text-secondary">
-                          {latestRemark.text?.trim() || "Internal remark"}
-                        </p>
-                      </div>
-                      <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
-                        {formatRemarkTimestamp(latestRemark.createdAt)}
-                      </span>
-                    </div>
-                  </div>
-                ) : null}
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-extrabold text-secondary">
-                      Follow-up date <span className="text-red-600">*</span>
-                    </label>
-                    <DatePicker
-                      aria-label="Follow-up date"
-                      value={followUpDate}
-                      className="h-10 rounded-md"
-                      onChange={(event) => setFollowUpDate(event.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-extrabold text-secondary">
-                      Follow-up time
-                    </label>
-                    <ClockTimePicker
-                      value={followUpTime}
-                      options={followUpTimes}
-                      widthClassName="w-full"
-                      onChange={setFollowUpTime}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="space-y-2">
-                    <span className="text-xs font-extrabold text-secondary">
-                      Budget
-                    </span>
-                    <SearchableSelect
-                      value={selectedBudgetRange}
-                      onValueChange={setSelectedBudgetRange}
-                      options={budgetSearchOptions}
-                      placeholder="Select budget"
-                      searchPlaceholder="Search budgets..."
-                      noOptionsText="No budget ranges found"
-                      className="h-11 bg-white"
-                      modal={false}
-                      portaled={false}
-                    />
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-xs font-extrabold text-secondary">
-                      Configuration
-                    </span>
-                    <SearchableSelect
-                      value={selectedConfiguration}
-                      onValueChange={setSelectedConfiguration}
-                      options={configurationSearchOptions}
-                      placeholder="Select configuration"
-                      searchPlaceholder="Search configurations..."
-                      noOptionsText="No configurations found"
-                      className="h-11 bg-white"
-                      modal={false}
-                      portaled={false}
-                    />
-                  </label>
-                </div>
-
-                <div className="space-y-3">
-                  <label className="block text-xs font-extrabold text-secondary">
-                    Remarks
-                  </label>
-                  <Textarea
-                    value={newRemark}
-                    placeholder="Write the latest call summary, context, or next-step remark"
-                    className="min-h-[132px] rounded-md text-sm font-semibold"
-                    onChange={(event) => setNewRemark(event.target.value)}
-                  />
-                  <div className="flex justify-end">
-                    <Button
-                      type="button"
-                      className="h-10 rounded-md px-4"
-                      disabled={addRemark.isPending}
-                      onClick={() => addRemark.mutate()}
-                    >
-                      <Send className="h-4 w-4" />
-                      {addRemark.isPending ? "Saving..." : "Save Remark"}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ) : detailsQuery.isLoading ? (
-              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm font-semibold text-muted-foreground">
-                Loading remarks history...
-              </div>
-            ) : notes.length ? (
-              <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
-                {notes.map((note: LeadRemarkNote) => (
-                  <div
-                    key={note.id}
-                    className="rounded-lg border border-slate-200 bg-white p-4"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage
-                            src={note.authorImage ?? undefined}
-                            alt={note.authorName ?? "Team Member"}
-                          />
-                          <AvatarFallback className="bg-blue-50 text-blue-700">
-                            {initialsFromName(note.authorName)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="text-sm font-extrabold text-secondary">
-                            {note.authorName ?? "Team Member"}
-                          </p>
-                          <p className="text-[11px] font-semibold text-muted-foreground">
-                            {formatRemarkTimestamp(note.createdAt)}
-                          </p>
-                        </div>
-                      </div>
-                      {note.isPinned ? (
-                        <Badge className="border-0 bg-orange-50 text-orange-600">
-                          Pinned
-                        </Badge>
-                      ) : null}
-                    </div>
-                    <p className="mt-3 text-sm font-semibold leading-6 text-secondary">
-                      {note.text?.trim() || "Internal remark"}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm font-semibold text-muted-foreground">
-                No remarks history available yet.
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
 
 function matchesLeadBucketFilter(
   lead: LeadRow,
@@ -1216,7 +832,6 @@ export function LeadsTable({
   leadTypeOptions,
   budgetOptions,
   configurationOptions,
-  areaOptions,
   assigneeOptions,
   onEditLead,
   quickLeadStatusFilters,
@@ -1277,6 +892,7 @@ export function LeadsTable({
   dateRange?: DateRangeFilter;
   filterOptions?: {
     sourceOptions: LeadFilterOption[];
+  integrationAccountOptions: LeadFilterOption[];
     statusOptions: LeadFilterOption[];
     leadTypeOptions: LeadFilterOption[];
     stageOptions: LeadFilterOption[];
@@ -1302,16 +918,6 @@ export function LeadsTable({
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [previewLeadId, setPreviewLeadId] = useState<string | null>(null);
-  const [remarkLead, setRemarkLead] = useState<{
-    id: string;
-    name: string;
-    remark: string;
-    mobile?: string;
-    requirement?: string;
-    ownerId?: string;
-    telecallerId?: string;
-    fieldExecutiveId?: string;
-  } | null>(null);
   const [bulkSourceId, setBulkSourceId] = useState("");
   const [columnDialogOpen, setColumnDialogOpen] = useState(false);
   const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null);
@@ -1337,7 +943,6 @@ export function LeadsTable({
     useState("10:00 AM");
   const [selectedRemark, setSelectedRemark] = useState("");
   const [selectedBudgetRange, setSelectedBudgetRange] = useState("");
-  const [selectedLocation, setSelectedLocation] = useState("");
   const [selectedConfiguration, setSelectedConfiguration] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [projectUpdateEnabled, setProjectUpdateEnabled] = useState(false);
@@ -1479,9 +1084,7 @@ export function LeadsTable({
     "status",
     "leadType",
     "budget",
-    "location",
     "configuration",
-    "source",
     "remark",
     "followUpDate",
   ]);
@@ -1556,10 +1159,6 @@ export function LeadsTable({
     value: option.value,
   }));
   const budgetSearchOptions = budgetOptions.map((option) => ({
-    label: option.label,
-    value: option.value,
-  }));
-  const locationSearchOptions = areaOptions.map((option) => ({
     label: option.label,
     value: option.value,
   }));
@@ -1741,12 +1340,11 @@ export function LeadsTable({
     setSelectedLeadIds([lead.id]);
     setSelectedStatusId(intent === "status" ? lead.statusId ?? "" : "");
     setSelectedLeadTypeId(lead.temperatureId ?? "");
-    setBulkSourceId(lead.sourceId ?? "");
+    setBulkSourceId("");
     setLeadUpdateFollowUpDate("");
     setLeadUpdateFollowUpTime("10:00 AM");
     setSelectedRemark("");
     setSelectedBudgetRange(lead.budgetRange ?? "");
-    setSelectedLocation(lead.preferredLocation ?? "");
     setSelectedConfiguration(lead.configuration ?? "");
     setActiveUpdateModal("leadUpdate");
   };
@@ -1791,19 +1389,6 @@ export function LeadsTable({
     setActiveUpdateModal("project");
   };
 
-  const openRemarkModalForLead = (lead: LeadRow) => {
-    setRemarkLead({
-      id: lead.backendId ?? lead.id,
-      name: lead.name,
-      remark: lead.remark,
-      mobile: lead.mobile,
-      requirement: lead.propertyType,
-      ownerId: lead.ownerId,
-      telecallerId: lead.telecallerId,
-      fieldExecutiveId: lead.fieldExecutiveId,
-    });
-  };
-
   const handleLeadUpdateStatusChange = (statusId: string) => {
     setSelectedStatusId(statusId);
     const statusAllowsFollowUp =
@@ -1826,7 +1411,6 @@ export function LeadsTable({
     setLeadUpdateFollowUpTime("10:00 AM");
     setSelectedRemark("");
     setSelectedBudgetRange("");
-    setSelectedLocation("");
     setSelectedConfiguration("");
     setSelectedProjectId("");
     setProjectUpdateEnabled(false);
@@ -1854,39 +1438,14 @@ export function LeadsTable({
 
   const submitAssign = async (duplicate = false) => {
     const shouldUpdateProject = projectUpdateEnabled;
-    const telecallerUnchangedForAll =
-      duplicate &&
-      Boolean(selectedTelecallerId) &&
-      selectedRows.length > 0 &&
-      selectedRows.every(
-        (lead) =>
-          (lead.telecallerId ?? lead.ownerId ?? "") === selectedTelecallerId,
-      );
-    const fieldExecutiveUnchangedForAll =
-      duplicate &&
-      Boolean(selectedFieldExecutiveId) &&
-      selectedRows.length > 0 &&
-      selectedRows.every(
-        (lead) => (lead.fieldExecutiveId ?? "") === selectedFieldExecutiveId,
-      );
-    const assignments = [
-      ...(selectedTelecallerId && !telecallerUnchangedForAll
-        ? [
-            {
-              toUserId: selectedTelecallerId,
-              assigneeType: "telecaller" as const,
-            },
-          ]
-        : []),
-      ...(selectedFieldExecutiveId && !fieldExecutiveUnchangedForAll
-        ? [
-            {
-              toUserId: selectedFieldExecutiveId,
-              assigneeType: "field-executive" as const,
-            },
-          ]
-        : []),
-    ];
+    const {
+      assignments,
+      telecallerUnchangedForAll,
+      fieldExecutiveUnchangedForAll,
+    } = buildLeadAssignmentChanges(selectedRows, {
+      telecallerId: selectedTelecallerId,
+      fieldExecutiveId: selectedFieldExecutiveId,
+    });
     if (shouldUpdateProject && !selectedProjectId) {
       toast.error("Select a project to update");
       return;
@@ -1955,7 +1514,7 @@ export function LeadsTable({
       } else {
         toast.success("Selected lead projects updated");
       }
-    } catch {
+    } catch (error: unknown) {
       if (assignmentApplied && shouldUpdateProject) {
         toast.error("Assignments saved, but project could not be updated");
         return;
@@ -1969,11 +1528,14 @@ export function LeadsTable({
         return;
       }
       toast.error(
-        shouldUpdateProject
-          ? assignments.length
-            ? "Could not assign selected leads and update project"
-            : "Could not update selected lead projects"
-          : "Could not assign selected leads",
+        getApiErrorMessage(
+          error,
+          shouldUpdateProject
+            ? assignments.length
+              ? "Could not assign selected leads and update project"
+              : "Could not update selected lead projects"
+            : "Could not assign selected leads",
+        ),
       );
     }
   };
@@ -2172,12 +1734,8 @@ export function LeadsTable({
       payload.temperatureId = selectedLeadTypeId;
     if (selectedBudgetRange && canUpdateField("budget"))
       payload.budgetRange = selectedBudgetRange;
-    if (selectedLocation && canUpdateField("location"))
-      payload.preferredLocation = selectedLocation;
     if (selectedConfiguration && canUpdateField("configuration"))
       payload.configuration = selectedConfiguration;
-    if (bulkSourceId && canUpdateField("source"))
-      payload.sourceId = bulkSourceId;
     if (selectedProjectId) {
       payload.preferredProject = selectedProjectId;
     }
@@ -2584,18 +2142,8 @@ export function LeadsTable({
           <button
             type="button"
             className="block w-full truncate text-left text-[10px] font-semibold text-muted-foreground transition-colors hover:text-secondary"
-            onClick={() =>
-              setRemarkLead({
-                id: lead.backendId ?? lead.id,
-                name: lead.name,
-                remark: lead.remark,
-                mobile: lead.mobile,
-                requirement: lead.propertyType,
-                ownerId: lead.ownerId,
-                telecallerId: lead.telecallerId,
-                fieldExecutiveId: lead.fieldExecutiveId,
-              })
-            }
+            aria-label={`Update remark for ${lead.name}`}
+            onClick={() => openLeadUpdateModal(lead)}
           >
             {lead.remark}
           </button>
@@ -2673,6 +2221,7 @@ export function LeadsTable({
 
   const multiSelectFields = [
     "sourceId",
+    "integrationConnectionId",
     "statusId",
     "temperatureId",
     "propertyType",
@@ -2699,6 +2248,12 @@ export function LeadsTable({
           label: "Lead Source",
           placeholder: "All Source",
           options: filterOptions.sourceOptions,
+        },
+        {
+          key: "integrationConnectionId",
+          label: "Source account",
+          placeholder: "All source accounts",
+          options: filterOptions.integrationAccountOptions,
         },
         {
           key: "statusId",
@@ -3480,21 +3035,17 @@ export function LeadsTable({
           </div>
         </DialogContent>
       </Dialog>
-      <Dialog
-        open={activeUpdateModal === "leadUpdate"}
-        onOpenChange={(open) => (!open ? closeUpdateModal() : undefined)}
-      >
-        <DialogContent className="flex max-h-[88vh] max-w-2xl flex-col overflow-hidden rounded-xl bg-white p-0">
-          <DialogHeader className="border-b border-slate-100 px-6 py-5">
-            <DialogTitle className="text-lg font-extrabold text-secondary">
-              Update reminder, status & remark
-            </DialogTitle>
-            <p className="mt-1 text-xs font-semibold text-muted-foreground">
-              Changing a status or remark requires a follow-up date. Statuses
-              configured without follow-ups remain exempt.
-            </p>
-          </DialogHeader>
-          <div className="space-y-4 overflow-y-auto px-6 py-5">
+      {activeUpdateModal === "leadUpdate" ? (
+        <LeadUpdateDialog
+          selectedLeads={selectedRows.map((lead) => ({
+            id: lead.backendId ?? lead.id,
+            name: lead.name,
+          }))}
+          isSaving={bulkPatch.isPending}
+          canUpdate={canUpdateCombinedFields}
+          onClose={closeUpdateModal}
+          onSubmit={submitLeadUpdate}
+        >
             <div className="grid gap-4 sm:grid-cols-2">
               {canUpdateField("status") ? (
                 <label className="space-y-2">
@@ -3601,24 +3152,6 @@ export function LeadsTable({
                   />
                 </label>
               ) : null}
-              {canUpdateField("location") ? (
-                <label className="space-y-2">
-                  <span className="text-xs font-extrabold text-secondary">
-                    Location
-                  </span>
-                  <SearchableSelect
-                    value={selectedLocation}
-                    onValueChange={setSelectedLocation}
-                    options={locationSearchOptions}
-                    placeholder="Select location"
-                    searchPlaceholder="Search locations..."
-                    noOptionsText="No locations found"
-                    className="h-11 bg-white"
-                    modal={false}
-                    portaled={false}
-                  />
-                </label>
-              ) : null}
               {canUpdateField("configuration") ? (
                 <label className="space-y-2">
                   <span className="text-xs font-extrabold text-secondary">
@@ -3631,24 +3164,6 @@ export function LeadsTable({
                     placeholder="Select configuration"
                     searchPlaceholder="Search configurations..."
                     noOptionsText="No configurations found"
-                    className="h-11 bg-white"
-                    modal={false}
-                    portaled={false}
-                  />
-                </label>
-              ) : null}
-              {canUpdateField("source") ? (
-                <label className="space-y-2">
-                  <span className="text-xs font-extrabold text-secondary">
-                    Source
-                  </span>
-                  <SearchableSelect
-                    value={bulkSourceId}
-                    onValueChange={setBulkSourceId}
-                    options={sourceSearchOptions}
-                    placeholder="Select source"
-                    searchPlaceholder="Search sources..."
-                    noOptionsText="No sources found"
                     className="h-11 bg-white"
                     modal={false}
                     portaled={false}
@@ -3676,21 +3191,8 @@ export function LeadsTable({
               {selectedCount} selected lead{selectedCount === 1 ? "" : "s"} will
               receive the filled updates.
             </p>
-          </div>
-          <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4">
-            <Button type="button" variant="outline" onClick={closeUpdateModal}>
-              Close
-            </Button>
-            <Button
-              type="button"
-              disabled={bulkPatch.isPending}
-              onClick={submitLeadUpdate}
-            >
-              Update Lead
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        </LeadUpdateDialog>
+      ) : null}
       <CreateSiteVisitModal
         open={triggerSiteVisitOpen}
         form={triggerSiteVisitForm}
@@ -3791,7 +3293,7 @@ export function LeadsTable({
           },
           remark: {
             enabled: canUpdateField("remark"),
-            onClick: () => openPreviewAction(openRemarkModalForLead),
+            onClick: () => openPreviewAction(openLeadUpdateModal),
           },
         }}
       />
@@ -4075,15 +3577,6 @@ export function LeadsTable({
           </div>
         </DialogContent>
       </Dialog>
-      <RemarksDialog
-        lead={remarkLead}
-        open={Boolean(remarkLead)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setRemarkLead(null);
-          }
-        }}
-      />
     </div>
   );
 }

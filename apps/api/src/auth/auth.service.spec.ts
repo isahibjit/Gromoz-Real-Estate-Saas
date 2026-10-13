@@ -145,6 +145,18 @@ describe('AuthService - Brute Force Protection & Account Lockout', () => {
     expect(mailService.sendAccountLockedAlert).not.toHaveBeenCalled();
   });
 
+  it('never deactivates or locks out admin accounts on failed password attempts', async () => {
+    const adminUser = { ...mockUser, role: Role.SUPER_ADMIN };
+    prisma.user.findUnique.mockResolvedValue(adminUser);
+
+    await expect(
+      service.login({ email: adminUser.email, password: 'WrongPassword!' }),
+    ).rejects.toThrow(new UnauthorizedException('Incorrect password.'));
+
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(redis.incr).not.toHaveBeenCalled();
+  });
+
   it('warns user with 1 remaining attempt on second failed password attempt', async () => {
     prisma.user.findUnique.mockResolvedValue(mockUser);
     redis.incr.mockResolvedValue(2);

@@ -697,6 +697,7 @@ const salesManagerPageKeys = [
   'page.teams',
   'page.attendance',
   'page.performance',
+  'page.tasks',
   'page.call_history',
   'page.notifications',
 ];
@@ -795,6 +796,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, ModulePermission[]> = {
     allow('performance'),
     allowAttendance(true),
     allowManage('incentives'),
+    allowManage('tasks'),
     allowManage('notifications'),
     ...allowPages(salesManagerPageKeys),
   ],

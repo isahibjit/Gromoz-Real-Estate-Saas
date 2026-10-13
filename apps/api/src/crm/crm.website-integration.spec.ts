@@ -1,3 +1,4 @@
+import { referenceTenantProviders } from "../../test/reference-tenant-providers";
 import { Test } from '@nestjs/testing';
 import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../persistence/prisma/prisma.service';
@@ -23,7 +24,7 @@ describe('Website integration pause enforcement', () => {
   let service: CrmService;
 
   const db = {
-    user: { findUnique: jest.fn(), count: jest.fn() },
+    user: { findUnique: jest.fn(), findMany: jest.fn(), count: jest.fn() },
     organizationMember: { findMany: jest.fn() },
     portalIntegration: {
       findUnique: jest.fn(),
@@ -83,9 +84,13 @@ describe('Website integration pause enforcement', () => {
     }));
     db.lead.findFirst.mockResolvedValue(null);
     db.auditLog.create.mockResolvedValue({});
+    db.user.count.mockResolvedValue(1);
+    if ("upsert" in db.portalIntegration) db.portalIntegration.upsert.mockImplementation(async () => integration);
+    db.user.findMany.mockResolvedValue([]);
 
     const module = await Test.createTestingModule({
       providers: [
+        ...referenceTenantProviders(),
         CrmService,
         { provide: PrismaService, useValue: db },
         { provide: RealtimeService, useValue: {} },
@@ -281,4 +286,120 @@ describe('Website integration pause enforcement', () => {
       expect(db.portalIntegration.update).not.toHaveBeenCalled();
     },
   );
+});
+
+describe('Website routing override validation', () => {
+  let integration: {
+    id: string;
+    isActive: boolean;
+    status: string;
+    webhookKeyId: string;
+    displayName: string;
+    fieldMapping: Record<string, unknown>;
+  };
+  let service: CrmService;
+
+  const db = {
+    user: { findMany: jest.fn(), count: jest.fn() },
+    portalIntegration: { findUnique: jest.fn(), findFirst: jest.fn(), upsert: jest.fn(), update: jest.fn() },
+    lead: { findFirst: jest.fn() },
+    auditLog: { create: jest.fn() },
+  };
+
+  const savedConnectedWebsites = () => {
+    const call = db.portalIntegration.update.mock.calls.find(
+      ([args]: [any]) =>
+        args?.data?.fieldMapping?.connectedWebsites !== undefined,
+    );
+    return call?.[0]?.data?.fieldMapping?.connectedWebsites;
+  };
+
+  const routingWasPersisted = () =>
+    db.portalIntegration.update.mock.calls.some(
+      ([args]: [any]) =>
+        args?.data?.fieldMapping?.connectedWebsites !== undefined,
+    );
+
+  beforeEach(async () => {
+    jest.resetAllMocks();
+    integration = {
+      id: 'website-integration',
+      isActive: true,
+      status: 'Configured',
+      webhookKeyId: 'website-key-id',
+      displayName: 'Website Leads',
+      fieldMapping: {
+        mapping: { name: 'leadName' },
+        connectedWebsites: [
+          { id: 'site-1', url: 'https://example.com', name: 'Example' },
+        ],
+      },
+    };
+    db.portalIntegration.findUnique.mockImplementation(async () => ({
+      ...integration,
+    }));
+    db.portalIntegration.update.mockImplementation(async ({ data }) => ({
+      ...integration,
+      ...data,
+    }));
+    db.auditLog.create.mockResolvedValue({});
+    db.user.count.mockResolvedValue(1);
+    if ("upsert" in db.portalIntegration) db.portalIntegration.upsert.mockImplementation(async () => integration);
+
+    const module = await Test.createTestingModule({
+      providers: [
+        ...referenceTenantProviders(),
+        CrmService,
+        { provide: PrismaService, useValue: db },
+        { provide: RealtimeService, useValue: {} },
+        { provide: LeadVisibilityService, useValue: {} },
+      ],
+    }).compile();
+
+    service = module.get(CrmService);
+  });
+
+  it('persists a valid active owner override', async () => {
+    db.user.findMany.mockResolvedValue([{ id: 'mgr-1', role: 'MANAGER' }]);
+
+    await service.saveWebsiteRouting('site-1', { ownerId: 'mgr-1' });
+
+    const sites = savedConnectedWebsites();
+    expect(sites).toEqual([
+      expect.objectContaining({ id: 'site-1', ownerId: 'mgr-1' }),
+    ]);
+  });
+
+  it('persists a valid Pre Sales override exclusively on telecallerId', async () => {
+    db.user.findMany.mockResolvedValue([{ id: 'tc-1', role: 'TELECALLER' }]);
+
+    await service.saveWebsiteRouting('site-1', { telecallerId: 'tc-1' });
+
+    expect(savedConnectedWebsites()).toEqual([
+      expect.objectContaining({
+        id: 'site-1',
+        telecallerId: 'tc-1',
+        ownerId: undefined,
+        fieldExecutiveId: undefined,
+      }),
+    ]);
+  });
+
+  it('rejects a wrong-role owner override with a 400', async () => {
+    db.user.findMany.mockResolvedValue([{ id: 'tc-1', role: 'TELECALLER' }]);
+
+    await expect(
+      service.saveWebsiteRouting('site-1', { ownerId: 'tc-1' }),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(routingWasPersisted()).toBe(false);
+  });
+
+  it('rejects an inactive/missing owner override with a 400', async () => {
+    db.user.findMany.mockResolvedValue([]);
+
+    await expect(
+      service.saveWebsiteRouting('site-1', { ownerId: 'ghost' }),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(routingWasPersisted()).toBe(false);
+  });
 });

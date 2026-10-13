@@ -13,6 +13,9 @@ module.exports = {
       {
         tsconfig: "<rootDir>/tsconfig.json",
         diagnostics: { ignoreCodes: [1343] },
+        astTransformers: {
+          before: ["<rootDir>/test/importMetaEnv.js"],
+        },
       },
     ],
   },

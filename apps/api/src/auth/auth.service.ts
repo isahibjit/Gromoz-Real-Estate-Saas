@@ -1401,6 +1401,14 @@ export class AuthService {
     deviceLocation?: LoginInput['location'],
     maxAttempts: number = DEFAULT_MAX_FAILED_LOGIN_ATTEMPTS,
   ): Promise<void> {
+    if (
+      user.role === Role.SUPER_ADMIN ||
+      user.role === Role.ADMIN ||
+      user.role === Role.BACKEND
+    ) {
+      return;
+    }
+
     const { ip } = this.getRequestMetadata(request);
     const location =
       deviceLocation &&

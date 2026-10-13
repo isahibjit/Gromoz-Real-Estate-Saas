@@ -8,6 +8,7 @@ export interface ExportableLeadRow {
   addedDate?: string;
   lastUpdate?: string;
   source?: string;
+  integrationAccountName?: string;
   name: string;
   mobile?: string;
   email?: string | null;
@@ -75,6 +76,11 @@ export function downloadLeadRowsCsv({
     addedDate: { id: "addedDate", header: "Added Date", value: (lead) => lead.addedDate },
     lastUpdate: { id: "lastUpdate", header: "Last Update", value: (lead) => lead.lastUpdate },
     source: { id: "source", header: "Source", value: (lead) => lead.source },
+    sourceAccount: {
+      id: "sourceAccount",
+      header: "Source Account",
+      value: (lead) => lead.integrationAccountName ?? "Legacy / unattributed",
+    },
     name: { id: "name", header: "Name", value: (lead) => lead.name },
     number: { id: "number", header: "Number", value: (lead) => lead.mobile },
     email: { id: "email", header: "Email", value: (lead) => lead.email },

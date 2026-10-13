@@ -52,6 +52,13 @@ import {
   useMetaIntegrationMutations,
   useMetaLeadForms,
 } from "./useMetaIntegration";
+import { getApiErrorMessage } from "../../../../../common/apiError";
+import {
+  getRoutingAssigneeOptions,
+  mapRoutingAssigneeSelection,
+} from "../routingAssignee";
+import { MetaFormRoutingDialog } from "./MetaFormRoutingDialog";
+import { hasUnsavedMetaPageConfiguration } from "./metaRouting";
 
 type ConnectedMetaAccount = MetaIntegrationConfig["connectedAccounts"][number];
 type ConnectedMetaPage = MetaIntegrationConfig["connectedPages"][number];
@@ -144,8 +151,10 @@ export function ConnectMetaLeadsScreen() {
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedSourceId, setSelectedSourceId] = useState("");
   const [selectedTeamId, setSelectedTeamId] = useState("");
+  const [selectedOwnerId, setSelectedOwnerId] = useState("");
   const [selectedTelecallerId, setSelectedTelecallerId] = useState("");
   const [selectedFieldExecutiveId, setSelectedFieldExecutiveId] = useState("");
+  const [routingForm, setRoutingForm] = useState<MetaLeadForm | null>(null);
   const [fieldMapping, setFieldMapping] = useState<Record<string, string>>({});
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
   const [manualPageId, setManualPageId] = useState("");
@@ -169,7 +178,7 @@ export function ConnectMetaLeadsScreen() {
     const knownPage = pages.some(
       (page) => page.id === integration.selectedPageId,
     );
-    const nextPageId = knownPage
+    const nextPageId = pages.some((page) => page.id === pageId) ? pageId : knownPage
       ? integration.selectedPageId
       : pages[0]?.id ?? integration.selectedPageId ?? "";
     setPageId(nextPageId);
@@ -185,6 +194,11 @@ export function ConnectMetaLeadsScreen() {
     setSelectedTeamId(
       nextPageId ? integration.pageTeamMappings?.[nextPageId] ?? "" : "",
     );
+    setSelectedOwnerId(
+      nextPageId
+        ? integration.pageAssignmentOverrides?.[nextPageId]?.ownerId ?? ""
+        : "",
+    );
     setSelectedTelecallerId(
       nextPageId
         ? integration.pageAssignmentOverrides?.[nextPageId]?.telecallerId ?? ""
@@ -197,7 +211,7 @@ export function ConnectMetaLeadsScreen() {
         : "",
     );
     setFieldMapping(integration.fieldMapping ?? {});
-  }, [integration]);
+  }, [integration, pageId]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -339,7 +353,13 @@ export function ConnectMetaLeadsScreen() {
           value: project.id,
           label: project.name,
           description: project.location || "CRM project",
-        })),
+        }))
+        .sort((a: { label: string }, b: { label: string }) =>
+          a.label.localeCompare(b.label, undefined, {
+            sensitivity: "base",
+            numeric: true,
+          }),
+        ),
     ],
     [projectsQuery.data?.projects],
   );
@@ -372,7 +392,7 @@ export function ConnectMetaLeadsScreen() {
         label: "No user override",
         description: "Let the selected team or automatic assignment choose",
       },
-      ...leadFilterOptionsQuery.options.ownerOptions,
+      ...getRoutingAssigneeOptions(leadFilterOptionsQuery.options.ownerOptions),
     ],
     [leadFilterOptionsQuery.options.ownerOptions],
   );
@@ -383,6 +403,11 @@ export function ConnectMetaLeadsScreen() {
     mutations.disconnectAccount.isPending ||
     mutations.addManualPage.isPending;
   const isOAuthPending = mutations.startOAuth.isPending;
+  const hasUnsavedPageConfiguration = integration ? hasUnsavedMetaPageConfiguration(integration, pageId, {
+    selectedFormIds, projectId: selectedProjectId, sourceId: selectedSourceId,
+    teamId: selectedTeamId, ownerId: selectedOwnerId, telecallerId: selectedTelecallerId,
+    fieldExecutiveId: selectedFieldExecutiveId,
+  }) : false;
 
   const handleConnectFacebook = async () => {
     const result = await mutations.startOAuth.mutateAsync(undefined as any);
@@ -401,6 +426,9 @@ export function ConnectMetaLeadsScreen() {
     setSelectedProjectId(integration?.pageProjectMappings?.[nextPageId] ?? "");
     setSelectedSourceId(integration?.pageSourceMappings?.[nextPageId] ?? "");
     setSelectedTeamId(integration?.pageTeamMappings?.[nextPageId] ?? "");
+    setSelectedOwnerId(
+      integration?.pageAssignmentOverrides?.[nextPageId]?.ownerId ?? "",
+    );
     setSelectedTelecallerId(
       integration?.pageAssignmentOverrides?.[nextPageId]?.telecallerId ?? "",
     );
@@ -434,16 +462,23 @@ export function ConnectMetaLeadsScreen() {
 
   const handleSavePageConfiguration = async () => {
     if (!pageId) return;
-    await mutations.savePageForms.mutateAsync({
-      pageId,
-      selectedFormIds,
-      projectId: selectedProjectId,
-      sourceId: selectedSourceId,
-      teamId: selectedTeamId,
-      telecallerId: selectedTelecallerId,
-      fieldExecutiveId: selectedFieldExecutiveId,
-    });
-    toast.success("Page configuration saved");
+    try {
+      await mutations.savePageForms.mutateAsync({
+        pageId,
+        selectedFormIds,
+        projectId: selectedProjectId,
+        sourceId: selectedSourceId,
+        teamId: selectedTeamId,
+        ownerId: selectedOwnerId,
+        telecallerId: selectedTelecallerId,
+        fieldExecutiveId: selectedFieldExecutiveId,
+      });
+      toast.success("Page configuration saved");
+    } catch (error) {
+      toast.error(
+        getApiErrorMessage(error, "Could not save Meta Page configuration"),
+      );
+    }
   };
 
   const handleSaveMapping = async () => {
@@ -978,7 +1013,8 @@ export function ConnectMetaLeadsScreen() {
                                 Lead routing overrides
                               </h3>
                               <p className="mt-1 max-w-3xl text-sm font-medium leading-5 text-muted-foreground">
-                                Page selections take priority over form values.
+                                Form routing overrides take priority over page settings.
+                                Page settings take priority over incoming form answers.
                                 Person overrides bypass automatic assignment;
                                 otherwise the selected team uses its matching
                                 auto-assignment rule.
@@ -987,6 +1023,7 @@ export function ConnectMetaLeadsScreen() {
                             {selectedProjectId ||
                             selectedSourceId ||
                             selectedTeamId ||
+                            selectedOwnerId ||
                             selectedTelecallerId ||
                             selectedFieldExecutiveId ? (
                               <Button
@@ -997,6 +1034,7 @@ export function ConnectMetaLeadsScreen() {
                                   setSelectedProjectId("");
                                   setSelectedSourceId("");
                                   setSelectedTeamId("");
+                                  setSelectedOwnerId("");
                                   setSelectedTelecallerId("");
                                   setSelectedFieldExecutiveId("");
                                 }}
@@ -1056,18 +1094,17 @@ export function ConnectMetaLeadsScreen() {
                                 Assign to
                               </p>
                               <SearchableSelect
-                                value={selectedTelecallerId || selectedFieldExecutiveId}
+                                value={selectedTelecallerId || selectedFieldExecutiveId || selectedOwnerId}
                                 onValueChange={(val) => {
-                                  const found = leadFilterOptionsQuery.options.ownerOptions.find(
-                                    (opt) => opt.value === val,
+                                  const selection = mapRoutingAssigneeSelection(
+                                    val,
+                                    assigneeOptions,
                                   );
-                                  if (found?.role === "SALES_AGENT") {
-                                    setSelectedFieldExecutiveId(val);
-                                    setSelectedTelecallerId("");
-                                  } else {
-                                    setSelectedTelecallerId(val);
-                                    setSelectedFieldExecutiveId("");
-                                  }
+                                  setSelectedOwnerId(selection.ownerId);
+                                  setSelectedTelecallerId(selection.telecallerId);
+                                  setSelectedFieldExecutiveId(
+                                    selection.fieldExecutiveId,
+                                  );
                                 }}
                                 options={assigneeOptions}
                                 placeholder="No user override"
@@ -1094,11 +1131,11 @@ export function ConnectMetaLeadsScreen() {
                               goodLabel="Team route"
                               issueLabel="Default routing"
                             />
-                            {selectedTelecallerId || selectedFieldExecutiveId ? (
+                            {selectedTelecallerId || selectedFieldExecutiveId || selectedOwnerId ? (
                               <Badge className="border-0 bg-violet-50 text-violet-700">
                                 Assigned to: {
                                   leadFilterOptionsQuery.options.ownerOptions.find(
-                                    (u) => u.value === (selectedTelecallerId || selectedFieldExecutiveId),
+                                    (u) => u.value === (selectedTelecallerId || selectedFieldExecutiveId || selectedOwnerId),
                                   )?.label || "Selected user"
                                 }
                               </Badge>
@@ -1140,8 +1177,14 @@ export function ConnectMetaLeadsScreen() {
                               disabled={isSaving || !pageId}
                               onClick={handleSavePageConfiguration}
                             >
-                              <CheckCircle2 className="mr-2 h-4 w-4" />
-                              Save page configuration
+                              {mutations.savePageForms.isPending ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="mr-2 h-4 w-4" />
+                              )}
+                              {mutations.savePageForms.isPending
+                                ? "Saving..."
+                                : "Save page configuration"}
                             </Button>
                           </div>
                         </div>
@@ -1170,7 +1213,7 @@ export function ConnectMetaLeadsScreen() {
                                 return (
                                   <div
                                     key={form.id}
-                                    className="flex items-center justify-between gap-4 py-4"
+                                    className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
                                   >
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-2">
@@ -1188,12 +1231,24 @@ export function ConnectMetaLeadsScreen() {
                                         {formatDateTime(form.createdTime)}
                                       </p>
                                     </div>
-                                    <div className="flex shrink-0 items-center gap-3">
-                                      {form.isPaused ? (
-                                        <Badge className="border-0 bg-amber-50 text-amber-800">
-                                          Sync Paused
-                                        </Badge>
-                                      ) : enabled ? (
+                                    <div className="flex shrink-0 flex-wrap items-center gap-3">
+                                      <Badge variant="neutral">
+                                        {Object.keys(integration?.formRoutingOverrides?.[pageId]?.[form.id] ?? {}).length
+                                          ? "Custom routing" : "Uses page routing"}
+                                      </Badge>
+                                      <Button type="button" variant="outline" size="sm"
+                                        aria-label={`Configure routing for ${form.name}`}
+                                        disabled={mutations.savePageForms.isPending}
+                                        onClick={() => {
+                                          if (hasUnsavedPageConfiguration) {
+                                            toast.error("Save your page configuration before configuring form routing.");
+                                            return;
+                                          }
+                                          setRoutingForm(form);
+                                        }}>
+                                        Configure routing
+                                      </Button>
+                                      {enabled ? (
                                         <Badge className="border-0 bg-emerald-50 text-emerald-800">
                                           Enabled
                                         </Badge>
@@ -1202,37 +1257,18 @@ export function ConnectMetaLeadsScreen() {
                                           Off
                                         </Badge>
                                       )}
-                                      <div className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1">
-                                        <span className="text-[11px] font-bold text-slate-600">
-                                          Pause:
-                                        </span>
-                                        <Switch
-                                          checked={Boolean(form.isPaused)}
-                                          disabled={
-                                            mutations.toggleFormPause.isPending
-                                          }
-                                          onCheckedChange={(isPaused) => {
-                                            void mutations.toggleFormPause.mutateAsync(
-                                              {
-                                                formId: form.id,
-                                                isPaused,
-                                                pageId,
-                                              },
-                                            );
-                                            toast.success(
-                                              isPaused
-                                                ? `Paused lead sync for ${form.name}`
-                                                : `Resumed lead sync for ${form.name}`,
-                                            );
-                                          }}
-                                          aria-label={`Pause lead sync for ${form.name}`}
-                                        />
-                                      </div>
                                       <Switch
                                         checked={enabled}
-                                        onCheckedChange={() =>
-                                          toggleForm(form.id)
-                                        }
+                                        onCheckedChange={() => {
+                                          toggleForm(form.id);
+                                          if (!enabled && form.isPaused) {
+                                            void mutations.toggleFormPause.mutateAsync({
+                                              formId: form.id,
+                                              isPaused: false,
+                                              pageId,
+                                            });
+                                          }
+                                        }}
                                         aria-label={`Enable ${form.name}`}
                                       />
                                     </div>
@@ -1584,6 +1620,9 @@ export function ConnectMetaLeadsScreen() {
                                   >
                                     {label}
                                   </Badge>
+                                  {log.routingScope ? (
+                                    <Badge variant="neutral">{log.routingScope === "form" ? "Form routing" : "Page routing"}</Badge>
+                                  ) : null}
                                   <span className="text-xs font-semibold text-muted-foreground">
                                     {formatDateTime(log.occurredAt)}
                                   </span>
@@ -1606,6 +1645,11 @@ export function ConnectMetaLeadsScreen() {
                                     ? `Page ID: ${log.pageId}`
                                     : "No lead ID supplied"}
                                 </p>
+                                {log.routingFallbacks?.length ? (
+                                  <p className="mt-1 text-sm text-muted-foreground">
+                                    Used default routing because configured {log.routingFallbacks.join(", ")} selections were unavailable.
+                                  </p>
+                                ) : null}
                               </div>
                               {log.displayId ? (
                                 <span className="text-xs font-extrabold text-primary">
@@ -1673,6 +1717,17 @@ export function ConnectMetaLeadsScreen() {
           )}
       </WorkspacePage>
 
+      {routingForm && integration ? (
+        <MetaFormRoutingDialog key={`${pageId}:${routingForm.id}`} pageId={pageId}
+          formId={routingForm.id} formName={routingForm.name} settings={integration}
+          projectOptions={projectOptions} sourceOptions={sourceOptions}
+          teamOptions={teamOptions} assigneeOptions={assigneeOptions}
+          onClose={() => setRoutingForm(null)}
+          onSave={async (routing) => {
+            await mutations.saveFormRouting.mutateAsync({ pageId, formId: routingForm.id, routing });
+            toast.success("Form routing saved");
+          }} />
+      ) : null}
       <Dialog open={manualDialogOpen} onOpenChange={setManualDialogOpen}>
         <DialogContent className="max-h-[calc(100vh-2rem)] max-w-2xl overflow-y-auto p-0">
           <DialogHeader className="border-b border-slate-200 px-6 py-5">

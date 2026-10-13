@@ -874,15 +874,20 @@ export class HrService {
         id,
       );
     }
-    const nextEmployeeCode =
+    const employeeCodeInput =
       typeof sanitizedBody.employeeCode === 'string' &&
       sanitizedBody.employeeCode.trim()
-        ? sanitizedBody.employeeCode.trim().toUpperCase()
-        : profile?.employeeCode;
-    let createdEmployeeCode = nextEmployeeCode;
-    if (!profile && !createdEmployeeCode) {
-      const count = await this.prisma.employeeProfile.count();
-      createdEmployeeCode = `EMP-${String(count + 1).padStart(5, '0')}`;
+        ? sanitizedBody.employeeCode.trim()
+        : null;
+
+    let createdEmployeeCode = profile?.employeeCode;
+    if (employeeCodeInput) {
+      createdEmployeeCode = await this.generateNextUniqueEmployeeCode(
+        employeeCodeInput,
+        profile?.id,
+      );
+    } else if (!profile) {
+      createdEmployeeCode = await this.generateNextUniqueEmployeeCode(null);
     }
     const nextJoiningDate = sanitizedBody.joiningDate
       ? ensureDate(sanitizedBody.joiningDate, 'Joining date')
@@ -927,8 +932,8 @@ export class HrService {
         employeeProfile: profile
           ? {
               update: {
-                ...(typeof sanitizedBody.employeeCode === 'string'
-                  ? { employeeCode: sanitizedBody.employeeCode.trim().toUpperCase() }
+                ...(employeeCodeInput
+                  ? { employeeCode: createdEmployeeCode }
                   : {}),
                 ...(typeof sanitizedBody.designation === 'string'
                   ? { designation: sanitizedBody.designation.trim() }
@@ -1593,6 +1598,30 @@ export class HrService {
       }
     }
 
+    // Apply Access Control overrides (Extra allowed users & Blocked/restricted users)
+    const overrides = await this.prisma.leadVisibilityOverride.findMany({
+      where: {
+        viewerUserId: actor.sub,
+        target: { AND: [this.tenants.employeeWhere()], isActive: true },
+      },
+      select: {
+        targetUserId: true,
+        accessType: true,
+      },
+    });
+
+    overrides.forEach((override) => {
+      if (override.accessType === 'BLOCK') {
+        userIds.delete(override.targetUserId);
+      }
+    });
+    overrides.forEach((override) => {
+      if (override.accessType === 'ALLOW') {
+        userIds.add(override.targetUserId);
+      }
+    });
+    userIds.add(actor.sub);
+
     return [...userIds];
   }
 
@@ -1618,7 +1647,8 @@ export class HrService {
       throw new BadRequestException('Attendance range cannot exceed 31 days');
     const end = new Date(endInclusive);
     end.setUTCDate(end.getUTCDate() + 1);
-        const scopedUserIds = await this.getScopedUserIdsForHR(actor);
+
+    const scopedUserIds = await this.getScopedUserIdsForHR(actor);
     const requestedEmployeeId = this.text(query.employeeId);
     let allowedEmployeeIds: string[] | undefined = undefined;
 
@@ -1635,6 +1665,7 @@ export class HrService {
     } else if (requestedEmployeeId && requestedEmployeeId !== 'all') {
       allowedEmployeeIds = [requestedEmployeeId];
     }
+
     const normalizedStatus = this.text(query.status);
     const role =
       query.role === 'FIELD_EXECUTIVE' ? 'SALES_AGENT' : this.text(query.role);
@@ -1707,7 +1738,9 @@ export class HrService {
       this.prisma.attendanceRecord.findMany({
         where: {
           attendanceDate: { gte: start, lt: end },
-          ...(allowedEmployeeIds !== undefined ? { employeeId: { in: allowedEmployeeIds } } : {}),
+          ...(allowedEmployeeIds !== undefined
+            ? { employeeId: { in: allowedEmployeeIds } }
+            : {}),
         },
         include: {
           shift: true,
@@ -1918,8 +1951,15 @@ export class HrService {
         );
 
     if (!employees.length) throw new NotFoundException('Employee not found');
-    if (!isAdmin && employees[0]?.id !== actor.sub) {
-      throw new ForbiddenException('You can only download your own attendance report');
+    const scopedUserIds = await this.getScopedUserIdsForHR(actor);
+    if (
+      scopedUserIds !== null &&
+      employees[0]?.id &&
+      !scopedUserIds.includes(employees[0].id)
+    ) {
+      throw new ForbiddenException(
+        'You can only download attendance reports for yourself or assigned team members',
+      );
     }
 
     const [settings, holidays, attendanceResponse] = await Promise.all([
@@ -4464,7 +4504,7 @@ export class HrService {
     }
 
     if (actor.role === 'TEAM_LEADER') {
-      const [ledTeams, monitorGrants] = await Promise.all([
+      const [ledTeams, monitorGrants, directReports] = await Promise.all([
         this.prisma.team.findMany({
           where: { isActive: true, leaderId: actor.sub },
           select: {
@@ -4482,6 +4522,10 @@ export class HrService {
             },
           },
         }),
+        this.prisma.employeeProfile.findMany({
+          where: { reportingToId: actor.sub, user: { isActive: true } },
+          select: { userId: true },
+        }),
       ]);
       for (const team of ledTeams) {
         for (const member of team.members) {
@@ -4495,6 +4539,9 @@ export class HrService {
             visibleIds.add(member.userId);
           }
         }
+      }
+      for (const report of directReports) {
+        visibleIds.add(report.userId);
       }
     }
 

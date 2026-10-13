@@ -36,6 +36,58 @@ export interface SearchableSelectProps {
   noOptionsText?: string;
   modal?: boolean;
   portaled?: boolean;
+  sortAlphabetical?: boolean;
+}
+
+function getOptionMatchScore(
+  label: string | undefined,
+  description: string | undefined,
+  normalizedQuery: string,
+): number {
+  if (!normalizedQuery) return 0;
+
+  const cleanLabel = (label ?? "").trim().toLowerCase();
+  const cleanDesc = (description ?? "").trim().toLowerCase();
+
+  // 1. Exact match on full label
+  if (cleanLabel === normalizedQuery) return 1000;
+
+  // 2. Label starts with query
+  if (cleanLabel.startsWith(normalizedQuery)) return 800;
+
+  // 3. Any word in label starts with query (e.g. query "salat" matches "Zakiya Salat")
+  const labelWords = cleanLabel.split(/[\s,._\-/()]+/);
+  if (labelWords.some((word) => word.startsWith(normalizedQuery))) return 600;
+
+  // 4. Label contains query substring
+  if (cleanLabel.includes(normalizedQuery)) return 400;
+
+  // 5. Exact match on description
+  if (cleanDesc === normalizedQuery) return 300;
+
+  // 6. Description starts with query
+  if (cleanDesc.startsWith(normalizedQuery)) return 250;
+
+  // 7. Any word in description starts with query
+  const descWords = cleanDesc.split(/[\s,._\-/()]+/);
+  if (descWords.some((word) => word.startsWith(normalizedQuery))) return 200;
+
+  // 8. Description contains query substring
+  if (cleanDesc.includes(normalizedQuery)) return 100;
+
+  // 9. Multi-word search (e.g. "mis test")
+  const queryTokens = normalizedQuery.split(/\s+/).filter(Boolean);
+  if (queryTokens.length > 1) {
+    const combined = `${cleanLabel} ${cleanDesc}`;
+    const allTokensMatch = queryTokens.every((token) => combined.includes(token));
+    if (allTokensMatch) {
+      if (cleanLabel.startsWith(queryTokens[0])) return 500;
+      if (labelWords.some((w) => w.startsWith(queryTokens[0]))) return 450;
+      return 350;
+    }
+  }
+
+  return 0;
 }
 
 export function SearchableSelect({
@@ -52,6 +104,7 @@ export function SearchableSelect({
   noOptionsText = "No matching options",
   modal = false,
   portaled = false,
+  sortAlphabetical = false,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
@@ -60,11 +113,39 @@ export function SearchableSelect({
   const selectedOption = options.find((option) => option.value === value);
 
   const normalizedQuery = query.trim().toLowerCase();
-  const visibleOptions = options.filter((option) =>
-    [option.label, option.description]
-      .filter(Boolean)
-      .some((text) => text?.toLowerCase().includes(normalizedQuery)),
-  );
+
+  const visibleOptions = React.useMemo(() => {
+    if (!normalizedQuery) {
+      if (sortAlphabetical) {
+        return [...options].sort((a, b) =>
+          (a.label ?? "").localeCompare(b.label ?? "", undefined, {
+            sensitivity: "base",
+            numeric: true,
+          }),
+        );
+      }
+      return options;
+    }
+
+    const scored = options
+      .map((option) => ({
+        option,
+        score: getOptionMatchScore(option.label, option.description, normalizedQuery),
+      }))
+      .filter((item) => item.score > 0);
+
+    scored.sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+      return (a.option.label ?? "").localeCompare(b.option.label ?? "", undefined, {
+        sensitivity: "base",
+        numeric: true,
+      });
+    });
+
+    return scored.map((item) => item.option);
+  }, [options, normalizedQuery, sortAlphabetical]);
 
   const visibleOptionsRef = React.useRef(visibleOptions);
   visibleOptionsRef.current = visibleOptions;

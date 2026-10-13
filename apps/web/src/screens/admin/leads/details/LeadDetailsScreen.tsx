@@ -94,6 +94,8 @@ type LiveLeadRecord = {
   displayId?: string;
   name: string;
   sourceName?: string | null;
+  integrationAccountName?: string | null;
+  integrationProvider?: string | null;
   stageName?: string | null;
   statusName?: string | null;
   priorityName?: string | null;
@@ -857,6 +859,10 @@ const mergeLiveLeadDetails = (
     amenities: [],
     campaign: [
       { label: "Lead Source", value: safeValue(lead.sourceName, "Unknown") },
+      {
+        label: "Source account",
+        value: safeValue(lead.integrationAccountName, "Legacy / unattributed"),
+      },
       {
         label: "Campaign",
         value: safeValue(lead.campaignName, "Not captured"),

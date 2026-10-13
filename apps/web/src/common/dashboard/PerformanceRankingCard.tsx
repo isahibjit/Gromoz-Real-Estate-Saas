@@ -39,12 +39,6 @@ const rangeOptions: Array<{ value: DashboardRankingRange; label: string }> = [
 
 const today = new Date();
 const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-const adminRankingRoles = new Set([
-  "SUPER_ADMIN",
-  "ADMIN",
-  "HR",
-  "SALES_MANAGER",
-]);
 
 function formatDateInput(value: Date) {
   return value.toISOString().slice(0, 10);
@@ -212,21 +206,17 @@ export function PerformanceRankingCard({ className }: { className?: string }) {
   const [dateFrom, setDateFrom] = useState(formatDateInput(monthStart));
   const [dateTo, setDateTo] = useState(formatDateInput(today));
   const canViewTopPerformerLists = canAccess(user, "top_performers");
-  const canRequestAllRankings = Boolean(
-    user?.role && adminRankingRoles.has(user.role),
-  );
 
   const rankingParams = useMemo(
     () => ({
       range,
-      mode: canRequestAllRankings ? ("both" as const) : ("users" as const),
-      teamId: canRequestAllRankings ? teamId : "all",
-      userId: canRequestAllRankings ? userId : "all",
+      mode: "both" as const,
+      teamId,
+      userId,
       enabled: canViewTopPerformerLists,
       ...(range === "custom" ? { dateFrom, dateTo } : {}),
     }),
     [
-      canRequestAllRankings,
       canViewTopPerformerLists,
       dateFrom,
       dateTo,
@@ -254,11 +244,18 @@ export function PerformanceRankingCard({ className }: { className?: string }) {
       ? data?.userRankings.slice(0, 5) ?? []
       : data?.teamRankings.slice(0, 5) ?? [];
   const canOpenFullPerformance = canAccess(user, "performance");
-  const visibleUsers = (data?.filters.users ?? []).filter((item: { id: string; name: string; role?: string; teamId?: string | null }) => {
-    if (teamId === "all") return true;
-    if (teamId === "unassigned") return !item.teamId;
-    return item.teamId === teamId;
-  });
+  const visibleUsers = (data?.filters.users ?? [])
+    .filter((item: { id: string; name: string; role?: string; teamId?: string | null }) => {
+      if (teamId === "all") return true;
+      if (teamId === "unassigned") return !item.teamId;
+      return item.teamId === teamId;
+    })
+    .sort((a: { name: string }, b: { name: string }) =>
+      a.name.localeCompare(b.name, undefined, {
+        sensitivity: "base",
+        numeric: true,
+      }),
+    );
 
   if (!canViewTopPerformerLists) {
     return null;

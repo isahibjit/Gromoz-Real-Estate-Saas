@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../../../../common/api";
 
@@ -70,6 +70,7 @@ interface FollowUpListParams {
 export function useFollowUpsList(params: FollowUpListParams) {
   return useQuery({
     queryKey: ["follow-ups", params],
+    placeholderData: keepPreviousData,
     queryFn: async () =>
       (
         await api.get<FollowUpsResponse>("/leads/follow-ups", {

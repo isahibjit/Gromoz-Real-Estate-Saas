@@ -159,26 +159,46 @@ function PipelineSelect({
 }: {
   value: string;
   placeholder: string;
-  options: Array<{ id: string; name: string }>;
+  options: Array<{ id: string; name: string; role?: string; location?: string }>;
   onChange: (value: string) => void;
 }) {
+  const sortedOptions = useMemo(
+    () =>
+      [...options].sort((a, b) =>
+        (a.name ?? "").localeCompare(b.name ?? "", undefined, {
+          sensitivity: "base",
+          numeric: true,
+        }),
+      ),
+    [options],
+  );
+
+  const searchableOptions = useMemo(
+    () => [
+      { value: "all", label: `All ${placeholder}` },
+      ...sortedOptions.map((opt) => ({
+        value: opt.id,
+        label: opt.name,
+        description: opt.role || opt.location || undefined,
+      })),
+    ],
+    [placeholder, sortedOptions],
+  );
+
   return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger
-        aria-label={placeholder}
-        className="h-10 min-w-36 rounded-md bg-card text-xs font-bold shadow-none"
-      >
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">All {placeholder.toLowerCase()}</SelectItem>
-        {options.map((option) => (
-          <SelectItem key={option.id} value={option.id}>
-            {option.name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <SearchableSelect
+      value={value || "all"}
+      onValueChange={onChange}
+      placeholder={`All ${placeholder}`}
+      searchPlaceholder={`Search ${placeholder.toLowerCase()}...`}
+      noOptionsText={`No ${placeholder.toLowerCase()} found`}
+      options={searchableOptions}
+      ariaLabel={placeholder}
+      className="h-10 min-w-36 rounded-md bg-card text-xs font-bold shadow-none"
+      contentClassName="min-w-[220px]"
+      modal={false}
+      portaled={false}
+    />
   );
 }
 

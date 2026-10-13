@@ -88,8 +88,8 @@ test("renders the login screen content", () => {
   expect(screen.getByLabelText("Password")).toBeInTheDocument();
   expect(screen.getByLabelText("Remember me")).toBeInTheDocument();
   expect(
-    screen.getByRole("link", { name: "Forgot Password?" }),
-  ).toBeInTheDocument();
+    screen.queryByRole("link", { name: "Forgot Password?" }),
+  ).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Login" })).toBeInTheDocument();
   expect(screen.getByText("Manage Leads")).toBeInTheDocument();
   expect(screen.getByText("Track Activities")).toBeInTheDocument();

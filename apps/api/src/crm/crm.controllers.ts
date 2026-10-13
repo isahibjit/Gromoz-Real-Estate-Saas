@@ -67,6 +67,22 @@ const notificationRoles = [
   'MARKETING',
   'BACKEND',
 ] as const;
+const bookingFinanceReportRoles = [
+  'SUPER_ADMIN',
+  'ADMIN',
+  'HR',
+  'SALES_MANAGER',
+  'TEAM_LEADER',
+  'MANAGER',
+] as const;
+const metaIntegrationRoles = [
+  'SUPER_ADMIN',
+  'ADMIN',
+  'SALES_MANAGER',
+  'MARKETING',
+  'MANAGER',
+  'TEAM_LEADER',
+] as const;
 
 enum PropertyMasterCategory {
   PROPERTY_TYPE = 'property_type',
@@ -194,21 +210,23 @@ export class LeadsController {
     @Body() body: Record<string, any>,
     @Req() req: any,
   ) {
-    return this.crm.moveLeadInPipeline(id, body, userFrom(req).sub);
+    return this.crm.moveLeadInPipeline(id, body, userFrom(req));
   }
 
   @Post(':id/assign')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER')
+  @Roles(...leadWorkspaceRoles)
+  @RequirePermission('leads', 'update')
   assign(
     @Param('id') id: string,
     @Body() body: Record<string, any>,
     @Req() req: any,
   ) {
-    return this.crm.assignLead(id, body, userFrom(req).sub);
+    return this.crm.assignLead(id, body, userFrom(req));
   }
 
   @Post('bulk-assign')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER')
+  @Roles(...leadWorkspaceRoles)
+  @RequirePermission('leads', 'update')
   bulkAssign(@Body() body: Record<string, any>, @Req() req: any) {
     return this.crm.bulkAssign(body, userFrom(req));
   }
@@ -262,8 +280,8 @@ export class LeadsController {
 
   @Get(':id/timeline')
   @Roles(...leadWorkspaceRoles)
-  timeline(@Param('id') id: string) {
-    return this.crm.getTimeline(id);
+  timeline(@Param('id') id: string, @Req() req: any) {
+    return this.crm.getTimeline(id, userFrom(req));
   }
 
   @Post(':id/tasks')
@@ -285,6 +303,16 @@ export class LeadsController {
     @Req() req: any,
   ) {
     return this.crm.updateTask(leadId, taskId, body, userFrom(req));
+  }
+
+  @Delete(':leadId/tasks/:taskId')
+  @Roles(...leadWorkspaceRoles)
+  deleteTask(
+    @Param('leadId') leadId: string,
+    @Param('taskId') taskId: string,
+    @Req() req: any,
+  ) {
+    return this.crm.deleteTask(leadId, taskId, userFrom(req));
   }
 
   @Post(':id/notes')
@@ -311,7 +339,7 @@ export class TasksController {
   }
 
   @Post()
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER')
+  @Roles(...leadWorkspaceRoles)
   create(@Body() body: Record<string, any>, @Req() req: any) {
     return this.crm.createEmployeeTask(body, userFrom(req));
   }
@@ -325,6 +353,12 @@ export class TasksController {
   ) {
     return this.crm.updateEmployeeTask(id, body, userFrom(req));
   }
+
+  @Delete(':id')
+  @Roles(...leadWorkspaceRoles)
+  delete(@Param('id') id: string, @Req() req: any) {
+    return this.crm.deleteEmployeeTask(id, userFrom(req));
+  }
 }
 
 @Controller('contact-leads')
@@ -334,84 +368,68 @@ export class ContactLeadsController {
   constructor(private readonly crm: CrmService) {}
 
   @Get()
-  @Roles(
-    'SUPER_ADMIN',
-    'ADMIN',
-    'SALES_MANAGER',
-    'TEAM_LEADER',
-    'MANAGER',
-    'TELECALLER',
-    'MARKETING',
-  )
+  @Roles(...leadWorkspaceRoles)
   list(@Query() query: Record<string, string>, @Req() req: any) {
     return this.crm.listContactLeads(query, userFrom(req));
   }
 
   @Get('stats')
-  @Roles(
-    'SUPER_ADMIN',
-    'ADMIN',
-    'SALES_MANAGER',
-    'TEAM_LEADER',
-    'MANAGER',
-    'TELECALLER',
-    'MARKETING',
-  )
+  @Roles(...leadWorkspaceRoles)
   stats(@Query() query: Record<string, string>, @Req() req: any) {
     return this.crm.getContactLeadStats(query, userFrom(req));
   }
 
   @Post()
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'TELECALLER', 'MARKETING')
+  @Roles(...leadWorkspaceRoles)
   @RequirePermission('contact_leads', 'create')
   create(@Body() body: Record<string, any>, @Req() req: any) {
-    return this.crm.createContactLead(body, userFrom(req).sub);
+    return this.crm.createContactLead(body, userFrom(req));
   }
 
   @Patch(':id')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'TELECALLER', 'MARKETING')
+  @Roles(...leadWorkspaceRoles)
   @RequirePermission('contact_leads', 'update')
   update(
     @Param('id') id: string,
     @Body() body: Record<string, any>,
     @Req() req: any,
   ) {
-    return this.crm.updateContactLead(id, body, userFrom(req).sub);
+    return this.crm.updateContactLead(id, body, userFrom(req));
   }
 
   @Patch(':id/interest')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'TELECALLER', 'MARKETING')
+  @Roles(...leadWorkspaceRoles)
   @RequirePermission('contact_leads', 'update')
   markInterested(@Param('id') id: string, @Req() req: any) {
-    return this.crm.markContactLeadInterested(id, userFrom(req).sub);
+    return this.crm.markContactLeadInterested(id, userFrom(req));
   }
 
   @Patch(':id/not-interested')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'TELECALLER', 'MARKETING')
+  @Roles(...leadWorkspaceRoles)
   @RequirePermission('contact_leads', 'update')
   markNotInterested(@Param('id') id: string, @Req() req: any) {
-    return this.crm.markContactLeadNotInterested(id, userFrom(req).sub);
+    return this.crm.markContactLeadNotInterested(id, userFrom(req));
   }
 
   @Patch(':id/unarchive')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'TELECALLER', 'MARKETING')
+  @Roles(...leadWorkspaceRoles)
   @RequirePermission('contact_leads', 'update')
   unarchive(@Param('id') id: string, @Req() req: any) {
-    return this.crm.unarchiveContactLead(id, userFrom(req).sub);
+    return this.crm.unarchiveContactLead(id, userFrom(req));
   }
 
   @Post(':id/convert')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'TELECALLER', 'MARKETING')
+  @Roles(...leadWorkspaceRoles)
   @RequirePermission('contact_leads', 'update')
   convert(@Param('id') id: string, @Req() req: any) {
-    return this.crm.convertContactLead(id, userFrom(req).sub);
+    return this.crm.convertContactLead(id, userFrom(req));
   }
 
   @Delete(':id')
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER')
   @RequirePermission('contact_leads', 'delete')
   delete(@Param('id') id: string, @Req() req: any) {
-    return this.crm.deleteContactLead(id, userFrom(req).sub);
+    return this.crm.deleteContactLead(id, userFrom(req));
   }
 }
 
@@ -496,8 +514,11 @@ export class AutoAssignmentController {
 
   @Get('events')
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER')
-  listEvents(@Query() query: Record<string, string>) {
-    return this.crm.listAutoAssignmentEvents(query);
+  listEvents(
+    @Query() query: Record<string, string>,
+    @Req() req: { user?: { sub: string; role: string } },
+  ) {
+    return this.crm.listAutoAssignmentEvents(query, userFrom(req));
   }
 }
 
@@ -746,14 +767,14 @@ export class SiteVisitsController {
 
   @Get('options')
   @Roles(...leadWorkspaceRoles)
-  options(@Query() query: Record<string, string>) {
-    return this.crm.getSiteVisitOptions(query);
+  options(@Query() query: Record<string, string>, @Req() req: any) {
+    return this.crm.getSiteVisitOptions(query, userFrom(req));
   }
 
   @Post()
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_AGENT', 'TELECALLER')
+  @Roles(...leadWorkspaceRoles)
   create(@Body() body: Record<string, any>, @Req() req: any) {
-    return this.crm.createSiteVisit(body, userFrom(req).sub);
+    return this.crm.createSiteVisit(body, userFrom(req));
   }
 
   @Post('tracking/ping')
@@ -787,7 +808,7 @@ export class SiteVisitsController {
     @Body() body: Record<string, any>,
     @Req() req: any,
   ) {
-    return this.crm.updateSiteVisit(id, body, userFrom(req).sub);
+    return this.crm.updateSiteVisit(id, body, userFrom(req));
   }
 
   @Post(':id/check-in')
@@ -818,7 +839,7 @@ export class BookingsController {
   constructor(private readonly crm: CrmService) {}
 
   @Get('finance-report')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'HR', 'SALES_MANAGER')
+  @Roles(...bookingFinanceReportRoles)
   @RequirePermission('incentives')
   financeReport(@Query() query: Record<string, string>, @Req() req: any) {
     return this.crm.getBookingFinanceReport(query, userFrom(req));
@@ -831,6 +852,7 @@ export class BookingsController {
     'HR',
     'SALES_MANAGER',
     'TEAM_LEADER',
+    'MANAGER',
     'SALES_AGENT',
     'TELECALLER',
   )
@@ -840,7 +862,7 @@ export class BookingsController {
   }
 
   @Get('finance-report/report.pdf')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'HR', 'SALES_MANAGER')
+  @Roles(...bookingFinanceReportRoles)
   @RequirePermission('incentives')
   async financeReportPdf(
     @Query() query: Record<string, string>,
@@ -896,6 +918,8 @@ export class BookingsController {
     'ADMIN',
     'HR',
     'SALES_MANAGER',
+    'TEAM_LEADER',
+    'MANAGER',
     'SALES_AGENT',
     'TELECALLER',
   )
@@ -909,6 +933,8 @@ export class BookingsController {
     'ADMIN',
     'HR',
     'SALES_MANAGER',
+    'TEAM_LEADER',
+    'MANAGER',
     'SALES_AGENT',
     'TELECALLER',
   )
@@ -1169,6 +1195,125 @@ export class MagicBricksIntegrationsController {
       req.headers['user-agent'],
       orgIdFrom(req),
     );
+  }
+
+
+  @Get('accounts')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  listAccounts(@Query('includeArchived') includeArchived?: string) {
+    return this.crm.listMagicBricksAccounts(includeArchived === 'true');
+  }
+
+  @Post('accounts')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  createAccount(@Body() body: Record<string, unknown>, @Req() req: any) {
+    return this.crm.createMagicBricksAccount(body, userFrom(req).sub);
+  }
+
+  @Patch('accounts/bulk-status')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  setAccountsStatus(
+    @Body() body: { isActive: boolean },
+    @Req() req: any,
+  ) {
+    return this.crm.setMagicBricksAccountsStatus(
+      body.isActive,
+      userFrom(req).sub,
+    );
+  }
+
+  @Get('accounts/:accountId')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  getAccount(@Param('accountId') accountId: string) {
+    return this.crm.getMagicBricksAccount(accountId);
+  }
+
+  @Patch('accounts/:accountId')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  updateAccount(
+    @Param('accountId') accountId: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req: any,
+  ) {
+    return this.crm.updateMagicBricksAccount(
+      accountId,
+      body,
+      userFrom(req).sub,
+    );
+  }
+
+  @Delete('accounts/:accountId')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  archiveAccount(@Param('accountId') accountId: string, @Req() req: any) {
+    return this.crm.archiveMagicBricksAccount(accountId, userFrom(req).sub);
+  }
+
+  @Post('accounts/:accountId/restore')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  restoreAccount(@Param('accountId') accountId: string, @Req() req: any) {
+    return this.crm.restoreMagicBricksAccount(accountId, userFrom(req).sub);
+  }
+
+  @Post('accounts/:accountId/generate-api-key')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  regenerateAccountApiKey(
+    @Param('accountId') accountId: string,
+    @Req() req: any,
+  ) {
+    return this.crm.regenerateMagicBricksAccountApiKey(
+      accountId,
+      userFrom(req).sub,
+    );
+  }
+
+  @Patch('accounts/:accountId/field-mapping')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  saveAccountFieldMapping(
+    @Param('accountId') accountId: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req: any,
+  ) {
+    return this.crm.saveMagicBricksAccountFieldMapping(
+      accountId,
+      body,
+      userFrom(req).sub,
+    );
+  }
+
+  @Patch('accounts/:accountId/routing')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  saveAccountRouting(
+    @Param('accountId') accountId: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req: any,
+  ) {
+    return this.crm.saveMagicBricksAccountRouting(
+      accountId,
+      body,
+      userFrom(req).sub,
+    );
+  }
+
+  @Post('accounts/:accountId/test')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  testAccount(
+    @Param('accountId') accountId: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req: any,
+  ) {
+    return this.crm.testMagicBricksAccount(
+      accountId,
+      body,
+      userFrom(req).sub,
+      req.ip,
+      req.headers['user-agent'],
+    );
+  }
+
+  @Get('accounts/:accountId/activity')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  getAccountActivity(@Param('accountId') accountId: string) {
+    return this.crm.getMagicBricksAccountActivity(accountId);
   }
 }
 
@@ -1758,31 +1903,31 @@ export class MetaIntegrationsController {
   constructor(private readonly crm: CrmService) {}
 
   @Get()
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  @Roles(...metaIntegrationRoles)
   getConfig(@Req() req: any) {
     return this.crm.getMetaIntegration(userFrom(req).sub);
   }
 
   @Patch()
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  @Roles(...metaIntegrationRoles)
   saveConfig(@Body() body: Record<string, any>, @Req() req: any) {
     return this.crm.saveMetaIntegration(body, userFrom(req).sub);
   }
 
   @Post('regenerate-verify-token')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  @Roles(...metaIntegrationRoles)
   regenerateVerifyToken(@Req() req: any) {
     return this.crm.regenerateMetaVerifyToken(userFrom(req).sub);
   }
 
   @Patch('field-mapping')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  @Roles(...metaIntegrationRoles)
   saveFieldMapping(@Body() body: Record<string, any>, @Req() req: any) {
     return this.crm.saveMetaFieldMapping(body, userFrom(req).sub);
   }
 
   @Get('oauth/start')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  @Roles(...metaIntegrationRoles)
   startOAuth(
     @Query('reconnectAccountId') reconnectAccountId: string | undefined,
     @Req() req: any,
@@ -1791,25 +1936,25 @@ export class MetaIntegrationsController {
   }
 
   @Get('forms')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  @Roles(...metaIntegrationRoles)
   listForms(@Query('pageId') pageId: string, @Req() req: any) {
     return this.crm.listMetaLeadForms(pageId, userFrom(req).sub);
   }
 
   @Get('delivery-logs')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  @Roles(...metaIntegrationRoles)
   deliveryLogs(@Query() query: Record<string, string>, @Req() req: any) {
     return this.crm.listMetaDeliveryLogs(query, userFrom(req).sub);
   }
 
   @Post('pages/manual')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  @Roles(...metaIntegrationRoles)
   addManualPage(@Body() body: Record<string, any>, @Req() req: any) {
     return this.crm.addManualMetaPage(body, userFrom(req).sub);
   }
 
   @Patch('accounts/:accountId/pause')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  @Roles(...metaIntegrationRoles)
   toggleAccountPause(
     @Param('accountId') accountId: string,
     @Body() body: Record<string, any>,
@@ -1823,7 +1968,7 @@ export class MetaIntegrationsController {
   }
 
   @Patch('pages/:pageId/pause')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  @Roles(...metaIntegrationRoles)
   togglePagePause(
     @Param('pageId') pageId: string,
     @Body() body: Record<string, any>,
@@ -1837,7 +1982,7 @@ export class MetaIntegrationsController {
   }
 
   @Patch('forms/:formId/pause')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  @Roles(...metaIntegrationRoles)
   toggleFormPause(
     @Param('formId') formId: string,
     @Body() body: Record<string, any>,
@@ -1851,7 +1996,7 @@ export class MetaIntegrationsController {
   }
 
   @Patch('pages/:pageId/forms')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  @Roles(...metaIntegrationRoles)
   savePageForms(
     @Param('pageId') pageId: string,
     @Body() body: Record<string, any>,
@@ -1861,9 +2006,20 @@ export class MetaIntegrationsController {
   }
 
   @Delete('accounts/:accountId')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  @Roles(...metaIntegrationRoles)
   disconnectAccount(@Param('accountId') accountId: string, @Req() req: any) {
     return this.crm.disconnectMetaAccount(accountId, userFrom(req).sub);
+  }
+
+  @Patch('pages/:pageId/forms/:formId/routing')
+  @Roles(...metaIntegrationRoles)
+  saveFormRouting(
+    @Param('pageId') pageId: string,
+    @Param('formId') formId: string,
+    @Body() body: unknown,
+    @Req() req: { user: { sub: string } },
+  ) {
+    return this.crm.saveMetaFormRouting(pageId, formId, body, req.user.sub);
   }
 }
 

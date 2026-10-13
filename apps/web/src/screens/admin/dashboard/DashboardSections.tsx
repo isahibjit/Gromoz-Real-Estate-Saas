@@ -59,6 +59,19 @@ import { dashboardCardClass } from "./dashboardStyles";
 
 const defaultCenter = { lat: 19.076, lng: 72.8777 };
 
+function getExecutiveCoordinates(
+  tracking: LiveFieldExecutiveLocation["tracking"] | undefined,
+) {
+  const latitude = tracking?.latitude;
+  const longitude = tracking?.longitude;
+  return typeof latitude === "number" &&
+    Number.isFinite(latitude) &&
+    typeof longitude === "number" &&
+    Number.isFinite(longitude)
+    ? { lat: latitude, lng: longitude }
+    : null;
+}
+
 function MapUpdater({ center, zoom }: { center: { lat: number; lng: number }; zoom: number }) {
   const map = useMap();
   const { lat, lng } = center;
@@ -311,13 +324,7 @@ function LiveExecutiveMap({
   const selectedExecutive =
     rows.find((row) => row.id === selectedId) ?? rows[0] ?? null;
   const center =
-    selectedExecutive?.tracking?.latitude &&
-    selectedExecutive?.tracking?.longitude
-      ? {
-          lat: selectedExecutive.tracking.latitude,
-          lng: selectedExecutive.tracking.longitude,
-        }
-      : defaultCenter;
+    getExecutiveCoordinates(selectedExecutive?.tracking) ?? defaultCenter;
 
   if (!apiKey) {
     return (
@@ -340,21 +347,13 @@ function LiveExecutiveMap({
         >
           <MapUpdater center={center} zoom={selectedExecutive ? 12 : 11} />
           {rows.map((row) => {
-            if (
-              !row.tracking ||
-              typeof row.tracking.latitude !== "number" ||
-              typeof row.tracking.longitude !== "number"
-            ) {
-              return null;
-            }
+            const position = getExecutiveCoordinates(row.tracking);
+            if (!position) return null;
 
             return (
               <AdvancedMarker
                 key={row.id}
-                position={{
-                  lat: row.tracking.latitude,
-                  lng: row.tracking.longitude,
-                }}
+                position={position}
               >
                 <div className="relative flex items-center justify-center">
                   <Avatar className="size-12 border-[3px] border-white shadow-md" style={{ width: 48, height: 48, minWidth: 48, minHeight: 48 }}>
@@ -492,12 +491,10 @@ export function LiveExecutiveTrackingPanel({
 
   const selectedExecutive =
     rows.find((row) => row.id === selectedId) ?? rows[0] ?? null;
-  const selectedMapLink =
-    selectedExecutive?.tracking &&
-    typeof selectedExecutive.tracking.latitude === "number" &&
-    typeof selectedExecutive.tracking.longitude === "number"
-      ? `https://www.google.com/maps/search/?api=1&query=${selectedExecutive.tracking.latitude},${selectedExecutive.tracking.longitude}`
-      : null;
+  const selectedPosition = getExecutiveCoordinates(selectedExecutive?.tracking);
+  const selectedMapLink = selectedPosition
+    ? `https://www.google.com/maps/search/?api=1&query=${selectedPosition.lat},${selectedPosition.lng}`
+    : null;
 
   const stats = useMemo(() => {
     const total = rows.length;

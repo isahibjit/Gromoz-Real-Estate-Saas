@@ -29,6 +29,10 @@ const EMPLOYEE_SELF_SERVICE_READ_MODULES = new Set([
   "payroll",
   "payslips",
   "performance",
+  "employees",
+  "teams",
+  "page.employee_directory",
+  "page.teams",
 ]);
 
 const itemModuleMap: Record<string, string> = {

@@ -30,6 +30,21 @@ export interface FieldExecutiveVisit {
   projectGeofenceRadiusM?: number | null;
 }
 
+export interface VisitCheckOutPayload {
+  id: string;
+  position: GeolocationPosition;
+  feedback: string;
+  outcome?: string;
+  rating?: string;
+  nextAction?: string;
+  leadStatusId?: string;
+  leadStatus?: string;
+  statusId?: string;
+  followUpDate?: string;
+  followUpTime?: string;
+  nextFollowUpAt?: string;
+}
+
 export interface FieldExecutiveDashboardData {
   kpis: Record<string, number>;
   myDay: Record<string, number | string | null>;
@@ -142,7 +157,7 @@ export interface LiveFieldExecutiveLocation {
     heading?: number | null;
     trackedAt?: string;
     isTracking?: boolean;
-  };
+  } | null;
   activeVisit?: {
     id: string;
     displayId?: string;
@@ -183,18 +198,7 @@ export function useVisitAttendance(): {
     Error,
     { id: string; position: GeolocationPosition }
   >;
-  checkOut: UseMutationResult<
-    any,
-    Error,
-    {
-      id: string;
-      position: GeolocationPosition;
-      feedback: string;
-      outcome?: string;
-      rating?: string;
-      nextAction?: string;
-    }
-  >;
+  checkOut: UseMutationResult<any, Error, VisitCheckOutPayload>;
 } {
   const queryClient = useQueryClient();
   const invalidate = () => {
@@ -224,30 +228,13 @@ export function useVisitAttendance(): {
     onSuccess: invalidate,
   });
   const checkOut = useMutation({
-    mutationFn: async ({
-      id,
-      position,
-      feedback,
-      outcome,
-      rating,
-      nextAction,
-    }: {
-      id: string;
-      position: GeolocationPosition;
-      feedback: string;
-      outcome?: string;
-      rating?: string;
-      nextAction?: string;
-    }) =>
+    mutationFn: async ({ id, position, ...completion }: VisitCheckOutPayload) =>
       (
         await api.post(`/site-visits/${id}/check-out`, {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
           accuracy: position.coords.accuracy,
-          feedback,
-          outcome,
-          rating,
-          nextAction,
+          ...completion,
         })
       ).data,
     onSuccess: invalidate,

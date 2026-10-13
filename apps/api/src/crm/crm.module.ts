@@ -44,6 +44,7 @@ import {
   PublicHousingWebhookController,
 } from './housing-integrations.controller';
 import { HousingIntegrationsService } from './housing-integrations.service';
+import { LeadSourceConnectionsService } from './lead-source-connections.service';
 import { MobileLeadsController } from './mobile-leads.controller';
 import { PinbotWhatsAppService } from './notifications/pinbot-whatsapp.service';
 import { TenantNotificationService } from './notifications/tenant-notification.service';
@@ -101,6 +102,7 @@ import { WhatsAppDispatchWorker } from './notifications/whatsapp-dispatch.worker
     CrmService,
     EmailConnectorsService,
     HousingIntegrationsService,
+    LeadSourceConnectionsService,
     AutoAssignmentWorker,
     FollowUpReminderWorker,
     WhatsAppCredentialService,
@@ -110,6 +112,7 @@ import { WhatsAppDispatchWorker } from './notifications/whatsapp-dispatch.worker
     WhatsAppDispatchWorker,
   ],
   exports: [
+    LeadSourceConnectionsService,
     CrmService,
     EmailConnectorsService,
     HousingIntegrationsService,

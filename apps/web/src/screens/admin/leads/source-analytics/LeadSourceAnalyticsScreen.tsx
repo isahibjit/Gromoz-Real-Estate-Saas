@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Bar,
   CartesianGrid,
@@ -45,6 +46,7 @@ import {
   PageHeader,
   WorkspacePage,
 } from "../../../../components/layout/PageHeader";
+import { api } from "../../../../common/api";
 import { addLeadSidebarItems } from "../add/addLeadData";
 import {
   conversionBySource,
@@ -565,11 +567,49 @@ function EfficiencyCard() {
   );
 }
 
+type AccountAttribution = {
+  integrationConnectionId: string;
+  accountName: string;
+  provider?: string | null;
+  archived: boolean;
+  leads: number;
+};
+
+function AccountAttributionCard({ accounts, isLoading }: { accounts: AccountAttribution[]; isLoading: boolean }) {
+  return (
+    <Panel title="Portal account attribution">
+      <p className="-mt-3 mb-4 text-xs font-semibold text-muted-foreground">
+        Leads remain grouped by their canonical source and retain their originating portal account.
+      </p>
+      {isLoading ? <p className="text-sm font-semibold text-muted-foreground">Loading account attribution…</p> : null}
+      {!isLoading && accounts.length === 0 ? <p className="text-sm font-semibold text-muted-foreground">No account-attributed portal leads yet. Historical leads remain legacy/unattributed.</p> : null}
+      <div className="space-y-2">
+        {accounts.map((account) => (
+          <div key={account.integrationConnectionId} className="flex items-center justify-between gap-3 rounded-md border border-slate-100 bg-slate-50 px-3 py-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-extrabold text-secondary">{account.accountName}</p>
+              <p className="text-xs font-semibold text-muted-foreground">{account.provider === "MAGICBRICKS" ? "MagicBricks" : account.provider === "HOUSING" ? "Housing.com" : "Portal account"}{account.archived ? " · Archived" : ""}</p>
+            </div>
+            <Badge className="shrink-0 border-0 bg-blue-50 text-blue-700">{account.leads} leads</Badge>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
 export function LeadSourceAnalyticsScreen() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState(tabs[0]);
+  const accountAttributionQuery = useQuery({
+    queryKey: ["lead-source-account-attribution"],
+    queryFn: async () => {
+      const response = await api.get<{ accounts?: AccountAttribution[] }>("/leads/source-analytics");
+      return response.data.accounts ?? [];
+    },
+  });
 
   return (
     <>
@@ -678,6 +718,10 @@ export function LeadSourceAnalyticsScreen() {
             />
             <EfficiencyCard />
           </section>
+          <AccountAttributionCard
+            accounts={accountAttributionQuery.data ?? []}
+            isLoading={accountAttributionQuery.isLoading}
+          />
       </WorkspacePage>
     </>
   );

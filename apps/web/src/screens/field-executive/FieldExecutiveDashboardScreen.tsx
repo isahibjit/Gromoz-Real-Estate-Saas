@@ -544,37 +544,13 @@ export function FieldExecutiveDashboardScreen() {
             position,
             feedback,
             outcome: "Completed",
-            leadStatus: completionLeadStatus,
+            leadStatusId: completionLeadStatus,
             followUpDate: completionFollowUpDate,
             followUpTime: completionFollowUpTime,
             nextFollowUpAt,
           },
           {
             onSuccess: () => {
-              if (completionVisit.leadId) {
-                void api
-                  .patch(`/leads/${completionVisit.leadId}`, {
-                    status: completionLeadStatus,
-                    statusId: completionLeadStatus,
-                    followUpDate:
-                      nextFollowUpAt || completionFollowUpDate || undefined,
-                    nextFollowUpAt: nextFollowUpAt || undefined,
-                    remarks: `[Site Visit Remark] ${feedback}`,
-                  })
-                  .catch(() => null);
-
-                if (completionFollowUpDate) {
-                  void api
-                    .post(`/leads/${completionVisit.leadId}/follow-ups`, {
-                      scheduledAt: nextFollowUpAt,
-                      followUpDate: completionFollowUpDate,
-                      followUpTime: completionFollowUpTime || "10:00 AM",
-                      nextAction: "Follow-up after site visit",
-                      notes: feedback || "Site visit completed",
-                    })
-                    .catch(() => null);
-                }
-              }
               toast.success("Visit completed.");
               closeCompletionDialog();
             },

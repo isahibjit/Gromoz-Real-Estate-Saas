@@ -1194,7 +1194,7 @@ export function AccessControlScreen() {
                 onValueChange={setSelectedRole}
                 options={[
                   { label: "All roles", value: "all" },
-                  ...roleOptions.map((role: string) => ({
+                  ...templateRoleOptions.map((role: string) => ({
                     label: roleLabel(role),
                     value: role,
                   })),

@@ -48,15 +48,14 @@ describe('Site visit assignment', () => {
       ),
     },
     leadMasterValue: {
-      findUnique: jest
-        .fn()
-        .mockResolvedValue({ id: 'visit-status', name: 'Site Visit' }),
+      findUnique: jest.fn().mockResolvedValue({ id: 'visit-status', name: 'Site Visit' }),
       findFirst: jest.fn().mockResolvedValue({
-        id: 'visit-status',
-        name: 'Site Visit',
-        manualScore: 0,
+        id: 'visit-status', name: 'Site Visit Schedule', code: 'SITE_VISIT_SCHEDULE',
+        triggerAction: 'CREATE_SITE_VISIT', allowFollowUp: true, manualScore: null,
       }),
     },
+    followUp: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn().mockResolvedValue({}) },
+    note: { create: jest.fn().mockResolvedValue({}) },
     activity: { create: jest.fn().mockResolvedValue({}) },
     auditLog: { create: jest.fn().mockResolvedValue({}) },
   };
@@ -142,6 +141,35 @@ describe('Site visit assignment', () => {
     );
     expect(visit.leadId).toBe('lead-1');
     expect(visit.assignedExecutiveId).toBe('exec-new');
+  });
+
+  it('stores the canonical scheduling status in the visit transaction', async () => {
+    const visit = await service.createSiteVisit({ ...request, leadStatusId: 'SITE_VISIT_SCHEDULE' }, 'actor');
+    expect(visit.leadId).toBe('lead-1');
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(db.lead.update).toHaveBeenCalledWith({
+      where: { id: 'lead-1' }, data: { statusId: 'visit-status' },
+    });
+  });
+
+  it('does not write the lead status when visit creation fails', async () => {
+    db.siteVisit.create.mockRejectedValueOnce(new Error('visit insert failed'));
+    await expect(service.createSiteVisit(
+      { ...request, leadStatusId: 'SITE_VISIT_SCHEDULE' }, 'actor',
+    )).rejects.toThrow('visit insert failed');
+    expect(db.lead.update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { id: 'visit-status', name: 'Site Visit Schedule', code: 'SITE_VISIT_SCHEDULE', triggerAction: 'CREATE_SITE_VISIT' },
+    { id: 'done-status', name: 'Site Visit Done', code: 'SITE_VISIT_DONE', triggerAction: 'NONE' },
+  ])('rejects generic lead updates to protected $code', async (status) => {
+    db.leadMasterValue.findFirst.mockResolvedValueOnce({
+      ...status, allowFollowUp: true, manualScore: null,
+    });
+    await expect(service.updateLead('lead-1', { statusId: status.code }, 'actor'))
+      .rejects.toBeInstanceOf(BadRequestException);
+    expect(db.lead.update).not.toHaveBeenCalled();
   });
 
   it('rejects an unassigned client without creating a visit', async () => {
@@ -260,4 +288,29 @@ describe('Site visit assignment', () => {
       expect(db.lead.findFirst).not.toHaveBeenCalled();
     },
   );
+
+  it.each([{}, { assignedExecutiveId: 'exec-a' }])('preserves historical assignment on ordinary edit %j', async (override) => {
+    const visit = await service.updateSiteVisit('visit-1', { ...override, notes: 'New meeting instructions' }, 'actor');
+    expect(visit.assignedExecutiveId).toBe('exec-a');
+    expect(db.siteVisit.update).toHaveBeenCalledWith({ where: { id: 'visit-1' }, data: { notes: 'New meeting instructions' } });
+    expect(db.lead.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('completes the visit and lead with the canonical status in one transaction', async () => {
+    db.leadMasterValue.findFirst.mockResolvedValueOnce({
+      id: 'done-status', name: 'Site Visit Done', code: 'SITE_VISIT_DONE',
+      triggerAction: 'NONE', allowFollowUp: true, manualScore: null,
+    });
+    const visit = await service.updateSiteVisit('visit-1', {
+      status: 'Completed', leadStatus: 'Site Visit Done',
+      nextFollowUpAt: '2026-10-12T10:00:00+05:30', feedback: 'Call after the visit',
+    }, 'actor');
+    expect(visit.status).toBe('Completed');
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(db.lead.update).toHaveBeenCalledWith({
+      where: { id: 'lead-1' }, data: expect.objectContaining({ statusId: 'done-status' }),
+    });
+    expect(db.followUp.create).toHaveBeenCalledTimes(1);
+    expect(db.note.create).toHaveBeenCalledTimes(1);
+  });
 });

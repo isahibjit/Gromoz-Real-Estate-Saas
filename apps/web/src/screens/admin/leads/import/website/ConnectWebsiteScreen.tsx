@@ -48,6 +48,11 @@ import {
   useWebsiteIntegration,
   useWebsiteIntegrationMutations,
 } from "./useWebsiteIntegration";
+import { getApiErrorMessage } from "../../../../../common/apiError";
+import {
+  getRoutingAssigneeOptions,
+  mapRoutingAssigneeSelection,
+} from "../routingAssignee";
 
 const formatDateTime = (value?: string | null) => {
   if (!value) return "Not received yet";
@@ -111,6 +116,7 @@ export function ConnectWebsiteScreen() {
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedSourceId, setSelectedSourceId] = useState("");
   const [selectedTeamId, setSelectedTeamId] = useState("");
+  const [selectedOwnerId, setSelectedOwnerId] = useState("");
   const [selectedTelecallerId, setSelectedTelecallerId] = useState("");
   const [selectedFieldExecutiveId, setSelectedFieldExecutiveId] = useState("");
   const [fieldMapping, setFieldMapping] = useState<Record<string, string>>({});
@@ -154,6 +160,7 @@ export function ConnectWebsiteScreen() {
       setSelectedProjectId(selectedWebsite.projectId ?? "");
       setSelectedSourceId(selectedWebsite.sourceId ?? "");
       setSelectedTeamId(selectedWebsite.teamId ?? "");
+      setSelectedOwnerId(selectedWebsite.ownerId ?? "");
       setSelectedTelecallerId(selectedWebsite.telecallerId ?? "");
       setSelectedFieldExecutiveId(selectedWebsite.fieldExecutiveId ?? "");
     }
@@ -186,7 +193,13 @@ export function ConnectWebsiteScreen() {
           value: project.id,
           label: project.name,
           description: project.location || "CRM project",
-        })),
+        }))
+        .sort((a: any, b: any) =>
+          a.label.localeCompare(b.label, undefined, {
+            sensitivity: "base",
+            numeric: true,
+          }),
+        ),
     ],
     [projectsQuery.data?.projects],
   );
@@ -222,7 +235,7 @@ export function ConnectWebsiteScreen() {
         label: "No user override",
         description: "Let selected team or automatic assignment choose",
       },
-      ...leadFilterOptionsQuery.options.ownerOptions,
+      ...getRoutingAssigneeOptions(leadFilterOptionsQuery.options.ownerOptions),
     ],
     [leadFilterOptionsQuery.options.ownerOptions],
   );
@@ -249,15 +262,22 @@ export function ConnectWebsiteScreen() {
 
   const handleSaveRouting = async () => {
     if (!selectedWebsiteId) return;
-    await mutations.saveWebsiteRouting.mutateAsync({
-      websiteId: selectedWebsiteId,
-      projectId: selectedProjectId,
-      sourceId: selectedSourceId,
-      teamId: selectedTeamId,
-      telecallerId: selectedTelecallerId,
-      fieldExecutiveId: selectedFieldExecutiveId,
-    });
-    toast.success("Website lead routing overrides saved!");
+    try {
+      await mutations.saveWebsiteRouting.mutateAsync({
+        websiteId: selectedWebsiteId,
+        projectId: selectedProjectId,
+        sourceId: selectedSourceId,
+        teamId: selectedTeamId,
+        ownerId: selectedOwnerId,
+        telecallerId: selectedTelecallerId,
+        fieldExecutiveId: selectedFieldExecutiveId,
+      });
+      toast.success("Website lead routing overrides saved!");
+    } catch (error) {
+      toast.error(
+        getApiErrorMessage(error, "Could not save website routing overrides"),
+      );
+    }
   };
 
   const handleSaveMapping = async () => {
@@ -644,6 +664,7 @@ export function ConnectWebsiteScreen() {
                             {selectedProjectId ||
                             selectedSourceId ||
                             selectedTeamId ||
+                            selectedOwnerId ||
                             selectedTelecallerId ||
                             selectedFieldExecutiveId ? (
                               <Button
@@ -654,6 +675,7 @@ export function ConnectWebsiteScreen() {
                                   setSelectedProjectId("");
                                   setSelectedSourceId("");
                                   setSelectedTeamId("");
+                                  setSelectedOwnerId("");
                                   setSelectedTelecallerId("");
                                   setSelectedFieldExecutiveId("");
                                 }}
@@ -710,18 +732,17 @@ export function ConnectWebsiteScreen() {
                                 Assign to
                               </p>
                               <SearchableSelect
-                                value={selectedTelecallerId || selectedFieldExecutiveId}
+                                value={selectedTelecallerId || selectedFieldExecutiveId || selectedOwnerId}
                                 onValueChange={(val) => {
-                                  const found = leadFilterOptionsQuery.options.ownerOptions.find(
-                                    (opt) => opt.value === val,
+                                  const selection = mapRoutingAssigneeSelection(
+                                    val,
+                                    assigneeOptions,
                                   );
-                                  if (found?.role === "SALES_AGENT") {
-                                    setSelectedFieldExecutiveId(val);
-                                    setSelectedTelecallerId("");
-                                  } else {
-                                    setSelectedTelecallerId(val);
-                                    setSelectedFieldExecutiveId("");
-                                  }
+                                  setSelectedOwnerId(selection.ownerId);
+                                  setSelectedTelecallerId(selection.telecallerId);
+                                  setSelectedFieldExecutiveId(
+                                    selection.fieldExecutiveId,
+                                  );
                                 }}
                                 options={assigneeOptions}
                                 placeholder="No user override"
@@ -748,11 +769,11 @@ export function ConnectWebsiteScreen() {
                                 goodLabel="Team route"
                                 issueLabel="Default routing"
                               />
-                              {selectedTelecallerId || selectedFieldExecutiveId ? (
+                              {selectedTelecallerId || selectedFieldExecutiveId || selectedOwnerId ? (
                                 <Badge className="border-0 bg-violet-50 text-violet-700">
                                   Assigned to: {
                                     leadFilterOptionsQuery.options.ownerOptions.find(
-                                      (u) => u.value === (selectedTelecallerId || selectedFieldExecutiveId),
+                                      (u) => u.value === (selectedTelecallerId || selectedFieldExecutiveId || selectedOwnerId),
                                     )?.label || "Selected user"
                                   }
                                 </Badge>
@@ -764,8 +785,14 @@ export function ConnectWebsiteScreen() {
                               disabled={isSaving}
                               onClick={handleSaveRouting}
                             >
-                              <CheckCircle2 className="mr-2 h-3.5 w-3.5" />
-                              Save routing overrides
+                              {mutations.saveWebsiteRouting.isPending ? (
+                                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="mr-2 h-3.5 w-3.5" />
+                              )}
+                              {mutations.saveWebsiteRouting.isPending
+                                ? "Saving..."
+                                : "Save routing overrides"}
                             </Button>
                           </div>
                         </section>

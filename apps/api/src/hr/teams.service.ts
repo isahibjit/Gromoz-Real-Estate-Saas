@@ -33,6 +33,23 @@ export class TeamsService {
                 },
               },
             },
+            // Teams supervised through the reporting hierarchy (e.g. a Manager who
+            // is reportingTo of the members or the team leader, without being the
+            // team leader themselves).
+            {
+              members: {
+                some: {
+                  user: {
+                    employeeProfile: { reportingToId: actor.sub },
+                  },
+                },
+              },
+            },
+            {
+              leader: {
+                employeeProfile: { reportingToId: actor.sub },
+              },
+            },
           ],
         };
 
@@ -276,9 +293,9 @@ export class TeamsService {
     });
   }
 
-  private normalizeTeam<T extends { leaderId?: string | null; members?: any[] }>(
-    team: T,
-  ) {
+  private normalizeTeam<
+    T extends { leaderId?: string | null; members?: any[] },
+  >(team: T) {
     return {
       ...team,
       members: team.members?.filter(

@@ -422,6 +422,19 @@ function TaskList({
     },
   });
 
+  const deleteTask = useMutation({
+    mutationFn: async (taskId: string) =>
+      (await api.delete(`/leads/${leadId}/tasks/${taskId}`)).data,
+    onSuccess: () => {
+      toast.success("Task deleted");
+      void queryClient.invalidateQueries({ queryKey: ["lead-details", leadId] });
+      void queryClient.invalidateQueries({ queryKey: ["leads"] });
+    },
+    onError: () => {
+      toast.error("Could not delete task");
+    },
+  });
+
   const filteredTasks = tasks.filter((task) => {
     const matchesSearch =
       !search.trim() ||
@@ -580,6 +593,16 @@ function TaskList({
                               Mark Overdue
                             </DropdownMenuItem>
                           ) : null}
+                          <DropdownMenuItem
+                            className="text-red-600 focus:bg-red-50 focus:text-red-600"
+                            onSelect={() => {
+                              if (window.confirm("Are you sure you want to delete this task?")) {
+                                deleteTask.mutate(task.id);
+                              }
+                            }}
+                          >
+                            Delete Task
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>

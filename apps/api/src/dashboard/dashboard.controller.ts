@@ -7,23 +7,49 @@ import { PermissionGuard } from '../access/permission.guard';
 import { TenantGuard } from '../common/tenant/tenant.guard';
 import { DashboardService } from './dashboard.service';
 
+const dashboardWorkspaceRoles = [
+  'SUPER_ADMIN',
+  'ADMIN',
+  'HR',
+  'SALES_MANAGER',
+  'TEAM_LEADER',
+  'MANAGER',
+  'SALES_AGENT',
+  'TELECALLER',
+  'MARKETING',
+  'BACKEND',
+] as const;
+
 @Controller('dashboard')
 @UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get('admin')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'HR', 'SALES_MANAGER')
+  @Roles(...dashboardWorkspaceRoles)
   @RequirePermission('dashboard')
-  async getAdminDashboard(@Query() query: Record<string, string>) {
-    return this.dashboardService.getAdminDashboardData(query);
+  async getAdminDashboard(
+    @Query() query: Record<string, string>,
+    @Req() req: any,
+  ) {
+    return this.dashboardService.getAdminDashboardData(query, req.user);
   }
 
   @Get('admin/performance')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'HR', 'SALES_MANAGER')
+  @Roles(
+    'SUPER_ADMIN',
+    'ADMIN',
+    'HR',
+    'SALES_MANAGER',
+    'TEAM_LEADER',
+    'MANAGER',
+  )
   @RequirePermission('performance')
-  async getAdminPerformance(@Query() query: Record<string, string>) {
-    return this.dashboardService.getAdminPerformanceData(query);
+  async getAdminPerformance(
+    @Query() query: Record<string, string>,
+    @Req() req: any,
+  ) {
+    return this.dashboardService.getAdminPerformanceData(query, req.user);
   }
 
   @Get('admin/calling-performance')
@@ -78,21 +104,24 @@ export class DashboardController {
   }
 
   @Get('admin/lead-performance')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'HR', 'SALES_MANAGER')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'HR', 'SALES_MANAGER', 'TEAM_LEADER', 'MANAGER')
   @RequirePermission('performance')
-  async getAdminLeadPerformance(@Query() query: Record<string, string>) {
-    return this.dashboardService.getAdminLeadPerformanceData(query);
+  async getAdminLeadPerformance(@Query() query: Record<string, string>, @Req() req: any) {
+    return this.dashboardService.getAdminLeadPerformanceData(query, req.user);
   }
 
   @Get('admin/lead-performance/report.pdf')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'HR', 'SALES_MANAGER')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'HR', 'SALES_MANAGER', 'TEAM_LEADER', 'MANAGER')
   @RequirePermission('performance')
   async getAdminLeadPerformancePdf(
     @Query() query: Record<string, string>,
+    @Req() req: any,
     @Res() res: any,
   ) {
     const report = await this.dashboardService.generateLeadPerformancePdf(
       query,
+      undefined,
+      req.user,
     );
     res.set({
       'Content-Type': 'application/pdf',
@@ -133,14 +162,7 @@ export class DashboardController {
   }
 
   @Get('rankings')
-  @Roles(
-    'SUPER_ADMIN',
-    'ADMIN',
-    'HR',
-    'SALES_MANAGER',
-    'TELECALLER',
-    'SALES_AGENT',
-  )
+  @Roles(...dashboardWorkspaceRoles)
   @RequirePermission('top_performers')
   async getRankings(@Query() query: Record<string, string>, @Req() req: any) {
     return this.dashboardService.getDashboardRankings(query, req.user);

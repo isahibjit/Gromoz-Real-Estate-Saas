@@ -63,11 +63,22 @@ export interface ProjectConfigurationVariant {
   priceUnit: ProjectConfigurationPriceUnit;
 }
 
+export const propertyTypeOptions = [
+  "Residential",
+  "Commercial",
+  "Plots/Land",
+  "Industrial",
+  "Retail/Mixed",
+] as const;
+
+export type PropertyType = (typeof propertyTypeOptions)[number];
+
 export interface ProjectCatalogItem {
   id: string;
   name: string;
   location: string;
   developer: string;
+  propertyType?: string;
   status: ProjectStatus;
   possession: string;
   priceRange: string;

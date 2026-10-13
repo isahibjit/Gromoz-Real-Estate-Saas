@@ -16,13 +16,18 @@ describe('Lead assignment filters and follow-up timestamps', () => {
   const db = {
     lead: {
       findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue(null),
       count: jest.fn().mockResolvedValue(0),
       findUnique: jest.fn().mockResolvedValue({ statusId: null }),
       update: jest.fn().mockResolvedValue({}),
     },
     leadListColumnPreference: { findUnique: jest.fn().mockResolvedValue(null) },
     leadMasterValue: { findMany: jest.fn().mockResolvedValue([]) },
-    user: { findUnique: jest.fn().mockResolvedValue(null) },
+    user: {
+      findUnique: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    project: { findMany: jest.fn().mockResolvedValue([]) },
     employeeProfile: { findMany: jest.fn().mockResolvedValue([]) },
     team: { findMany: jest.fn().mockResolvedValue([]) },
     teamLeaderVisibilityGrant: { findMany: jest.fn().mockResolvedValue([]) },
@@ -95,8 +100,7 @@ describe('Lead assignment filters and follow-up timestamps', () => {
     expect(db.lead.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          AND: [assignment],
-          OR: expect.any(Array),
+          AND: expect.arrayContaining([assignment]),
           deletedAt: null,
         }),
       }),
@@ -127,7 +131,13 @@ describe('Lead assignment filters and follow-up timestamps', () => {
               includeSiteVisits: false,
             }),
             {
-              requirement: { is: { preferredProjectId: { in: ['project'] } } },
+              OR: expect.arrayContaining([
+                {
+                  requirement: {
+                    is: { preferredProjectId: { in: ['project'] } },
+                  },
+                },
+              ]),
             },
           ]),
         }),
@@ -139,6 +149,41 @@ describe('Lead assignment filters and follow-up timestamps', () => {
     await service.listLeads({}, { role: 'ADMIN', sub: 'admin' });
     const where = db.lead.findMany.mock.calls[0][0].where;
     expect(where).toEqual({ deletedAt: null });
+  });
+
+  it.each([
+    ['site-visit', [
+      { code: { equals: 'SITE_VISIT_SCHEDULE', mode: 'insensitive' } },
+      { name: { equals: 'Site Visit Schedule', mode: 'insensitive' } },
+      { name: { equals: 'Site Visit Scheduled', mode: 'insensitive' } },
+    ]],
+    ['site-visit-completed', [
+      { code: { equals: 'SITE_VISIT_DONE', mode: 'insensitive' } },
+      { code: { equals: 'SITE_VISIT_COMPLETED', mode: 'insensitive' } },
+      { name: { equals: 'Site Visit Done', mode: 'insensitive' } },
+      { name: { equals: 'Site Visit Completed', mode: 'insensitive' } },
+    ]],
+    ['revisit-completed', [
+      { code: { equals: 'RE_VISIT_DONE', mode: 'insensitive' } },
+      { code: { equals: 'REVISIT_DONE', mode: 'insensitive' } },
+      { name: { equals: 'Re-Visit Done', mode: 'insensitive' } },
+      { name: { equals: 'Revisit Done', mode: 'insensitive' } },
+    ]],
+  ])('uses only exact master statuses for the %s segment', async (segment, expectedOr) => {
+    db.leadMasterValue.findMany.mockResolvedValueOnce([{ id: `${segment}-id` }]);
+    await service.listLeads({ segment }, { role: 'ADMIN' });
+    expect(db.leadMasterValue.findMany).toHaveBeenCalledWith({
+      where: {
+        categoryRef: { code: { equals: 'status', mode: 'insensitive' } },
+        isActive: true,
+        OR: expectedOr,
+      },
+      select: { id: true },
+    });
+    const where = db.lead.findMany.mock.calls[0][0].where;
+    expect(where.AND).toContainEqual({ statusId: { in: [`${segment}-id`] } });
+    expect(JSON.stringify(where.AND)).not.toContain('siteVisits');
+    expect(JSON.stringify(where.AND)).not.toContain('stageId');
   });
 
   it.each(['TELECALLER', 'SALES_AGENT', 'MARKETING'])(
@@ -217,6 +262,28 @@ describe('Lead assignment filters and follow-up timestamps', () => {
         'employee-2',
       ]),
     ]);
+  });
+
+  it('applies manager visibility to direct lead lookups', async () => {
+    db.employeeProfile.findMany.mockResolvedValueOnce([
+      { userId: 'assigned-user', user: { role: 'TELECALLER' } },
+    ]);
+
+    await expect(
+      service.getLead('outside-lead', {
+        role: 'MANAGER',
+        sub: 'manager',
+      }),
+    ).rejects.toThrow('Lead not found');
+
+    expect(db.lead.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ id: 'outside-lead' }, { displayId: 'outside-lead' }],
+          AND: [visibility.assignmentScope(['manager', 'assigned-user'])],
+        }),
+      }),
+    );
   });
 
   it('expands team leader visibility through led teams and monitor grants', async () => {

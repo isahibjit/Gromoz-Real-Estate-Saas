@@ -4,6 +4,7 @@ import PDFDocument from 'pdfkit';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { getUserRoleLabel } from '../common/role-labels';
 import { TenantAccessService } from '../common/tenant/tenant-access.service';
+import { LeadVisibilityService } from '../crm/lead-visibility.service';
 
 type Query = Record<string, string | string[] | undefined>;
 type DashboardRange = 'today' | 'week' | 'month';
@@ -28,13 +29,15 @@ type CallingReportContext = {
   generatedByName?: string | null;
 };
 
-const rankingRoles = [
-  Role.ADMIN,
-  Role.HR,
-  Role.SALES_MANAGER,
-  Role.SALES_AGENT,
-  Role.TELECALLER,
-  Role.MARKETING,
+const rankingRoles: Role[] = [
+  'SUPER_ADMIN',
+  'ADMIN',
+  'HR',
+  'SALES_MANAGER',
+  'TEAM_LEADER',
+  'SALES_AGENT',
+  'TELECALLER',
+  'MARKETING',
 ];
 
 const adminRankingRoles = ['SUPER_ADMIN', 'ADMIN', 'HR', 'SALES_MANAGER'];
@@ -44,6 +47,7 @@ export class DashboardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantAccess: TenantAccessService,
+    private readonly leadVisibility: LeadVisibilityService,
   ) {}
 
   private get organizationId(): string {
@@ -599,7 +603,7 @@ export class DashboardService {
     const search = String(query.search ?? '')
       .trim()
       .toLowerCase();
-    const operationalRoles = [
+    const operationalRoles: Role[] = [
       Role.ADMIN,
       Role.HR,
       Role.SALES_MANAGER,
@@ -1341,7 +1345,10 @@ export class DashboardService {
     if (sourceRow) callback(sourceRow.metrics);
   }
 
-  async getAdminLeadPerformanceData(query: Query = {}) {
+  async getAdminLeadPerformanceData(
+    query: Query = {},
+    actor?: { sub?: string; fullName?: string | null; email?: string | null; role?: string | null },
+  ) {
     const db = this.prisma as any;
     const { preset, start, end, label } = this.resolveCallingWindow(query);
     const page = this.numberQuery(query.page, 1);
@@ -1357,24 +1364,42 @@ export class DashboardService {
     const search = String(query.search ?? '')
       .trim()
       .toLowerCase();
-    const operationalRoles = [
-      Role.ADMIN,
-      Role.HR,
-      Role.SALES_MANAGER,
-      Role.TELECALLER,
-      Role.SALES_AGENT,
-      Role.MARKETING,
+    const operationalRoles: Role[] = [
+      'SUPER_ADMIN',
+      'ADMIN',
+      'HR',
+      'SALES_MANAGER',
+      'TEAM_LEADER',
+      'MANAGER',
+      'TELECALLER',
+      'SALES_AGENT',
+      'MARKETING',
     ];
+    const scopedUserIds = this.leadVisibility
+      ? await this.leadVisibility.resolveAssignmentScopeUserIds(actor)
+      : null;
+    const selectedUserIsVisible =
+      selectedUserId === 'all' ||
+      !scopedUserIds ||
+      scopedUserIds.includes(selectedUserId);
+    const visibleUserIds = scopedUserIds
+      ? selectedUserIsVisible
+        ? selectedUserId === 'all'
+          ? scopedUserIds
+          : [selectedUserId]
+        : []
+      : undefined;
 
     const [users, teams, projects, statuses, sources] = await Promise.all([
       db.user.findMany({
         where: this.tenantUserWhere({
           isActive: true,
+          ...(visibleUserIds ? { id: { in: visibleUserIds } } : {}),
           role:
             selectedRole && selectedRole !== 'all'
               ? selectedRole
               : { in: operationalRoles },
-          ...(selectedUserId && selectedUserId !== 'all'
+          ...(selectedUserId && selectedUserId !== 'all' && selectedUserIsVisible
             ? { id: selectedUserId }
             : {}),
           ...(selectedTeamId && selectedTeamId !== 'all'
@@ -1406,6 +1431,14 @@ export class DashboardService {
       db.team.findMany({
         where: this.tenantTeamWhere({
           isActive: true,
+          ...(scopedUserIds
+            ? {
+                OR: [
+                  { leaderId: { in: scopedUserIds } },
+                  { members: { some: { userId: { in: scopedUserIds } } } },
+                ],
+              }
+            : {}),
           ...(selectedTeamId && selectedTeamId !== 'all'
             ? { id: selectedTeamId }
             : {}),
@@ -1542,39 +1575,43 @@ export class DashboardService {
       metrics: this.createEmptyLeadPerformanceMetrics(),
     });
 
+    const shouldFilterLeadAssignments = Boolean(scopedUserIds) ||
+      selectedRole !== 'all' ||
+      selectedUserId !== 'all' ||
+      selectedTeamId !== 'all';
     const leadWhere: any = {
       organizationId: this.organizationId,
-      deletedAt: null,
-      ...(selectedProjectId && selectedProjectId !== 'all'
-        ? { requirement: { preferredProjectId: selectedProjectId } }
-        : {}),
-      ...(selectedSourceId && selectedSourceId !== 'all'
-        ? { sourceId: selectedSourceId }
-        : {}),
-      ...(userIds.length
-        ? {
-            OR: [
-              { ownerId: { in: userIds } },
-              { telecallerId: { in: userIds } },
-              { fieldExecutiveId: { in: userIds } },
-              { createdById: { in: userIds } },
-            ],
-          }
-        : {}),
-      ...(search
-        ? {
-            AND: [
-              {
-                OR: [
-                  { name: { contains: search, mode: 'insensitive' } },
-                  { mobile: { contains: search, mode: 'insensitive' } },
-                  { displayId: { contains: search, mode: 'insensitive' } },
-                  { remarks: { contains: search, mode: 'insensitive' } },
-                ],
-              },
-            ],
-          }
-        : {}),
+      AND: [
+        { deletedAt: null },
+        ...(selectedProjectId && selectedProjectId !== 'all'
+          ? [{ OR: [
+              { requirement: { is: { preferredProjectId: selectedProjectId } } },
+              { projectInterests: { some: { projectId: selectedProjectId } } },
+            ] }]
+          : []),
+        ...(selectedSourceId && selectedSourceId !== 'all'
+          ? [{ sourceId: selectedSourceId }]
+          : []),
+        ...(shouldFilterLeadAssignments
+          ? [{
+              OR: [
+                { ownerId: { in: userIds } },
+                { managerId: { in: userIds } },
+                { telecallerId: { in: userIds } },
+                { fieldExecutiveId: { in: userIds } },
+                { createdById: { in: userIds } },
+              ],
+            }]
+          : []),
+        ...(search
+          ? [{ OR: [
+              { name: { contains: search, mode: 'insensitive' } },
+              { mobile: { contains: search, mode: 'insensitive' } },
+              { displayId: { contains: search, mode: 'insensitive' } },
+              { remarks: { contains: search, mode: 'insensitive' } },
+            ] }]
+          : []),
+      ],
     };
 
     const [leads, followUps, siteVisits, bookings] = await Promise.all([
@@ -1884,7 +1921,7 @@ export class DashboardService {
       role: employee.role,
       userId: employee.id,
       teamId: 'all',
-    });
+    }, actor);
     const employeeName = employee.fullName ?? employee.email;
 
     return {
@@ -1937,18 +1974,20 @@ export class DashboardService {
         reportForMeta: getUserRoleLabel(employee.role),
         generatedByName: employeeName,
       },
+      actor,
     );
   }
 
   async generateLeadPerformancePdf(
     query: Query = {},
     reportContext?: CallingReportContext,
+    actor?: { sub?: string; fullName?: string | null; email?: string | null; role?: string | null },
   ) {
     const data = await this.getAdminLeadPerformanceData({
       ...query,
       page: '1',
       limit: '100',
-    });
+    }, actor);
     const scope = data.meta.scope;
     const rows =
       scope === 'team'
@@ -2177,6 +2216,7 @@ export class DashboardService {
   private getStatusScoreEarned(
     activity: any,
     statusScoreByValue: Map<string, any>,
+    sourcePointsByValue?: Map<string, boolean>,
   ) {
     const metadata = this.activityMetadata(activity);
     if (activity.type === 'AUTO_ASSIGNMENT_MISSED') {
@@ -2185,16 +2225,34 @@ export class DashboardService {
     if (activity.type !== 'LEAD_UPDATED' && activity.type !== 'LEAD_CREATED') {
       return 0;
     }
-    if (metadata.sourcePointsEnabled === false) return 0;
-    if (metadata.statusScoreEarned !== undefined) {
+
+    const sourceKey =
+      metadata.statusScoreSourceId ??
+      metadata.statusScoreSourceName ??
+      activity.lead?.sourceId ??
+      activity.lead?.source;
+
+    const sourcePointsActive =
+      sourcePointsByValue && sourceKey
+        ? sourcePointsByValue.get(String(sourceKey)) !== false
+        : metadata.sourcePointsEnabled !== false;
+
+    if (!sourcePointsActive) return 0;
+
+    if (
+      metadata.sourcePointsEnabled !== false &&
+      metadata.statusScoreEarned !== undefined
+    ) {
       const explicitScore = Number(metadata.statusScoreEarned);
-      return Number.isFinite(explicitScore) && explicitScore > 0
-        ? explicitScore
-        : 0;
+      if (Number.isFinite(explicitScore) && explicitScore > 0) {
+        return explicitScore;
+      }
     }
 
     const fields = Array.isArray(metadata.fields) ? metadata.fields : [];
-    if (!fields.includes('status')) return 0;
+    if (!fields.includes('status') && metadata.statusScoreEarned === undefined) {
+      return 0;
+    }
     const status =
       statusScoreByValue.get(String(metadata.statusId ?? '')) ??
       statusScoreByValue.get(String(metadata.statusName ?? '')) ??
@@ -2329,6 +2387,7 @@ export class DashboardService {
 
     return {
       statusScoreByValue,
+      sourcePointsByValue,
       initialStatusScoreActivities: this.recoverInitialStatusScoreActivities(
         initialStatusLeadCandidates,
         statusScoreByValue,
@@ -2340,12 +2399,29 @@ export class DashboardService {
   private getStatusScoreRecipients(
     activity: any,
     statusScoreByValue: Map<string, any>,
+    sourcePointsByValue?: Map<string, boolean>,
   ) {
     const metadata = this.activityMetadata(activity);
+    const sourceKey =
+      metadata.statusScoreSourceId ??
+      metadata.statusScoreSourceName ??
+      activity.lead?.sourceId ??
+      activity.lead?.source;
+
+    const sourcePointsActive =
+      sourcePointsByValue && sourceKey
+        ? sourcePointsByValue.get(String(sourceKey)) !== false
+        : metadata.sourcePointsEnabled !== false;
+
+    if (!sourcePointsActive) return [];
+
     const explicitRecipients = Array.isArray(metadata.statusScoreRecipients)
       ? metadata.statusScoreRecipients
       : [];
-    if (explicitRecipients.length) {
+    if (
+      explicitRecipients.length &&
+      explicitRecipients.some((r: any) => Number(r?.points ?? 0) > 0)
+    ) {
       return explicitRecipients
         .map((recipient: any) => ({
           userId: recipient?.userId ? String(recipient.userId) : '',
@@ -2355,7 +2431,11 @@ export class DashboardService {
         .filter((recipient: any) => recipient.userId && recipient.points > 0);
     }
 
-    const points = this.getStatusScoreEarned(activity, statusScoreByValue);
+    const points = this.getStatusScoreEarned(
+      activity,
+      statusScoreByValue,
+      sourcePointsByValue,
+    );
     if (points <= 0) return [];
     const assignedRecipients = [
       activity.lead?.telecallerId
@@ -2443,7 +2523,6 @@ export class DashboardService {
       : 'both';
     const actorId = actor?.sub;
     const actorIsAdmin = this.isAdminRankingRole(actor?.role);
-    const mode = actorIsAdmin ? requestedMode : 'users';
     const actorUser = actorId
       ? await db.user.findFirst({
           where: this.tenantUserWhere({ id: actorId }),
@@ -2463,43 +2542,82 @@ export class DashboardService {
                 team: { select: { id: true, name: true } },
               },
             },
+            teamLeaderVisibilityGrants: {
+              select: {
+                teamId: true,
+                team: { select: { id: true, name: true } },
+              },
+            },
+            ledTeams: {
+              select: { id: true, name: true },
+            },
           },
         })
       : null;
     const actorTeamId = actorUser?.employeeProfile?.teamId ?? null;
-    const configuredRankingTeamIds = Array.from(
-      new Set(
-        (actorUser?.rankingTeamAccesses ?? [])
-          .map((access: any) => String(access.teamId))
-          .filter(Boolean),
-      ),
-    );
+    const configuredRankingTeamIds = (actorUser?.rankingTeamAccesses ?? [])
+      .map((access: any) => String(access.teamId))
+      .filter(Boolean);
+    const monitorGrantTeamIds = (actorUser?.teamLeaderVisibilityGrants ?? [])
+      .map((grant: any) => String(grant.teamId))
+      .filter(Boolean);
+    const ledTeamIds = (actorUser?.ledTeams ?? [])
+      .map((team: any) => String(team.id))
+      .filter(Boolean);
+
     const rankingScopeTeamIds = actorIsAdmin
       ? []
-      : configuredRankingTeamIds.length
-      ? configuredRankingTeamIds
-      : actorTeamId
-      ? [actorTeamId]
-      : [];
+      : Array.from(
+          new Set([
+            ...configuredRankingTeamIds,
+            ...(actorUser?.role === 'TEAM_LEADER'
+              ? [
+                  ...monitorGrantTeamIds,
+                  ...ledTeamIds,
+                  ...(actorTeamId ? [actorTeamId] : []),
+                ]
+              : configuredRankingTeamIds.length
+              ? []
+              : actorTeamId
+              ? [actorTeamId]
+              : []),
+          ]),
+        );
     const rankingScopeTeamNames = actorIsAdmin
       ? []
       : rankingScopeTeamIds.map((teamId: string) => {
           const access = (actorUser?.rankingTeamAccesses ?? []).find(
             (item: any) => item.teamId === teamId,
           );
+          const grant = (actorUser?.teamLeaderVisibilityGrants ?? []).find(
+            (item: any) => item.teamId === teamId,
+          );
+          const ledTeam = (actorUser?.ledTeams ?? []).find(
+            (item: any) => item.id === teamId,
+          );
           return (
             access?.team?.name ??
+            grant?.team?.name ??
+            ledTeam?.name ??
             (actorUser?.employeeProfile?.teamId === teamId
               ? actorUser.employeeProfile?.team?.name
               : null) ??
             'Unassigned'
           );
         });
-    const rankingScopeLabel = actorIsAdmin
-      ? 'All teams'
-      : rankingScopeTeamNames.length
-      ? rankingScopeTeamNames.join(', ')
-      : 'Own profile only';
+    const rankingScopeLabel =
+      actorIsAdmin
+        ? 'All teams'
+        : rankingScopeTeamNames.length
+        ? rankingScopeTeamNames.join(', ')
+        : 'Own profile only';
+
+    const actorCanViewTeams =
+      actorIsAdmin ||
+      actor?.role === 'TEAM_LEADER' ||
+      rankingScopeTeamIds.length > 1;
+    const mode = actorCanViewTeams ? requestedMode : 'users';
+
     const actorPeerRole =
       actor?.role === 'TELECALLER'
         ? 'TELECALLER'
@@ -2520,13 +2638,26 @@ export class DashboardService {
             ? { is: null }
             : { is: { teamId: selectedTeamId } };
       }
-    } else if (actorPeerRole) {
-      userWhere.role = actorPeerRole;
-      if (rankingScopeTeamIds.length) {
+    } else if (rankingScopeTeamIds.length) {
+      if (selectedUserId !== 'all') {
+        userWhere.id = selectedUserId;
+      }
+      if (
+        selectedTeamId !== 'all' &&
+        rankingScopeTeamIds.includes(selectedTeamId)
+      ) {
+        userWhere.employeeProfile = { is: { teamId: selectedTeamId } };
+      } else {
         userWhere.employeeProfile = {
           is: { teamId: { in: rankingScopeTeamIds } },
         };
-      } else if (actorId) {
+      }
+      if (actorPeerRole) {
+        userWhere.role = actorPeerRole;
+      }
+    } else if (actorPeerRole) {
+      userWhere.role = actorPeerRole;
+      if (actorId) {
         userWhere.id = actorId;
       } else {
         userWhere.id = '__no_actor__';
@@ -2584,6 +2715,7 @@ export class DashboardService {
                   select: {
                     id: true,
                     statusId: true,
+                    sourceId: true,
                     telecallerId: true,
                     fieldExecutiveId: true,
                     ownerId: true,
@@ -2595,23 +2727,20 @@ export class DashboardService {
           : Promise.resolve([]),
         db.user.findMany({
           where: actorIsAdmin
+            ? this.tenantUserWhere({ isActive: true, role: { in: rankingRoles } })
+            : rankingScopeTeamIds.length
             ? this.tenantUserWhere({
                 isActive: true,
-                role: { in: rankingRoles },
+                role: actorPeerRole ? actorPeerRole : { in: rankingRoles },
+                employeeProfile: {
+                  is: { teamId: { in: rankingScopeTeamIds } },
+                },
               })
             : actorPeerRole
             ? this.tenantUserWhere({
                 isActive: true,
                 role: actorPeerRole,
-                ...(rankingScopeTeamIds.length
-                  ? {
-                      employeeProfile: {
-                        is: { teamId: { in: rankingScopeTeamIds } },
-                      },
-                    }
-                  : actorId
-                  ? { id: actorId }
-                  : { id: '__no_actor__' }),
+                ...(actorId ? { id: actorId } : { id: '__no_actor__' }),
               })
             : actorId
             ? this.tenantUserWhere({ id: actorId })
@@ -2644,9 +2773,15 @@ export class DashboardService {
         }),
       ]);
 
-    const { statusScoreByValue, initialStatusScoreActivities } =
-      statusScoreContext;
-    const scoredActivities = [...activities, ...initialStatusScoreActivities];
+    const {
+      statusScoreByValue,
+      sourcePointsByValue,
+      initialStatusScoreActivities,
+    } = statusScoreContext;
+    const scoredActivities = [
+      ...activities,
+      ...initialStatusScoreActivities,
+    ];
     const userRows = new Map<string, any>(
       users.map((user: any) => [
         user.id,
@@ -2671,6 +2806,7 @@ export class DashboardService {
       const recipients = this.getStatusScoreRecipients(
         activity,
         statusScoreByValue,
+        sourcePointsByValue,
       ).filter((recipient: any) => userRows.has(recipient.userId));
       if (!recipients.length) return;
       const statusName =
@@ -2827,7 +2963,7 @@ export class DashboardService {
       userRankings: mode === 'teams' ? [] : userRankings,
       teamRankings: mode === 'users' ? [] : teamRankings,
       filters: {
-        canViewAll: actorIsAdmin,
+        canViewAll: actorCanViewTeams,
         users: availableUsers.map((user: any) => ({
           id: user.id,
           name: user.fullName ?? user.email,
@@ -2839,7 +2975,10 @@ export class DashboardService {
     };
   }
 
-  async getAdminPerformanceData(query: Query = {}) {
+  async getAdminPerformanceData(
+    query: Query = {},
+    actor?: { sub?: string; role?: string | null },
+  ) {
     const db = this.prisma as any;
     const now = new Date();
     const defaultStart = this.startOfDay(
@@ -2856,17 +2995,43 @@ export class DashboardService {
     const search = String(query.search ?? '')
       .trim()
       .toLowerCase();
-    const operationalRoles = [
-      Role.ADMIN,
-      Role.HR,
-      Role.SALES_MANAGER,
-      Role.TELECALLER,
-      Role.SALES_AGENT,
-      Role.MARKETING,
+    const operationalRoles: Role[] = [
+      'SUPER_ADMIN',
+      'ADMIN',
+      'HR',
+      'SALES_MANAGER',
+      'TEAM_LEADER',
+      'MANAGER',
+      'TELECALLER',
+      'SALES_AGENT',
+      'MARKETING',
     ];
+    const scopedUserIds = this.leadVisibility
+      ? await this.leadVisibility.resolveAssignmentScopeUserIds(actor)
+      : null;
+    const selectedUserIsVisible =
+      selectedUserId === 'all' ||
+      !scopedUserIds ||
+      scopedUserIds.includes(selectedUserId);
+    const visibleUserIds = scopedUserIds
+      ? selectedUserIsVisible
+        ? selectedUserId === 'all'
+          ? scopedUserIds
+          : [selectedUserId]
+        : []
+      : undefined;
+    const scopedTeamWhere = scopedUserIds
+      ? {
+          OR: [
+            { leaderId: { in: scopedUserIds } },
+            { members: { some: { userId: { in: scopedUserIds } } } },
+          ],
+        }
+      : {};
 
     const users = await db.user.findMany({
       where: this.tenantUserWhere({
+        ...(visibleUserIds ? { id: { in: visibleUserIds } } : {}),
         role:
           selectedRole && selectedRole !== 'all'
             ? selectedRole
@@ -3059,6 +3224,7 @@ export class DashboardService {
               name: true,
               displayId: true,
               statusId: true,
+              sourceId: true,
               telecallerId: true,
               fieldExecutiveId: true,
               ownerId: true,
@@ -3069,15 +3235,21 @@ export class DashboardService {
       }),
       this.loadStatusScoreContext(db, userIds, start, end),
       db.team.findMany({
-        where: this.tenantTeamWhere({ isActive: true }),
+        where: this.tenantTeamWhere({ isActive: true, ...scopedTeamWhere }),
         select: { id: true, name: true },
         orderBy: { name: 'asc' },
       }),
     ]);
 
-    const { statusScoreByValue, initialStatusScoreActivities } =
-      statusScoreContext;
-    const scoredActivities = [...activities, ...initialStatusScoreActivities];
+    const {
+      statusScoreByValue,
+      sourcePointsByValue,
+      initialStatusScoreActivities,
+    } = statusScoreContext;
+    const scoredActivities = [
+      ...activities,
+      ...initialStatusScoreActivities,
+    ];
 
     leadsCreated.forEach((lead: any) => {
       this.addCount(rows, lead.createdById, 'leadsCreated');
@@ -3151,6 +3323,7 @@ export class DashboardService {
       const recipients = this.getStatusScoreRecipients(
         activity,
         statusScoreByValue,
+        sourcePointsByValue,
       ).filter((recipient: any) => rows.has(recipient.userId));
       if (!recipients.length) return;
       const statusName =
@@ -3183,6 +3356,7 @@ export class DashboardService {
         statusScoreEarned: this.getStatusScoreEarned(
           activity,
           statusScoreByValue,
+          sourcePointsByValue,
         ),
         statusScoreName: this.getStatusScoreName(activity, statusScoreByValue),
         id: `activity-${activity.id}`,
@@ -3196,13 +3370,8 @@ export class DashboardService {
         type: activity.type,
         title: activity.title,
         description:
-          this.getStatusScoreEarned(activity, statusScoreByValue) > 0
-            ? `${
-                activity.description ?? activity.title
-              } Status score earned: ${this.getStatusScoreEarned(
-                activity,
-                statusScoreByValue,
-              )}${
+          this.getStatusScoreEarned(activity, statusScoreByValue, sourcePointsByValue) > 0
+            ? `${activity.description ?? activity.title} Status score earned: ${this.getStatusScoreEarned(activity, statusScoreByValue, sourcePointsByValue)}${
                 this.getStatusScoreName(activity, statusScoreByValue)
                   ? ` (${this.getStatusScoreName(
                       activity,
@@ -3445,8 +3614,11 @@ export class DashboardService {
     };
   }
 
-  async getAdminDashboardData(query: Query = {}) {
-    const db = this.prisma as any;
+  async getAdminDashboardData(
+    query: Query = {},
+    actor?: { sub?: string; role?: string },
+  ) {
+    const db = this.prisma;
     const now = new Date();
     const range = this.normalizeRange(String(query.range ?? 'today'));
     const { start, end, label } = this.resolveWindow(range);
@@ -3455,7 +3627,28 @@ export class DashboardService {
     const tomorrowStart = new Date(todayStart);
     tomorrowStart.setDate(tomorrowStart.getDate() + 1);
     const activeVisitStatuses = ['Scheduled', 'Upcoming', 'Confirmed'];
-    const operationalRoles = [Role.TELECALLER, Role.SALES_AGENT];
+    const operationalRoles: Role[] = ['TELECALLER', 'SALES_AGENT'];
+    const scopedUserIds = this.leadVisibility
+      ? await this.leadVisibility.resolveAssignmentScopeUserIds(actor)
+      : null;
+    const leadScope = scopedUserIds
+      ? this.leadVisibility!.assignmentScope(scopedUserIds)
+      : null;
+    const scopedLeadWhere = (where: Prisma.LeadWhereInput = {}) =>
+      this.tenantLeadWhere(leadScope ? { AND: [leadScope, where] } : where);
+    const scopedRelatedWhere = (where: Record<string, unknown> = {}) =>
+      ({ AND: [{ lead: { organizationId: this.organizationId } }, ...(leadScope ? [{ lead: { is: leadScope } }] : []), where] });
+    const scopedNotificationWhere = (where: Record<string, unknown> = {}) =>
+      ({ AND: [{ organizationId: this.organizationId }, ...(scopedUserIds && actor?.sub ? [{ userId: actor.sub }] : []), where] });
+    const scopedTeamWhere = this.tenantTeamWhere(scopedUserIds
+      ? {
+          isActive: true,
+          OR: [
+            { leaderId: { in: scopedUserIds } },
+            { members: { some: { userId: { in: scopedUserIds } } } },
+          ],
+        }
+      : { isActive: true });
 
     const [
       totalLeads,
@@ -3487,10 +3680,10 @@ export class DashboardService {
       previousWeekCompletedVisits,
       previousWeekBookedBookings,
     ] = await Promise.all([
-      db.lead.count({ where: this.tenantLeadWhere() }).catch(() => 0),
+      db.lead.count({ where: scopedLeadWhere() }).catch(() => 0),
       db.followUp
         .count({
-          where: this.tenantFollowUpWhere({
+          where: scopedRelatedWhere({
             completedAt: null,
             scheduledAt: { gte: start, lte: end },
           }),
@@ -3498,7 +3691,7 @@ export class DashboardService {
         .catch(() => 0),
       db.followUp
         .count({
-          where: this.tenantFollowUpWhere({
+          where: scopedRelatedWhere({
             completedAt: null,
             scheduledAt: { lt: todayStart },
           }),
@@ -3506,7 +3699,7 @@ export class DashboardService {
         .catch(() => 0),
       db.siteVisit
         .count({
-          where: this.tenantSiteVisitWhere({
+          where: scopedRelatedWhere({
             scheduledAt: { gte: start, lte: end },
             status: { in: activeVisitStatuses },
             checkedOutAt: null,
@@ -3515,7 +3708,7 @@ export class DashboardService {
         .catch(() => 0),
       db.siteVisit
         .count({
-          where: this.tenantSiteVisitWhere({
+          where: scopedRelatedWhere({
             scheduledAt: { gte: start, lte: end },
             OR: [{ status: 'Completed' }, { checkedOutAt: { not: null } }],
           }),
@@ -3523,7 +3716,7 @@ export class DashboardService {
         .catch(() => 0),
       db.booking
         .count({
-          where: this.tenantBookingWhere({
+          where: scopedRelatedWhere({
             bookingDate: { gte: start, lte: end },
             status: { in: ['Booked', 'Completed', 'Converted'] },
           }),
@@ -3531,7 +3724,7 @@ export class DashboardService {
         .catch(() => 0),
       db.followUp
         .count({
-          where: this.tenantFollowUpWhere({
+          where: scopedRelatedWhere({
             completedAt: null,
             scheduledAt: {
               gte: previousWindow.start,
@@ -3542,7 +3735,7 @@ export class DashboardService {
         .catch(() => 0),
       db.followUp
         .count({
-          where: this.tenantFollowUpWhere({
+          where: scopedRelatedWhere({
             completedAt: null,
             scheduledAt: { lt: previousWindow.end },
           }),
@@ -3550,7 +3743,7 @@ export class DashboardService {
         .catch(() => 0),
       db.siteVisit
         .count({
-          where: this.tenantSiteVisitWhere({
+          where: scopedRelatedWhere({
             scheduledAt: {
               gte: previousWindow.start,
               lte: previousWindow.end,
@@ -3562,7 +3755,7 @@ export class DashboardService {
         .catch(() => 0),
       db.siteVisit
         .count({
-          where: this.tenantSiteVisitWhere({
+          where: scopedRelatedWhere({
             scheduledAt: {
               gte: previousWindow.start,
               lte: previousWindow.end,
@@ -3573,7 +3766,7 @@ export class DashboardService {
         .catch(() => 0),
       db.booking
         .count({
-          where: this.tenantBookingWhere({
+          where: scopedRelatedWhere({
             bookingDate: {
               gte: previousWindow.start,
               lte: previousWindow.end,
@@ -3584,10 +3777,9 @@ export class DashboardService {
         .catch(() => 0),
       db.notification
         .findMany({
-          where: {
-            organizationId: this.organizationId,
+          where: scopedNotificationWhere({
             createdAt: { gte: start, lte: end },
-          },
+          }),
           take: 5,
           orderBy: { createdAt: 'desc' },
         })
@@ -3595,24 +3787,20 @@ export class DashboardService {
       db.lead
         .groupBy({
           by: ['sourceId'],
-          where: this.tenantLeadWhere({
-            createdAt: { gte: start, lte: end },
-          }),
+          where: scopedLeadWhere({ createdAt: { gte: start, lte: end } }),
           _count: { _all: true },
         })
         .catch(() => []),
       db.lead
         .groupBy({
           by: ['stageId'],
-          where: this.tenantLeadWhere({
-            createdAt: { gte: start, lte: end },
-          }),
+          where: scopedLeadWhere({ createdAt: { gte: start, lte: end } }),
           _count: { _all: true },
         })
         .catch(() => []),
       db.team
         .findMany({
-          where: this.tenantTeamWhere({ isActive: true }),
+          where: scopedTeamWhere,
           orderBy: { createdAt: 'asc' },
           select: {
             id: true,
@@ -3627,6 +3815,9 @@ export class DashboardService {
               },
             },
             members: {
+              ...(scopedUserIds
+                ? { where: { userId: { in: scopedUserIds } } }
+                : {}),
               select: {
                 userId: true,
                 user: {
@@ -3648,6 +3839,7 @@ export class DashboardService {
           where: this.tenantUserWhere({
             role: { in: operationalRoles },
             isActive: true,
+            ...(scopedUserIds ? { id: { in: scopedUserIds } } : {}),
           }),
           select: {
             id: true,
@@ -3660,7 +3852,7 @@ export class DashboardService {
         .catch(() => []),
       db.followUp
         .findMany({
-          where: this.tenantFollowUpWhere({
+          where: scopedRelatedWhere({
             completedAt: null,
             scheduledAt: { lte: end },
           }),
@@ -3684,7 +3876,7 @@ export class DashboardService {
         .catch(() => []),
       db.siteVisit
         .findMany({
-          where: this.tenantSiteVisitWhere({
+          where: scopedRelatedWhere({
             scheduledAt: { gte: start, lte: end },
           }),
           take: 8,
@@ -3716,7 +3908,7 @@ export class DashboardService {
         .catch(() => []),
       db.followUp
         .findMany({
-          where: this.tenantFollowUpWhere({
+          where: scopedRelatedWhere({
             completedAt: { not: null },
             assignedToId: { not: null },
             updatedAt: { gte: start, lte: end },
@@ -3730,7 +3922,7 @@ export class DashboardService {
         .catch(() => []),
       db.followUp
         .findMany({
-          where: this.tenantFollowUpWhere({
+          where: scopedRelatedWhere({
             scheduledAt: { gte: todayStart, lt: tomorrowStart },
           }),
           take: 6,
@@ -3753,7 +3945,7 @@ export class DashboardService {
         .catch(() => []),
       db.siteVisit
         .findMany({
-          where: this.tenantSiteVisitWhere({
+          where: scopedRelatedWhere({
             scheduledAt: { gte: todayStart, lt: tomorrowStart },
           }),
           take: 6,
@@ -3782,7 +3974,7 @@ export class DashboardService {
         .catch(() => []),
       db.siteVisit
         .findMany({
-          where: this.tenantSiteVisitWhere({
+          where: scopedRelatedWhere({
             scheduledAt: { gte: now },
           }),
           take: 4,
@@ -3811,7 +4003,7 @@ export class DashboardService {
         .catch(() => []),
       db.followUp
         .findMany({
-          where: this.tenantFollowUpWhere({
+          where: scopedRelatedWhere({
             completedAt: null,
             scheduledAt: { gte: todayStart },
           }),
@@ -3833,7 +4025,7 @@ export class DashboardService {
         .catch(() => []),
       db.activity
         .findMany({
-          where: this.tenantActivityWhere({ occurredAt: { lte: end } }),
+          where: scopedRelatedWhere({ occurredAt: { lte: end } }),
           take: 6,
           orderBy: { occurredAt: 'desc' },
           select: {
@@ -3853,7 +4045,7 @@ export class DashboardService {
         .catch(() => []),
       db.siteVisit
         .findMany({
-          where: this.tenantSiteVisitWhere({
+          where: scopedRelatedWhere({
             scheduledAt: {
               gte: this.startOfDay(
                 new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000),
@@ -3869,7 +4061,7 @@ export class DashboardService {
         .catch(() => []),
       db.booking
         .findMany({
-          where: this.tenantBookingWhere({
+          where: scopedRelatedWhere({
             bookingDate: {
               gte: this.startOfDay(
                 new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000),
@@ -3885,7 +4077,7 @@ export class DashboardService {
         .catch(() => []),
       db.siteVisit
         .findMany({
-          where: this.tenantSiteVisitWhere({
+          where: scopedRelatedWhere({
             scheduledAt: {
               gte: this.startOfDay(
                 new Date(todayStart.getTime() - 13 * 24 * 60 * 60 * 1000),
@@ -3903,7 +4095,7 @@ export class DashboardService {
         .catch(() => []),
       db.booking
         .findMany({
-          where: this.tenantBookingWhere({
+          where: scopedRelatedWhere({
             bookingDate: {
               gte: this.startOfDay(
                 new Date(todayStart.getTime() - 13 * 24 * 60 * 60 * 1000),
@@ -3921,13 +4113,17 @@ export class DashboardService {
         .catch(() => []),
     ]);
 
-    const sourceTotal = sourceGroups.reduce(
-      (sum: number, row: any) => sum + row._count._all,
+    const sourceRows = sourceGroups as Array<{
+      sourceId: string | null;
+      _count: { _all: number };
+    }>;
+    const sourceTotal = sourceRows.reduce(
+      (sum, row) => sum + row._count._all,
       0,
     );
     const sourceDistribution = (
       await Promise.all(
-        sourceGroups.map(async (row: any, index: number) => ({
+        sourceRows.map(async (row, index) => ({
           name: await this.masterName(row.sourceId),
           value: row._count._all,
           percent: this.percent(row._count._all, sourceTotal),
@@ -3936,13 +4132,17 @@ export class DashboardService {
       )
     ).sort((left, right) => right.value - left.value);
 
-    const stageTotal = stageGroups.reduce(
-      (sum: number, row: any) => sum + row._count._all,
+    const stageRows = stageGroups as Array<{
+      stageId: string | null;
+      _count: { _all: number };
+    }>;
+    const stageTotal = stageRows.reduce(
+      (sum, row) => sum + row._count._all,
       0,
     );
     const conversionFunnel = (
       await Promise.all(
-        stageGroups.map(async (row: any, index: number) => {
+        stageRows.map(async (row, index) => {
           const count = row._count._all;
           return {
             stage: await this.masterName(row.stageId),
@@ -4045,17 +4245,17 @@ export class DashboardService {
       });
     };
 
-    const userMap = new Map<string, any>(
-      operationalUsers.map((user: any) => [user.id, user]),
+    const userMap = new Map(
+      operationalUsers.map((user) => [user.id, user] as const),
     );
     const allRelevantUserIds = Array.from(
-      new Set(operationalUsers.map((user: any) => user.id).filter(Boolean)),
+      new Set(operationalUsers.map((user) => user.id).filter(Boolean)),
     ) as string[];
 
     const [leadAssignments, dueFollowUps, visitsToday] = await Promise.all([
       db.lead
         .findMany({
-          where: this.tenantLeadWhere({
+          where: scopedLeadWhere({
             OR: [
               { telecallerId: { in: allRelevantUserIds } },
               { fieldExecutiveId: { in: allRelevantUserIds } },
@@ -4072,7 +4272,7 @@ export class DashboardService {
         .catch(() => []),
       db.followUp
         .findMany({
-          where: this.tenantFollowUpWhere({
+          where: scopedRelatedWhere({
             completedAt: null,
             assignedToId: { in: allRelevantUserIds },
             scheduledAt: { lte: end },
@@ -4086,7 +4286,7 @@ export class DashboardService {
         .catch(() => []),
       db.siteVisit
         .findMany({
-          where: this.tenantSiteVisitWhere({
+          where: scopedRelatedWhere({
             assignedExecutiveId: { in: allRelevantUserIds },
             scheduledAt: { gte: start, lte: end },
           }),

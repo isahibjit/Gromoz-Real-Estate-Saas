@@ -5,12 +5,14 @@ import { PersistenceModule } from '../persistence/persistence.module';
 import { AccessModule } from '../access/access.module';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
+import { LeadVisibilityModule } from '../crm/lead-visibility.module';
 
 @Module({
   imports: [
     ConfigModule,
     PersistenceModule,
     AccessModule,
+    LeadVisibilityModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({

@@ -1,9 +1,12 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
+  Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -21,9 +24,7 @@ const orgIdFrom = (req: { tenant?: { organizationId: string } }) => req.tenant?.
 @Controller('housing-integrations')
 @UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 export class HousingIntegrationsController {
-  constructor(
-    private readonly housingService: HousingIntegrationsService,
-  ) {}
+  constructor(private readonly housingService: HousingIntegrationsService) {}
 
   @Get()
   @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
@@ -79,13 +80,144 @@ export class HousingIntegrationsController {
       orgIdFrom(req),
     );
   }
+
+  @Get('accounts')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  listAccounts(@Query('includeArchived') includeArchived?: string) {
+    return this.housingService.listAccounts(includeArchived === 'true');
+  }
+
+  @Post('accounts')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @RequirePermission('leads', 'update')
+  createAccount(
+    @Body()
+    body: { name: string; externalAccountId?: string; apiKey?: string },
+    @Req() req: any,
+  ) {
+    return this.housingService.createAccount(body, userFrom(req).sub);
+  }
+
+  @Patch('accounts/bulk-status')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @RequirePermission('leads', 'update')
+  setAccountsStatus(@Body() body: { isActive: boolean }, @Req() req: any) {
+    return this.housingService.setAccountsStatus(
+      body.isActive,
+      userFrom(req).sub,
+    );
+  }
+
+  @Get('accounts/:accountId')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  getAccount(@Param('accountId') accountId: string) {
+    return this.housingService.getAccount(accountId);
+  }
+
+  @Patch('accounts/:accountId')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @RequirePermission('leads', 'update')
+  updateAccount(
+    @Param('accountId') accountId: string,
+    @Body()
+    body: {
+      name?: string;
+      externalAccountId?: string;
+      apiKey?: string;
+      isActive?: boolean;
+      notes?: string;
+    },
+    @Req() req: any,
+  ) {
+    return this.housingService.updateAccount(
+      accountId,
+      body,
+      userFrom(req).sub,
+    );
+  }
+
+  @Delete('accounts/:accountId')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @RequirePermission('leads', 'update')
+  archiveAccount(@Param('accountId') accountId: string, @Req() req: any) {
+    return this.housingService.archiveAccount(accountId, userFrom(req).sub);
+  }
+
+  @Post('accounts/:accountId/restore')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @RequirePermission('leads', 'update')
+  restoreAccount(@Param('accountId') accountId: string, @Req() req: any) {
+    return this.housingService.restoreAccount(accountId, userFrom(req).sub);
+  }
+
+  @Post('accounts/:accountId/regenerate-key')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @RequirePermission('leads', 'update')
+  regenerateAccountKey(@Param('accountId') accountId: string, @Req() req: any) {
+    return this.housingService.regenerateAccountWebhookKey(
+      accountId,
+      userFrom(req).sub,
+    );
+  }
+
+  @Patch('accounts/:accountId/field-mapping')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @RequirePermission('leads', 'update')
+  saveAccountFieldMapping(
+    @Param('accountId') accountId: string,
+    @Body() body: { fieldMapping: unknown },
+    @Req() req: any,
+  ) {
+    return this.housingService.saveAccountFieldMapping(
+      accountId,
+      body.fieldMapping,
+      userFrom(req).sub,
+    );
+  }
+
+  @Patch('accounts/:accountId/routing')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @RequirePermission('leads', 'update')
+  saveAccountRouting(
+    @Param('accountId') accountId: string,
+    @Body()
+    body: {
+      projectId?: string;
+      teamId?: string;
+      telecallerId?: string;
+      fieldExecutiveId?: string;
+      sourceId?: unknown;
+    },
+    @Req() req: any,
+  ) {
+    return this.housingService.saveAccountRouting(
+      accountId,
+      body,
+      userFrom(req).sub,
+    );
+  }
+
+  @Post('accounts/:accountId/test')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @RequirePermission('leads', 'update')
+  testAccount(
+    @Param('accountId') accountId: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req: any,
+  ) {
+    return this.housingService.testAccount(accountId, body, userFrom(req).sub);
+  }
+
+  @Get('accounts/:accountId/activity')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'MARKETING')
+  getAccountActivity(@Param('accountId') accountId: string) {
+    return this.housingService.getAccountActivity(accountId);
+  }
 }
 
 @Controller(['public/webhooks/housing', 'integrations/housing'])
 export class PublicHousingWebhookController {
-  constructor(
-    private readonly housingService: HousingIntegrationsService,
-  ) {}
+  constructor(private readonly housingService: HousingIntegrationsService) {}
 
   @Post(':keyId')
   ingestPost(@Param('keyId') keyId: string, @Body() body: any) {

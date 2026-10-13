@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import * as XLSX from "xlsx";
 import {
+  AlertCircle,
   BriefcaseBusiness,
   ChevronRight,
   Download,
@@ -27,6 +28,7 @@ import {
 
 import { api } from "../../../common/api";
 import { WorkspacePage } from "../../../components/layout/PageHeader";
+import { getApiErrorMessage } from "../../../common/apiError";
 import { DashboardHeader } from "../dashboard/DashboardHeader";
 import { DashboardSidebar } from "../dashboard/DashboardSidebar";
 import { addLeadSidebarItems } from "../leads/add/addLeadData";
@@ -140,6 +142,9 @@ export function BrokerageIncentiveReportScreen() {
   const reportQuery = useBookingFinanceReport(queryParams);
   const data = reportQuery.data;
   const rows = data?.rows ?? [];
+  const reportUnavailable = reportQuery.isError && !data;
+  const reportAmount = (value?: number) =>
+    reportUnavailable ? "—" : formatBookingAmount(value ?? 0);
   const totalPages = data ? Math.max(1, Math.ceil(data.meta.totalRows / data.meta.limit)) : 1;
 
   const projectOptions = [
@@ -409,40 +414,68 @@ export function BrokerageIncentiveReportScreen() {
             </div>
           </Card>
 
+          {reportQuery.isError ? (
+            <Card
+              role="alert"
+              className="flex flex-col gap-3 rounded-md border border-red-200 bg-red-50 p-4 shadow-none sm:flex-row sm:items-center"
+            >
+              <AlertCircle className="size-5 shrink-0 text-red-600" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-red-900">
+                  Could not load brokerage and incentive values
+                </p>
+                <p className="mt-1 text-xs font-semibold text-red-700">
+                  {getApiErrorMessage(
+                    reportQuery.error,
+                    "Refresh the report or contact an administrator if the problem continues.",
+                  )}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 shrink-0 border-red-200 bg-white shadow-none"
+                onClick={() => void reportQuery.refetch()}
+              >
+                Retry
+              </Button>
+            </Card>
+          ) : null}
+
           <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
             <ReportStatCard
               label="Total Bookings"
-              value={String(data?.summary.bookings ?? 0)}
+              value={reportUnavailable ? "—" : String(data?.summary.bookings ?? 0)}
               helper="Bookings in range"
               icon={BriefcaseBusiness}
             />
             <ReportStatCard
               label="Agreement Value"
-              value={formatBookingAmount(data?.summary.agreementValue ?? 0)}
+              value={reportAmount(data?.summary.agreementValue)}
               helper="Commercial value"
               icon={IndianRupee}
             />
             <ReportStatCard
               label="Total Brokerage"
-              value={formatBookingAmount(data?.summary.totalBrokerage ?? 0)}
+              value={reportAmount(data?.summary.totalBrokerage)}
               helper="Net brokerage"
               icon={WalletCards}
             />
             <ReportStatCard
               label="Pending Brokerage"
-              value={formatBookingAmount(data?.summary.pendingBrokerage ?? 0)}
+              value={reportAmount(data?.summary.pendingBrokerage)}
               helper="Receivable"
               icon={WalletCards}
             />
             <ReportStatCard
               label="Received Brokerage"
-              value={formatBookingAmount(data?.summary.receivedBrokerage ?? 0)}
+              value={reportAmount(data?.summary.receivedBrokerage)}
               helper="Received ledger"
               icon={WalletCards}
             />
             <ReportStatCard
               label="Base Incentive"
-              value={formatBookingAmount(
+              value={reportAmount(
                 (data?.summary.salesIncentive ?? 0) +
                   (data?.summary.preSalesIncentive ?? 0) +
                   (data?.summary.teamLeaderIncentive ?? 0)
@@ -452,19 +485,19 @@ export function BrokerageIncentiveReportScreen() {
             />
             <ReportStatCard
               label="Extra Incentive"
-              value={formatBookingAmount(data?.summary.extraIncentive ?? 0)}
+              value={reportAmount(data?.summary.extraIncentive)}
               helper="Deal extra bonuses"
               icon={Target}
             />
             <ReportStatCard
               label="Total Commission"
-              value={formatBookingAmount(data?.summary.totalCommission ?? 0)}
+              value={reportAmount(data?.summary.totalCommission)}
               helper="Base + Extra totals"
               icon={Target}
             />
             <ReportStatCard
               label="Paid Commission"
-              value={formatBookingAmount(data?.summary.paidCommission ?? 0)}
+              value={reportAmount(data?.summary.paidCommission)}
               helper="Paid ledger entries"
               icon={WalletCards}
             />

@@ -32,6 +32,7 @@ interface ApiProject {
   name: string;
   location: string;
   developer?: string | null;
+  propertyType?: string | null;
   status: ProjectCatalogItem["status"];
   possession?: string | null;
   minPrice?: string | number | null;
@@ -108,6 +109,7 @@ export const mapApiProject = (project: ApiProject): ProjectCatalogItem => ({
   name: project.name,
   location: project.location,
   developer: project.developer ?? "",
+  propertyType: project.propertyType ?? "Residential",
   status: project.status,
   possession: project.possession ?? "",
   priceRange:
@@ -197,9 +199,16 @@ export function useProjects(search = "") {
       const { data } = await api.get("/projects", {
         params: { limit: 100, search: search || undefined },
       });
+      const projects = (data.data ?? []).map(mapApiProject) as ProjectCatalogItem[];
+      projects.sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, {
+          sensitivity: "base",
+          numeric: true,
+        }),
+      );
       return {
-        projects: data.data.map(mapApiProject) as ProjectCatalogItem[],
-        total: data.meta.total as number,
+        projects,
+        total: (data.meta?.total as number) ?? projects.length,
       };
     },
   });

@@ -73,6 +73,7 @@ import { ProjectWhatsAppShareDialog } from "./ProjectWhatsAppShareDialog";
 import {
   getProjectImageGallery,
   projectsCatalog,
+  propertyTypeOptions,
   type ProjectBrochure,
   type ProjectCatalogItem,
   type ProjectConfigurationVariant,
@@ -93,6 +94,7 @@ interface ProjectFormState {
   name: string;
   location: string;
   developer: string;
+  propertyType: string;
   status: ProjectStatus;
   possession: string;
   priceMin: string;
@@ -151,6 +153,7 @@ const createEmptyProjectForm = (): ProjectFormState => ({
   name: "",
   location: "",
   developer: "",
+  propertyType: "Residential",
   status: "Active",
   possession: "",
   priceMin: "",
@@ -997,6 +1000,7 @@ export function ProjectsScreen() {
       name: projectForm.name,
       location: projectForm.location,
       developer: projectForm.developer.trim() || undefined,
+      propertyType: projectForm.propertyType || "Residential",
       status: projectForm.status,
       possession: projectForm.possession
         ? formatProjectPossession(projectForm.possession)
@@ -1956,6 +1960,32 @@ export function ProjectsScreen() {
                       portaled={false}
                       modal={false}
                     />
+                  </div>
+
+                  <div className="space-y-2 md:col-span-1">
+                    <label className="text-sm font-extrabold text-secondary">
+                      Property Type
+                    </label>
+                    <Select
+                      value={projectForm.propertyType}
+                      onValueChange={(value) =>
+                        updateProjectForm("propertyType", value)
+                      }
+                    >
+                      <SelectTrigger
+                        aria-label="Property Type"
+                        className="h-12 rounded-md border-slate-200 text-sm font-semibold shadow-none"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {propertyTypeOptions.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="space-y-2 md:col-span-1">

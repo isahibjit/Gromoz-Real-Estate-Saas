@@ -22,11 +22,16 @@ import {
 type Actor = { sub: string; role: Role | string };
 
 const EMPLOYEE_SELF_SERVICE_ROLES = new Set<string>([
+  'SUPER_ADMIN',
+  'ADMIN',
+  'HR',
+  'SALES_MANAGER',
   'TEAM_LEADER',
   'MANAGER',
   'TELECALLER',
   'SALES_AGENT',
   'FIELD_EXECUTIVE',
+  'MARKETING',
   'BACKEND',
 ]);
 const EMPLOYEE_SELF_SERVICE_READ_MODULES = new Set<string>([

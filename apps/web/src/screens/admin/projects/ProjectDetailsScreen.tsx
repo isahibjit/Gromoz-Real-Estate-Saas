@@ -73,6 +73,7 @@ import {
   getProjectById,
   getProjectImageGallery,
   getUnitById,
+  propertyTypeOptions,
   type ProjectBrochure,
   type ProjectCatalogItem,
   type ProjectConfigurationVariant,
@@ -107,6 +108,7 @@ type EditProjectFormState = {
   name: string;
   location: string;
   developer: string;
+  propertyType: string;
   possession: string;
   configurationVariants: ProjectConfigurationVariant[];
   numberOfFloors: string;
@@ -470,6 +472,7 @@ export function ProjectDetailsScreen() {
       name: project?.name ?? "",
       location: project?.location ?? "",
       developer: project?.developer ?? "",
+      propertyType: project?.propertyType ?? "Residential",
       possession: project?.possession ?? "",
       configurationVariants: project?.configurationVariants ?? [],
       numberOfFloors: project?.numberOfFloors?.toString() ?? "",
@@ -556,6 +559,7 @@ export function ProjectDetailsScreen() {
       name: project.name,
       location: project.location,
       developer: project.developer,
+      propertyType: project.propertyType ?? "Residential",
       possession: project.possession ?? "",
       configurationVariants: project.configurationVariants ?? [],
       numberOfFloors: project.numberOfFloors?.toString() ?? "",
@@ -1387,6 +1391,9 @@ export function ProjectDetailsScreen() {
                     )}
                   >
                     {projectStatus}
+                  </Badge>
+                  <Badge className="border border-border bg-muted text-xs font-semibold text-foreground">
+                    {project.propertyType || "Residential"}
                   </Badge>
                   {projectPossession ? (
                     <Badge className="border-0 bg-slate-100 text-[11px] font-extrabold text-secondary">
@@ -2386,6 +2393,29 @@ export function ProjectDetailsScreen() {
                       }))
                     }
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <label>Property Type</label>
+                  <Select
+                    value={projectFormState.propertyType}
+                    onValueChange={(val) =>
+                      setProjectFormState((current) => ({
+                        ...current,
+                        propertyType: val,
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="h-11 rounded-md border-slate-200 text-sm font-semibold shadow-none">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {propertyTypeOptions.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <label>Status</label>

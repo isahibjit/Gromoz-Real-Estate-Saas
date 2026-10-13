@@ -24,12 +24,12 @@ export class TenantAccessService {
 
   // Legacy HR profiles and permissions are global singletons per user. Until
   // migrated, they must not be exposed or mutated through shared identities.
-  employeeWhere(): Prisma.UserWhereInput {
+  employeeWhere(organizationId = this.organizationId): Prisma.UserWhereInput {
     return {
       role: { not: 'SUPER_ADMIN' },
       organizationMemberships: {
-        some: { organizationId: this.organizationId },
-        none: { organizationId: { not: this.organizationId } },
+        some: { organizationId: organizationId },
+        none: { organizationId: { not: organizationId } },
       },
     };
   }

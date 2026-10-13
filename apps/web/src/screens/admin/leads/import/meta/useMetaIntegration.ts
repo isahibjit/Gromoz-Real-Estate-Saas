@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { MetaFormRoutingOverride, MetaFormRoutingOverrides } from "@truroot/shared";
 
 import { api } from "../../../../../common/api";
 import { currentOrganizationId } from "../../../../../common/tenantRequestScope";
@@ -32,9 +33,10 @@ export interface MetaIntegrationConfig {
   pageProjectMappings: Record<string, string>;
   pageSourceMappings: Record<string, string>;
   pageTeamMappings: Record<string, string>;
+  formRoutingOverrides?: MetaFormRoutingOverrides;
   pageAssignmentOverrides: Record<
     string,
-    { telecallerId?: string; fieldExecutiveId?: string }
+    { ownerId?: string; telecallerId?: string; fieldExecutiveId?: string }
   >;
   pageAccessTokenConfigured: boolean;
   oauthRedirectUrl: string;
@@ -68,6 +70,8 @@ export interface MetaIntegrationConfig {
     sourceName: string;
     teamId: string;
     teamName: string;
+    ownerId: string;
+    ownerName: string;
     telecallerId: string;
     telecallerName: string;
     fieldExecutiveId: string;
@@ -117,6 +121,8 @@ export interface MetaDeliveryLog {
   displayId?: string;
   reason?: string;
   outcome?: string;
+  routingScope?: "page" | "form";
+  routingFallbacks?: string[];
   eventCount?: number;
 }
 
@@ -164,7 +170,7 @@ export function useMetaIntegrationMutations() {
         pageTeamMappings?: Record<string, string>;
         pageAssignmentOverrides?: Record<
           string,
-          { telecallerId?: string; fieldExecutiveId?: string }
+          { ownerId?: string; telecallerId?: string; fieldExecutiveId?: string }
         >;
         notes?: string;
       }) => {
@@ -221,6 +227,7 @@ export function useMetaIntegrationMutations() {
         projectId?: string;
         sourceId?: string;
         teamId?: string;
+        ownerId?: string;
         telecallerId?: string;
         fieldExecutiveId?: string;
       }) => {
@@ -231,9 +238,20 @@ export function useMetaIntegrationMutations() {
             projectId: payload.projectId,
             sourceId: payload.sourceId,
             teamId: payload.teamId,
+            ownerId: payload.ownerId,
             telecallerId: payload.telecallerId,
             fieldExecutiveId: payload.fieldExecutiveId,
           },
+        );
+        return data.data as MetaIntegrationConfig;
+      },
+      onSuccess: invalidate,
+    }),
+    saveFormRouting: useMutation({
+      mutationFn: async (payload: { pageId: string; formId: string; routing: MetaFormRoutingOverride }) => {
+        const { data } = await api.patch(
+          `/integrations/meta/pages/${encodeURIComponent(payload.pageId)}/forms/${encodeURIComponent(payload.formId)}/routing`,
+          payload.routing,
         );
         return data.data as MetaIntegrationConfig;
       },

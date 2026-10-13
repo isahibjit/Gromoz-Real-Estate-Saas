@@ -5,10 +5,24 @@ import {
   Logger,
   NotFoundException,
   UnauthorizedException,
+  Optional,
 } from '@nestjs/common';
-import { Prisma, Role } from '@prisma/client';
+import { Prisma, Role, type AutoAssignmentEvent } from '@prisma/client';
+import {
+  MetaFormRoutingSchema,
+  resolveMetaRouting,
+  type MetaFormRoutingOverrides,
+} from '@truroot/shared';
 import PDFDocument from 'pdfkit';
 import { createHmac, createSign, randomBytes, randomUUID } from 'crypto';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import {
+  normalizeAutoAssignmentRoute,
+  validateRotationCount,
+  readAutoAssignmentSnapshot,
+  nextAutoAssignmentPosition,
+  type AutoAssignmentSnapshot,
+} from './auto-assignment-routing';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { getUserRoleLabel } from '../common/role-labels';
 import { RealtimeService } from '../realtime/realtime.service';
@@ -21,9 +35,35 @@ import {
   SUPPORTED_WHATSAPP_EVENT_SET,
   type SupportedWhatsAppEvent,
 } from './notifications/notification.constants';
+import {
+  assertValidRoutingAssignees,
+  LeadSourceConnectionsService,
+  ROUTING_OWNER_ROLES,
+} from './lead-source-connections.service';
 
 type Query = Record<string, string | string[] | undefined>;
 type Body = Record<string, any>;
+type LeadStatusMaster = {
+  id: string;
+  name: string;
+  code: string;
+  triggerAction: string;
+  allowFollowUp: boolean;
+  manualScore: number | null;
+};
+type SiteVisitRecord = Prisma.SiteVisitGetPayload<Record<string, never>>;
+type SiteVisitCompletion = {
+  leadStatusId: string;
+  scheduledFollowUp: Date | null;
+  remarkText: string;
+};
+type LeadAssigneeType = 'telecaller' | 'field-executive';
+type BookingFinanceViewer = {
+  visibilityScope: 'OWN' | 'OWN_AND_TEAM' | 'ALL';
+  teamUserIds: Set<string>;
+  bookingUserIds: Set<string> | null;
+  canEdit: boolean;
+};
 type MetaCredentials = {
   pageAccessToken: string;
   userAccessToken: string;
@@ -1188,6 +1228,10 @@ const formatMoneyRange = (min?: unknown, max?: unknown) => {
 
 @Injectable()
 export class CrmService {
+  private readonly assignmentTransaction = new AsyncLocalStorage<{
+    tx: Prisma.TransactionClient;
+    afterCommit: Array<() => Promise<unknown>>;
+  }>();
   private readonly logger = new Logger(CrmService.name);
 
   constructor(
@@ -1198,9 +1242,20 @@ export class CrmService {
     private readonly tenantContext: TenantContextService,
     private readonly notificationSettings: TenantNotificationService,
     private readonly whatsappDispatches: WhatsAppDispatchService,
+    @Optional()
+    private readonly leadSourceConnections?: LeadSourceConnectionsService,
   ) {}
 
+  private connections() {
+    return (
+      this.leadSourceConnections ??
+      new LeadSourceConnectionsService(this.prisma, this.tenantAccess, this.tenantContext)
+    );
+  }
+
   private db() {
+    const transaction = this.assignmentTransaction.getStore();
+    if (transaction) return transaction.tx;
     return this.prisma as any;
   }
 
@@ -1214,6 +1269,77 @@ export class CrmService {
         'Platform spectators have read-only workspace access',
       );
     }
+  }
+
+  private async withAssignmentTransaction<T>(
+    leadId: string,
+    work: () => Promise<T>,
+  ): Promise<T> {
+    if (this.assignmentTransaction.getStore()) return work();
+    const afterCommit: Array<() => Promise<unknown>> = [];
+    const result = await this.prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT "id" FROM "Lead" WHERE "id" = ${leadId} FOR UPDATE`;
+        return this.assignmentTransaction.run({ tx, afterCommit }, work);
+      },
+      { timeout: 20000 },
+    );
+    for (const effect of afterCommit) {
+      await effect().catch((error: unknown) =>
+        this.logger.warn(
+          `Post-commit assignment notification failed: ${String(error)}`,
+        ),
+      );
+    }
+    return result;
+  }
+
+  private async resolveActiveLeadStatus(
+    value: unknown,
+    db: Pick<Prisma.TransactionClient, 'leadMasterValue'> = this.prisma,
+  ): Promise<LeadStatusMaster> {
+    const identifier = String(value ?? '').trim();
+    if (!identifier) throw new BadRequestException('Lead status is required');
+    const status = await db.leadMasterValue.findFirst({
+      where: {
+        categoryRef: { code: { equals: 'status', mode: 'insensitive' } },
+        isActive: true,
+        OR: [
+          { id: identifier },
+          { code: { equals: identifier, mode: 'insensitive' } },
+          { name: { equals: identifier, mode: 'insensitive' } },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        triggerAction: true,
+        allowFollowUp: true,
+        manualScore: true,
+      },
+    });
+    if (!status) throw new BadRequestException('Lead status is invalid');
+    return status;
+  }
+
+  private isSiteVisitCompletionStatus(status: LeadStatusMaster) {
+    const identity = `${status.code} ${status.name}`.toLowerCase();
+    return (
+      (identity.includes('site visit') ||
+        identity.includes('site_visit') ||
+        identity.includes('re-visit') ||
+        identity.includes('re_visit') ||
+        identity.includes('revisit')) &&
+      (identity.includes('done') || identity.includes('completed'))
+    );
+  }
+
+  private isProtectedSiteVisitStatus(status: LeadStatusMaster) {
+    return (
+      String(status.triggerAction).toUpperCase() === 'CREATE_SITE_VISIT' ||
+      this.isSiteVisitCompletionStatus(status)
+    );
   }
 
   private async nextLeadDisplayId() {
@@ -1257,13 +1383,15 @@ export class CrmService {
         data: {
           actorUserId,
           action,
-          organizationId,
+          organizationId: organizationId ?? this.tenantContext.getTenantId(),
           entityType,
           entityId,
           metadata,
         },
       })
-      .catch(() => undefined);
+      .catch((error: unknown) => {
+        if (this.assignmentTransaction.getStore()) throw error;
+      });
   }
 
   private roleLabel(role?: string | null) {
@@ -1829,6 +1957,13 @@ export class CrmService {
       invalidTokenCount: 0,
     };
     if (!recipientUserId) return emptyResult;
+    const transaction = this.assignmentTransaction.getStore();
+    if (transaction) {
+      transaction.afterCommit.push(() =>
+        this.sendPushNotification(recipientUserId, payload, options),
+      );
+      return emptyResult;
+    }
 
     const isFcmEnabled = await this.isNotificationChannelEnabled(
       'fcm',
@@ -2067,35 +2202,6 @@ export class CrmService {
     return `${this.magicBricksPublicApiBaseUrl()}/integrations/magicbricks/leads`;
   }
 
-  private magicBricksApiKeySecret() {
-    return (
-      process.env.MAGICBRICKS_API_KEY_SECRET ??
-      process.env.JWT_ACCESS_SECRET ??
-      'truroot-magicbricks-secret'
-    );
-  }
-
-  private buildMagicBricksApiKey(webhookKeyId: string) {
-    const signature = createHmac('sha256', this.magicBricksApiKeySecret())
-      .update(`${magicBricksProvider}:${webhookKeyId}`)
-      .digest('hex')
-      .slice(0, 24);
-    return `mb_${webhookKeyId}.${signature}`;
-  }
-
-  private verifyMagicBricksApiKey(apiKey?: string | null) {
-    if (!apiKey || !apiKey.startsWith('mb_')) return null;
-    const [webhookKeyId, signature] = apiKey.replace(/^mb_/, '').split('.');
-    if (!webhookKeyId || !signature) return null;
-    const expected = this.buildMagicBricksApiKey(webhookKeyId).replace(
-      /^mb_/,
-      '',
-    );
-    const [, expectedSignature] = expected.split('.');
-    if (expectedSignature !== signature) return null;
-    return webhookKeyId;
-  }
-
   private getMagicBricksFieldMapping(mapping?: unknown) {
     if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping)) {
       return { ...defaultMagicBricksFieldMapping };
@@ -2115,7 +2221,7 @@ export class CrmService {
     if (!actorUserId) {
       if (explicitOrgId)
         throw new ForbiddenException('Authenticated tenant selection required');
-      return undefined;
+      return this.tenantContext.getTenantId();
     }
     const account = await this.prisma.user.findUnique({
       where: { id: actorUserId },
@@ -2310,8 +2416,23 @@ export class CrmService {
     return rows[0];
   }
 
-  private async portalIntegrationUpdate(id: string, data: Body) {
+  private async portalIntegrationUpdate(id: string, data: Body, removedMetaPageIds: readonly string[] = []) {
     const delegate = this.portalIntegrationDelegate();
+    if (delegate && data.settings?.formRoutingOverrides && typeof this.prisma.$transaction === 'function') {
+      // Existing page/account writers must preserve form saves made since their initial read.
+      return this.prisma.$transaction(async (tx) => {
+        const records = await tx.$queryRaw<{ settings: Prisma.JsonValue }[]>`
+          SELECT "settings" FROM "PortalIntegration" WHERE "id" = ${id} FOR UPDATE
+        `;
+        if (!records[0]) throw new NotFoundException('Portal integration not found');
+        const formRoutingOverrides = this.getMetaSettings(records[0].settings).formRoutingOverrides;
+        for (const pageId of removedMetaPageIds) delete formRoutingOverrides[pageId];
+        return tx.portalIntegration.update({
+          where: { id },
+          data: { ...data, settings: { ...data.settings, formRoutingOverrides } },
+        });
+      });
+    }
     if (delegate) {
       try {
         return await delegate.update({
@@ -2406,57 +2527,28 @@ export class CrmService {
     return rows[0];
   }
 
-  private async ensureMagicBricksIntegration(
-    actorUserId?: string,
-    organizationId?: string,
-  ) {
-    const orgId = await this.resolveTenantOrganizationId(
+  private async ensureMagicBricksIntegration(actorUserId?: string, organizationId?: string) {
+    const integration = await this.connections().getPrimaryAccount(
+      magicBricksProvider,
+      defaultMagicBricksFieldMapping,
       actorUserId,
       organizationId,
     );
-    const existing = await this.portalIntegrationFindByProvider(
-      magicBricksProvider,
-      orgId,
-    );
-    if (existing) {
-      const existingMapping = this.getMagicBricksFieldMapping(
-        existing.fieldMapping,
+    const mapping = this.getMagicBricksFieldMapping(integration.fieldMapping);
+    const needsMappingPatch =
+      !integration.fieldMapping ||
+      (integration.fieldMapping as Body).CreatedDate === 'remarks';
+    if (mapping.CreatedDate === 'remarks') mapping.CreatedDate = 'addedDate';
+    if (needsMappingPatch) {
+      await this.connections().saveFieldMapping(
+        magicBricksProvider,
+        integration.id,
+        mapping,
+        actorUserId,
       );
-      if (existingMapping.CreatedDate === 'remarks') {
-        existingMapping.CreatedDate = 'addedDate';
-      }
-      const needsPatch =
-        !existing.webhookKeyId ||
-        !existing.fieldMapping ||
-        !existing.displayName ||
-        (!existing.organizationId && orgId) ||
-        existing.fieldMapping?.CreatedDate === 'remarks';
-      if (!needsPatch) return existing;
-      return this.portalIntegrationUpdate(existing.id, {
-        displayName: existing.displayName || magicBricksDisplayName,
-        webhookKeyId: existing.webhookKeyId || randomBytes(12).toString('hex'),
-        fieldMapping: existingMapping,
-        organizationId: existing.organizationId || orgId,
-        updatedById: actorUserId,
-      });
+      return this.connections().getAccount(magicBricksProvider, integration.id);
     }
-
-    const now = new Date();
-    return this.portalIntegrationCreate({
-      id: crypto.randomUUID(),
-      organizationId: orgId ?? null,
-      provider: magicBricksProvider,
-      displayName: magicBricksDisplayName,
-      status: 'Draft',
-      isActive: true,
-      webhookKeyId: randomBytes(12).toString('hex'),
-      fieldMapping: defaultMagicBricksFieldMapping,
-      totalLeadsReceived: 0,
-      createdById: actorUserId,
-      updatedById: actorUserId,
-      createdAt: now,
-      updatedAt: now,
-    });
+    return integration;
   }
 
   private async getMagicBricksSourceMaster() {
@@ -2498,153 +2590,6 @@ export class CrmService {
     );
   }
 
-  private coalesceMagicBricksPayload(body: Body) {
-    return {
-      apiKey:
-        body.ApiKey ?? body.api_key ?? body.apikey ?? body.APIKey ?? body.Key,
-      firstName:
-        body.FirstName ??
-        body.first_name ??
-        body.name ??
-        body.FullName ??
-        body.fullName,
-      lastName: body.LastName ?? body.last_name,
-      mobile:
-        body.Mobile ??
-        body.mobile ??
-        body.phone ??
-        body.Phone ??
-        body.contactNumber,
-      secondaryNumber:
-        body.SecondaryNumber ?? body.secondary_number ?? body.alternateMobile,
-      createdDate: body.CreatedDate ?? body.created_date ?? body.createdDate,
-      email: body.Email ?? body.email,
-      remark: body.Remark ?? body.remark ?? body.remarks ?? body.Remarks,
-      hasVisitScheduled: body.HasVisitScheduled ?? body.has_visit_scheduled,
-      source: body.Source ?? body.source ?? 'MagicBricks',
-      visitDate: body.VisitDate ?? body.visit_date,
-      projectName:
-        body.ProjectName ??
-        body.project_name ??
-        body.projectName ??
-        body.Project,
-      city: body.City ?? body.city,
-      locality: body.Locality ?? body.locality,
-      budget: body.Budget ?? body.budget,
-      configuration: body.Configuration ?? body.configuration,
-      propertyType: body.PropertyType ?? body.propertyType,
-    };
-  }
-
-  private async normalizeMagicBricksPayload(body: Body, mapping?: unknown) {
-    const payload = this.coalesceMagicBricksPayload(body);
-    const fieldMapping = this.getMagicBricksFieldMapping(mapping);
-    const normalized: Body = {};
-
-    for (const [sourceField, targetField] of Object.entries(fieldMapping)) {
-      if (targetField === 'skip') continue;
-      const rawValue = (payload as any)[sourceField] ?? body[sourceField];
-      if (
-        rawValue === undefined ||
-        rawValue === null ||
-        String(rawValue).trim() === ''
-      ) {
-        continue;
-      }
-      if (!normalized[targetField]) {
-        normalized[targetField] = String(rawValue).trim();
-      }
-    }
-
-    const leadName =
-      normalized.leadName ||
-      [payload.firstName, payload.lastName].filter(Boolean).join(' ') ||
-      payload.firstName ||
-      '';
-
-    const projectName =
-      normalized.preferredProject ?? payload.projectName ?? undefined;
-
-    const matchedProject = projectName
-      ? await this.db()
-          .project.findFirst({
-            where: {
-              OR: [
-                { name: { equals: String(projectName), mode: 'insensitive' } },
-                {
-                  name: { contains: String(projectName), mode: 'insensitive' },
-                },
-              ],
-            },
-            select: { id: true, name: true, location: true },
-          })
-          .catch(() => null)
-      : null;
-
-    const [magicBricksSource, newLeadStatus] = await Promise.all([
-      this.getMagicBricksSourceMaster(),
-      this.getDefaultNewLeadStatusMaster(),
-    ]);
-
-    const remarksParts = [
-      normalized.remarks,
-      payload.remark && payload.remark !== normalized.remarks
-        ? String(payload.remark).trim()
-        : undefined,
-      payload.secondaryNumber
-        ? `Secondary number: ${String(payload.secondaryNumber).trim()}`
-        : undefined,
-      payload.createdDate &&
-      String(normalized.addedDate ?? '').trim() !==
-        String(payload.createdDate).trim()
-        ? `MagicBricks created date: ${String(payload.createdDate).trim()}`
-        : undefined,
-      payload.hasVisitScheduled !== undefined
-        ? `Has visit scheduled: ${String(payload.hasVisitScheduled).trim()}`
-        : undefined,
-      payload.visitDate
-        ? `Visit date: ${String(payload.visitDate).trim()}`
-        : undefined,
-      matchedProject
-        ? undefined
-        : projectName
-        ? `Project: ${String(projectName).trim()}`
-        : undefined,
-      payload.city ? `City: ${String(payload.city).trim()}` : undefined,
-    ].filter(Boolean);
-
-    return {
-      payload,
-      fieldMapping,
-      normalizedLead: {
-        leadName: String(leadName).trim(),
-        mobileNumber: String(
-          normalized.mobileNumber ?? payload.mobile ?? '',
-        ).trim(),
-        emailAddress: String(
-          normalized.emailAddress ?? payload.email ?? '',
-        ).trim(),
-        preferredProjectId: matchedProject?.id,
-        preferredProjectName:
-          matchedProject?.name ?? (projectName ? String(projectName) : ''),
-        preferredLocation:
-          normalized.preferredLocation ??
-          matchedProject?.location ??
-          payload.locality ??
-          '',
-        leadSourceName: magicBricksSource?.name ?? magicBricksDisplayName,
-        leadSourceId: magicBricksSource?.id,
-        leadStatusId: newLeadStatus?.id,
-        addedDate: normalizeMagicBricksDate(
-          normalized.addedDate ?? payload.createdDate,
-        ),
-        remarks: remarksParts.join(' | '),
-        configuration: normalized.configuration ?? payload.configuration ?? '',
-        propertyType: normalized.propertyType ?? payload.propertyType ?? '',
-      },
-    };
-  }
-
   private async getMagicBricksLeadStats(organizationId?: string) {
     const magicBricksSource = await this.getMagicBricksSourceMaster();
     const sourceFilters = [
@@ -2656,30 +2601,26 @@ export class CrmService {
         : undefined,
       'MagicBricks',
       'MAGICBRICKS',
-      'magicbricks',
     ].filter(Boolean);
 
     const monthStart = startOfDay(
       new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     );
 
-    const whereClause: Body = {
-      deletedAt: null,
-      sourceId: { in: sourceFilters },
-    };
-    if (organizationId) {
-      whereClause.organizationId = organizationId;
-    }
-
     const [totalImportedThisMonth, latestLead] = await Promise.all([
       this.db().lead.count({
         where: {
-          ...whereClause,
+          deletedAt: null,
+          organizationId,
+      sourceId: { in: sourceFilters },
           createdAt: { gte: monthStart },
         },
       }),
       this.db().lead.findFirst({
-        where: whereClause,
+        where: {
+          deletedAt: null,
+          sourceId: { in: sourceFilters },
+        },
         orderBy: { createdAt: 'desc' },
         select: { createdAt: true },
       }),
@@ -2692,7 +2633,9 @@ export class CrmService {
   }
 
   private async buildMagicBricksManual(integration: Body) {
-    const apiKey = this.buildMagicBricksApiKey(integration.webhookKeyId);
+    const apiKey = this.connections().buildMagicBricksApiKey(
+      integration.webhookKeyId,
+    );
     const workingEndpoint = this.magicBricksWebhookUrl();
     const samplePayload = {
       ApiKey: apiKey,
@@ -2719,7 +2662,7 @@ export class CrmService {
     ).toString()}`;
 
     return {
-      crmName: 'Truroot Realty CRM',
+      crmName: 'Trueroot Realty CRM',
       pushIntegrationType: 'GET',
       apiKey,
       workingEndpointOpenUrl: workingEndpoint,
@@ -2729,47 +2672,166 @@ export class CrmService {
         success: 'Success: Lead Mapped To TRUEROOT-CRM Successfully.',
         failure: 'Failure: Lead already exists',
       },
-      authenticationType: 'API Key',
-      clientId: 'Truroot Realty CRM',
-      clientKey: apiKey,
+      authenticationType: 'Open URL with ApiKey query parameter',
+      clientId: 'Not required',
+      clientKey: 'Not required',
       integrationManual: [
-        'Share the working endpoint open URL with the MagicBricks integration team.',
         'Configure MagicBricks push integration type as GET.',
-        'Pass the ApiKey parameter in query string with your unique key.',
-        'Map your required fields including FirstName, LastName, Mobile, Email, and ProjectName.',
-        'Test the integration using the test lead submission button.',
+        'Use the working endpoint open URL and pass ApiKey plus lead fields as query parameters.',
+        'FirstName and Mobile are required. LastName, Email, SecondaryNumber, Remark, Source, VisitDate and ProjectName are optional.',
+        'The CRM validates the ApiKey, checks duplicates by mobile/email, maps the project by name, and creates the lead as New Lead.',
       ],
     };
   }
 
-  async getMagicBricksIntegration(
-    actorUserId?: string,
-    organizationId?: string,
-  ) {
-    const orgId = await this.resolveTenantOrganizationId(
-      actorUserId,
-      organizationId,
-    );
-    const integration = await this.ensureMagicBricksIntegration(
-      actorUserId,
-      orgId,
-    );
-    const stats = await this.getMagicBricksLeadStats(
-      integration.organizationId,
-    );
+  private coalesceMagicBricksPayload(body: Body) {
+    const firstName = String(body.FirstName ?? body.firstName ?? '').trim();
+    const lastName = String(body.LastName ?? body.lastName ?? '').trim();
+    const fullName = [firstName, lastName].filter(Boolean).join(' ');
+    return {
+      ...body,
+      FirstName: fullName || body.FirstName,
+      api_key: body.api_key ?? body.ApiKey ?? body.apikey,
+      name: body.name ?? body.responderName ?? fullName,
+      mobile: body.mobile ?? body.Mobile ?? body.responderPhone,
+      alternateMobile:
+        body.alternateMobile ??
+        body.alternateNumber ??
+        body.SecondaryNumber ??
+        body.secondaryNumber,
+      email: body.email ?? body.Email ?? body.responderEmail,
+      project: body.project ?? body.ProjectName ?? body.projectName ?? body.isd,
+      projectName:
+        body.ProjectName ?? body.projectName ?? body.project ?? body.isd,
+      msg: body.msg ?? body.Remark ?? body.remark ?? body.comments,
+      comments: body.comments ?? body.Remark ?? body.remark ?? body.msg,
+      city: body.city ?? body.City,
+      source: body.source ?? body.Source ?? magicBricksDisplayName,
+      createdDate: body.CreatedDate ?? body.createdDate,
+      hasVisitScheduled: body.HasVisitScheduled ?? body.hasVisitScheduled,
+      visitDate: body.VisitDate ?? body.visitDate,
+    };
+  }
+
+  private async normalizeMagicBricksPayload(body: Body, mapping?: unknown, organizationId?: string) {
+    const payload = this.coalesceMagicBricksPayload(body);
+    const fieldMapping = this.getMagicBricksFieldMapping(mapping);
+    const normalized: Body = {};
+
+    for (const [sourceField, targetField] of Object.entries(fieldMapping)) {
+      if (targetField === 'skip') continue;
+      const rawValue = payload[sourceField];
+      if (
+        rawValue === undefined ||
+        rawValue === null ||
+        String(rawValue).trim() === ''
+      ) {
+        continue;
+      }
+      if (!normalized[targetField]) {
+        normalized[targetField] = String(rawValue).trim();
+      }
+    }
+
+    const projectName =
+      normalized.preferredProject ??
+      payload.projectName ??
+      payload.project ??
+      undefined;
+    const matchedProject = projectName
+      ? await this.db().project.findFirst({
+          where: {
+            organizationId,
+            OR: [
+              { name: { equals: String(projectName), mode: 'insensitive' } },
+              { name: { contains: String(projectName), mode: 'insensitive' } },
+            ],
+          },
+          select: { id: true, name: true, location: true },
+        })
+      : null;
+
+    const [magicBricksSource, newLeadStatus] = await Promise.all([
+      this.getMagicBricksSourceMaster(),
+      this.getDefaultNewLeadStatusMaster(),
+    ]);
+    const remarksParts = [
+      normalized.remarks,
+      payload.comments && payload.comments !== normalized.remarks
+        ? String(payload.comments).trim()
+        : undefined,
+      payload.alternateMobile
+        ? `Secondary number: ${String(payload.alternateMobile).trim()}`
+        : undefined,
+      payload.createdDate &&
+      String(normalized.addedDate ?? '').trim() !==
+        String(payload.createdDate).trim()
+        ? `MagicBricks created date: ${String(payload.createdDate).trim()}`
+        : undefined,
+      payload.hasVisitScheduled !== undefined
+        ? `Has visit scheduled: ${String(payload.hasVisitScheduled).trim()}`
+        : undefined,
+      payload.visitDate
+        ? `Visit date: ${String(payload.visitDate).trim()}`
+        : undefined,
+      matchedProject
+        ? undefined
+        : projectName
+        ? `Project: ${String(projectName).trim()}`
+        : undefined,
+      payload.city ? `City: ${String(payload.city).trim()}` : undefined,
+    ].filter(Boolean);
+
+    return {
+      payload,
+      fieldMapping,
+      normalizedLead: {
+        leadName: normalized.leadName ?? '',
+        mobileNumber: normalized.mobileNumber ?? '',
+        emailAddress: normalized.emailAddress ?? '',
+        preferredProjectId: matchedProject?.id,
+        preferredProjectName:
+          matchedProject?.name ?? (projectName ? String(projectName) : ''),
+        preferredLocation:
+          normalized.preferredLocation ?? matchedProject?.location ?? '',
+        leadSourceName: magicBricksSource?.name ?? magicBricksDisplayName,
+        leadSourceId: magicBricksSource?.id,
+        leadStatusId: newLeadStatus?.id,
+        addedDate: normalizeMagicBricksDate(
+          normalized.addedDate ?? payload.createdDate,
+        ),
+        remarks: remarksParts.join(' | '),
+        configuration: normalized.configuration ?? '',
+        propertyType: normalized.propertyType ?? '',
+      },
+    };
+  }
+
+  async getMagicBricksIntegration(actorUserId?: string, organizationId?: string) {
+    const integration = await this.ensureMagicBricksIntegration(actorUserId, organizationId);
+    return this.buildMagicBricksAccountResponse(integration);
+  }
+
+  private async buildMagicBricksAccountResponse(integration: Body) {
+    const stats = await this.getMagicBricksLeadStats(integration.organizationId);
     const manual = await this.buildMagicBricksManual(integration);
-    const apiKey = this.buildMagicBricksApiKey(integration.webhookKeyId);
+    const apiKey = this.connections().buildMagicBricksApiKey(
+      integration.webhookKeyId,
+    );
     const mapping = this.getMagicBricksFieldMapping(integration.fieldMapping);
 
     return {
       data: {
         id: integration.id,
-        organizationId: integration.organizationId,
         provider: magicBricksProvider,
+        name: integration.name ?? 'Primary account',
+        externalAccountId: integration.externalAccountId ?? null,
         displayName: magicBricksDisplayName,
         crmName: manual.crmName,
         status: integration.status,
         isActive: integration.isActive,
+        isPrimary: Boolean(integration.isPrimary),
+        archivedAt: integration.archivedAt ?? null,
         apiKey,
         apiKeyPreview: `••••••••${apiKey.slice(-8)}`,
         endpointUrl: manual.workingEndpointOpenUrl,
@@ -2786,95 +2848,136 @@ export class CrmService {
         lastTestStatus: integration.lastTestStatus,
         lastLeadReceivedAt: integration.lastLeadReceivedAt,
         totalLeadsReceived: integration.totalLeadsReceived,
+        leadCount: integration._count?.leads ?? 0,
         notes: integration.notes ?? '',
+        routing: integration.routingRule ?? null,
+        createdAt: integration.createdAt,
+        updatedAt: integration.updatedAt,
       },
     };
   }
 
-  async saveMagicBricksIntegration(
+  async listMagicBricksAccounts(includeArchived = false) {
+    const result = await this.connections().listAccounts(
+      magicBricksProvider,
+      includeArchived,
+    );
+    const accounts = await Promise.all(
+      result.accounts.map(async (account) =>
+        (await this.buildMagicBricksAccountResponse(account)).data,
+      ),
+    );
+    return { data: { accounts, summary: result.summary } };
+  }
+
+  async getMagicBricksAccount(accountId: string) {
+    const account = await this.connections().getAccount(
+      magicBricksProvider,
+      accountId,
+    );
+    return this.buildMagicBricksAccountResponse(account);
+  }
+
+  async createMagicBricksAccount(body: Body, actorUserId?: string) {
+    const account = await this.connections().createAccount(
+      magicBricksProvider,
+      {
+        name: String(body.name ?? ''),
+        externalAccountId: optionalString(body.externalAccountId),
+      },
+      defaultMagicBricksFieldMapping,
+      actorUserId,
+    );
+    return this.buildMagicBricksAccountResponse(account);
+  }
+
+  async updateMagicBricksAccount(
+    accountId: string,
     body: Body,
     actorUserId?: string,
-    organizationId?: string,
   ) {
+    const account = await this.connections().updateAccount(
+      magicBricksProvider,
+      accountId,
+      {
+        name: body.name === undefined ? undefined : String(body.name),
+        externalAccountId:
+          body.externalAccountId === undefined
+            ? undefined
+            : String(body.externalAccountId ?? ''),
+        isActive: body.isActive,
+        notes: body.notes === undefined ? undefined : String(body.notes ?? ''),
+      },
+      actorUserId,
+    );
+    return this.buildMagicBricksAccountResponse(account);
+  }
+
+  async setMagicBricksAccountsStatus(
+    isActive: boolean,
+    actorUserId?: string,
+  ) {
+    await this.connections().setProviderStatus(
+      magicBricksProvider,
+      isActive,
+      actorUserId,
+    );
+    return this.listMagicBricksAccounts();
+  }
+
+  async archiveMagicBricksAccount(accountId: string, actorUserId?: string) {
+    await this.connections().archiveAccount(
+      magicBricksProvider,
+      accountId,
+      actorUserId,
+    );
+    return this.listMagicBricksAccounts();
+  }
+
+  async restoreMagicBricksAccount(accountId: string, actorUserId?: string) {
+    const account = await this.connections().restoreAccount(
+      magicBricksProvider,
+      accountId,
+      actorUserId,
+    );
+    return this.buildMagicBricksAccountResponse(account);
+  }
+
+  async saveMagicBricksIntegration(body: Body, actorUserId?: string, organizationId?: string) {
     if (body.isActive !== undefined && typeof body.isActive !== 'boolean') {
       throw new BadRequestException('isActive must be a boolean');
     }
-    const orgId = await this.resolveTenantOrganizationId(
-      actorUserId,
-      organizationId,
-    );
-    const integration = await this.ensureMagicBricksIntegration(
-      actorUserId,
-      orgId,
-    );
+    const integration = await this.ensureMagicBricksIntegration(actorUserId, organizationId);
     const isPaused = requestedIntegrationPauseState(body, integration);
-    const isActive = !isPaused;
-    await this.portalIntegrationUpdate(integration.id, {
+    await this.connections().updateAccount(
+      magicBricksProvider,
+      integration.id,
+      {
       ...(body.isActive !== undefined ||
       body.isPaused !== undefined ||
       body.status !== undefined
-        ? { isActive }
+          ? { isActive: !isPaused }
         : {}),
       notes:
-        body.notes === undefined ? integration.notes : String(body.notes ?? ''),
-      status: isPaused
-        ? 'Paused'
-        : body.status
-        ? String(body.status)
-        : integration.status === 'Draft' || integration.status === 'Paused'
-        ? 'Configured'
-        : integration.status,
-      updatedById: actorUserId,
-    });
-    await this.audit(
+          body.notes === undefined ? undefined : String(body.notes ?? ''),
+      },
       actorUserId,
-      'MAGICBRICKS_INTEGRATION_UPDATED',
-      'PortalIntegration',
-      integration.id,
     );
-    return this.getMagicBricksIntegration(actorUserId, orgId);
+    return this.getMagicBricksIntegration(actorUserId);
   }
 
-  async regenerateMagicBricksApiKey(
-    actorUserId?: string,
-    organizationId?: string,
-  ) {
-    const orgId = await this.resolveTenantOrganizationId(
-      actorUserId,
-      organizationId,
-    );
-    const integration = await this.ensureMagicBricksIntegration(
-      actorUserId,
-      orgId,
-    );
-    await this.portalIntegrationUpdate(integration.id, {
-      webhookKeyId: randomBytes(12).toString('hex'),
-      updatedById: actorUserId,
-      status:
-        integration.status === 'Draft' ? 'Configured' : integration.status,
-    });
-    await this.audit(
-      actorUserId,
-      'MAGICBRICKS_API_KEY_REGENERATED',
-      'PortalIntegration',
+  async regenerateMagicBricksApiKey(actorUserId?: string, organizationId?: string) {
+    const integration = await this.ensureMagicBricksIntegration(actorUserId, organizationId);
+    await this.connections().regenerateCredential(
+      magicBricksProvider,
       integration.id,
+      actorUserId,
     );
-    return this.getMagicBricksIntegration(actorUserId, orgId);
+    return this.getMagicBricksIntegration(actorUserId);
   }
 
-  async saveMagicBricksFieldMapping(
-    body: Body,
-    actorUserId?: string,
-    organizationId?: string,
-  ) {
-    const orgId = await this.resolveTenantOrganizationId(
-      actorUserId,
-      organizationId,
-    );
-    const integration = await this.ensureMagicBricksIntegration(
-      actorUserId,
-      orgId,
-    );
+  async saveMagicBricksFieldMapping(body: Body, actorUserId?: string, organizationId?: string) {
+    const integration = await this.ensureMagicBricksIntegration(actorUserId, organizationId);
     const mapping = this.getMagicBricksFieldMapping(body.fieldMapping);
     const targetValues = Object.values(mapping);
     if (
@@ -2885,22 +2988,72 @@ export class CrmService {
         'Lead name and mobile number must be mapped before continuing',
       );
     }
-    await this.portalIntegrationUpdate(integration.id, {
-      fieldMapping: mapping,
-      status:
-        !integration.isActive || integration.status === 'Paused'
-          ? 'Paused'
-          : 'Mapped',
-      updatedById: actorUserId,
-    });
-    await this.audit(
-      actorUserId,
-      'MAGICBRICKS_FIELD_MAPPING_UPDATED',
-      'PortalIntegration',
+    await this.connections().saveFieldMapping(
+      magicBricksProvider,
       integration.id,
-      { fieldMapping: mapping },
+      mapping,
+      actorUserId,
     );
-    return this.getMagicBricksIntegration(actorUserId, orgId);
+    return this.getMagicBricksIntegration(actorUserId);
+  }
+
+  async regenerateMagicBricksAccountApiKey(
+    accountId: string,
+    actorUserId?: string,
+  ) {
+    const account = await this.connections().regenerateCredential(
+      magicBricksProvider,
+      accountId,
+      actorUserId,
+    );
+    return this.buildMagicBricksAccountResponse(account);
+  }
+
+  async saveMagicBricksAccountFieldMapping(
+    accountId: string,
+    body: Body,
+    actorUserId?: string,
+  ) {
+    const mapping = this.getMagicBricksFieldMapping(body.fieldMapping);
+    const targetValues = Object.values(mapping);
+    if (
+      !targetValues.includes('leadName') ||
+      !targetValues.includes('mobileNumber')
+    ) {
+      throw new BadRequestException(
+        'Lead name and mobile number must be mapped before continuing',
+      );
+    }
+    const account = await this.connections().saveFieldMapping(
+      magicBricksProvider,
+      accountId,
+      mapping,
+      actorUserId,
+    );
+    return this.buildMagicBricksAccountResponse(account);
+  }
+
+  async saveMagicBricksAccountRouting(
+    accountId: string,
+    body: Body,
+    actorUserId?: string,
+  ) {
+    await this.connections().saveRouting(
+      magicBricksProvider,
+      accountId,
+      body,
+      actorUserId,
+    );
+    return this.getMagicBricksAccount(accountId);
+  }
+
+  async getMagicBricksAccountActivity(accountId: string) {
+    return {
+      data: await this.connections().listActivity(
+        magicBricksProvider,
+        accountId,
+      ),
+    };
   }
 
   async testMagicBricksIntegration(
@@ -2910,15 +3063,46 @@ export class CrmService {
     userAgent?: string,
     organizationId?: string,
   ) {
-    const orgId = await this.resolveTenantOrganizationId(
+    const integration = await this.ensureMagicBricksIntegration(actorUserId, organizationId);
+    return this.testMagicBricksAccountRecord(
+      integration,
+      body,
       actorUserId,
-      organizationId,
+      ip,
+      userAgent,
     );
-    const integration = await this.ensureMagicBricksIntegration(
+  }
+
+  async testMagicBricksAccount(
+    accountId: string,
+    body: Body,
+    actorUserId?: string,
+    ip?: string,
+    userAgent?: string,
+  ) {
+    const integration = await this.connections().getAccount(
+      magicBricksProvider,
+      accountId,
+    );
+    return this.testMagicBricksAccountRecord(
+      integration,
+      body,
       actorUserId,
-      orgId,
+      ip,
+      userAgent,
     );
-    const apiKey = this.buildMagicBricksApiKey(integration.webhookKeyId);
+  }
+
+  private async testMagicBricksAccountRecord(
+    integration: Body,
+    body: Body,
+    actorUserId?: string,
+    ip?: string,
+    userAgent?: string,
+  ) {
+    const apiKey = this.connections().buildMagicBricksApiKey(
+      integration.webhookKeyId,
+    );
     const samplePayload = {
       ApiKey: apiKey,
       FirstName: 'Sahil',
@@ -2938,6 +3122,7 @@ export class CrmService {
     const preview = await this.normalizeMagicBricksPayload(
       samplePayload,
       integration.fieldMapping,
+      integration.organizationId,
     );
     const errors: string[] = [];
 
@@ -2948,22 +3133,16 @@ export class CrmService {
     if (!preview.normalizedLead.mobileNumber)
       errors.push('Mobile number is required');
 
-    const duplicateWhere: Body = {
-      deletedAt: null,
-      OR: [
-        { mobile: preview.normalizedLead.mobileNumber },
-        preview.normalizedLead.emailAddress
-          ? { email: preview.normalizedLead.emailAddress }
-          : undefined,
-      ].filter(Boolean),
-    };
-    if (integration.organizationId) {
-      duplicateWhere.organizationId = integration.organizationId;
-    }
-
     const duplicate = preview.normalizedLead.mobileNumber
       ? await this.db().lead.findFirst({
-          where: duplicateWhere,
+          where: {
+            OR: [
+              { mobile: preview.normalizedLead.mobileNumber },
+              preview.normalizedLead.emailAddress
+                ? { email: preview.normalizedLead.emailAddress }
+                : undefined,
+            ].filter(Boolean),
+          },
           select: { id: true, displayId: true, name: true },
         })
       : null;
@@ -2971,15 +3150,11 @@ export class CrmService {
     const valid = errors.length === 0;
     const status = valid ? 'Success' : 'Failed';
 
-    await this.portalIntegrationUpdate(integration.id, {
-      lastTestedAt: new Date(),
-      lastTestStatus: status,
-      updatedById: actorUserId,
-    });
+    await this.connections().recordTest(integration.id, status, actorUserId);
     await this.audit(
       actorUserId,
       'MAGICBRICKS_INTEGRATION_TESTED',
-      'PortalIntegration',
+      'LeadSourceConnection',
       integration.id,
       {
         valid,
@@ -3025,26 +3200,18 @@ export class CrmService {
   ) {
     const apiKey =
       apiKeyFromHeader ?? body.api_key ?? body.ApiKey ?? body.apikey;
-    const webhookKeyId = this.verifyMagicBricksApiKey(apiKey);
+    const webhookKeyId = this.connections().verifyMagicBricksApiKey(apiKey);
+    const integration = webhookKeyId
+      ? await this.connections().findByWebhookKey(
+          magicBricksProvider,
+          webhookKeyId,
+        )
+      : null;
 
-    if (!webhookKeyId) {
+    if (!integration || !integration.organizationId) {
       return {
         success: false,
-        message: 'Failure: Invalid API key format or signature',
-      };
-    }
-
-    const integration = await this.portalIntegrationFindByWebhookKeyId(
-      webhookKeyId,
-    );
-    if (
-      !integration ||
-      integration.provider !== magicBricksProvider ||
-      !integration.organizationId
-    ) {
-      return {
-        success: false,
-        message: 'Failure: MagicBricks integration not found for this API key',
+        message: 'Failure: Invalid API key',
       };
     }
 
@@ -3058,8 +3225,7 @@ export class CrmService {
       );
       return {
         success: false,
-        message:
-          'Failure: MagicBricks Push API is paused. Lead was not created.',
+        message: 'Failure: MagicBricks Push API is paused. Lead was not created.',
         status: 'PAUSED',
       };
     }
@@ -3067,6 +3233,7 @@ export class CrmService {
     const preview = await this.normalizeMagicBricksPayload(
       body,
       integration.fieldMapping,
+      integration.organizationId,
     );
     if (
       !preview.normalizedLead.leadName ||
@@ -3078,21 +3245,15 @@ export class CrmService {
       };
     }
 
-    const duplicateWhere: Body = {
-      deletedAt: null,
-      OR: [
-        { mobile: preview.normalizedLead.mobileNumber },
-        preview.normalizedLead.emailAddress
-          ? { email: preview.normalizedLead.emailAddress }
-          : undefined,
-      ].filter(Boolean),
-    };
-    if (integration.organizationId) {
-      duplicateWhere.organizationId = integration.organizationId;
-    }
-
     const duplicate = await this.db().lead.findFirst({
-      where: duplicateWhere,
+      where: {
+        OR: [
+          { mobile: preview.normalizedLead.mobileNumber },
+          preview.normalizedLead.emailAddress
+            ? { email: preview.normalizedLead.emailAddress }
+            : undefined,
+        ].filter(Boolean),
+      },
       select: { id: true, displayId: true },
     });
 
@@ -3116,21 +3277,19 @@ export class CrmService {
       };
     }
 
-    const currentIntegration = await this.portalIntegrationFindByWebhookKeyId(
-      webhookKeyId,
+    // Payload normalization and duplicate lookup can overlap an admin pause.
+    const currentIntegration = await this.connections().findByWebhookKey(
+      magicBricksProvider,
+      integration.webhookKeyId,
     );
     if (
       !currentIntegration ||
-      currentIntegration.organizationId !== integration.organizationId
+      isIntegrationPaused(currentIntegration)
     ) {
-      return { success: false, message: 'Failure: Invalid API key' };
-    }
-    if (isIntegrationPaused(currentIntegration)) {
       return {
         success: false,
+        message: 'Failure: MagicBricks Push API is paused. Lead was not created.',
         status: 'PAUSED',
-        message:
-          'Failure: MagicBricks Push API is paused. Lead was not created.',
       };
     }
     const lead = await this.createLead({
@@ -3141,23 +3300,32 @@ export class CrmService {
       sourceId: preview.normalizedLead.leadSourceId,
       statusId: preview.normalizedLead.leadStatusId,
       createdAt: preview.normalizedLead.addedDate,
-      preferredProject: preview.normalizedLead.preferredProjectId,
+      preferredProject:
+        integration.routingRule?.projectId ??
+        preview.normalizedLead.preferredProjectId,
       preferredLocation: preview.normalizedLead.preferredLocation || undefined,
       remarks: preview.normalizedLead.remarks || undefined,
       configuration: preview.normalizedLead.configuration || undefined,
       propertyType: preview.normalizedLead.propertyType || undefined,
+      telecallerId: integration.routingRule?.telecallerId ?? undefined,
+      fieldExecutiveId:
+        integration.routingRule?.fieldExecutiveId ?? undefined,
+      autoAssignmentTeamId:
+        !integration.routingRule?.telecallerId &&
+        !integration.routingRule?.fieldExecutiveId
+          ? integration.routingRule?.teamId ?? undefined
+          : undefined,
+      integrationConnectionId: integration.id,
     });
 
-    await this.portalIntegrationUpdate(integration.id, {
-      lastLeadReceivedAt: new Date(),
-      totalLeadsReceived: { increment: 1 },
-      status: isIntegrationPaused(integration) ? 'Paused' : 'Connected',
-    });
+    await this.connections().recordLeadReceived(integration.id);
     await this.audit(undefined, 'MAGICBRICKS_LEAD_RECEIVED', 'Lead', lead.id, {
       displayId: lead.displayId,
+      integrationConnectionId: integration.id,
+      integrationAccountName: integration.name,
+      organizationId: integration.organizationId,
       ip,
       userAgent,
-      organizationId: integration.organizationId,
     });
 
     return {
@@ -3168,6 +3336,7 @@ export class CrmService {
     };
   }
 
+  // --- WEBSITE LEAD INTEGRATION ---
   // --- 99ACRES PORTAL INTEGRATION ---
   private acres99PublicApiBaseUrl() {
     return this.magicBricksPublicApiBaseUrl();
@@ -3887,6 +4056,22 @@ export class CrmService {
     return this.getWebsiteIntegration(actorUserId, organizationId);
   }
 
+  private async assertValidRoutingAssignees(
+    telecallerId?: string,
+    fieldExecutiveId?: string,
+    ownerId?: string,
+  ) {
+    if (this.tenantAccess.selectedOrganizationId) {
+      await this.tenantAccess.assertEmployees([telecallerId, fieldExecutiveId, ownerId].filter((id): id is string => Boolean(id)));
+    }
+    return assertValidRoutingAssignees(
+      this.prisma,
+      telecallerId,
+      fieldExecutiveId,
+      ownerId,
+    );
+  }
+
   async saveWebsiteRouting(
     websiteId: string,
     body: Body,
@@ -3902,6 +4087,14 @@ export class CrmService {
       body,
     );
     const rawMapping = (integration.fieldMapping as any) ?? {};
+    const requestedTelecallerId = optionalString(body.telecallerId);
+    const requestedFieldExecutiveId = optionalString(body.fieldExecutiveId);
+    const requestedOwnerId = optionalString(body.ownerId);
+    await this.assertValidRoutingAssignees(
+      requestedTelecallerId,
+      requestedFieldExecutiveId,
+      requestedOwnerId,
+    );
     const connectedWebsites = (rawMapping.connectedWebsites ?? []).map(
       (site: any) => {
         if (site.id !== websiteId) return site;
@@ -3910,8 +4103,9 @@ export class CrmService {
           projectId: body.projectId || undefined,
           sourceId: body.sourceId || undefined,
           teamId: body.teamId || undefined,
-          telecallerId: body.telecallerId || undefined,
-          fieldExecutiveId: body.fieldExecutiveId || undefined,
+          ownerId: requestedOwnerId,
+          telecallerId: requestedTelecallerId,
+          fieldExecutiveId: requestedFieldExecutiveId,
         };
       },
     );
@@ -4540,6 +4734,7 @@ export class CrmService {
       projectId: effectiveProjectId,
       preferredProjectId: effectiveProjectId,
       configuration,
+      ownerId: matchedWebsite?.ownerId,
       telecallerId: matchedWebsite?.telecallerId,
       fieldExecutiveId: matchedWebsite?.fieldExecutiveId,
       autoAssignmentTeamId: matchedWebsite?.teamId,
@@ -4672,7 +4867,7 @@ export class CrmService {
     if (!payload?.actorUserId || Number(payload.expiresAt) < Date.now()) {
       throw new BadRequestException('Expired OAuth state');
     }
-    return payload as { actorUserId: string; reconnectAccountId?: string };
+    return payload as { actorUserId: string; organizationId?: string; reconnectAccountId?: string };
   }
 
   private getMetaFieldMapping(mapping?: unknown) {
@@ -4759,9 +4954,11 @@ export class CrmService {
           const fieldExecutiveId = String(
             sourceOverride.fieldExecutiveId ?? '',
           ).trim();
+          const ownerId = String(sourceOverride.ownerId ?? '').trim();
           return [
             String(pageId).trim(),
             {
+              ...(ownerId ? { ownerId } : {}),
               ...(telecallerId ? { telecallerId } : {}),
               ...(fieldExecutiveId ? { fieldExecutiveId } : {}),
             },
@@ -4769,6 +4966,19 @@ export class CrmService {
         })
         .filter(([pageId, override]) => pageId && Object.keys(override).length),
     );
+    const formRoutingOverrides: MetaFormRoutingOverrides = {};
+    const rawFormRouting = source.formRoutingOverrides;
+    if (rawFormRouting && typeof rawFormRouting === 'object' && !Array.isArray(rawFormRouting)) {
+      for (const [pageId, forms] of Object.entries(rawFormRouting)) {
+        if (!forms || typeof forms !== 'object' || Array.isArray(forms)) continue;
+        for (const [formId, override] of Object.entries(forms)) {
+          const result = MetaFormRoutingSchema.safeParse(override);
+          if (!result.success || !Object.keys(result.data).length) continue;
+          formRoutingOverrides[pageId] ??= {};
+          formRoutingOverrides[pageId][formId] = result.data;
+        }
+      }
+    }
     return {
       pageId: legacyPageId,
       selectedPageId: String(
@@ -4788,6 +4998,7 @@ export class CrmService {
       pageSourceMappings: toPageValueMappings(source.pageSourceMappings),
       pageTeamMappings: toPageValueMappings(source.pageTeamMappings),
       pageAssignmentOverrides,
+      formRoutingOverrides,
       pausedAccountIds: Array.isArray(source.pausedAccountIds)
         ? source.pausedAccountIds.map((v: unknown) => String(v))
         : [],
@@ -4852,7 +5063,7 @@ export class CrmService {
     teamsById: ReadonlyMap<string, string> = new Map(),
     pageAssignmentOverrides: Record<
       string,
-      { telecallerId?: string; fieldExecutiveId?: string }
+      { ownerId?: string; telecallerId?: string; fieldExecutiveId?: string }
     > = {},
     usersById: ReadonlyMap<string, string> = new Map(),
     pausedPageIds: string[] = [],
@@ -4891,6 +5102,12 @@ export class CrmService {
       teamId: pageTeamMappings[String(page.id ?? '')] ?? '',
       teamName:
         teamsById.get(pageTeamMappings[String(page.id ?? '')] ?? '') ?? '',
+      ownerId:
+        pageAssignmentOverrides[String(page.id ?? '')]?.ownerId ?? '',
+      ownerName:
+        usersById.get(
+          pageAssignmentOverrides[String(page.id ?? '')]?.ownerId ?? '',
+        ) ?? '',
       telecallerId:
         pageAssignmentOverrides[String(page.id ?? '')]?.telecallerId ?? '',
       telecallerName:
@@ -4939,8 +5156,8 @@ export class CrmService {
     return settings.pageFormSelections[String(pageId)] ?? [];
   }
 
-  private async ensureMetaIntegration(actorUserId?: string) {
-    const existing = await this.portalIntegrationFindByProvider(metaProvider);
+  private async ensureMetaIntegration(actorUserId?: string, organizationId = this.tenantAccess.organizationId) {
+    const existing = await this.portalIntegrationFindByProvider(metaProvider, organizationId);
     if (existing) {
       const needsPatch =
         !existing.webhookKeyId ||
@@ -4961,6 +5178,7 @@ export class CrmService {
     return this.portalIntegrationCreate({
       id: crypto.randomUUID(),
       provider: metaProvider,
+      organizationId,
       displayName: metaDisplayName,
       status: 'Draft',
       isActive: true,
@@ -5062,6 +5280,7 @@ export class CrmService {
     }
 
     const whereClause: any = {
+      organizationId: this.tenantAccess.organizationId,
       deletedAt: null,
       ...(matchConditions.length > 0 ? { OR: matchConditions } : {}),
     };
@@ -5120,11 +5339,11 @@ export class CrmService {
     const stats = await this.getMetaLeadStats(settings);
     const assignmentOverrides: Record<
       string,
-      { telecallerId?: string; fieldExecutiveId?: string }
+      { ownerId?: string; telecallerId?: string; fieldExecutiveId?: string }
     > = settings.pageAssignmentOverrides;
     const mappedAssigneeIds = Object.values(assignmentOverrides).flatMap(
       (override) =>
-        [override.telecallerId, override.fieldExecutiveId].filter(
+        [override.ownerId, override.telecallerId, override.fieldExecutiveId].filter(
           (userId): userId is string => Boolean(userId),
         ),
     );
@@ -5217,6 +5436,7 @@ export class CrmService {
         pageSourceMappings: settings.pageSourceMappings,
         pageTeamMappings: settings.pageTeamMappings,
         pageAssignmentOverrides: settings.pageAssignmentOverrides,
+        formRoutingOverrides: settings.formRoutingOverrides,
         pageAccessTokenConfigured: Boolean(
           credentials.pageAccessToken ||
             credentials.pages.some((page: Body) => Boolean(page.accessToken)),
@@ -5453,6 +5673,7 @@ export class CrmService {
       'state',
       this.encodeMetaOAuthState({
         actorUserId,
+        organizationId: integration.organizationId,
         ...(normalizedReconnectAccountId
           ? { reconnectAccountId: normalizedReconnectAccountId }
           : {}),
@@ -5526,6 +5747,7 @@ export class CrmService {
     initialUrl: URL,
     label: string,
     maxPages = 20,
+    requireComplete = false,
   ): Promise<any[]> {
     const results: any[] = [];
     let currentUrl: string | null = initialUrl.toString();
@@ -5545,11 +5767,15 @@ export class CrmService {
           ? String(response.paging.next).trim()
           : null;
         currentUrl = nextUrl && nextUrl !== currentUrl ? nextUrl : null;
-      } catch {
+      } catch (error) {
+        if (requireComplete) throw error;
         break;
       }
     }
 
+    if (currentUrl && requireComplete) {
+      throw new BadRequestException('Meta form retrieval could not be completed. Please retry.');
+    }
     return results;
   }
 
@@ -5791,8 +6017,7 @@ export class CrmService {
     );
     url.searchParams.set('limit', '100');
     url.searchParams.set('access_token', pageAccessToken);
-    const response = await this.fetchMetaJson(url, 'Meta lead forms fetch');
-    const forms = Array.isArray(response.data) ? response.data : [];
+    const forms = await this.fetchMetaPaginatedData(url, 'Meta lead forms fetch', 20, true);
     return forms.map((form: Body) => ({
       id: String(form.id ?? ''),
       name: String(form.name ?? 'Untitled form'),
@@ -5901,7 +6126,9 @@ export class CrmService {
     const code = String(query.code ?? '').trim();
     if (!code) throw new BadRequestException('Meta OAuth code is missing');
     const state = this.decodeMetaOAuthState(query.state);
-    const integration = await this.ensureMetaIntegration(state.actorUserId);
+    if (!state.organizationId) throw new BadRequestException('Reconnect Meta from a tenant workspace');
+    const organizationId = await this.resolveTenantOrganizationId(state.actorUserId, String(state.organizationId));
+    const integration = await this.ensureMetaIntegration(state.actorUserId, organizationId);
     const settings = this.getMetaSettings(integration.settings);
     const appId = this.configuredMetaAppId(settings);
     if (!appId || !this.metaAppSecret()) {
@@ -6056,6 +6283,7 @@ export class CrmService {
     const [logs, total] = await Promise.all([
       this.db().auditLog.findMany({
         where: {
+          organizationId: this.tenantAccess.organizationId,
           action: {
             in: [
               'META_WEBHOOK_RECEIVED',
@@ -6079,6 +6307,7 @@ export class CrmService {
       }),
       this.db().auditLog.count({
         where: {
+          organizationId: this.tenantAccess.organizationId,
           action: {
             in: [
               'META_WEBHOOK_RECEIVED',
@@ -6405,6 +6634,10 @@ export class CrmService {
       body.fieldExecutiveId === undefined
         ? undefined
         : String(body.fieldExecutiveId ?? '').trim();
+    const requestedOwnerId =
+      body.ownerId === undefined
+        ? undefined
+        : String(body.ownerId ?? '').trim();
     if (requestedProjectId) {
       const project = await this.db().project.findFirst({
         where: { id: requestedProjectId, status: { not: 'Archived' } },
@@ -6435,29 +6668,11 @@ export class CrmService {
       });
       if (!team) throw new BadRequestException('Select an active CRM team');
     }
-    const requestedAssignees = [
-      { id: requestedTelecallerId, role: 'TELECALLER', label: 'Pre Sales' },
-      { id: requestedFieldExecutiveId, role: 'SALES_AGENT', label: 'Sales' },
-    ].filter((assignee) => Boolean(assignee.id));
-    if (requestedAssignees.length) {
-      const users = await this.db().user.findMany({
-        where: {
-          id: {
-            in: requestedAssignees.map((assignee) => assignee.id as string),
-          },
-          isActive: true,
-        },
-        select: { id: true, role: true },
-      });
-      for (const assignee of requestedAssignees) {
-        const user = users.find((candidate) => candidate.id === assignee.id);
-        if (!user || user.role !== assignee.role) {
-          throw new BadRequestException(
-            `Select an active ${assignee.label} user`,
-          );
-        }
-      }
-    }
+    await this.assertValidRoutingAssignees(
+      requestedTelecallerId,
+      requestedFieldExecutiveId,
+      requestedOwnerId,
+    );
     const pageProjectMappings = {
       ...settings.pageProjectMappings,
     };
@@ -6481,9 +6696,11 @@ export class CrmService {
     const pageAssignmentOverrides = { ...settings.pageAssignmentOverrides };
     if (
       requestedTelecallerId !== undefined ||
-      requestedFieldExecutiveId !== undefined
+      requestedFieldExecutiveId !== undefined ||
+      requestedOwnerId !== undefined
     ) {
       const nextOverride = {
+        ...(requestedOwnerId ? { ownerId: requestedOwnerId } : {}),
         ...(requestedTelecallerId
           ? { telecallerId: requestedTelecallerId }
           : {}),
@@ -6523,10 +6740,76 @@ export class CrmService {
         projectId: requestedProjectId ?? null,
         sourceId: requestedSourceId ?? null,
         teamId: requestedTeamId ?? null,
+        ownerId: requestedOwnerId ?? null,
         telecallerId: requestedTelecallerId ?? null,
         fieldExecutiveId: requestedFieldExecutiveId ?? null,
       },
     );
+    return this.getMetaIntegration(actorUserId);
+  }
+
+  async saveMetaFormRouting(pageId: string, formId: string, body: unknown, actorUserId?: string) {
+    this.assertTenantWorkspaceMutation();
+    const parsed = MetaFormRoutingSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.issues.map((issue) => issue.message).join('; '));
+    }
+    const routing = parsed.data;
+    const integration = await this.ensureMetaIntegration(actorUserId);
+    const credentials = this.getMetaCredentials(integration.credentials);
+    if (!credentials.pages.some((page) => String(page.id) === pageId)) {
+      throw new BadRequestException('Select a connected Meta Page');
+    }
+    const forms = await this.listMetaLeadForms(pageId, actorUserId);
+    if (!forms.data.some((form) => form.id === formId)) {
+      throw new BadRequestException('Select a lead form belonging to this Meta Page');
+    }
+    if (routing.projectId) {
+      const project = await this.prisma.project.findFirst({
+        where: { id: routing.projectId, organizationId: integration.organizationId, status: { not: 'Archived' } },
+        select: { id: true },
+      });
+      if (!project) throw new BadRequestException('Select an active CRM project for this form');
+    }
+    if (routing.sourceId) {
+      const source = await this.prisma.leadMasterValue.findFirst({
+        where: { id: routing.sourceId, isActive: true, categoryRef: { code: 'source' } },
+        select: { id: true },
+      });
+      if (!source) throw new BadRequestException('Select an active lead source');
+    }
+    if (routing.assignment?.mode === 'automatic' && routing.assignment.teamId) {
+      const team = await this.prisma.team.findFirst({
+        where: { id: routing.assignment.teamId, organizationId: integration.organizationId, isActive: true },
+        select: { id: true },
+      });
+      if (!team) throw new BadRequestException('Select an active CRM team');
+    }
+    if (routing.assignment?.mode === 'person') {
+      await this.assertValidRoutingAssignees(
+        routing.assignment.telecallerId,
+        routing.assignment.fieldExecutiveId,
+        routing.assignment.ownerId,
+      );
+    }
+    // Update one JSON leaf atomically, preserving concurrent sibling-form saves.
+    const serialized = JSON.stringify(routing);
+    const reset = Object.keys(routing).length === 0;
+    await this.prisma.$executeRaw`
+      UPDATE "PortalIntegration"
+      SET "settings" = jsonb_set(COALESCE("settings", '{}'::jsonb), '{formRoutingOverrides}',
+        CASE WHEN ${reset} THEN
+          COALESCE("settings"->'formRoutingOverrides', '{}'::jsonb) #- ARRAY[${pageId}, ${formId}]
+        ELSE jsonb_set(COALESCE("settings"->'formRoutingOverrides', '{}'::jsonb), ARRAY[${pageId}],
+          COALESCE("settings"->'formRoutingOverrides'->${pageId}, '{}'::jsonb)
+            || jsonb_build_object(${formId}::text, ${serialized}::jsonb), true)
+        END, true),
+        "updatedById" = ${actorUserId ?? null}, "updatedAt" = NOW()
+      WHERE "id" = ${integration.id} AND "organizationId" = ${integration.organizationId}
+    `;
+    await this.audit(actorUserId, 'META_FORM_ROUTING_UPDATED', 'PortalIntegration', integration.id, {
+      pageId, formId, routing, reset,
+    });
     return this.getMetaIntegration(actorUserId);
   }
 
@@ -6585,6 +6868,9 @@ export class CrmService {
         pageSourceMappings: nextPageSourceMappings,
         pageTeamMappings: nextPageTeamMappings,
         pageAssignmentOverrides: nextPageAssignmentOverrides,
+        formRoutingOverrides: Object.fromEntries(
+          Object.entries(settings.formRoutingOverrides).filter(([pageId]) => !removedPageIds.has(pageId)),
+        ),
       },
       credentials: {
         ...credentials,
@@ -6596,7 +6882,7 @@ export class CrmService {
           )?.accessToken ?? '',
       },
       updatedById: actorUserId,
-    });
+    }, [...removedPageIds]);
     await this.audit(
       actorUserId,
       'META_ACCOUNT_DISCONNECTED',
@@ -6652,7 +6938,10 @@ export class CrmService {
   }
 
   async verifyMetaWebhook(query: Body) {
-    const integration = await this.ensureMetaIntegration();
+    const integration = await this.prisma.portalIntegration.findFirst({
+      where: { provider: metaProvider, organizationId: { not: null }, webhookKeyId: String(query['hub.verify_token'] ?? query.hub_verify_token ?? '') },
+      select: { webhookKeyId: true },
+    });
     const mode = String(query['hub.mode'] ?? query.hub_mode ?? '');
     const token = String(
       query['hub.verify_token'] ?? query.hub_verify_token ?? '',
@@ -6660,7 +6949,7 @@ export class CrmService {
     const challenge = String(
       query['hub.challenge'] ?? query.hub_challenge ?? '',
     );
-    if (mode === 'subscribe' && token && token === integration.webhookKeyId) {
+    if (mode === 'subscribe' && token && token === integration?.webhookKeyId) {
       return challenge;
     }
     throw new ForbiddenException('Invalid Meta webhook verification token');
@@ -6777,6 +7066,7 @@ export class CrmService {
     mapping?: unknown,
     event?: Body,
     settings?: ReturnType<typeof this.getMetaSettings>,
+    organizationId = this.tenantAccess.organizationId,
   ) {
     const payload = this.coalesceMetaLeadPayload(lead, event);
     const fieldMapping = this.getMetaFieldMapping(mapping);
@@ -6801,6 +7091,7 @@ export class CrmService {
     const matchedProject = projectName
       ? await this.db().project.findFirst({
           where: {
+            organizationId,
             OR: [
               { name: { equals: String(projectName), mode: 'insensitive' } },
               { name: { contains: String(projectName), mode: 'insensitive' } },
@@ -6809,27 +7100,23 @@ export class CrmService {
           select: { id: true, name: true, location: true },
         })
       : null;
-    const configuredProjectId = String(
-      settings?.pageProjectMappings[String(payload.pageId ?? '')] ?? '',
-    ).trim();
+    const routing = resolveMetaRouting(settings ?? {
+      pageProjectMappings: {}, pageSourceMappings: {}, pageTeamMappings: {}, pageAssignmentOverrides: {},
+    }, String(payload.pageId ?? ''), String(payload.formId ?? ''));
+    const configuredProjectId = routing.projectId ?? '';
     const configuredProject = configuredProjectId
       ? await this.db().project.findFirst({
           where: {
-            id: configuredProjectId,
+            id: configuredProjectId, organizationId,
             status: { not: 'Archived' },
           },
           select: { id: true, name: true, location: true },
         })
       : null;
     const resolvedProject = configuredProject ?? matchedProject;
-    const configuredSourceId = String(
-      settings?.pageSourceMappings[String(payload.pageId ?? '')] ?? '',
-    ).trim();
-    const configuredTeamId = String(
-      settings?.pageTeamMappings[String(payload.pageId ?? '')] ?? '',
-    ).trim();
-    const configuredAssignment =
-      settings?.pageAssignmentOverrides[String(payload.pageId ?? '')] ?? {};
+    const configuredSourceId = routing.sourceId ?? '';
+    const configuredTeamId = routing.teamId ?? '';
+    const configuredAssignment = routing;
     const [
       metaSource,
       newLeadStatus,
@@ -6843,6 +7130,7 @@ export class CrmService {
         ? this.db().leadMasterValue.findFirst({
             where: {
               id: configuredSourceId,
+              AND: [this.tenantAccess.employeeWhere(organizationId)],
               isActive: true,
               categoryRef: { code: 'source' },
             },
@@ -6851,11 +7139,12 @@ export class CrmService {
         : Promise.resolve(null),
       configuredTeamId
         ? this.db().team.findFirst({
-            where: { id: configuredTeamId, isActive: true },
+            where: { id: configuredTeamId, organizationId, isActive: true },
             select: { id: true, name: true },
           })
         : Promise.resolve(null),
       [
+        configuredAssignment.ownerId,
         configuredAssignment.telecallerId,
         configuredAssignment.fieldExecutiveId,
       ].filter(Boolean).length
@@ -6863,23 +7152,30 @@ export class CrmService {
             where: {
               id: {
                 in: [
+                  configuredAssignment.ownerId,
                   configuredAssignment.telecallerId,
                   configuredAssignment.fieldExecutiveId,
                 ].filter(Boolean),
               },
+              AND: [this.tenantAccess.employeeWhere(organizationId)],
               isActive: true,
             },
             select: { id: true, role: true },
           })
         : Promise.resolve([]),
     ]);
+    const configuredOwnerId = configuredUsers.some(
+      (user) => user.id === configuredAssignment.ownerId && ROUTING_OWNER_ROLES.includes(user.role),
+    )
+      ? configuredAssignment.ownerId
+      : undefined;
     const configuredTelecallerId = configuredUsers.some(
-      (user) => user.id === configuredAssignment.telecallerId,
+      (user) => user.id === configuredAssignment.telecallerId && user.role === Role.TELECALLER,
     )
       ? configuredAssignment.telecallerId
       : undefined;
     const configuredFieldExecutiveId = configuredUsers.some(
-      (user) => user.id === configuredAssignment.fieldExecutiveId,
+      (user) => user.id === configuredAssignment.fieldExecutiveId && user.role === Role.SALES_AGENT,
     )
       ? configuredAssignment.fieldExecutiveId
       : undefined;
@@ -6961,6 +7257,15 @@ export class CrmService {
         propertyType: normalized.propertyType ?? '',
         budgetRange: normalized.budgetRange ?? '',
         configuredProjectId: configuredProjectId || undefined,
+        routingScope: routing.scope,
+        routingFieldScopes: routing.fieldScopes,
+        routingFallbacks: [
+          ...(configuredProjectId && !configuredProject ? ['project'] : []),
+          ...(configuredSourceId && !configuredSource ? ['source'] : []),
+          ...(configuredTeamId && !configuredTeam ? ['team'] : []),
+          ...((configuredAssignment.ownerId || configuredAssignment.telecallerId || configuredAssignment.fieldExecutiveId)
+            && !(configuredOwnerId || configuredTelecallerId || configuredFieldExecutiveId) ? ['person'] : []),
+        ],
         projectMappingApplied: Boolean(configuredProject),
         projectMappingInvalid: Boolean(
           configuredProjectId && !configuredProject,
@@ -6971,17 +7276,48 @@ export class CrmService {
         configuredTeamId: configuredTeamId || undefined,
         teamMappingApplied: Boolean(configuredTeam),
         teamMappingInvalid: Boolean(configuredTeamId && !configuredTeam),
+        ownerId: configuredOwnerId,
         telecallerId: configuredTelecallerId,
         fieldExecutiveId: configuredFieldExecutiveId,
         assignmentOverrideApplied: Boolean(
-          configuredTelecallerId || configuredFieldExecutiveId,
+          configuredOwnerId ||
+            configuredTelecallerId ||
+            configuredFieldExecutiveId,
         ),
       },
     };
   }
 
   async receiveMetaWebhook(body: Body, ip?: string, userAgent?: string) {
-    const integration = await this.ensureMetaIntegration();
+    const events = this.extractMetaLeadgenEvents(body);
+    const integrations = await this.prisma.portalIntegration.findMany({
+      where: { provider: metaProvider, organizationId: { not: null } },
+    });
+    const results: Body[] = [];
+    const errors: string[] = [];
+    for (const event of events) {
+      const matches = integrations.filter((integration) =>
+        this.getMetaCredentials(integration.credentials).pages.some((page) => String(page.id) === String(event.pageId)),
+      );
+      if (matches.length !== 1) {
+        errors.push(`Meta Page ${String(event.pageId)} has no unique workspace owner`);
+        continue;
+      }
+      const organizationId = matches[0].organizationId;
+      if (!organizationId) continue;
+      const result = await this.tenantContext.run({ organizationId }, () => this.receiveMetaIntegrationWebhook(matches[0], {
+        entry: [{ id: event.pageId, changes: [{ field: 'leadgen', value: {
+          leadgen_id: event.leadgenId, form_id: event.formId, page_id: event.pageId,
+          ad_id: event.adId, created_time: event.createdTime,
+        } }] }],
+      }, ip, userAgent));
+      results.push(...(result.results ?? []));
+      errors.push(...result.errors);
+    }
+    return { received: true, processed: results.filter((result) => result.leadId && !result.skipped).length, results, errors };
+  }
+
+  private async receiveMetaIntegrationWebhook(integration: Body, body: Body, ip?: string, userAgent?: string) {
     if (!integration.isActive || integration.status === 'Paused') {
       this.logger.warn(
         '[MetaWebhook] skipped: integration is inactive or paused',
@@ -7213,6 +7549,7 @@ export class CrmService {
           integration.fieldMapping,
           event,
           settings,
+          integration.organizationId,
         );
         if (preview.normalizedLead.projectMappingInvalid) {
           this.logger.warn(
@@ -7248,6 +7585,7 @@ export class CrmService {
         }
         const duplicate = await this.db().lead.findFirst({
           where: {
+            organizationId: integration.organizationId,
             OR: [
               { mobile: preview.normalizedLead.mobileNumber },
               preview.normalizedLead.emailAddress
@@ -7286,6 +7624,7 @@ export class CrmService {
           continue;
         }
         const lead = await this.createLead({
+          organizationId: integration.organizationId,
           name: preview.normalizedLead.leadName,
           mobile: preview.normalizedLead.mobileNumber,
           email: preview.normalizedLead.emailAddress || undefined,
@@ -7299,6 +7638,7 @@ export class CrmService {
           configuration: preview.normalizedLead.configuration || undefined,
           propertyType: preview.normalizedLead.propertyType || undefined,
           budgetRange: preview.normalizedLead.budgetRange || undefined,
+          ownerId: preview.normalizedLead.ownerId,
           telecallerId: preview.normalizedLead.telecallerId,
           fieldExecutiveId: preview.normalizedLead.fieldExecutiveId,
           autoAssignmentTeamId: preview.normalizedLead.assignmentOverrideApplied
@@ -7328,10 +7668,14 @@ export class CrmService {
           sourceMappingApplied: preview.normalizedLead.sourceMappingApplied,
           configuredTeamId: preview.normalizedLead.configuredTeamId,
           teamMappingApplied: preview.normalizedLead.teamMappingApplied,
+          ownerId: preview.normalizedLead.ownerId,
           telecallerId: preview.normalizedLead.telecallerId,
           fieldExecutiveId: preview.normalizedLead.fieldExecutiveId,
           assignmentOverrideApplied:
             preview.normalizedLead.assignmentOverrideApplied,
+          routingScope: preview.normalizedLead.routingScope,
+          routingFieldScopes: preview.normalizedLead.routingFieldScopes,
+          routingFallbacks: preview.normalizedLead.routingFallbacks,
           outcome: 'Lead created in CRM',
           ip,
           userAgent,
@@ -7589,77 +7933,108 @@ export class CrmService {
     return candidate;
   }
 
-  
   private async buildProjectAndRequirementWhere(
-    projectIds: string[],
+    projectFilterIds: string[],
     propertyTypes: string[],
     configurations: string[],
   ): Promise<Prisma.LeadWhereInput[]> {
     const conditions: Prisma.LeadWhereInput[] = [];
 
-    if (propertyTypes.length > 0) {
-      const matchingProjects = await this.db()
-        .project.findMany({
-          where: {
-            propertyType: { in: propertyTypes, mode: 'insensitive' },
-          },
-          select: { id: true },
-          take: 500,
-        })
-        .catch(() => []);
-      const matchedProjIds = matchingProjects.map((p: any) => p.id);
-
-      const propTypeOrs: Prisma.LeadWhereInput[] = [
-        {
-          requirement: {
-            is: { propertyType: { in: propertyTypes } },
-          },
-        },
-      ];
-      if (matchedProjIds.length > 0) {
-        propTypeOrs.push({
-          requirement: {
-            is: { preferredProjectId: { in: matchedProjIds } },
-          },
-        });
-        propTypeOrs.push({
-          projectInterests: {
-            some: { projectId: { in: matchedProjIds } },
-          },
-        });
-      }
-      conditions.push({ OR: propTypeOrs });
-    }
-
-    if (configurations.length > 0) {
+    if (configurations.length) {
       conditions.push({
         requirement: {
-          is: { configuration: { in: configurations } },
+          is: {
+            configuration: { in: configurations },
+          },
         },
       });
     }
 
-    if (projectIds.length > 0) {
+    if (propertyTypes.length) {
+      const projectsWithPropType = await this.db().project.findMany({
+        where: {
+          propertyType: { in: propertyTypes, mode: 'insensitive' },
+        },
+        select: { id: true },
+      });
+      const matchingPropTypeProjIds = projectsWithPropType.map((p) => p.id);
+
       conditions.push({
         OR: [
           {
             requirement: {
-              is: { preferredProjectId: { in: projectIds } },
+              is: {
+                propertyType: { in: propertyTypes },
+              },
+            },
+          },
+          ...(matchingPropTypeProjIds.length > 0
+            ? [
+                {
+                  requirement: {
+                    is: {
+                      preferredProjectId: { in: matchingPropTypeProjIds },
+                    },
+                  },
+                },
+                {
+                  projectInterests: {
+                    some: {
+                      projectId: { in: matchingPropTypeProjIds },
+                    },
+                  },
+                },
+              ]
+            : []),
+        ],
+      });
+    }
+
+    if (projectFilterIds.length) {
+      const matchingProjects = await this.db().project.findMany({
+        where: {
+          OR: [
+            { id: { in: projectFilterIds } },
+            { name: { in: projectFilterIds, mode: 'insensitive' } },
+          ],
+        },
+        select: { id: true },
+      });
+      const allProjectIds = Array.from(
+        new Set([
+          ...projectFilterIds,
+          ...matchingProjects.map((p) => p.id),
+        ]),
+      );
+
+      conditions.push({
+        OR: [
+          {
+            requirement: {
+              is: {
+                preferredProjectId: { in: allProjectIds },
+              },
             },
           },
           {
             projectInterests: {
-              some: { projectId: { in: projectIds } },
+              some: {
+                projectId: { in: allProjectIds },
+              },
             },
           },
           {
             siteVisits: {
-              some: { projectId: { in: projectIds } },
+              some: {
+                projectId: { in: allProjectIds },
+              },
             },
           },
           {
             bookings: {
-              some: { projectId: { in: projectIds } },
+              some: {
+                projectId: { in: allProjectIds },
+              },
             },
           },
         ],
@@ -7710,11 +8085,11 @@ export class CrmService {
           .catch(() => []),
       ]);
 
-    const matchedProjIds = matchingProjects.map((p: any) => p.id);
+    const matchedProjIds = matchingProjects.map((p: Body) => p.id);
     const matchedPropTypeProjIds = matchingPropTypeProjects.map(
-      (p: any) => p.id,
+      (p: Body) => p.id,
     );
-    const matchedSourceIds = matchingSources.map((s: any) => s.id);
+    const matchedSourceIds = matchingSources.map((s: Body) => s.id);
 
     const conditions: Prisma.LeadWhereInput[] = [
       { name: { contains: search, mode: 'insensitive' } },
@@ -7802,7 +8177,7 @@ export class CrmService {
     return conditions;
   }
 
-async listLeads(query: Query, user?: Body) {
+  async listLeads(query: Query, user?: Body) {
     const { page, limit, skip } = pageMeta(query);
     const activeTenantId =
       this.tenantAccess.selectedOrganizationId ||
@@ -7819,6 +8194,9 @@ async listLeads(query: Query, user?: Body) {
     const statusIds = parseMultiQueryValues(query.statusId);
     const temperatureIds = parseMultiQueryValues(query.temperatureId);
     const sourceIds = parseMultiQueryValues(query.sourceId);
+    const integrationConnectionIds = parseMultiQueryValues(
+      query.integrationConnectionId,
+    );
     const columnPreference = await this.getLeadListColumnPreference({}, user);
     const canViewSourceColumn =
       columnPreference.visibleColumns.includes('source');
@@ -7830,12 +8208,12 @@ async listLeads(query: Query, user?: Body) {
       query.projectId ?? query['projectId[]'],
     );
     if (query.search) {
-      where.OR = [
-        { name: { contains: String(query.search), mode: 'insensitive' } },
-        { mobile: { contains: String(query.search), mode: 'insensitive' } },
-        { email: { contains: String(query.search), mode: 'insensitive' } },
-        { displayId: { contains: String(query.search), mode: 'insensitive' } },
-      ];
+      const searchConditions = await this.buildLeadSearchConditions(
+        query.search,
+      );
+      if (searchConditions.length) {
+        where.AND = [...(where.AND ?? []), { OR: searchConditions }];
+      }
     }
     if (ownerIds.length) {
       where.AND = [
@@ -7853,29 +8231,16 @@ async listLeads(query: Query, user?: Body) {
     if (sourceIds.length && canViewSourceColumn) {
       where.sourceId = { in: sourceIds };
     }
-    if (propertyTypes.length || configurations.length) {
-      where.requirement = {
-        is: {
-          ...(propertyTypes.length
-            ? { propertyType: { in: propertyTypes } }
-            : {}),
-          ...(configurations.length
-            ? { configuration: { in: configurations } }
-            : {}),
-        },
-      };
+    if (integrationConnectionIds.length) {
+      where.integrationConnectionId = { in: integrationConnectionIds };
     }
-    if (projectFilterIds.length) {
-      where.AND = [
-        ...(where.AND ?? []),
-        {
-          requirement: {
-            is: {
-              preferredProjectId: { in: projectFilterIds },
-            },
-          },
-        },
-      ];
+    const reqFilterConditions = await this.buildProjectAndRequirementWhere(
+      projectFilterIds,
+      propertyTypes,
+      configurations,
+    );
+    if (reqFilterConditions.length) {
+      where.AND = [...(where.AND ?? []), ...reqFilterConditions];
     }
     if (teamIds.length) {
       const teams = await this.db().team.findMany({
@@ -8108,23 +8473,19 @@ async listLeads(query: Query, user?: Body) {
     if (segment === 'site-visit') {
       const siteVisitMasters = await this.db().leadMasterValue.findMany({
         where: {
+          categoryRef: { code: { equals: 'status', mode: 'insensitive' } },
+          isActive: true,
           OR: [
-            { code: { contains: 'SITE_VISIT', mode: 'insensitive' } },
-            { name: { contains: 'SITE VISIT', mode: 'insensitive' } },
-            { name: { contains: 'VISIT SCHEDULE', mode: 'insensitive' } },
+            { code: { equals: 'SITE_VISIT_SCHEDULE', mode: 'insensitive' } },
+            { name: { equals: 'Site Visit Schedule', mode: 'insensitive' } },
+            { name: { equals: 'Site Visit Scheduled', mode: 'insensitive' } },
           ],
         },
         select: { id: true },
       });
       where.AND = [
         ...(where.AND ?? []),
-        {
-          OR: [
-            { siteVisits: { some: {} } },
-            { statusId: { in: siteVisitMasters.map((m) => m.id) } },
-            { stageId: { in: siteVisitMasters.map((m) => m.id) } },
-          ],
-        },
+        { statusId: { in: siteVisitMasters.map((master) => master.id) } },
         { lostAt: null },
       ];
     }
@@ -8132,50 +8493,20 @@ async listLeads(query: Query, user?: Body) {
     if (segment === 'site-visit-completed') {
       const completedMasters = await this.db().leadMasterValue.findMany({
         where: {
+          categoryRef: { code: { equals: 'status', mode: 'insensitive' } },
+          isActive: true,
           OR: [
-            { code: { contains: 'DONE', mode: 'insensitive' } },
-            { name: { contains: 'DONE', mode: 'insensitive' } },
-            { code: { contains: 'COMPLETED', mode: 'insensitive' } },
-            { name: { contains: 'COMPLETED', mode: 'insensitive' } },
-            { name: { contains: 'SITE VISIT DONE', mode: 'insensitive' } },
-            { name: { contains: 'VISIT DONE', mode: 'insensitive' } },
+            { code: { equals: 'SITE_VISIT_DONE', mode: 'insensitive' } },
+            { code: { equals: 'SITE_VISIT_COMPLETED', mode: 'insensitive' } },
+            { name: { equals: 'Site Visit Done', mode: 'insensitive' } },
+            { name: { equals: 'Site Visit Completed', mode: 'insensitive' } },
           ],
         },
         select: { id: true },
       });
       where.AND = [
         ...(where.AND ?? []),
-        {
-          OR: [
-            {
-              siteVisits: {
-                some: {
-                  OR: [
-                    {
-                      status: {
-                        mode: 'insensitive',
-                        in: [
-                          'COMPLETED',
-                          'Completed',
-                          'completed',
-                          'DONE',
-                          'Done',
-                          'done',
-                          'CHECKED_OUT',
-                          'Checked Out',
-                          'checked_out',
-                        ],
-                      },
-                    },
-                    { checkedOutAt: { not: null } },
-                  ],
-                },
-              },
-            },
-            { statusId: { in: completedMasters.map((m) => m.id) } },
-            { stageId: { in: completedMasters.map((m) => m.id) } },
-          ],
-        },
+        { statusId: { in: completedMasters.map((master) => master.id) } },
         { lostAt: null },
       ];
     }
@@ -8183,48 +8514,20 @@ async listLeads(query: Query, user?: Body) {
     if (segment === 'revisit-completed') {
       const revisitMasters = await this.db().leadMasterValue.findMany({
         where: {
+          categoryRef: { code: { equals: 'status', mode: 'insensitive' } },
+          isActive: true,
           OR: [
-            { code: { contains: 'REVISIT', mode: 'insensitive' } },
-            { name: { contains: 'RE-VISIT', mode: 'insensitive' } },
-            { name: { contains: 'REVISIT', mode: 'insensitive' } },
+            { code: { equals: 'RE_VISIT_DONE', mode: 'insensitive' } },
+            { code: { equals: 'REVISIT_DONE', mode: 'insensitive' } },
+            { name: { equals: 'Re-Visit Done', mode: 'insensitive' } },
+            { name: { equals: 'Revisit Done', mode: 'insensitive' } },
           ],
         },
         select: { id: true },
       });
       where.AND = [
         ...(where.AND ?? []),
-        {
-          OR: [
-            {
-              siteVisits: {
-                some: {
-                  visitType: { contains: 'revisit', mode: 'insensitive' },
-                  OR: [
-                    {
-                      status: {
-                        mode: 'insensitive',
-                        in: [
-                          'COMPLETED',
-                          'Completed',
-                          'completed',
-                          'DONE',
-                          'Done',
-                          'done',
-                          'CHECKED_OUT',
-                          'Checked Out',
-                          'checked_out',
-                        ],
-                      },
-                    },
-                    { checkedOutAt: { not: null } },
-                  ],
-                },
-              },
-            },
-            { statusId: { in: revisitMasters.map((m) => m.id) } },
-            { stageId: { in: revisitMasters.map((m) => m.id) } },
-          ],
-        },
+        { statusId: { in: revisitMasters.map((master) => master.id) } },
         { lostAt: null },
       ];
     }
@@ -8258,7 +8561,10 @@ async listLeads(query: Query, user?: Body) {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
-        include: { requirement: true },
+        include: {
+          requirement: true,
+          integrationConnection: { select: { id: true, name: true, provider: true } },
+        },
       }),
       this.db().lead.count({ where }),
     ]);
@@ -8358,6 +8664,9 @@ async listLeads(query: Query, user?: Body) {
           canViewSource && lead.sourceId
             ? masterMap.get(lead.sourceId)
             : undefined,
+        integrationConnectionId: lead.integrationConnectionId ?? null,
+        integrationAccountName: lead.integrationConnection?.name ?? 'Legacy / unattributed',
+        integrationProvider: lead.integrationConnection?.provider ?? null,
         stageName: lead.stageId ? masterMap.get(lead.stageId) : undefined,
         statusName: lead.statusId ? masterMap.get(lead.statusId) : undefined,
         priorityName: lead.priorityId
@@ -8391,13 +8700,11 @@ async listLeads(query: Query, user?: Body) {
     return this.leadVisibility.assignmentScope(userIds);
   }
 
-  private buildTeamLeadWorkspaceWhere(
+  private async buildTeamLeadWorkspaceWhere(
     query: Query,
     userIds: string[],
-  ): Prisma.LeadWhereInput {
-    const activeTenantId =
-      this.tenantAccess.selectedOrganizationId ||
-      this.tenantContext.getTenantId();
+  ): Promise<Prisma.LeadWhereInput> {
+    const activeTenantId = this.tenantAccess.selectedOrganizationId;
     const where: Prisma.LeadWhereInput = {
       deletedAt: null,
       ...(activeTenantId ? { organizationId: activeTenantId } : {}),
@@ -8412,14 +8719,20 @@ async listLeads(query: Query, user?: Body) {
     const ownerIds = parseMultiQueryValues(query.ownerId);
     const telecallerIds = parseMultiQueryValues(query.telecallerId);
     const areaFilters = parseMultiQueryValues(query.area);
+    const projectFilterIds = parseMultiQueryValues(
+      query.projectId ?? query['projectId[]'],
+    );
 
     if (query.search) {
-      where.OR = [
-        { name: { contains: String(query.search), mode: 'insensitive' } },
-        { mobile: { contains: String(query.search), mode: 'insensitive' } },
-        { email: { contains: String(query.search), mode: 'insensitive' } },
-        { displayId: { contains: String(query.search), mode: 'insensitive' } },
-      ];
+      const searchConditions = await this.buildLeadSearchConditions(
+        query.search,
+      );
+      if (searchConditions.length) {
+        where.AND = [
+          ...((where.AND as Prisma.LeadWhereInput[]) ?? []),
+          { OR: searchConditions },
+        ];
+      }
     }
     if (sourceIds.length) where.sourceId = { in: sourceIds };
     if (statusIds.length) where.statusId = { in: statusIds };
@@ -8427,17 +8740,16 @@ async listLeads(query: Query, user?: Body) {
     if (temperatureIds.length) where.temperatureId = { in: temperatureIds };
     if (ownerIds.length) where.ownerId = { in: ownerIds };
     if (telecallerIds.length) where.telecallerId = { in: telecallerIds };
-    if (propertyTypes.length || configurations.length) {
-      where.requirement = {
-        is: {
-          ...(propertyTypes.length
-            ? { propertyType: { in: propertyTypes } }
-            : {}),
-          ...(configurations.length
-            ? { configuration: { in: configurations } }
-            : {}),
-        },
-      };
+    const reqFilterConditions = await this.buildProjectAndRequirementWhere(
+      projectFilterIds,
+      propertyTypes,
+      configurations,
+    );
+    if (reqFilterConditions.length) {
+      where.AND = [
+        ...((where.AND as Prisma.LeadWhereInput[]) ?? []),
+        ...reqFilterConditions,
+      ];
     }
     if (areaFilters.length) {
       where.AND = [
@@ -8517,7 +8829,9 @@ async listLeads(query: Query, user?: Body) {
       reportMembers.length > 0 ||
       hierarchyScopeUserIds.length > 1;
     if (requestedScope === 'mine') {
-      const ownWhere = this.buildTeamLeadWorkspaceWhere(query, [user.sub]);
+      const ownWhere = await this.buildTeamLeadWorkspaceWhere(query, [
+        user.sub,
+      ]);
       const [ownItems, ownTotal] = await Promise.all([
         this.db().lead.findMany({
           where: ownWhere,
@@ -8590,8 +8904,8 @@ async listLeads(query: Query, user?: Body) {
     const visibleUserIds = requestedMemberId
       ? [requestedMemberId]
       : scopedMemberIds;
-    const where = this.buildTeamLeadWorkspaceWhere(query, visibleUserIds);
-    const memberSummaryWhere = this.buildTeamLeadWorkspaceWhere(
+    const where = await this.buildTeamLeadWorkspaceWhere(query, visibleUserIds);
+    const memberSummaryWhere = await this.buildTeamLeadWorkspaceWhere(
       { ...query, memberId: undefined },
       scopedMemberIds,
     );
@@ -9077,61 +9391,48 @@ async listLeads(query: Query, user?: Body) {
     return { deleted: true };
   }
 
-  private async getContactLeadScopedUserIds(user?: Body) {
+  private async getContactLeadScopedUserIds(user?: Body, query?: Query) {
     const actorId = typeof user?.sub === 'string' ? user.sub : '';
-    const actorRole = String(user?.role ?? '');
-    if (!actorId || !['TEAM_LEADER', 'MANAGER'].includes(actorRole)) {
+    if (!actorId) {
       return undefined;
     }
 
-    const [teams, grants, profile] = await Promise.all([
-      this.db().team.findMany({
-        where: {
-          isActive: true,
-          OR: [
-            { leaderId: actorId },
-            { visibilityGrants: { some: { leaderUserId: actorId } } },
-          ],
-        },
-        select: { id: true },
-      }),
-      this.db().teamLeaderVisibilityGrant.findMany({
-        where: { leaderUserId: actorId },
-        select: { teamId: true, userId: true },
-      }),
-      this.db().employeeProfile.findUnique({
-        where: { userId: actorId },
-        select: { teamId: true },
-      }),
-    ]);
-    const teamIds = Array.from(
-      new Set(
-        [
-          ...teams.map((team) => team.id),
-          ...grants.map((grant) => grant.teamId),
-          profile?.teamId,
-        ].filter((teamId): teamId is string => Boolean(teamId)),
-      ),
-    );
-    const grantedUserIds = grants
-      .map((grant) => grant.userId)
-      .filter((userId): userId is string => Boolean(userId));
-    const scopedUsers = await this.db().user.findMany({
-      where: {
-        OR: [
-          { id: actorId },
-          ...(grantedUserIds.length ? [{ id: { in: grantedUserIds } }] : []),
-          ...(teamIds.length
-            ? [
-                { employeeProfile: { is: { teamId: { in: teamIds } } } },
-                { teamMemberships: { some: { teamId: { in: teamIds } } } },
-              ]
-            : []),
-        ],
-      },
-      select: { id: true },
-    });
-    return scopedUsers.map((item) => item.id);
+    if (query?.scope === 'mine') {
+      return [actorId];
+    }
+
+    const scopedUserIds =
+      await this.leadVisibility.resolveAssignmentScopeUserIds(user);
+    return scopedUserIds ?? undefined;
+    }
+
+  private async assertUserWithinLeadScope(
+    targetUserId: string,
+    actor?: string | Body,
+  ) {
+    if (!targetUserId || !actor || typeof actor === 'string') return;
+    const scopedUserIds =
+      await this.leadVisibility.resolveAssignmentScopeUserIds(actor);
+    if (scopedUserIds !== null && !scopedUserIds.includes(targetUserId)) {
+      throw new ForbiddenException(
+        'Selected user is outside your permitted scope',
+      );
+    }
+    }
+
+  private async getVisibleContactLead(id: string, actor?: string | Body) {
+    const scopedUserIds =
+      actor && typeof actor !== 'string'
+        ? await this.leadVisibility.resolveAssignmentScopeUserIds(actor)
+        : null;
+    const contact =
+      scopedUserIds === null
+        ? await this.db().contactLead.findUnique({ where: { id } })
+        : await this.db().contactLead.findFirst({
+            where: { id, assignedToId: { in: scopedUserIds } },
+          });
+    if (!contact) throw new NotFoundException('Contact lead not found');
+    return contact;
   }
 
   private async buildContactLeadsWhere(query: Query, user?: Body) {
@@ -9162,6 +9463,7 @@ async listLeads(query: Query, user?: Body) {
                 { name: { contains: search, mode: 'insensitive' } },
                 { location: { contains: search, mode: 'insensitive' } },
                 { developer: { contains: search, mode: 'insensitive' } },
+                { propertyType: { contains: search, mode: 'insensitive' } },
               ],
             },
             select: { id: true },
@@ -9183,6 +9485,8 @@ async listLeads(query: Query, user?: Body) {
         { customerName: { contains: search, mode: 'insensitive' } },
         { mobile: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
+        { source: { contains: search, mode: 'insensitive' } },
+        { propertyType: { contains: search, mode: 'insensitive' } },
         ...(matchedSources.length
           ? [{ sourceId: { in: matchedSources.map((item: Body) => item.id) } }]
           : []),
@@ -9217,7 +9521,7 @@ async listLeads(query: Query, user?: Body) {
         sourceIds.length === 1 ? sourceIds[0] : { in: sourceIds };
     }
 
-    const scopedUserIds = await this.getContactLeadScopedUserIds(user);
+    const scopedUserIds = await this.getContactLeadScopedUserIds(user, query);
     let nextAssignedToIds = assignedToIds;
     if (teamIds.length) {
       const teamUsers = await this.db().user.findMany({
@@ -9413,12 +9717,25 @@ async listLeads(query: Query, user?: Body) {
     };
   }
 
-  async createContactLead(body: Body, actorUserId?: string) {
+  async createContactLead(body: Body, actor?: string | Body) {
+    const actorUserId = this.actorIdFrom(actor);
     if (!body.customerName && !body.name) {
       throw new BadRequestException('Customer name is required');
     }
     if (!body.mobile && !body.mobileNumber) {
       throw new BadRequestException('Mobile number is required');
+    }
+    const requestedAssignedToId = body.assignedToId ?? body.assignTo;
+    const assignedToId = requestedAssignedToId
+      ? String(requestedAssignedToId)
+      : typeof actor === 'string'
+      ? undefined
+      : actorUserId;
+    if (!assignedToId && actor && typeof actor !== 'string') {
+      throw new BadRequestException('Assigned user is required');
+    }
+    if (assignedToId) {
+      await this.assertUserWithinLeadScope(assignedToId, actor);
     }
     const contact = await this.db().contactLead.create({
       data: {
@@ -9431,7 +9748,7 @@ async listLeads(query: Query, user?: Body) {
         email: body.email,
         preferredProjectId: body.preferredProjectId ?? body.preferredProject,
         note: this.getContactLeadNote(body),
-        assignedToId: body.assignedToId ?? body.assignTo,
+        assignedToId,
         createdById: actorUserId,
         updatedById: actorUserId,
       },
@@ -9445,7 +9762,16 @@ async listLeads(query: Query, user?: Body) {
     return contact;
   }
 
-  async updateContactLead(id: string, body: Body, actorUserId?: string) {
+  async updateContactLead(id: string, body: Body, actor?: string | Body) {
+    const actorUserId = this.actorIdFrom(actor);
+    await this.getVisibleContactLead(id, actor);
+    const requestedAssignedToId = body.assignedToId ?? body.assignTo;
+    if (requestedAssignedToId !== undefined && requestedAssignedToId !== null) {
+      await this.assertUserWithinLeadScope(
+        String(requestedAssignedToId),
+        actor,
+      );
+    }
     const contact = await this.db().contactLead.update({
       where: { id },
       data: {
@@ -9472,20 +9798,17 @@ async listLeads(query: Query, user?: Body) {
     return contact;
   }
 
-  async markContactLeadInterested(id: string, actorUserId?: string) {
-    return this.updateContactLeadStatus(id, 'INTERESTED', actorUserId);
+  async markContactLeadInterested(id: string, actor?: string | Body) {
+    return this.updateContactLeadStatus(id, 'INTERESTED', actor);
   }
 
-  async markContactLeadNotInterested(id: string, actorUserId?: string) {
-    return this.updateContactLeadStatus(id, 'NOT_INTERESTED', actorUserId);
+  async markContactLeadNotInterested(id: string, actor?: string | Body) {
+    return this.updateContactLeadStatus(id, 'NOT_INTERESTED', actor);
   }
 
-  async deleteContactLead(id: string, actorUserId?: string) {
-    const contact = await this.db().contactLead.findUnique({
-      where: { id },
-      select: { id: true, customerName: true, mobile: true },
-    });
-    if (!contact) throw new NotFoundException('Contact lead not found');
+  async deleteContactLead(id: string, actor?: string | Body) {
+    const actorUserId = this.actorIdFrom(actor);
+    const contact = await this.getVisibleContactLead(id, actor);
 
     await this.db().contactLead.delete({ where: { id } });
     await this.audit(
@@ -9505,19 +9828,21 @@ async listLeads(query: Query, user?: Body) {
     return note.trim() || null;
   }
 
-  async archiveContactLead(id: string, actorUserId?: string) {
-    return this.updateContactLeadStatus(id, 'ARCHIVED', actorUserId);
+  async archiveContactLead(id: string, actor?: string | Body) {
+    return this.updateContactLeadStatus(id, 'ARCHIVED', actor);
   }
 
-  async unarchiveContactLead(id: string, actorUserId?: string) {
-    return this.updateContactLeadStatus(id, 'COLD', actorUserId);
+  async unarchiveContactLead(id: string, actor?: string | Body) {
+    return this.updateContactLeadStatus(id, 'COLD', actor);
   }
 
   private async updateContactLeadStatus(
     id: string,
     status: string,
-    actorUserId?: string,
+    actor?: string | Body,
   ) {
+    const actorUserId = this.actorIdFrom(actor);
+    await this.getVisibleContactLead(id, actor);
     const contact = await this.db().contactLead.update({
       where: { id },
       data: { status, updatedById: actorUserId },
@@ -9526,9 +9851,9 @@ async listLeads(query: Query, user?: Body) {
     return contact;
   }
 
-  async convertContactLead(id: string, actorUserId?: string) {
-    const contact = await this.db().contactLead.findUnique({ where: { id } });
-    if (!contact) throw new NotFoundException('Contact lead not found');
+  async convertContactLead(id: string, actor?: string | Body) {
+    const actorUserId = this.actorIdFrom(actor);
+    const contact = await this.getVisibleContactLead(id, actor);
     if (contact.status === 'CONVERTED' && contact.convertedLeadId) {
       return { leadId: contact.convertedLeadId, contact };
     }
@@ -9548,7 +9873,7 @@ async listLeads(query: Query, user?: Body) {
         ownerId: contact.assignedToId,
         telecallerId: contact.assignedToId,
       },
-      actorUserId,
+      actor,
     );
     const updatedContact = await this.db().contactLead.update({
       where: { id },
@@ -9888,13 +10213,22 @@ async listLeads(query: Query, user?: Body) {
     if (!body.initialUserId && !sequence.length) {
       throw new BadRequestException('At least one assigned user is required');
     }
-    const transferSequence = [body.initialUserId, ...sequence].filter(Boolean);
+    const transferSequence = normalizeAutoAssignmentRoute(
+      body.initialUserId,
+      sequence,
+    );
+    const rotationCount =
+      body.rotationCount === undefined
+        ? 1
+        : validateRotationCount(body.rotationCount);
+    await this.validateAutoAssignmentRoute(transferSequence, rotationCount);
     return this.db().autoAssignmentRule.create({
       data: {
         name: body.name ?? 'Default auto assignment',
         isEnabled: Boolean(body.isEnabled),
-        initialUserId: body.initialUserId ?? transferSequence[0],
+        initialUserId: transferSequence[0],
         transferSequence,
+        rotationCount,
         transferTimeMinutes: Math.max(Number(body.transferTimeMinutes) || 2, 1),
         sourceId: body.sourceId || null,
         projectId: body.projectId || null,
@@ -9907,20 +10241,62 @@ async listLeads(query: Query, user?: Body) {
   }
 
   async updateAutoAssignmentRule(id: string, body: Body, actorUserId?: string) {
+    if (!this.assignmentTransaction.getStore()) {
+      const change = () => this.updateAutoAssignmentRule(id, body, actorUserId);
+      if (body.isEnabled === false) {
+        return this.terminateAutoAssignmentRuleRuns(
+          id,
+          'Routing rule disabled',
+          change,
+        );
+      }
+      return this.prisma.$transaction(
+        async (tx) => {
+          await tx.$queryRaw`SELECT "id" FROM "AutoAssignmentRule" WHERE "id" = ${id} FOR UPDATE`;
+          return this.assignmentTransaction.run(
+            { tx, afterCommit: [] },
+            change,
+          );
+        },
+        { timeout: 20000 },
+      );
+    }
+    const current = await this.db().autoAssignmentRule.findUnique({
+      where: { id },
+    });
+    if (!current) throw new NotFoundException('Auto-assignment rule not found');
     const sequence = parseStringArray(
-      body.transferSequence ?? body.userSequence,
+      body.transferSequence ?? body.userSequence ?? current.transferSequence,
     );
-    const transferSequence = [body.initialUserId, ...sequence].filter(Boolean);
+    const initialUserId =
+      body.initialUserId === undefined
+        ? current.initialUserId
+        : body.initialUserId;
+    const transferSequence = normalizeAutoAssignmentRoute(
+      initialUserId,
+      sequence,
+    );
+    const rotationCount =
+      body.rotationCount === undefined
+        ? current.rotationCount
+        : validateRotationCount(body.rotationCount);
+    const routeChanged =
+      body.initialUserId !== undefined ||
+      body.transferSequence !== undefined ||
+      body.userSequence !== undefined ||
+      body.rotationCount !== undefined;
+    if (body.isEnabled !== false || routeChanged)
+      await this.validateAutoAssignmentRoute(transferSequence, rotationCount);
     return this.db().autoAssignmentRule.update({
       where: { id },
       data: {
         name: body.name,
         isEnabled:
           body.isEnabled === undefined ? undefined : Boolean(body.isEnabled),
-        initialUserId: body.initialUserId,
-        transferSequence: transferSequence.length
-          ? transferSequence
-          : undefined,
+        initialUserId: transferSequence[0],
+        transferSequence,
+        rotationCount:
+          body.rotationCount === undefined ? undefined : rotationCount,
         transferTimeMinutes: body.transferTimeMinutes
           ? Math.max(Number(body.transferTimeMinutes), 1)
           : undefined,
@@ -9934,13 +10310,67 @@ async listLeads(query: Query, user?: Body) {
   }
 
   async deleteAutoAssignmentRule(id: string) {
-    return this.db().autoAssignmentRule.delete({ where: { id } });
+    return this.terminateAutoAssignmentRuleRuns(
+      id,
+      'Routing rule deleted',
+      () => this.db().autoAssignmentRule.delete({ where: { id } }),
+    );
   }
 
-  async listAutoAssignmentEvents(query: Query) {
+  private async terminateAutoAssignmentRuleRuns<T>(
+    ruleId: string,
+    stopReason: string,
+    change: () => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction(
+      async (tx) => {
+        // Match the worker's lead-before-event lock order; sorted IDs prevent multi-lead deadlocks.
+        await tx.$queryRaw`SELECT "id" FROM "Lead" WHERE "id" IN (SELECT "leadId" FROM "AutoAssignmentEvent" WHERE "ruleId" = ${ruleId} AND "status" = 'ACTIVE') ORDER BY "id" FOR UPDATE`;
+        await tx.$queryRaw`SELECT "id" FROM "AutoAssignmentRule" WHERE "id" = ${ruleId} FOR UPDATE`;
+        return this.assignmentTransaction.run(
+          { tx, afterCommit: [] },
+          async () => {
+            const result = await change();
+            await tx.autoAssignmentEvent.updateMany({
+              where: { ruleId, status: 'ACTIVE' },
+              data: {
+                status: 'COMPLETED',
+                stopReason,
+                lastCheckedAt: new Date(),
+              },
+            });
+            return result;
+          },
+        );
+      },
+      { timeout: 20000 },
+    );
+  }
+
+  private async validateAutoAssignmentRoute(
+    userIds: string[],
+    rotationCount: number,
+  ) {
+    if (!userIds.length)
+      throw new BadRequestException('At least one assigned user is required');
+    if (rotationCount > 1 && userIds.length < 2)
+      throw new BadRequestException(
+        'Repeating rotation requires at least two users',
+      );
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: userIds }, isActive: true },
+      select: { id: true },
+    });
+    if (users.length !== userIds.length)
+      throw new BadRequestException(
+        'Auto-assignment route contains an inactive or invalid user',
+      );
+  }
+
+  async listAutoAssignmentEvents(query: Query, actor?: Body) {
     const { page, limit, skip } = pageMeta(query);
     const where = query.status ? { status: String(query.status) } : {};
-    const [data, total] = await Promise.all([
+    const [events, total]: [AutoAssignmentEvent[], number] = await Promise.all([
       this.db().autoAssignmentEvent.findMany({
         where,
         skip,
@@ -9949,6 +10379,43 @@ async listLeads(query: Query, user?: Body) {
       }),
       this.db().autoAssignmentEvent.count({ where }),
     ]);
+    if (!events.length) return { data: [], meta: { page, limit, total } };
+    const assignmentScope = await this.leadVisibility.resolveAssignmentScope(
+      actor,
+    );
+    const leads = await this.prisma.lead.findMany({
+      where: {
+        id: { in: [...new Set(events.map((event) => event.leadId))] },
+        deletedAt: null,
+        ...(assignmentScope ? { AND: [assignmentScope] } : {}),
+      },
+      select: { id: true, name: true, displayId: true },
+    });
+    const leadById = new Map(leads.map((lead) => [lead.id, lead]));
+    const userIds = [
+      ...new Set(
+        events.flatMap((event) =>
+          leadById.has(event.leadId) && event.currentUserId
+            ? [event.currentUserId]
+            : [],
+        ),
+      ),
+    ];
+    const users = userIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, fullName: true },
+        })
+      : [];
+    const userById = new Map(users.map((user) => [user.id, user.fullName]));
+    const data = events.map((event) => ({
+      ...event,
+      leadName: leadById.get(event.leadId)?.name ?? null,
+      leadDisplayId: leadById.get(event.leadId)?.displayId ?? null,
+      currentUserName: event.currentUserId
+        ? userById.get(event.currentUserId) ?? null
+        : null,
+    }));
     return { data, meta: { page, limit, total } };
   }
 
@@ -10026,15 +10493,38 @@ async listLeads(query: Query, user?: Body) {
   }
 
   private autoAssignmentSequence(rule: Body) {
-    const sequence = parseStringArray(rule.transferSequence);
-    const initialUserId = optionalString(rule.initialUserId);
-    if (
-      initialUserId &&
-      !sequence.some((userId) => String(userId) === String(initialUserId))
-    ) {
-      return [initialUserId, ...sequence];
+    return normalizeAutoAssignmentRoute(
+      rule.initialUserId,
+      parseStringArray(rule.transferSequence),
+    );
+  }
+
+  private autoAssignmentSnapshot(
+    rule: Body,
+    legacy = false,
+  ): AutoAssignmentSnapshot {
+    return {
+      userIds: this.autoAssignmentSequence(rule),
+      rotationCount: legacy
+        ? 1
+        : validateRotationCount(rule.rotationCount ?? 1),
+      transferTimeMinutes: Math.max(Number(rule.transferTimeMinutes) || 2, 1),
+    };
+  }
+
+  private async autoAssignmentAssigneeType(
+    userId: string,
+  ): Promise<LeadAssigneeType> {
+    const user = await this.db().user.findUnique({
+      where: { id: userId },
+      select: { isActive: true, role: true },
+    });
+    if (!user?.isActive) {
+      throw new BadRequestException(
+        'Auto-assignment route contains an inactive or invalid user',
+      );
     }
-    return sequence;
+    return user.role === 'SALES_AGENT' ? 'field-executive' : 'telecaller';
   }
 
   private async activateAutoAssignmentEvent(
@@ -10044,14 +10534,19 @@ async listLeads(query: Query, user?: Body) {
     currentStep: number,
     assignedAt = new Date(),
   ) {
-    const dueAt = this.autoAssignmentDueAt(rule, assignedAt);
     const activeEvent = await this.db().autoAssignmentEvent.findFirst({
       where: { leadId, status: 'ACTIVE' },
       orderBy: { createdAt: 'desc' },
     });
+    const snapshot =
+      readAutoAssignmentSnapshot(activeEvent?.routeSnapshot) ??
+      this.autoAssignmentSnapshot(rule, Boolean(activeEvent));
+    const dueAt = this.autoAssignmentDueAt(snapshot, assignedAt);
+    const currentCycle = activeEvent?.currentCycle ?? 1;
     const historyEntry = {
       userId: currentUserId,
       currentStep,
+      currentCycle,
       assignedAt: assignedAt.toISOString(),
     };
 
@@ -10059,9 +10554,10 @@ async listLeads(query: Query, user?: Body) {
       await this.db().autoAssignmentEvent.update({
         where: { id: activeEvent.id },
         data: {
-          ruleId: rule.id,
           currentUserId,
           currentStep,
+          currentCycle,
+          routeSnapshot: snapshot,
           assignedAt,
           dueAt,
           lastCheckedAt: assignedAt,
@@ -10077,6 +10573,8 @@ async listLeads(query: Query, user?: Body) {
         leadId,
         currentUserId,
         currentStep,
+        currentCycle,
+        routeSnapshot: snapshot,
         assignedAt,
         dueAt,
         history: [historyEntry],
@@ -10088,10 +10586,37 @@ async listLeads(query: Query, user?: Body) {
     lead: Body,
     assigneeId: string,
   ) {
-    const rule = await this.findAutoAssignmentRuleForLead(lead);
+    if (!this.assignmentTransaction.getStore()) {
+      return this.withAssignmentTransaction(String(lead.id), () =>
+        this.syncAutoAssignmentEventForAssignee(lead, assigneeId),
+      );
+    }
+    const activeEvent = await this.db().autoAssignmentEvent.findFirst({
+      where: { leadId: lead.id, status: 'ACTIVE' },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (activeEvent)
+      await this.db()
+        .$queryRaw`SELECT "id" FROM "AutoAssignmentEvent" WHERE "id" = ${activeEvent.id} FOR UPDATE`;
+    let rule = activeEvent?.ruleId
+      ? await this.db().autoAssignmentRule.findUnique({
+          where: { id: activeEvent.ruleId },
+        })
+      : await this.findAutoAssignmentRuleForLead(lead);
     if (!rule) return;
+    if (!activeEvent) {
+      await this.db()
+        .$queryRaw`SELECT "id" FROM "AutoAssignmentRule" WHERE "id" = ${rule.id} FOR SHARE`;
+      rule = await this.db().autoAssignmentRule.findUnique({
+        where: { id: rule.id },
+      });
+      if (!rule?.isEnabled) return;
+    }
 
-    const sequence = this.autoAssignmentSequence(rule);
+    const sequence = (
+      readAutoAssignmentSnapshot(activeEvent?.routeSnapshot) ??
+      this.autoAssignmentSnapshot(rule, Boolean(activeEvent))
+    ).userIds;
     const currentStep = sequence.findIndex(
       (userId) => String(userId) === String(assigneeId),
     );
@@ -10099,7 +10624,11 @@ async listLeads(query: Query, user?: Body) {
     if (currentStep < 0) {
       await this.db().autoAssignmentEvent.updateMany({
         where: { leadId: lead.id, status: 'ACTIVE' },
-        data: { status: 'STOPPED', lastCheckedAt: new Date() },
+        data: {
+          status: 'STOPPED',
+          stopReason: 'Manual owner is outside the saved route',
+          lastCheckedAt: new Date(),
+        },
       });
       return;
     }
@@ -10116,24 +10645,33 @@ async listLeads(query: Query, user?: Body) {
     lead: Body,
     preferredTeamId?: string,
   ) {
-    const rule = await this.findAutoAssignmentRuleForLead(
-      lead,
-      preferredTeamId,
-    );
+    if (!this.assignmentTransaction.getStore()) {
+      return this.withAssignmentTransaction(String(lead.id), () =>
+        this.createAutoAssignmentEventForLead(lead, preferredTeamId),
+      );
+    }
+    let rule = await this.findAutoAssignmentRuleForLead(lead, preferredTeamId);
     if (!rule) return;
+    await this.db()
+      .$queryRaw`SELECT "id" FROM "AutoAssignmentRule" WHERE "id" = ${rule.id} FOR SHARE`;
+    rule = await this.db().autoAssignmentRule.findUnique({
+      where: { id: rule.id },
+    });
+    if (!rule?.isEnabled) return;
     const sequence = this.autoAssignmentSequence(rule);
     const currentUserId = rule.initialUserId ?? sequence[0];
     if (!currentUserId) return;
+    const assigneeType = await this.autoAssignmentAssigneeType(currentUserId);
     await this.assignLead(
       lead.id,
       {
         toUserId: currentUserId,
-        assigneeType: 'TELECALLER',
+        assigneeType,
         strategy: 'auto-assignment',
         reason: 'Initial automatic CRM assignment',
       },
       undefined,
-    ).catch(() => undefined);
+    );
 
     const now = new Date();
     const currentStep = Math.max(
@@ -10156,12 +10694,35 @@ async listLeads(query: Query, user?: Body) {
       orderBy: { dueAt: 'asc' },
     });
     for (const event of dueEvents) {
-      await this.processAutoAssignmentEvent(event).catch(() => undefined);
+      await this.processAutoAssignmentEvent(event).catch((error: unknown) => {
+        this.logger.error(
+          `Auto-assignment event ${String(
+            event.id,
+          )} failed; progress not advanced: ${String(error)}`,
+        );
+      });
     }
     return { processed: dueEvents.length };
   }
 
   private async processAutoAssignmentEvent(event: Body) {
+    if (!this.assignmentTransaction.getStore()) {
+      return this.withAssignmentTransaction(String(event.leadId), () =>
+        this.processAutoAssignmentEvent(event),
+      );
+    }
+    await this.db()
+      .$queryRaw`SELECT "id" FROM "AutoAssignmentEvent" WHERE "id" = ${event.id} FOR UPDATE`;
+    const currentEvent = await this.db().autoAssignmentEvent.findUnique({
+      where: { id: event.id },
+    });
+    if (
+      !currentEvent ||
+      currentEvent.status !== 'ACTIVE' ||
+      currentEvent.dueAt > new Date()
+    )
+      return;
+    event = currentEvent;
     const [lead, rule] = await Promise.all([
       this.db().lead.findUnique({ where: { id: event.leadId } }),
       event.ruleId
@@ -10177,10 +10738,22 @@ async listLeads(query: Query, user?: Body) {
       });
       return;
     }
-    if (!lead || !rule || !rule.isEnabled) {
+    if (!lead || lead.deletedAt || !rule || !rule.isEnabled) {
       await this.db().autoAssignmentEvent.update({
         where: { id: event.id },
         data: { status: 'COMPLETED', lastCheckedAt: new Date() },
+      });
+      return;
+    }
+
+    if (lead.ownerId !== event.currentUserId) {
+      await this.db().autoAssignmentEvent.update({
+        where: { id: event.id },
+        data: {
+          status: 'STOPPED',
+          stopReason: 'Primary owner no longer matches the routing run',
+          lastCheckedAt: new Date(),
+        },
       });
       return;
     }
@@ -10189,19 +10762,29 @@ async listLeads(query: Query, user?: Body) {
     if (acted) {
       await this.db().autoAssignmentEvent.update({
         where: { id: event.id },
-        data: { status: 'STOPPED', lastCheckedAt: new Date() },
+        data: {
+          status: 'STOPPED',
+          stopReason: 'CRM action recorded',
+          lastCheckedAt: new Date(),
+        },
       });
       return;
     }
 
-    const sequence = this.autoAssignmentSequence(rule);
-    const nextStep = Number(event.currentStep ?? 0) + 1;
-    const nextUserId = sequence[nextStep];
-    if (!nextUserId) {
+    const snapshot =
+      readAutoAssignmentSnapshot(event.routeSnapshot) ??
+      this.autoAssignmentSnapshot(rule, true);
+    const nextPosition = nextAutoAssignmentPosition(
+      snapshot,
+      Number(event.currentStep ?? 0),
+      Number(event.currentCycle ?? 1),
+    );
+    if (!nextPosition) {
       await this.db().autoAssignmentEvent.update({
         where: { id: event.id },
         data: {
           status: 'EXHAUSTED',
+          stopReason: 'Completed all configured passes',
           exhaustedAt: new Date(),
           lastCheckedAt: new Date(),
         },
@@ -10210,11 +10793,27 @@ async listLeads(query: Query, user?: Body) {
       return;
     }
 
+    const nextUserId = snapshot.userIds[nextPosition.currentStep];
+    const nextUser = await this.db().user.findUnique({
+      where: { id: nextUserId },
+      select: { isActive: true, role: true },
+    });
+    if (!nextUser?.isActive) {
+      const stopReason = `Next route user ${nextUserId} is inactive or unavailable`;
+      await this.db().autoAssignmentEvent.update({
+        where: { id: event.id },
+        data: { status: 'STOPPED', stopReason, lastCheckedAt: new Date() },
+      });
+      await this.notifyAdminsAutoAssignmentExhausted(lead, stopReason);
+      return;
+    }
+    const assigneeType: LeadAssigneeType =
+      nextUser.role === 'SALES_AGENT' ? 'field-executive' : 'telecaller';
     await this.assignLead(
       event.leadId,
       {
         toUserId: nextUserId,
-        assigneeType: 'TELECALLER',
+        assigneeType,
         strategy: 'auto-transfer',
         reason: 'No CRM action before auto-transfer due time',
       },
@@ -10225,27 +10824,32 @@ async listLeads(query: Query, user?: Body) {
       rule,
       event.currentUserId,
       nextUserId,
-    ).catch(() => undefined);
+    );
     const now = new Date();
-    const dueAt = this.autoAssignmentDueAt(rule, now);
+    const dueAt = this.autoAssignmentDueAt(snapshot, now);
     await this.db().autoAssignmentEvent.update({
       where: { id: event.id },
       data: {
         currentUserId: nextUserId,
-        currentStep: nextStep,
+        ...nextPosition,
+        routeSnapshot: snapshot,
         assignedAt: now,
         dueAt,
         lastCheckedAt: now,
         history: [
           ...asArray(event.history),
-          { userId: nextUserId, assignedAt: now.toISOString() },
+          {
+            userId: nextUserId,
+            ...nextPosition,
+            assignedAt: now.toISOString(),
+          },
         ],
       },
     });
   }
 
   private async hasLeadActionAfter(leadId: string, assignedAt: Date) {
-    const [activity, followUp, note, callLog, siteVisit, booking, lead] =
+    const [activity, followUp, note, callLog, siteVisit, booking] =
       await Promise.all([
         this.db().activity.count({
           where: {
@@ -10253,10 +10857,18 @@ async listLeads(query: Query, user?: Body) {
             occurredAt: { gt: assignedAt },
             type: {
               notIn: [
+                'LEAD_CREATED',
+                'Lead created',
                 'LEAD_ASSIGNED',
+                'Lead assigned',
+                'LEAD_REASSIGNED',
+                'Lead reassigned',
+                'Lead Assigned',
+                'Lead Reassigned',
                 'LEAD_SOURCE_UPDATED',
                 'AUTO_ASSIGNMENT_MISSED',
                 'AUTO_ASSIGNMENT_TRANSFERRED',
+                'SYSTEM_LOG',
               ],
             },
           },
@@ -10276,10 +10888,6 @@ async listLeads(query: Query, user?: Body) {
         this.db().booking.count({
           where: { leadId, createdAt: { gt: assignedAt } },
         }),
-        this.db().lead.findUnique({
-          where: { id: leadId },
-          select: { updatedAt: true },
-        }),
       ]);
     return (
       activity > 0 ||
@@ -10287,8 +10895,7 @@ async listLeads(query: Query, user?: Body) {
       note > 0 ||
       callLog > 0 ||
       siteVisit > 0 ||
-      booking > 0 ||
-      Boolean(lead?.updatedAt && lead.updatedAt > assignedAt)
+      booking > 0
     );
   }
 
@@ -10400,7 +11007,10 @@ async listLeads(query: Query, user?: Body) {
     }
   }
 
-  private async notifyAdminsAutoAssignmentExhausted(lead: Body) {
+  private async notifyAdminsAutoAssignmentExhausted(
+    lead: Body,
+    stopReason?: string,
+  ) {
     if (!lead.organizationId) return;
     const admins = await this.db().user.findMany({
       where: {
@@ -10430,11 +11040,17 @@ async listLeads(query: Query, user?: Body) {
       data: admins.map((admin: Body) => ({
         organizationId: lead.organizationId,
         userId: admin.id,
-        type: 'AUTO_ASSIGNMENT_EXHAUSTED',
-        title: 'Auto assignment exhausted',
-        message: `Lead ${
-          lead.displayId ?? lead.name
-        } reached the end of its transfer sequence.`,
+        type: stopReason
+          ? 'AUTO_ASSIGNMENT_STOPPED'
+          : 'AUTO_ASSIGNMENT_EXHAUSTED',
+        title: stopReason
+          ? 'Auto assignment stopped'
+          : 'Auto assignment exhausted',
+        message:
+          stopReason ??
+          `Lead ${
+            lead.displayId ?? lead.name
+          } reached the end of its transfer sequence.`,
         entityType: 'Lead',
         entityId: lead.id,
         details: navigation,
@@ -10445,7 +11061,7 @@ async listLeads(query: Query, user?: Body) {
       this.sendPushNotification(
         admin.id,
         {
-          title: 'SLA Exhausted Alert',
+          title: stopReason ? 'Auto assignment stopped' : 'SLA Exhausted Alert',
           body: `Lead ${
             lead.displayId ?? lead.name
           } reached the end of its SLA transfer sequence.`,
@@ -10483,6 +11099,12 @@ async listLeads(query: Query, user?: Body) {
     const userIds = new Set<string>();
     const projectIds = new Set<string>();
     const where: Body = { deletedAt: null };
+    const assignmentScope = await this.leadVisibility.resolveAssignmentScope(
+      user,
+    );
+    if (assignmentScope) {
+      where.AND = [assignmentScope];
+    }
 
     if (query.search) {
       where.OR = [
@@ -10518,7 +11140,14 @@ async listLeads(query: Query, user?: Body) {
     }
     if (query.managerId && query.managerId !== 'all')
       where.managerId = String(query.managerId);
-    if (user?.role === 'TELECALLER') where.telecallerId = user.sub;
+    if (query.search) {
+      const searchConditions = await this.buildLeadSearchConditions(
+        query.search,
+      );
+      if (searchConditions.length) {
+        where.AND = [...(where.AND ?? []), { OR: searchConditions }];
+      }
+    }
     if (query.from || query.to) {
       where.createdAt = {};
       const from = normalizeDate(query.from);
@@ -10533,6 +11162,10 @@ async listLeads(query: Query, user?: Body) {
       orderBy: { updatedAt: 'desc' },
       include: {
         requirement: true,
+        integrationConnection: {
+          select: { id: true, name: true, provider: true, archivedAt: true },
+        },
+        projectInterests: { include: { project: true } },
         activities: { orderBy: { occurredAt: 'desc' }, take: 1 },
         callLogs: { orderBy: { startedAt: 'desc' }, take: 1 },
       },
@@ -10544,6 +11177,9 @@ async listLeads(query: Query, user?: Body) {
         .forEach((id: string) => userIds.add(id));
       if (lead.requirement?.preferredProjectId)
         projectIds.add(lead.requirement.preferredProjectId);
+      for (const pi of lead.projectInterests ?? []) {
+        if (pi.projectId) projectIds.add(pi.projectId);
+      }
     }
 
     const [users, projects] = await Promise.all([
@@ -10573,7 +11209,7 @@ async listLeads(query: Query, user?: Body) {
       this.db()
         .project.findMany({
           where: projectIds.size ? { id: { in: [...projectIds] } } : {},
-          select: { id: true, name: true, location: true },
+          select: { id: true, name: true, location: true, propertyType: true },
           take: 200,
         })
         .catch(() => []),
@@ -10603,18 +11239,38 @@ async listLeads(query: Query, user?: Body) {
       ]),
     );
 
+    const filterProjectId =
+      query.projectId && query.projectId !== 'all'
+        ? String(query.projectId)
+        : null;
+    const filterPropertyType =
+      query.propertyType && query.propertyType !== 'all'
+        ? String(query.propertyType).toLowerCase()
+        : null;
+
     const includedLeads: Body[] = [];
     for (const lead of leads) {
+      const leadProjectIds = new Set<string>(
+        [
+          lead.requirement?.preferredProjectId,
+          ...(lead.projectInterests ?? []).map((pi: Body) => pi.projectId),
+        ].filter(Boolean) as string[],
+      );
       const preferredProjectId = lead.requirement?.preferredProjectId;
       const preferredProject = preferredProjectId
         ? projectsById.get(preferredProjectId)
         : null;
-      if (
-        query.projectId &&
-        query.projectId !== 'all' &&
-        preferredProjectId !== query.projectId
-      )
-        continue;
+
+      if (filterProjectId) {
+        const matchesProj =
+          leadProjectIds.has(filterProjectId) ||
+          Array.from(leadProjectIds).some(
+            (id) =>
+              projectsById.get(id)?.name?.toLowerCase() ===
+              filterProjectId.toLowerCase(),
+          );
+        if (!matchesProj) continue;
+      }
       if (
         query.branch &&
         query.branch !== 'all' &&
@@ -10623,13 +11279,20 @@ async listLeads(query: Query, user?: Body) {
           .includes(String(query.branch).toLowerCase())
       )
         continue;
-      if (
-        query.propertyType &&
-        query.propertyType !== 'all' &&
-        String(lead.requirement?.propertyType ?? '').toLowerCase() !==
-          String(query.propertyType).toLowerCase()
-      )
-        continue;
+      if (filterPropertyType) {
+        const reqPropType = String(
+          lead.requirement?.propertyType ?? '',
+        ).toLowerCase();
+        const matchesPropType =
+          reqPropType === filterPropertyType ||
+          Array.from(leadProjectIds).some(
+            (id) =>
+              String(
+                projectsById.get(id)?.propertyType ?? '',
+              ).toLowerCase() === filterPropertyType,
+          );
+        if (!matchesPropType) continue;
+      }
       if (
         query.configuration &&
         query.configuration !== 'all' &&
@@ -10805,6 +11468,16 @@ async listLeads(query: Query, user?: Body) {
         explicitTelecallerId ||
         explicitFieldExecutiveId,
     );
+    await Promise.all(
+      [
+        explicitOwnerId,
+        explicitManagerId,
+        explicitTelecallerId,
+        explicitFieldExecutiveId,
+      ]
+        .filter((id): id is string => Boolean(id))
+        .map((id) => this.assertUserWithinLeadScope(id, actor)),
+    );
 
     const defaultTelecallerId =
       !explicitTelecallerId && actorRole === 'TELECALLER'
@@ -10832,6 +11505,16 @@ async listLeads(query: Query, user?: Body) {
           optionalId(body.organizationId),
         )
       : optionalId(body.organizationId);
+
+    const integrationConnectionId = optionalId(body.integrationConnectionId);
+    if (integrationConnectionId) {
+      if (!effectiveOrgId) throw new BadRequestException('Integration accounts require a tenant workspace');
+      const account = await this.prisma.leadSourceConnection.findFirst({
+        where: { id: integrationConnectionId, organizationId: effectiveOrgId, archivedAt: null },
+        select: { id: true },
+      });
+      if (!account) throw new NotFoundException('Integration account not found in this workspace');
+    }
 
     let rawProjectInput =
       body.preferredProjectId ??
@@ -10909,6 +11592,7 @@ async listLeads(query: Query, user?: Body) {
             managerId,
             telecallerId,
             fieldExecutiveId,
+            integrationConnectionId,
             createdById: actorUserId,
             createdAt: normalizeDate(body.createdAt),
             assignedAt: normalizeDate(body.assignDate),
@@ -11154,7 +11838,29 @@ async listLeads(query: Query, user?: Body) {
       await this.createAutoAssignmentEventForLead(
         lead,
         optionalId(body.autoAssignmentTeamId),
-      ).catch(() => undefined);
+      ).catch((error: unknown) =>
+        this.logger.error(
+          `Initial auto-assignment failed for lead ${String(lead.id)}: ${String(
+            error,
+          )}`,
+        ),
+      );
+    } else {
+      const explicitAssigneeId = optionalId(
+        lead.ownerId || lead.telecallerId || lead.fieldExecutiveId,
+      );
+      if (explicitAssigneeId) {
+        await this.syncAutoAssignmentEventForAssignee(
+          lead,
+          explicitAssigneeId,
+        ).catch((error: unknown) =>
+          this.logger.error(
+            `Explicit auto-assignment enrollment failed for lead ${String(
+              lead.id,
+            )}: ${String(error)}`,
+          ),
+        );
+      }
     }
 
     const returnLead: any = { ...lead };
@@ -11186,19 +11892,20 @@ async listLeads(query: Query, user?: Body) {
 
   async getLead(id: string, user?: Body | string) {
     const actorUser = typeof user === 'string' ? undefined : user;
+    const assignmentScope = await this.leadVisibility.resolveAssignmentScope(
+      actorUser,
+    );
     const lead = await this.db().lead.findFirst({
       where: {
         OR: [{ id }, { displayId: id }],
         deletedAt: null,
-        ...(actorUser?.role === 'TELECALLER'
-          ? { telecallerId: actorUser.sub }
-          : {}),
-        ...(actorUser?.role === 'SALES_AGENT'
-          ? { AND: [this.salesAgentLeadScope(actorUser.sub)] }
-          : {}),
+        ...(assignmentScope ? { AND: [assignmentScope] } : {}),
       },
       include: {
         requirement: true,
+        integrationConnection: {
+          select: { id: true, name: true, provider: true, archivedAt: true },
+        },
         followUps: { orderBy: { scheduledAt: 'desc' } },
         activities: { orderBy: { occurredAt: 'desc' } },
         tasks: {
@@ -11318,6 +12025,10 @@ async listLeads(query: Query, user?: Body) {
           }
         : resolvedProjName,
       sourceName: lead.sourceId ? masterMap.get(lead.sourceId) : undefined,
+      integrationConnectionId: lead.integrationConnectionId ?? null,
+      integrationAccountName:
+        lead.integrationConnection?.name ?? 'Legacy / unattributed',
+      integrationProvider: lead.integrationConnection?.provider ?? null,
       stageName: lead.stageId ? masterMap.get(lead.stageId) : undefined,
       statusName: lead.statusId ? masterMap.get(lead.statusId) : undefined,
       priorityName: lead.priorityId
@@ -11558,6 +12269,7 @@ async listLeads(query: Query, user?: Body) {
       return {
         visibilityScope: 'ALL' as const,
         teamUserIds: new Set<string>([user.sub]),
+        bookingUserIds: null,
         canEdit: false,
       };
     }
@@ -11574,18 +12286,27 @@ async listLeads(query: Query, user?: Body) {
     ]);
 
     const roleScope =
-      leaderTeams.length > 0 || String(user.role ?? '') === 'SALES_MANAGER'
+      leaderTeams.length > 0 ||
+      ['TEAM_LEADER', 'MANAGER', 'SALES_MANAGER'].includes(
+        String(user.role ?? ''),
+      )
         ? 'TEAM_LEADER'
         : String(user.role ?? '') === 'TELECALLER'
         ? 'PRE_SALES'
         : String(user.role ?? '') === 'SALES_AGENT'
         ? 'SALES'
         : null;
+    const scopedUserIds =
+      await this.leadVisibility.resolveAssignmentScopeUserIds(user);
+    const bookingUserIds = scopedUserIds
+      ? new Set(scopedUserIds)
+      : new Set<string>([user.sub]);
 
     if (!roleScope) {
       return {
         visibilityScope: 'OWN' as const,
         teamUserIds: new Set<string>([user.sub]),
+        bookingUserIds,
         canEdit: false,
       };
     }
@@ -11615,25 +12336,32 @@ async listLeads(query: Query, user?: Body) {
           })
         : [];
 
+    const finalTeamUserIds = new Set<string>([user.sub]);
+    if (visibilityScope === 'OWN_AND_TEAM') {
+      if (scopedUserIds) {
+        scopedUserIds.forEach((id) => finalTeamUserIds.add(id));
+      }
+      teamMembers.forEach((member: Body) => finalTeamUserIds.add(member.userId));
+    }
+
     return {
       visibilityScope,
       canEdit: Boolean(setting?.canEdit),
-      teamUserIds: new Set<string>([
-        user.sub,
-        ...teamMembers.map((member: Body) => member.userId),
-      ]),
+      teamUserIds: finalTeamUserIds,
+      bookingUserIds,
     };
   }
 
-  private applyBookingFinanceVisibility(
-    row: ReturnType<CrmService['toBookingWorkspaceRow']>,
-    viewer: {
-      visibilityScope: 'OWN' | 'OWN_AND_TEAM' | 'ALL';
-      teamUserIds: Set<string>;
-    } | null,
+  private bookingFinanceRelationsForViewer(
+    row: Body,
+    viewer: BookingFinanceViewer | null,
   ) {
     if (!viewer || viewer.visibilityScope === 'ALL') {
-      return row;
+      return {
+        incentives: row.incentives ?? [],
+        extraIncentives: row.extraIncentives ?? [],
+        payments: row.payments ?? [],
+      };
     }
 
     const canSeeRecipient = (recipientUserId?: string) =>
@@ -11650,6 +12378,20 @@ async listLeads(query: Query, user?: Body) {
         payment.kind !== 'INCENTIVE' ||
         canSeeRecipient(payment.recipientUserId),
     );
+
+    return { incentives, extraIncentives, payments };
+  }
+
+  private applyBookingFinanceVisibility(
+    row: ReturnType<CrmService['toBookingWorkspaceRow']>,
+    viewer: BookingFinanceViewer | null,
+  ) {
+    if (!viewer || viewer.visibilityScope === 'ALL') {
+      return row;
+    }
+
+    const { incentives, extraIncentives, payments } =
+      this.bookingFinanceRelationsForViewer(row, viewer);
     const receivedIncentive = this.sumPayments(payments, 'INCENTIVE');
     const baseIncentiveSum = incentives.reduce(
       (sum, item) =>
@@ -12351,11 +13093,48 @@ async listLeads(query: Query, user?: Body) {
     if (query.leadId) where.leadId = query.leadId;
     const executiveId =
       query.executiveId && query.executiveId !== 'all'
-        ? query.executiveId
+        ? String(query.executiveId)
         : query.assignedToId && query.assignedToId !== 'all'
-        ? query.assignedToId
+        ? String(query.assignedToId)
         : undefined;
-    if (executiveId) {
+    const scopedUserIds =
+      await this.leadVisibility.resolveAssignmentScopeUserIds(user);
+    if (scopedUserIds !== null) {
+      if (executiveId) {
+        if (scopedUserIds.includes(executiveId)) {
+          where.OR = [
+            ...(where.OR ?? []),
+            { closedById: executiveId },
+            { lead: { ownerId: executiveId } },
+            { lead: { telecallerId: executiveId } },
+            { lead: { fieldExecutiveId: executiveId } },
+          ];
+        } else {
+          where.closedById = { in: [] };
+        }
+      } else {
+        where.AND = [
+          ...(where.AND ?? []),
+          {
+            OR: [
+              { closedById: { in: scopedUserIds } },
+              {
+                lead: {
+                  is: {
+                    OR: [
+                      { ownerId: { in: scopedUserIds } },
+                      { managerId: { in: scopedUserIds } },
+                      { telecallerId: { in: scopedUserIds } },
+                      { fieldExecutiveId: { in: scopedUserIds } },
+                    ],
+                  },
+                },
+              },
+            ],
+          },
+        ];
+      }
+    } else if (executiveId) {
       where.OR = [
         ...(where.OR ?? []),
         { closedById: executiveId },
@@ -12695,17 +13474,19 @@ async listLeads(query: Query, user?: Body) {
       include: this.bookingInclude(),
     });
     if (!booking) throw new NotFoundException('Booking not found');
-    if (
-      user?.role === 'TELECALLER' &&
-      booking.lead?.telecallerId !== user.sub
-    ) {
-      throw new ForbiddenException('You cannot view this booking');
+    const scopedUserIds =
+      await this.leadVisibility.resolveAssignmentScopeUserIds(user);
+    if (scopedUserIds !== null) {
+      const relatedUserIds = [
+        booking.closedById,
+        booking.lead?.ownerId,
+        booking.lead?.managerId,
+        booking.lead?.telecallerId,
+        booking.lead?.fieldExecutiveId,
+      ].filter((value): value is string => Boolean(value));
+      if (!relatedUserIds.some((userId) => scopedUserIds.includes(userId))) {
+        throw new NotFoundException('Booking not found');
     }
-    if (
-      user?.role === 'SALES_AGENT' &&
-      booking.lead?.fieldExecutiveId !== user.sub
-    ) {
-      throw new ForbiddenException('You cannot view this booking');
     }
     const financeViewer = await this.getBookingFinanceViewer(user);
     return this.applyBookingFinanceVisibility(
@@ -13312,6 +14093,29 @@ async listLeads(query: Query, user?: Body) {
     const { preset, start, end } = this.bookingReportRange(query);
     const scope = String(query.scope ?? 'booking');
     const where: Body = { bookingDate: { gte: start, lte: end } };
+    const viewer = await this.getBookingFinanceViewer(user);
+    if (viewer?.bookingUserIds) {
+      const scopedUserIds = Array.from(viewer.bookingUserIds);
+      where.AND = [
+        {
+          OR: [
+            { closedById: { in: scopedUserIds } },
+            {
+              lead: {
+                is: {
+                  OR: [
+                    { ownerId: { in: scopedUserIds } },
+                    { managerId: { in: scopedUserIds } },
+                    { telecallerId: { in: scopedUserIds } },
+                    { fieldExecutiveId: { in: scopedUserIds } },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      ];
+    }
     if (query.projectId && query.projectId !== 'all')
       where.projectId = query.projectId;
     if (query.status && query.status !== 'all') where.status = query.status;
@@ -13321,11 +14125,15 @@ async listLeads(query: Query, user?: Body) {
         mode: 'insensitive',
       };
     }
-    const rows = await this.db().booking.findMany({
+    const unfilteredRows = await this.db().booking.findMany({
       where,
       include: this.bookingInclude(),
       orderBy: { bookingDate: 'desc' },
     });
+    const rows = unfilteredRows.map((booking: Body) => ({
+      ...booking,
+      ...this.bookingFinanceRelationsForViewer(booking, viewer),
+    }));
     const teamUserIds =
       query.teamId && query.teamId !== 'all'
         ? new Set(
@@ -13490,13 +14298,18 @@ async listLeads(query: Query, user?: Body) {
         select: { id: true, name: true },
       }),
     ]);
-    const isTeamLeader = leaderTeams.length > 0;
-    if (requestedScope === 'team' && (!isTeamLeader || !canViewTeam)) {
+    const canManageTeamScope =
+      leaderTeams.length > 0 ||
+      ['TEAM_LEADER', 'MANAGER', 'SALES_MANAGER'].includes(
+        String(user.role ?? ''),
+      );
+    if (requestedScope === 'team' && (!canManageTeamScope || !canViewTeam)) {
       throw new ForbiddenException(
         'You do not have access to team commissions',
       );
     }
-    const ownRoleTypes = isTeamLeader
+    const ownRoleTypes =
+      String(user.role ?? '') === 'TEAM_LEADER'
       ? new Set(['TEAM_LEADER'])
       : String(user.role ?? '') === 'TELECALLER'
       ? new Set(['PRE_SALES'])
@@ -13505,7 +14318,7 @@ async listLeads(query: Query, user?: Body) {
       : new Set(['SALES', 'PRE_SALES', 'TEAM_LEADER']);
 
     const assignmentScopeUserIds =
-      isTeamLeader && requestedScope !== 'team'
+      canManageTeamScope && requestedScope !== 'team'
         ? Array.from(viewer?.teamUserIds ?? new Set<string>([user.sub]))
         : recipientUserIds;
 
@@ -13654,7 +14467,11 @@ async listLeads(query: Query, user?: Body) {
         }
       });
 
-      if (!canViewTeam && isTeamLeader && ownRoleTypes.has('TEAM_LEADER')) {
+      if (
+        !canViewTeam &&
+        canManageTeamScope &&
+        ownRoleTypes.has('TEAM_LEADER')
+      ) {
         const teamUserIds = viewer?.teamUserIds ?? new Set<string>();
         if (
           (salesUserId && teamUserIds.has(salesUserId)) ||
@@ -13843,7 +14660,7 @@ async listLeads(query: Query, user?: Body) {
       meta: {
         preset,
         scope: canViewTeam ? 'team' : 'mine',
-        canViewTeam: isTeamLeader && viewer?.visibilityScope !== 'OWN',
+        canViewTeam: canManageTeamScope && viewer?.visibilityScope !== 'OWN',
         canEdit: Boolean(viewer?.canEdit),
         teamName: leaderTeams[0]?.name ?? null,
         teamId: leaderTeams[0]?.id ?? profile?.teamId ?? null,
@@ -14115,22 +14932,21 @@ async listLeads(query: Query, user?: Body) {
   async updateLead(id: string, body: Body, actor?: string | Body) {
     const actorUserId = this.actorIdFrom(actor);
     await this.assertLeadUpdateFieldsAllowed(body, actor);
-    const current = await this.getLead(id);
-    const nextStatusId = body.statusId ?? body.leadStatus;
-    const statusChanged =
-      Boolean(nextStatusId) &&
-      String(nextStatusId) !== String(current.statusId ?? '');
-    const effectiveStatusId = nextStatusId ?? current.statusId;
-    const statusMaster = effectiveStatusId
+    const current = await this.getLead(id, actor);
+    await Promise.all(
+      [body.ownerId, body.managerId, body.telecallerId, body.fieldExecutiveId]
+        .filter((id): id is string => typeof id === 'string' && Boolean(id))
+        .map((id) => this.assertUserWithinLeadScope(id, actor)),
+    );
+    const requestedStatus = body.statusId ?? body.leadStatus;
+    const statusMaster = requestedStatus
+      ? await this.resolveActiveLeadStatus(requestedStatus)
+      : current.statusId
       ? await this.db().leadMasterValue.findFirst({
           where: {
-            categoryRef: { code: 'status' },
+            id: current.statusId,
             isActive: true,
-            OR: [
-              { id: String(effectiveStatusId) },
-              { code: String(effectiveStatusId) },
-              { name: String(effectiveStatusId) },
-            ],
+            categoryRef: { code: { equals: 'status', mode: 'insensitive' } },
           },
           select: {
             id: true,
@@ -14142,6 +14958,16 @@ async listLeads(query: Query, user?: Body) {
           },
         })
       : null;
+    const statusChanged =
+      Boolean(requestedStatus && statusMaster) &&
+      String(statusMaster?.id) !== String(current.statusId ?? '');
+    if (statusChanged && statusMaster && this.isProtectedSiteVisitStatus(statusMaster)) {
+      throw new BadRequestException(
+        this.isSiteVisitCompletionStatus(statusMaster)
+          ? 'Complete the site visit from the Site Visits workspace before applying this lead status.'
+          : 'Schedule the site visit before applying this lead status.',
+      );
+    }
     const statusScoreMeta = statusChanged ? statusMaster : null;
     const allowFollowUp = statusMaster?.allowFollowUp ?? true;
     const shouldMarkConverted = Boolean(
@@ -14233,7 +15059,7 @@ async listLeads(query: Query, user?: Body) {
         mobile: body.mobile ?? body.mobileNumber,
         sourceId: body.sourceId ?? body.leadSource,
         stageId: body.stageId ?? body.leadStage,
-        statusId: body.statusId ?? body.leadStatus,
+        statusId: requestedStatus ? statusMaster?.id : undefined,
         priorityId: body.priorityId ?? body.priority,
         campaignId: body.campaignId ?? body.campaign,
         temperatureId: body.temperatureId,
@@ -14399,7 +15225,13 @@ async listLeads(query: Query, user?: Body) {
 
   private isAdminRole(role?: string | null) {
     return (
-      role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'SALES_MANAGER'
+      role === 'SUPER_ADMIN' ||
+      role === 'ADMIN' ||
+      role === 'HR' ||
+      role === 'SALES_MANAGER' ||
+      role === 'MANAGER' ||
+      role === 'TEAM_LEADER' ||
+      role === 'BACKEND'
     );
   }
 
@@ -14451,17 +15283,11 @@ async listLeads(query: Query, user?: Body) {
 
     const leadId = fixedLeadId ?? body.leadId;
     const assignedToId = String(body.assignedToId);
+    await this.assertUserWithinLeadScope(assignedToId, user);
     const assignedToName = await this.taskAssigneeName(assignedToId);
     let lead: Body | null = null;
     if (leadId) {
-      lead = await this.db().lead.findFirst({
-        where: {
-          OR: [{ id: String(leadId) }, { displayId: String(leadId) }],
-          deletedAt: null,
-        },
-        select: { id: true, displayId: true, name: true },
-      });
-      if (!lead) throw new NotFoundException('Lead not found');
+      lead = await this.getLead(String(leadId), user);
       await this.assertLeadAssignedToEmployee(lead.id, assignedToId);
     }
 
@@ -14572,6 +15398,7 @@ async listLeads(query: Query, user?: Body) {
 
     let assignedUserName: string | null = null;
     if (body.assignedToId) {
+      await this.assertUserWithinLeadScope(String(body.assignedToId), user);
       await this.assertLeadAssignedToEmployee(
         lead.id,
         String(body.assignedToId),
@@ -14655,8 +15482,19 @@ async listLeads(query: Query, user?: Body) {
   async listTasks(query: Query, user?: Body) {
     const { page, limit, skip } = pageMeta(query);
     const where: Body = {};
-    if (!this.isAdminRole(user?.role)) {
-      where.assignedToId = user?.sub;
+    const scopedUserIds =
+      await this.leadVisibility.resolveAssignmentScopeUserIds(user);
+    if (scopedUserIds !== null) {
+      if (query.assignedToId && query.assignedToId !== 'all') {
+        const requestedId = String(query.assignedToId);
+        if (scopedUserIds.includes(requestedId)) {
+          where.assignedToId = requestedId;
+        } else {
+          where.assignedToId = { in: [] };
+        }
+      } else {
+        where.assignedToId = { in: scopedUserIds };
+      }
     } else if (query.assignedToId && query.assignedToId !== 'all') {
       where.assignedToId = String(query.assignedToId);
     }
@@ -14787,9 +15625,6 @@ async listLeads(query: Query, user?: Body) {
   }
 
   async createEmployeeTask(body: Body, user?: Body) {
-    if (!this.isAdminRole(user?.role)) {
-      throw new ForbiddenException('You cannot create employee tasks');
-    }
     return this.createTaskRecord(body, user);
   }
 
@@ -14802,23 +15637,28 @@ async listLeads(query: Query, user?: Body) {
     });
     if (!existing) throw new NotFoundException('Task not found');
     const admin = this.isAdminRole(user?.role);
-    if (!admin && existing.assignedToId !== user?.sub) {
+    const scopedUserIds =
+      await this.leadVisibility.resolveAssignmentScopeUserIds(user);
+    const canManage =
+      admin ||
+      existing.assignedToId === user?.sub ||
+      existing.createdById === user?.sub ||
+      (scopedUserIds !== null &&
+        Boolean(existing.assignedToId) &&
+        scopedUserIds.includes(existing.assignedToId!));
+    if (!canManage) {
       throw new ForbiddenException('You cannot update this task');
     }
 
     const nextAssignedToId =
-      admin && body.assignedToId !== undefined
+      body.assignedToId !== undefined
         ? String(body.assignedToId)
         : existing.assignedToId;
-    if (admin && body.leadId && nextAssignedToId) {
-      const lead = await this.db().lead.findFirst({
-        where: {
-          OR: [{ id: String(body.leadId) }, { displayId: String(body.leadId) }],
-          deletedAt: null,
-        },
-        select: { id: true },
-      });
-      if (!lead) throw new NotFoundException('Lead not found');
+    if (nextAssignedToId) {
+      await this.assertUserWithinLeadScope(nextAssignedToId, user);
+    }
+    if (body.leadId && nextAssignedToId) {
+      const lead = await this.getLead(String(body.leadId), user);
       await this.assertLeadAssignedToEmployee(lead.id, nextAssignedToId);
     }
     if (existing.leadId && nextAssignedToId) {
@@ -14836,24 +15676,22 @@ async listLeads(query: Query, user?: Body) {
       where: { id: existing.id },
       data: {
         title:
-          admin && body.title !== undefined
-            ? String(body.title)
-            : existing.title,
+          body.title !== undefined ? String(body.title) : existing.title,
         description:
-          admin && body.description !== undefined
+          body.description !== undefined
             ? body.description === null
               ? null
               : String(body.description)
             : existing.description,
         type:
-          admin && body.type !== undefined ? String(body.type) : existing.type,
+          body.type !== undefined ? String(body.type) : existing.type,
         priority:
-          admin && body.priority !== undefined
+          body.priority !== undefined
             ? String(body.priority)
             : existing.priority,
         status: nextStatus,
         dueAt:
-          admin && (body.dueAt !== undefined || body.dueDate !== undefined)
+          body.dueAt !== undefined || body.dueDate !== undefined
             ? normalizeDate(body.dueAt ?? body.dueDate)
             : existing.dueAt,
         assignedToId: nextAssignedToId,
@@ -14872,16 +15710,79 @@ async listLeads(query: Query, user?: Body) {
     return task;
   }
 
-  async moveLeadInPipeline(id: string, body: Body, actorUserId?: string) {
+  async deleteEmployeeTask(id: string, user?: Body) {
+    const existing = await this.db().task.findFirst({
+      where: { id },
+    });
+    if (!existing) throw new NotFoundException('Task not found');
+    const admin = this.isAdminRole(user?.role);
+    const scopedUserIds =
+      await this.leadVisibility.resolveAssignmentScopeUserIds(user);
+    const canManage =
+      admin ||
+      existing.createdById === user?.sub ||
+      existing.assignedToId === user?.sub ||
+      (scopedUserIds !== null &&
+        Boolean(existing.assignedToId) &&
+        scopedUserIds.includes(existing.assignedToId!));
+    if (!canManage) {
+      throw new ForbiddenException('You cannot delete this task');
+    }
+
+    await this.db().task.delete({
+      where: { id: existing.id },
+    });
+
+    await this.audit(user?.sub, 'EMPLOYEE_TASK_DELETED', 'Task', id, {
+      title: existing.title,
+    });
+
+    return { success: true, message: 'Task deleted successfully' };
+  }
+
+  async deleteTask(leadId: string, taskId: string, user?: Body) {
+    const lead = await this.getLead(leadId, user);
+    const existing = await this.db().task.findFirst({
+      where: { id: taskId, leadId: lead.id },
+    });
+    if (!existing) throw new NotFoundException('Task not found');
+
+    const admin = this.isAdminRole(user?.role);
+    const canManage =
+      admin ||
+      existing.createdById === user?.sub ||
+      existing.assignedToId === user?.sub;
+    if (!canManage) {
+      throw new ForbiddenException('You cannot delete this task');
+    }
+
+    await this.db().task.delete({
+      where: { id: existing.id },
+    });
+
+    await this.audit(user?.sub, 'LEAD_TASK_DELETED', 'Task', taskId, {
+      leadId: lead.id,
+      title: existing.title,
+    });
+
+    return { success: true, message: 'Task deleted successfully' };
+  }
+
+  async moveLeadInPipeline(id: string, body: Body, actor?: string | Body) {
+    const actorUserId = this.actorIdFrom(actor);
     if (!body.statusId)
       throw new BadRequestException('Target status is required');
-    const current = await this.getLead(id);
-    const status = await this.db().leadMasterValue.findUnique({
-      where: { id: body.statusId },
-    });
-    if (!status) throw new BadRequestException('Target status is invalid');
+    const current = await this.getLead(id, actor);
+    const status = await this.resolveActiveLeadStatus(body.statusId);
 
     const statusName = String(status.name).toLowerCase();
+    const shouldCreateSiteVisit =
+      String(status.triggerAction).toUpperCase() === 'CREATE_SITE_VISIT';
+    if (this.isSiteVisitCompletionStatus(status)) {
+      throw new BadRequestException(
+        'Complete the site visit from the Site Visits workspace before applying this lead status.',
+      );
+    }
     const shouldConvert = isConversionStatus(status);
     if (statusName.includes('lost') && !body.lostReasonId && !body.lostReason) {
       throw new BadRequestException('Lost reason is required');
@@ -14911,7 +15812,7 @@ async listLeads(query: Query, user?: Body) {
         ) ?? current.nextFollowUpAt
       : null;
 
-    const result = await this.db().$transaction(async (tx: any) => {
+    const result = await this.db().$transaction(async (tx: Prisma.TransactionClient) => {
       const lead = await tx.lead.update({
         where: { id: current.id },
         data: {
@@ -14925,7 +15826,7 @@ async listLeads(query: Query, user?: Body) {
         },
       });
 
-      if (statusName.includes('site visit')) {
+      if (shouldCreateSiteVisit) {
         if (!body.projectId || !body.scheduledAt) {
           throw new BadRequestException(
             'Project and a valid visit schedule are required for a site visit',
@@ -15025,8 +15926,15 @@ async listLeads(query: Query, user?: Body) {
     return result;
   }
 
-  async assignLead(id: string, body: Body, actorUserId?: string) {
-    const current = await this.getLead(id);
+  async assignLead(id: string, body: Body, actor?: string | Body) {
+    if (!this.assignmentTransaction.getStore()) {
+      const lead = await this.getLead(id, actor);
+      return this.withAssignmentTransaction(String(lead.id), () =>
+        this.assignLead(lead.id, body, actor),
+      );
+    }
+    const actorUserId = this.actorIdFrom(actor);
+    const current = await this.getLead(id, actor);
     const toUserId =
       body.toUserId ??
       body.assigneeId ??
@@ -15036,17 +15944,24 @@ async listLeads(query: Query, user?: Body) {
       body.assigneeType === 'field-executive'
         ? 'field-executive'
         : 'telecaller';
-    const previousAssigneeId =
-      assigneeType === 'field-executive'
-        ? current.fieldExecutiveId
-        : current.telecallerId ?? current.ownerId;
+    const assignmentStrategy = String(body.strategy ?? '');
+    const isAutoRouteAssignment = ['auto-assignment', 'auto-transfer'].includes(
+      assignmentStrategy,
+    );
+    const previousAssigneeId = isAutoRouteAssignment
+      ? current.ownerId ?? current.telecallerId ?? current.fieldExecutiveId
+      : assigneeType === 'field-executive'
+      ? current.fieldExecutiveId
+      : current.telecallerId ?? current.ownerId;
     const isDuplicateAssign = body.strategy === 'duplicate-assign';
-    const isSameAssignment =
-      (assigneeType === 'field-executive' &&
-        current.fieldExecutiveId === toUserId) ||
-      (assigneeType !== 'field-executive' &&
-        (current.telecallerId ?? current.ownerId) === toUserId);
+    const isSameAssignment = isAutoRouteAssignment
+      ? previousAssigneeId === toUserId
+      : (assigneeType === 'field-executive' &&
+          current.fieldExecutiveId === toUserId) ||
+        (assigneeType !== 'field-executive' &&
+          (current.telecallerId ?? current.ownerId) === toUserId);
     if (!toUserId) throw new BadRequestException('Assignee is required');
+    await this.assertUserWithinLeadScope(String(toUserId), actor);
     if (isSameAssignment && isDuplicateAssign) {
       return {
         leadId: current.id,
@@ -15105,20 +16020,35 @@ async listLeads(query: Query, user?: Body) {
         assignedById: actorUserId,
       },
     });
-    const nextOwnerId =
-      assigneeType === 'field-executive'
-        ? current.telecallerId ?? current.ownerId ?? toUserId
-        : toUserId;
+    const nextOwnerId = isAutoRouteAssignment
+      ? toUserId
+      : assigneeType === 'field-executive'
+      ? current.telecallerId ?? current.ownerId ?? toUserId
+      : toUserId;
+    const shouldClearTelecaller =
+      isAutoRouteAssignment &&
+      assigneeType === 'field-executive' &&
+      current.telecallerId === previousAssigneeId;
+    const shouldClearFieldExecutive =
+      isAutoRouteAssignment &&
+      assigneeType === 'telecaller' &&
+      current.fieldExecutiveId === previousAssigneeId;
 
-    await this.db().lead.update({
+    const updatedLead = await this.db().lead.update({
       where: { id: current.id },
       data: {
         ownerId: nextOwnerId,
         telecallerId:
-          assigneeType === 'field-executive' ? current.telecallerId : toUserId,
+          assigneeType === 'field-executive'
+            ? shouldClearTelecaller
+              ? null
+              : current.telecallerId
+            : toUserId,
         fieldExecutiveId:
           assigneeType === 'field-executive'
             ? toUserId
+            : shouldClearFieldExecutive
+            ? null
             : current.fieldExecutiveId,
         assignedAt: new Date(),
       },
@@ -15129,7 +16059,6 @@ async listLeads(query: Query, user?: Body) {
     const targetUserLabel =
       targetUser.fullName ?? targetUser.email ?? 'assignee';
     const activityDescription = body.notes ?? body.reason ?? null;
-    const assignmentStrategy = String(body.strategy ?? '');
     await this.db().activity.create({
       data: {
         leadId: current.id,
@@ -15206,15 +16135,6 @@ async listLeads(query: Query, user?: Body) {
         this.logger.warn(`Push notify error on lead assign: ${err?.message}`),
       );
     }
-    if (
-      assigneeType !== 'field-executive' &&
-      !['auto-assignment', 'auto-transfer'].includes(assignmentStrategy)
-    ) {
-      await this.syncAutoAssignmentEventForAssignee(
-        current,
-        String(toUserId),
-      ).catch(() => undefined);
-    }
     await this.audit(
       actorUserId,
       'LEAD_ASSIGNED',
@@ -15233,21 +16153,29 @@ async listLeads(query: Query, user?: Body) {
             ? `Lead ownership was reassigned from ${previousAssigneeLabel} to ${targetUserLabel}`
             : `Lead ownership was assigned to ${targetUserLabel}`,
         },
-      })
-      .catch(() => undefined);
+      });
+    if (!isAutoRouteAssignment && updatedLead.ownerId === toUserId) {
+      await this.syncAutoAssignmentEventForAssignee(
+        { ...current, ...updatedLead },
+        String(toUserId),
+      );
+    }
     return assignment;
   }
 
   async bulkAssign(body: Body, actor?: string | Body) {
-    const actorUserId = this.actorIdFrom(actor);
+    const assigneeField =
+      body.assigneeType === 'field-executive'
+        ? { fieldExecutiveId: 'updated' }
+        : { telecallerId: 'updated' };
     await this.assertLeadUpdateFieldsAllowed(
-      { telecallerId: 'updated' },
+      assigneeField,
       actor,
     );
     const leadIds = Array.isArray(body.leadIds) ? body.leadIds : [];
     const results = [];
     for (const leadId of leadIds) {
-      results.push(await this.assignLead(leadId, body, actorUserId));
+      results.push(await this.assignLead(leadId, body, actor));
     }
     const appliedAssignments = results.filter(
       (result: Body) => !result?.skipped,
@@ -15411,6 +16339,9 @@ async listLeads(query: Query, user?: Body) {
           lead.fieldExecutiveId ??
           lead.ownerId ??
           actorUserId;
+    if (assignedToId) {
+      await this.assertUserWithinLeadScope(String(assignedToId), actor);
+    }
     const followUpRemark = this.remarkFromBody(body);
     const followUpTypeId =
       actorRole === 'TELECALLER'
@@ -15535,6 +16466,7 @@ async listLeads(query: Query, user?: Body) {
       },
     });
     if (!existing) throw new NotFoundException('Follow-up not found');
+    await this.getLead(existing.lead.id, actor);
     const canTelecallerUpdate =
       actorRole === 'TELECALLER' &&
       (existing.assignedToId === actorUserId ||
@@ -15556,6 +16488,9 @@ async listLeads(query: Query, user?: Body) {
         : body.assignedToId !== undefined
         ? body.assignedToId
         : existing.assignedToId;
+    if (nextAssignedToId) {
+      await this.assertUserWithinLeadScope(String(nextAssignedToId), actor);
+    }
     const nextScheduledAt =
       body.scheduledAt !== undefined
         ? normalizeDate(body.scheduledAt)
@@ -15595,6 +16530,12 @@ async listLeads(query: Query, user?: Body) {
             existing.lead?.fieldExecutiveId ??
             existing.lead?.ownerId ??
             actorUserId;
+      if (nextFollowUpAssignedToId) {
+        await this.assertUserWithinLeadScope(
+          String(nextFollowUpAssignedToId),
+          actor,
+        );
+      }
 
       const result = await this.db().$transaction(async (tx: Body) => {
         const completedFollowUp = await tx.followUp.update({
@@ -16092,20 +17033,8 @@ async listLeads(query: Query, user?: Body) {
 
   async listFollowUps(query: Query, actor: Body) {
     const actorUserId = String(actor?.sub ?? actor?.id ?? '');
-    const actorRole = String(actor?.role ?? '');
     if (!actorUserId) {
       throw new ForbiddenException('Authenticated user is required');
-    }
-
-    const allowedRoles = [
-      'SUPER_ADMIN',
-      'ADMIN',
-      'SALES_MANAGER',
-      'TELECALLER',
-      'SALES_AGENT',
-    ];
-    if (!allowedRoles.includes(actorRole)) {
-      throw new ForbiddenException('You cannot access this follow-up queue');
     }
 
     const { page, limit, skip } = pageMeta(query);
@@ -16129,9 +17058,21 @@ async listLeads(query: Query, user?: Body) {
       'Lost Lead',
     ];
     const leadWhere: Body = { statusId: { notIn: inactiveStatusValues } };
-
-    if (actorRole === 'TELECALLER' || actorRole === 'SALES_AGENT') {
-      where.assignedToId = actorUserId;
+    const scopedUserIds =
+      await this.leadVisibility.resolveAssignmentScopeUserIds(actor);
+    if (scopedUserIds !== null) {
+      const requestedAssignedToId =
+        query.assignedToId && query.assignedToId !== 'all'
+          ? String(query.assignedToId)
+          : null;
+      if (requestedAssignedToId) {
+        where.assignedToId = scopedUserIds.includes(requestedAssignedToId)
+          ? requestedAssignedToId
+          : { in: [] };
+      } else {
+        where.assignedToId = { in: scopedUserIds };
+      }
+      leadWhere.AND = [this.leadVisibility.assignmentScope(scopedUserIds)];
     } else if (query.assignedToId && query.assignedToId !== 'all') {
       where.assignedToId = String(query.assignedToId);
     }
@@ -16201,7 +17142,7 @@ async listLeads(query: Query, user?: Body) {
 
     const duplicateLeads = await this.db().followUp.groupBy({
       by: ['leadId'],
-      where: { completedAt: null },
+      where: { ...where, completedAt: null },
       _count: { id: true },
       having: { id: { _count: { gt: 1 } } },
     });
@@ -16319,8 +17260,8 @@ async listLeads(query: Query, user?: Body) {
     return this.listFollowUps(query, actor);
   }
 
-  async getTimeline(leadId: string) {
-    const lead = await this.getLead(leadId);
+  async getTimeline(leadId: string, user?: Body) {
+    const lead = await this.getLead(leadId, user);
     const activities = await this.db().activity.findMany({
       where: { leadId: lead.id },
       orderBy: { occurredAt: 'desc' },
@@ -16642,6 +17583,7 @@ async listLeads(query: Query, user?: Body) {
     );
     return {
       ...project,
+      propertyType: project.propertyType ?? 'Residential',
       configurations: configurations.length
         ? configurations
         : asArray(project.configurations),
@@ -16698,6 +17640,7 @@ async listLeads(query: Query, user?: Body) {
       ];
     }
     if (query.status) where.status = String(query.status);
+    if (query.propertyType) where.propertyType = String(query.propertyType);
     const [items, total] = await Promise.all([
       this.db().project.findMany({
         where,
@@ -16817,6 +17760,7 @@ async listLeads(query: Query, user?: Body) {
         name: body.name,
         location: body.location,
         developer: body.developer,
+        propertyType: body.propertyType ? String(body.propertyType) : 'Residential',
         status: body.status ?? 'Active',
         possession: body.possession,
         minPrice: parsePriceInput(
@@ -16877,6 +17821,7 @@ async listLeads(query: Query, user?: Body) {
         name: body.name,
         location: body.location,
         developer: body.developer,
+        propertyType: body.propertyType !== undefined ? String(body.propertyType) : undefined,
         status: body.status,
         possession: body.possession,
         minPrice: parsePriceInput(
@@ -17142,10 +18087,40 @@ async listLeads(query: Query, user?: Body) {
       where.status = String(query.status);
     if (query.type) where.visitType = String(query.type);
     if (query.projectId) where.projectId = String(query.projectId);
-    if (query.unitId) where.unitId = String(query.unitId);
-    if (query.assignedTo) where.assignedExecutiveId = String(query.assignedTo);
-    if (user?.role === 'TELECALLER' || user?.role === 'SALES_AGENT') {
-      where.assignedExecutiveId = user.sub;
+    const scopedUserIds =
+      await this.leadVisibility.resolveAssignmentScopeUserIds(user);
+    if (scopedUserIds !== null) {
+      if (query.assignedTo && query.assignedTo !== 'all') {
+        const requestedId = String(query.assignedTo);
+        if (scopedUserIds.includes(requestedId)) {
+          where.assignedExecutiveId = requestedId;
+        } else {
+          where.assignedExecutiveId = { in: [] };
+        }
+      } else {
+        where.AND = [
+          ...(where.AND ?? []),
+          {
+            OR: [
+              { assignedExecutiveId: { in: scopedUserIds } },
+              {
+                lead: {
+                  is: {
+                    OR: [
+                      { ownerId: { in: scopedUserIds } },
+                      { managerId: { in: scopedUserIds } },
+                      { telecallerId: { in: scopedUserIds } },
+                      { fieldExecutiveId: { in: scopedUserIds } },
+                    ],
+                  },
+                },
+              },
+            ],
+          },
+        ];
+      }
+    } else if (query.assignedTo && query.assignedTo !== 'all') {
+      where.assignedExecutiveId = String(query.assignedTo);
     }
     if (query.from || query.to) {
       where.scheduledAt = {};
@@ -17263,19 +18238,31 @@ async listLeads(query: Query, user?: Body) {
   }
 
   async getSiteVisit(id: string, user?: Body) {
+    const scopedUserIds =
+      await this.leadVisibility.resolveAssignmentScopeUserIds(user);
     const visit = await this.db().siteVisit.findFirst({
       where: {
         OR: [{ id }, { displayId: id }],
+        ...(scopedUserIds !== null
+          ? {
+              AND: [
+                {
+                  OR: [
+                    { assignedExecutiveId: { in: scopedUserIds } },
+                    {
+                      lead: {
+                        is: this.leadVisibility.assignmentScope(scopedUserIds),
+                      },
+                    },
+                  ],
+                },
+              ],
+            }
+          : {}),
       },
       include: { lead: true, project: true, unit: true },
     });
     if (!visit) throw new NotFoundException('Site visit not found');
-    if (
-      (user?.role === 'TELECALLER' || user?.role === 'SALES_AGENT') &&
-      visit.assignedExecutiveId !== user.sub
-    ) {
-      throw new ForbiddenException('You cannot access this site visit');
-    }
     const executive = visit.assignedExecutiveId
       ? await this.db().user.findUnique({
           where: { id: visit.assignedExecutiveId },
@@ -17343,7 +18330,7 @@ async listLeads(query: Query, user?: Body) {
     };
   }
 
-  async getSiteVisitOptions(query: Query) {
+  async getSiteVisitOptions(query: Query, user?: Body) {
     const projectSelectWithGeofence = {
       id: true,
       name: true,
@@ -17398,26 +18385,13 @@ async listLeads(query: Query, user?: Body) {
       },
     };
 
-    const [executives, leads, projects] = await Promise.all([
-      this.db().user.findMany({
-        where: {
-          isActive: true,
-          role: { in: siteVisitExecutiveRoles as Body },
-        },
-        select: {
-          id: true,
-          fullName: true,
-          email: true,
-          role: true,
-          avatarStorageKey: true,
-        },
-        orderBy: { fullName: 'asc' },
-        take: 100,
-      }),
-      this.db().lead.findMany({
-        where: query.search
+    const scopedUserIds =
+      await this.leadVisibility.resolveAssignmentScopeUserIds(user);
+    const assignmentScope = scopedUserIds
+      ? this.leadVisibility.assignmentScope(scopedUserIds)
+      : null;
+    const leadSearchWhere = query.search
           ? {
-              deletedAt: null,
               OR: [
                 {
                   name: {
@@ -17439,7 +18413,17 @@ async listLeads(query: Query, user?: Body) {
                 },
               ],
             }
-          : { deletedAt: null },
+      : null;
+    const [leads, projects] = await Promise.all([
+      this.db().lead.findMany({
+        where: {
+          deletedAt: null,
+          ...(assignmentScope || leadSearchWhere
+            ? {
+                AND: [assignmentScope, leadSearchWhere].filter(Boolean),
+              }
+            : {}),
+        },
         select: {
           id: true,
           displayId: true,
@@ -17483,6 +18467,45 @@ async listLeads(query: Query, user?: Body) {
           });
         }),
     ]);
+    const relatedExecutiveIds = leads
+      .map((lead: Body) => lead.fieldExecutiveId)
+      .filter((id: unknown): id is string => typeof id === 'string');
+    const visibleExecutiveIds = scopedUserIds
+      ? Array.from(new Set([...scopedUserIds, ...relatedExecutiveIds]))
+      : null;
+    // For a scoped (non-global) viewer such as a Manager/Team Leader, the Bookings
+    // and Brokerage filters match executives against owner/telecaller/field-exec/
+    // closedBy, which spans more roles than site-visit assignment. Widen the role
+    // set to the manager's full scoped hierarchy so those filters are populated.
+    // Global viewers keep the site-visit-assignable role set.
+    const executiveRoleScope = (
+      visibleExecutiveIds
+        ? [
+            'SALES_AGENT',
+            'SALES_MANAGER',
+            'ADMIN',
+            'TELECALLER',
+            'TEAM_LEADER',
+            'MANAGER',
+          ]
+        : siteVisitExecutiveRoles
+    ) as Body;
+    const executives = await this.db().user.findMany({
+      where: {
+        isActive: true,
+        role: { in: executiveRoleScope },
+        ...(visibleExecutiveIds ? { id: { in: visibleExecutiveIds } } : {}),
+      },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        role: true,
+        avatarStorageKey: true,
+      },
+      orderBy: { fullName: 'asc' },
+      take: 100,
+    });
     const masterIds = Array.from(
       new Set(
         leads.flatMap((lead: Body) => [
@@ -17656,7 +18679,8 @@ async listLeads(query: Query, user?: Body) {
     return `SV-${String(maxNum + 1).padStart(4, '0')}`;
   }
 
-  async createSiteVisit(body: Body, actorUserId?: string) {
+  async createSiteVisit(body: Body, actor?: string | Body) {
+    const actorUserId = this.actorIdFrom(actor);
     const scheduledAt = normalizeDate(
       body.scheduledAt ?? `${body.date ?? ''} ${body.time ?? ''}`,
     );
@@ -17664,50 +18688,81 @@ async listLeads(query: Query, user?: Body) {
     if (!body.projectId) throw new BadRequestException('Project is required');
     if (!scheduledAt)
       throw new BadRequestException('Valid visit date/time is required');
-    const { id: leadId, fieldExecutiveId: assignedExecutiveId } =
-      await this.resolveSiteVisitAssignment(body.leadId, actorUserId);
+    await this.getLead(body.leadId, actor);
+    const requestedLeadStatus = body.leadStatusId
+      ? await this.resolveActiveLeadStatus(body.leadStatusId)
+      : null;
+    if (
+      requestedLeadStatus &&
+      String(requestedLeadStatus.triggerAction).toUpperCase() !== 'CREATE_SITE_VISIT'
+    ) {
+      throw new BadRequestException('The selected lead status does not schedule a site visit.');
+    }
 
     let displayId = body.displayId;
     if (!displayId) {
       displayId = await this.nextSiteVisitDisplayId();
     }
 
-    let visit: any = null;
+    let visit: SiteVisitRecord | null = null;
+    let assignedExecutiveId: string | null = null;
+    let leadId = '';
     let attempts = 0;
     while (!visit && attempts < 5) {
       try {
-        visit = await this.db().siteVisit.create({
-          data: {
-            displayId,
-            leadId,
-            projectId: body.projectId,
-            unitId: body.unitId,
-            status: body.status ?? 'Scheduled',
-            visitType: body.visitType ?? 'Site Visit',
-            scheduledAt,
-            durationMinutes:
-              Number(body.durationMinutes ?? body.duration) || undefined,
-            assignedExecutiveId,
-            meetingPoint: body.meetingPoint,
-            transportMode: body.transportMode,
-            visitorCount:
-              Number(body.visitorCount ?? body.visitors) || undefined,
-            specialRequest: body.specialRequest,
-            notes: body.notes,
-            reminderEnabled: body.reminderEnabled ?? false,
-            reminderAt: normalizeDate(body.reminderAt),
-            createdById: actorUserId,
+        const created = await this.db().$transaction(
+          async (tx: Prisma.TransactionClient) => {
+            const assignment = await this.resolveSiteVisitAssignment(
+              body.leadId,
+              actorUserId,
+              tx,
+            );
+            const newVisit = await tx.siteVisit.create({
+              data: {
+                displayId,
+                leadId: assignment.id,
+                projectId: body.projectId,
+                unitId: body.unitId,
+                status: body.status ?? 'Scheduled',
+                visitType: body.visitType ?? 'Site Visit',
+                scheduledAt,
+                durationMinutes: Number(body.durationMinutes ?? body.duration) || undefined,
+                assignedExecutiveId: assignment.fieldExecutiveId,
+                meetingPoint: body.meetingPoint,
+                transportMode: body.transportMode,
+                visitorCount: Number(body.visitorCount ?? body.visitors) || undefined,
+                specialRequest: body.specialRequest,
+                notes: body.notes,
+                reminderEnabled: body.reminderEnabled ?? false,
+                reminderAt: normalizeDate(body.reminderAt),
+                createdById: actorUserId,
+              },
+            });
+            if (requestedLeadStatus) {
+              await tx.lead.update({
+                where: { id: assignment.id },
+                data: { statusId: requestedLeadStatus.id },
+              });
+            }
+            return { newVisit, assignment };
           },
-        });
-      } catch (err: any) {
-        if (err?.code === 'P2002' && !body.displayId) {
+        );
+        visit = created.newVisit;
+        leadId = created.assignment.id;
+        assignedExecutiveId = created.assignment.fieldExecutiveId;
+      } catch (error: unknown) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002' &&
+          !body.displayId
+        ) {
           attempts++;
           const num =
             parseInt(String(displayId).replace(/^SV-/i, ''), 10) ||
             attempts + 1;
           displayId = `SV-${String(num + 1).padStart(4, '0')}`;
         } else {
-          throw err;
+          throw error;
         }
       }
     }
@@ -17718,6 +18773,12 @@ async listLeads(query: Query, user?: Body) {
       );
     }
     await this.audit(actorUserId, 'SITE_VISIT_CREATED', 'SiteVisit', visit.id);
+    if (requestedLeadStatus) {
+      await this.audit(actorUserId, 'LEAD_UPDATED', 'Lead', leadId, {
+        statusId: requestedLeadStatus.id,
+        source: 'SITE_VISIT_CREATED',
+      });
+    }
     await this.db()
       .activity.create({
         data: {
@@ -17791,7 +18852,98 @@ async listLeads(query: Query, user?: Body) {
     return visit;
   }
 
-  async updateSiteVisit(id: string, body: Body, actorUserId?: string) {
+  private async resolveSiteVisitCompletion(
+    visitType: string | null | undefined,
+    body: Body,
+  ): Promise<SiteVisitCompletion> {
+    const requestedStatus =
+      body.leadStatusId ??
+      body.leadStatus ??
+      body.statusId ??
+      (String(visitType ?? '').toLowerCase().includes('revisit')
+        ? 'RE_VISIT_DONE'
+        : 'SITE_VISIT_DONE');
+    const leadStatus = await this.resolveActiveLeadStatus(requestedStatus);
+    if (!this.isSiteVisitCompletionStatus(leadStatus)) {
+      throw new BadRequestException(
+        'Select a completed site-visit status before completing the visit.',
+      );
+    }
+
+    const rawFollowUpDate = body.nextFollowUpAt ?? body.followUpDate;
+    const followUpTime = body.followUpTime ? String(body.followUpTime) : '';
+    let scheduledFollowUp: Date | null = null;
+    if (rawFollowUpDate) {
+      if (followUpTime) {
+        scheduledFollowUp = normalizeDate(
+          `${String(rawFollowUpDate).slice(0, 10)} ${followUpTime}`,
+        );
+      }
+      if (!scheduledFollowUp) scheduledFollowUp = normalizeDate(rawFollowUpDate);
+    }
+
+    return {
+      leadStatusId: leadStatus.id,
+      scheduledFollowUp,
+      remarkText: String(body.feedback ?? body.remarks ?? body.notes ?? '').trim(),
+    };
+  }
+
+  private async applySiteVisitCompletion(
+    tx: Prisma.TransactionClient,
+    visit: { leadId: string; assignedExecutiveId?: string | null },
+    completion: SiteVisitCompletion,
+    actorUserId?: string | null,
+  ) {
+    await tx.lead.update({
+      where: { id: visit.leadId },
+      data: {
+        statusId: completion.leadStatusId,
+        nextFollowUpAt: completion.scheduledFollowUp ?? undefined,
+        remarks: completion.remarkText || undefined,
+      },
+    });
+    if (completion.scheduledFollowUp) {
+      const existingFollowUp = await tx.followUp.findFirst({
+        where: {
+          leadId: visit.leadId,
+          completedAt: null,
+          scheduledAt: completion.scheduledFollowUp,
+        },
+        select: { id: true },
+      });
+      if (!existingFollowUp) {
+        await tx.followUp.create({
+          data: {
+            leadId: visit.leadId,
+            assignedToId: visit.assignedExecutiveId ?? actorUserId ?? undefined,
+            typeId: 'Call',
+            statusId: 'Scheduled',
+            scheduledAt: completion.scheduledFollowUp,
+            nextAction: completion.remarkText || 'Site Visit Follow-up',
+            notes: completion.remarkText || undefined,
+            setReminder: true,
+          },
+        });
+      }
+    }
+    if (completion.remarkText) {
+      await tx.note.create({
+        data: {
+          leadId: visit.leadId,
+          authorId: actorUserId ?? null,
+          text: `[Site Visit Remark] ${completion.remarkText}`,
+          isPinned: false,
+        },
+      });
+    }
+  }
+
+  async updateSiteVisit(id: string, body: Body, actor?: string | Body) {
+    const actorUserId = this.actorIdFrom(actor);
+    if (actor && typeof actor !== 'string') {
+      await this.getSiteVisit(id, actor);
+    }
     const existing = await this.db().siteVisit.findFirst({
       where: { OR: [{ id }, { displayId: id }] },
     });
@@ -17833,10 +18985,25 @@ async listLeads(query: Query, user?: Body) {
         : null;
     }
 
-    const visit = await this.db().siteVisit.update({
-      where: { id: existing.id },
-      data: updateData,
-    });
+    const isCompleting =
+      String(body.status ?? '').toLowerCase() === 'completed' &&
+      String(existing.status).toLowerCase() !== 'completed';
+    const completion = isCompleting
+      ? await this.resolveSiteVisitCompletion(existing.visitType, body)
+      : null;
+    const visit = completion
+      ? await this.db().$transaction(async (tx: Prisma.TransactionClient) => {
+          const completedVisit = await tx.siteVisit.update({
+            where: { id: existing.id },
+            data: updateData,
+          });
+          await this.applySiteVisitCompletion(tx, completedVisit, completion, actorUserId);
+          return completedVisit;
+        })
+      : await this.db().siteVisit.update({
+          where: { id: existing.id },
+          data: updateData,
+        });
     if (visit.assignedExecutiveId) {
       const [lead, recipient] = await Promise.all([
         this.db()
@@ -17940,82 +19107,7 @@ async listLeads(query: Query, user?: Body) {
       })
       .catch(() => undefined);
 
-    if (visit.status === 'Completed') {
-      await this.syncSiteVisitCompletionToLead(visit, body, actorUserId);
-    }
-
     return visit;
-  }
-
-  private async syncSiteVisitCompletionToLead(
-    visit: { leadId: string; assignedExecutiveId?: string | null },
-    body: Body,
-    actorUserId?: string | null,
-  ) {
-    if (!visit.leadId) return;
-    const updateLeadData: Record<string, any> = {};
-
-    const leadStatus = body.leadStatus ?? body.statusId;
-    if (leadStatus) {
-      updateLeadData.statusId = String(leadStatus);
-    }
-
-    const rawFollowUpDate = body.nextFollowUpAt ?? body.followUpDate;
-    const followUpTimeStr = body.followUpTime ? String(body.followUpTime) : '';
-    let scheduledFollowUp: Date | null = null;
-    if (rawFollowUpDate) {
-      if (followUpTimeStr) {
-        scheduledFollowUp = normalizeDate(
-          `${String(rawFollowUpDate).slice(0, 10)} ${followUpTimeStr}`,
-        );
-      }
-      if (!scheduledFollowUp) {
-        scheduledFollowUp = normalizeDate(rawFollowUpDate);
-      }
-    }
-
-    if (scheduledFollowUp) {
-      updateLeadData.nextFollowUpAt = scheduledFollowUp;
-    }
-
-    if (Object.keys(updateLeadData).length > 0) {
-      await this.db()
-        .lead.update({
-          where: { id: visit.leadId },
-          data: updateLeadData,
-        })
-        .catch(() => null);
-    }
-
-    const remarkText = String(
-      body.feedback ?? body.remarks ?? body.notes ?? '',
-    ).trim();
-
-    if (scheduledFollowUp) {
-      const assignedToId = visit.assignedExecutiveId ?? actorUserId;
-      await this.db()
-        .followUp.create({
-          data: {
-            leadId: visit.leadId,
-            assignedToId: assignedToId ?? actorUserId ?? '',
-            typeId: 'Call',
-            statusId: 'Scheduled',
-            scheduledAt: scheduledFollowUp,
-            nextAction: remarkText || 'Site Visit Follow-up',
-            notes: remarkText || undefined,
-            setReminder: true,
-          },
-        })
-        .catch(() => null);
-    }
-
-    if (remarkText) {
-      await this.recordLeadRemark(
-        visit.leadId,
-        `[Site Visit Remark] ${remarkText}`,
-        actorUserId,
-      ).catch(() => null);
-    }
   }
 
   async recordFieldExecutiveLocation(body: Body, user: Body) {
@@ -18257,25 +19349,31 @@ async listLeads(query: Query, user?: Body) {
       .filter(Boolean)
       .map(String)
       .join(' | ');
-    const checkedOut = await this.db().siteVisit.update({
-      where: { id },
-      data: {
-        checkedOutAt: new Date(),
-        checkedOutLatitude: latitude,
-        checkedOutLongitude: longitude,
-        checkedOutAccuracyM: coordinate(body.accuracy, 0, 100000, 'accuracy'),
-        status: 'Completed',
-        feedback,
-        rating: body.rating ? Number(body.rating) : undefined,
-        notes: notes || undefined,
+    const completion = await this.resolveSiteVisitCompletion(visit.visitType, body);
+    const checkedOut = await this.db().$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const completedVisit = await tx.siteVisit.update({
+          where: { id },
+          data: {
+            checkedOutAt: new Date(),
+            checkedOutLatitude: latitude,
+            checkedOutLongitude: longitude,
+            checkedOutAccuracyM: coordinate(body.accuracy, 0, 100000, 'accuracy'),
+            status: 'Completed',
+            feedback,
+            rating: body.rating ? Number(body.rating) : undefined,
+            notes: notes || undefined,
+          },
+        });
+        await this.applySiteVisitCompletion(tx, completedVisit, completion, user.sub);
+        return completedVisit;
       },
-    });
+    );
     await this.audit(user.sub, 'SITE_VISIT_CHECKED_OUT', 'SiteVisit', id, {
       latitude,
       longitude,
       outcome: body.outcome,
     });
-    await this.syncSiteVisitCompletionToLead(checkedOut, body, user.sub);
     return checkedOut;
   }
 
@@ -18596,7 +19694,7 @@ async listLeads(query: Query, user?: Body) {
       newLeads,
       totalImports,
       portalIntegrations,
-      housingIntegration,
+      portalAccounts,
     ] = await Promise.all([
       this.db().lead.count({ where: { organizationId, deletedAt: null } }),
       newStatusMaster?.id
@@ -18624,12 +19722,9 @@ async listLeads(query: Query, user?: Body) {
           lastLeadReceivedAt: true,
         },
       }),
-      this.db().housingIntegration.findUnique({
-        where: { organizationId },
-        select: {
-          isActive: true,
-          lastWebhookReceivedAt: true,
-        },
+      this.prisma.leadSourceConnection.findMany({
+        where: { organizationId, provider: { in: ['magicbricks', 'housing'] }, archivedAt: null },
+        select: { provider: true, status: true, isActive: true, lastTestStatus: true, lastLeadReceivedAt: true },
       }),
     ]);
 
@@ -18639,6 +19734,20 @@ async listLeads(query: Query, user?: Body) {
         integration,
       ]),
     );
+    for (const provider of ['magicbricks', 'housing']) {
+      const accounts = portalAccounts.filter((account) => account.provider === provider);
+      portalByProvider.delete(provider);
+      if (!accounts.length) continue;
+      const active = accounts.filter((account) => account.isActive);
+      const latest = accounts.map((account) => account.lastLeadReceivedAt)
+        .filter((value): value is Date => Boolean(value)).sort((a, b) => b.getTime() - a.getTime())[0];
+      portalByProvider.set(provider, {
+        isActive: active.length > 0,
+        status: active.some((account) => /connected/i.test(account.status)) ? 'Connected' : 'Configured',
+        lastLeadReceivedAt: latest,
+        lastTestStatus: active.some((account) => /failed|error/i.test(account.lastTestStatus ?? '')) ? 'Failed' : null,
+      });
+    }
     const normalizeState = (integration?: Body | null) => {
       if (!integration) return 'NOT_CONFIGURED';
       if (integration.isActive === false) return 'PAUSED';
@@ -18674,18 +19783,7 @@ async listLeads(query: Query, user?: Body) {
     const connectors = [
       connector('magicbricks', portalByProvider.get(magicBricksProvider)),
       connector('99acres', portalByProvider.get(acres99Provider)),
-      connector(
-        'housing',
-        housingIntegration
-          ? {
-              isActive: housingIntegration.isActive,
-              lastLeadReceivedAt: housingIntegration.lastWebhookReceivedAt,
-              status: housingIntegration.lastWebhookReceivedAt
-                ? 'Connected'
-                : 'Configured',
-            }
-          : null,
-      ),
+      connector('housing', portalByProvider.get('housing')),
       connector('meta', portalByProvider.get(metaProvider)),
       connector('website', portalByProvider.get('website')),
     ];
@@ -19816,17 +20914,59 @@ async listLeads(query: Query, user?: Body) {
   }
 
   async getSourceAnalytics() {
-    const rows = await this.db()
-      .lead.groupBy({
-        by: ['sourceId'],
-        _count: { _all: true },
-      })
-      .catch(() => []);
+    const [rows, accountRows] = await Promise.all([
+      this.db()
+        .lead.groupBy({
+          by: ['sourceId'],
+          where: { organizationId: this.tenantAccess.organizationId },
+          _count: { _all: true },
+        })
+        .catch(() => []),
+      this.db()
+        .lead.groupBy({
+          by: ['integrationConnectionId'],
+          where: { organizationId: this.tenantAccess.organizationId, integrationConnectionId: { not: null } },
+          _count: { _all: true },
+        })
+        .catch(() => []),
+    ]);
+    const accountIds = accountRows
+      .map((row: Body) => row.integrationConnectionId)
+      .filter((id: unknown): id is string => typeof id === 'string');
+    const accounts = accountIds.length
+      ? await this.db().leadSourceConnection.findMany({
+          where: { organizationId: this.tenantAccess.organizationId, id: { in: accountIds } },
+          select: { id: true, name: true, provider: true, archivedAt: true },
+        })
+      : [];
+    const accountById = new Map<
+      string,
+      { name: string; provider: string; archivedAt: Date | null }
+    >(
+      accounts.map((account) => [
+        account.id,
+        {
+          name: account.name,
+          provider: account.provider,
+          archivedAt: account.archivedAt,
+        },
+      ]),
+    );
     return {
       data: rows.map((row: Body) => ({
         sourceId: row.sourceId ?? 'Unknown',
         leads: row._count?._all ?? 0,
       })),
+      accounts: accountRows.map((row: Body) => {
+        const account = accountById.get(String(row.integrationConnectionId));
+        return {
+          integrationConnectionId: row.integrationConnectionId,
+          accountName: account?.name ?? 'Archived or unavailable account',
+          provider: account?.provider ?? null,
+          archived: Boolean(account?.archivedAt),
+          leads: row._count?._all ?? 0,
+        };
+      }),
     };
   }
 
@@ -21234,19 +22374,22 @@ async listLeads(query: Query, user?: Body) {
 
   async listMobileLeads(query: Query, user?: Body) {
     const { page, limit, skip } = pageMeta(query);
-    const baseScope = this.buildMobileUserScope(user);
+    const baseScope = await this.buildMobileUserScope(user);
     const where: Body = {
       deletedAt: null,
       ...baseScope,
     };
 
     if (query.search) {
-      where.OR = [
-        { name: { contains: String(query.search), mode: 'insensitive' } },
-        { mobile: { contains: String(query.search), mode: 'insensitive' } },
-        { email: { contains: String(query.search), mode: 'insensitive' } },
-        { displayId: { contains: String(query.search), mode: 'insensitive' } },
-      ];
+      const searchConditions = await this.buildLeadSearchConditions(
+        query.search,
+      );
+      if (searchConditions.length) {
+        where.AND = [
+          ...((where.AND as Prisma.LeadWhereInput[]) ?? []),
+          { OR: searchConditions },
+        ];
+      }
     }
 
     const statusIds = parseMultiQueryValues(query.statusId);
@@ -21261,7 +22404,18 @@ async listLeads(query: Query, user?: Body) {
     const configurations = parseMultiQueryValues(query.configuration);
     const propertyTypes = parseMultiQueryValues(query.propertyType);
 
-    if (projectIds.length || configurations.length || propertyTypes.length) {
+    const reqFilterConditions = await this.buildProjectAndRequirementWhere(
+      projectIds,
+      propertyTypes,
+      configurations,
+    );
+    if (reqFilterConditions.length) {
+      where.AND = [
+        ...((where.AND as Prisma.LeadWhereInput[]) ?? []),
+        ...reqFilterConditions,
+      ];
+    }
+    if (false && 'legacy') {
       where.requirement = {
         is: {
           ...(projectIds.length

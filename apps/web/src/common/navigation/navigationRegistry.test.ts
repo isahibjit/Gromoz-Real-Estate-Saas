@@ -160,6 +160,7 @@ describe("navigationRegistry contract tests", () => {
     );
 
     expect(employment?.children?.map((child) => child.id)).toEqual([
+      "employee.profile",
       "employee.attendance",
     ]);
   });

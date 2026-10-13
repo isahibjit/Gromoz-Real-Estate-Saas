@@ -31,6 +31,8 @@ export interface ConnectedWebsiteItem {
   sourceName?: string;
   teamId?: string;
   teamName?: string;
+  ownerId?: string;
+  ownerName?: string;
   telecallerId?: string;
   telecallerName?: string;
   fieldExecutiveId?: string;
@@ -113,6 +115,7 @@ export interface WebsiteIntegrationMutations {
       projectId?: string;
       sourceId?: string;
       teamId?: string;
+      ownerId?: string;
       telecallerId?: string;
       fieldExecutiveId?: string;
     }
@@ -202,6 +205,7 @@ export function useWebsiteIntegrationMutations(): WebsiteIntegrationMutations {
         projectId?: string;
         sourceId?: string;
         teamId?: string;
+        ownerId?: string;
         telecallerId?: string;
         fieldExecutiveId?: string;
       }) => {

@@ -113,7 +113,7 @@ describe('Dashboard rankings', () => {
           ]),
       },
     };
-    const service = new DashboardService(db as never, tenantAccess as never);
+    const service = new DashboardService(db as never, tenantAccess as never, { resolveAssignmentScopeUserIds: async () => null } as never);
 
     const result = await service.getDashboardRankings(
       {
@@ -313,7 +313,7 @@ describe('Dashboard rankings', () => {
           ]),
       },
     };
-    const service = new DashboardService(db as never, tenantAccess as never);
+    const service = new DashboardService(db as never, tenantAccess as never, { resolveAssignmentScopeUserIds: async () => null } as never);
 
     const result = await service.getDashboardRankings(
       {

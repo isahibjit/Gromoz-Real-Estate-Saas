@@ -36,6 +36,7 @@ import {
 
 import { api } from "../../../../common/api";
 import { WorkspacePage } from "../../../../components/layout/PageHeader";
+import { getApiErrorMessage } from "../../../../common/apiError";
 import { useDashboardLayout } from "../../dashboard/DashboardLayoutContext";
 import { addLeadSidebarItems } from "../add/addLeadData";
 import { useLeadListFilterOptions } from "../all/useAllLeads";
@@ -47,13 +48,20 @@ interface AutoAssignmentRule {
   initialUserId?: string | null;
   transferSequence: string[];
   transferTimeMinutes: number;
+  rotationCount: number;
 }
 
 interface AutoAssignmentEvent {
   id: string;
   leadId: string;
+  leadName?: string | null;
+  leadDisplayId?: string | null;
   currentUserId?: string | null;
+  currentUserName?: string | null;
   currentStep: number;
+  currentCycle: number;
+  routeSnapshot?: { userIds: string[]; rotationCount: number; transferTimeMinutes: number } | null;
+  stopReason?: string | null;
   assignedAt: string;
   dueAt: string;
   status: "ACTIVE" | "TRANSFERRED" | "EXHAUSTED" | string;
@@ -74,6 +82,7 @@ type RuleFormState = {
   initialUserId: string;
   transferSequence: string[];
   transferTimeMinutes: string;
+  rotationCount: string;
 };
 
 const defaultFormState: RuleFormState = {
@@ -82,6 +91,7 @@ const defaultFormState: RuleFormState = {
   initialUserId: "",
   transferSequence: [],
   transferTimeMinutes: "2",
+  rotationCount: "1",
 };
 
 function formatDateTime(value?: string | null) {
@@ -285,6 +295,7 @@ export function AutoAssignmentMasterScreen() {
         isEnabled: form.isEnabled,
         initialUserId: form.initialUserId || undefined,
         transferSequence: form.transferSequence,
+        rotationCount: Number(form.rotationCount),
         transferTimeMinutes: Math.max(
           Number(form.transferTimeMinutes) || 2,
           1,
@@ -358,12 +369,22 @@ export function AutoAssignmentMasterScreen() {
         (userId) => userId !== (rule.initialUserId ?? initialId ?? ""),
       ),
       transferTimeMinutes: String(rule.transferTimeMinutes || 2),
+      rotationCount: String(rule.rotationCount ?? 1),
     });
   };
 
   const handleSubmit = async () => {
     if (!form.initialUserId) {
       toast.error("Select the first assignee before saving the rule");
+      return;
+    }
+    const rotationCount = Number(form.rotationCount);
+    if (!Number.isInteger(rotationCount) || rotationCount < 1 || rotationCount > 2147483647) {
+      toast.error("Lead rotation count must be a positive whole number between 1 and 2147483647");
+      return;
+    }
+    if (rotationCount > 1 && !form.transferSequence.length) {
+      toast.error("Repeating rotation requires at least two users");
       return;
     }
 
@@ -375,8 +396,8 @@ export function AutoAssignmentMasterScreen() {
           : "Auto assignment rule created",
       );
       handleFormReset();
-    } catch {
-      toast.error("Could not save the auto assignment rule");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Could not save the auto assignment rule"));
     }
   };
 
@@ -488,7 +509,7 @@ export function AutoAssignmentMasterScreen() {
 
             <div className="space-y-5 px-5 py-5">
               <div className="grid gap-4 md:grid-cols-2">
-                <label className="space-y-2">
+                <label className="space-y-2 md:col-span-2">
                   <span className="text-xs font-extrabold text-secondary">
                     Rule name
                   </span>
@@ -520,6 +541,19 @@ export function AutoAssignmentMasterScreen() {
                     }
                     placeholder="Minutes before next handoff"
                   />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs font-extrabold text-secondary">Lead rotation count</span>
+                  <Input
+                    type="number" min={1} max={2147483647} step={1}
+                    aria-label="Lead rotation count"
+                    aria-describedby="lead-rotation-count-help"
+                    value={form.rotationCount}
+                    onChange={(event) => setForm((current) => ({ ...current, rotationCount: event.target.value }))}
+                  />
+                  <span id="lead-rotation-count-help" className="block text-xs text-muted-foreground">
+                    Number of passes through the selected users. Includes the first pass.
+                  </span>
                 </label>
               </div>
 
@@ -612,7 +646,7 @@ export function AutoAssignmentMasterScreen() {
                       Route preview
                     </p>
                     <p className="text-xs font-medium text-muted-foreground">
-                      This is the exact movement path the automation will follow.
+                      {form.rotationCount || "1"} pass{form.rotationCount === "1" ? "" : "es"} through this route, unless CRM action stops it.
                     </p>
                   </div>
                 </div>
@@ -661,6 +695,7 @@ export function AutoAssignmentMasterScreen() {
                     variant="outline"
                     className="shadow-none"
                     onClick={handleFormReset}
+                    disabled={saveRule.isPending}
                   >
                     Reset
                   </Button>
@@ -670,7 +705,7 @@ export function AutoAssignmentMasterScreen() {
                     disabled={saveRule.isPending}
                     onClick={handleSubmit}
                   >
-                    {editingRuleId ? (
+                    {saveRule.isPending ? "Saving…" : editingRuleId ? (
                       <>
                         <CheckCircle2 className="size-4" />
                         Save changes
@@ -707,7 +742,7 @@ export function AutoAssignmentMasterScreen() {
                       does not act within the time window.
                     </p>
                     <p>
-                      Keep the route short and intentional to avoid circular ownership.
+                      Set a finite rotation count. Each pass repeats the same order; action on the lead stops automatic handoffs.
                     </p>
                   </div>
                 </div>
@@ -789,6 +824,10 @@ export function AutoAssignmentMasterScreen() {
                                   <p className="mt-1 text-sm font-extrabold text-secondary">
                                     {rule.transferTimeMinutes} minutes
                                   </p>
+                                </div>
+                                <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
+                                  <p className="text-xs font-bold text-muted-foreground">Lead rotation count</p>
+                                  <p className="mt-1 text-sm font-extrabold text-secondary">{rule.rotationCount ?? 1}</p>
                                 </div>
                                 <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
                                   <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
@@ -916,25 +955,27 @@ export function AutoAssignmentMasterScreen() {
                     key={event.id}
                     className="grid gap-4 rounded-md border border-slate-200 bg-slate-50/70 p-4 lg:grid-cols-[1.1fr_0.9fr_0.8fr_1fr]"
                   >
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">
                         Lead
                       </p>
-                      <p className="mt-1 text-sm font-extrabold text-secondary">
-                        {event.leadId}
+                      <p className="mt-1 break-words text-sm font-extrabold text-secondary">
+                        {event.leadName?.trim() || (event.leadDisplayId ? "Unnamed lead" : "Lead unavailable")}
                       </p>
+                      {event.leadDisplayId ? <p className="mt-1 text-xs font-medium text-muted-foreground">{event.leadDisplayId}</p> : null}
                       <p className="mt-1 text-xs font-medium text-muted-foreground">
-                        Step {event.currentStep + 1}
+                        {event.routeSnapshot?.userIds.length
+                          ? `Pass ${event.currentCycle ?? 1} of ${event.routeSnapshot.rotationCount} · User ${event.currentStep + 1} of ${event.routeSnapshot.userIds.length}`
+                          : `Step ${event.currentStep + 1} · Legacy run`}
                       </p>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">
                         Current assignee
                       </p>
-                      <p className="mt-1 text-sm font-extrabold text-secondary">
+                      <p className="mt-1 break-words text-sm font-extrabold text-secondary">
                         {event.currentUserId
-                          ? ownerLabelById.get(event.currentUserId) ??
-                            event.currentUserId
+                          ? event.currentUserName?.trim() || ownerLabelById.get(event.currentUserId) || "User unavailable"
                           : "Unassigned"}
                       </p>
                       <p className="mt-1 text-xs font-medium text-muted-foreground">
@@ -953,6 +994,7 @@ export function AutoAssignmentMasterScreen() {
                       >
                         {event.status.replace(/_/g, " ")}
                       </Badge>
+                      {event.stopReason ? <p className="mt-2 break-words text-xs text-muted-foreground">{event.stopReason.replace(/^Next route user \S+ is inactive or unavailable$/, "The next assignee is inactive or unavailable")}</p> : null}
                     </div>
                     <div>
                       <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">

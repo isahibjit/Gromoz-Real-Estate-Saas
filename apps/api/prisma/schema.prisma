@@ -26,6 +26,7 @@ enum PlanTier {
 }
 
 model Organization {
+  leadSourceConnections LeadSourceConnection[]
   id                      String                  @id @default(uuid())
   name                    String
   slug                    String                  @unique
@@ -716,6 +717,8 @@ model Lead {
   managerId            String?
   telecallerId         String?
   fieldExecutiveId     String?
+  integrationConnectionId String?
+  integrationConnection LeadSourceConnection? @relation(fields: [integrationConnectionId], references: [id], onDelete: SetNull)
   createdById          String?
   assignedAt           DateTime?
   lastContactedAt      DateTime?
@@ -749,6 +752,7 @@ model Lead {
   @@index([stageId])
   @@index([statusId])
   @@index([sourceId])
+  @@index([integrationConnectionId])
   @@index([ownerId])
   @@index([nextFollowUpAt])
   @@index([createdAt])
@@ -852,6 +856,7 @@ model AutoAssignmentRule {
   initialUserId       String?
   transferSequence    Json
   transferTimeMinutes Int      @default(2)
+  rotationCount       Int      @default(1)
   sourceId            String?
   projectId           String?
   teamId              String?
@@ -873,6 +878,9 @@ model AutoAssignmentEvent {
   leadId        String
   currentUserId String?
   currentStep   Int                       @default(0)
+  currentCycle  Int                       @default(1)
+  routeSnapshot Json?
+  stopReason    String?
   assignedAt    DateTime                  @default(now())
   dueAt         DateTime
   status        AutoAssignmentEventStatus @default(ACTIVE)
@@ -991,6 +999,7 @@ model Project {
   name               String
   location           String
   developer          String?
+  propertyType       String?               @default("Residential")
   status             String                @default("Active")
   possession         String?
   minPrice           Decimal?
@@ -1370,6 +1379,8 @@ model IntegrationRoutingRule {
   projectId        String?
   telecallerId     String?
   fieldExecutiveId String?
+  connectionId     String?  @unique
+  connection       LeadSourceConnection? @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   assignmentMode   String   @default("AUTO_ASSIGN")
   priority         Int      @default(0)
   isActive         Boolean  @default(true)
@@ -1382,6 +1393,40 @@ model IntegrationRoutingRule {
   @@index([accountKey])
   @@index([pageId, formId, campaignId])
   @@index([teamId])
+}
+
+model LeadSourceConnection {
+  organizationId String?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id                 String    @id @default(uuid())
+  provider           String
+  name               String
+  externalAccountId  String?
+  status             String    @default("Draft")
+  isActive           Boolean   @default(true)
+  isPrimary          Boolean   @default(false)
+  webhookKeyId       String    @unique
+  apiKey             String?
+  fieldMapping       Json?
+  settings           Json?
+  credentials        Json?
+  notes              String?
+  lastTestedAt       DateTime?
+  lastTestStatus     String?
+  lastLeadReceivedAt DateTime?
+  totalLeadsReceived Int       @default(0)
+  archivedAt         DateTime?
+  createdById        String?
+  updatedById        String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  leads              Lead[]
+  routingRule        IntegrationRoutingRule?
+
+  @@unique([organizationId, provider, name], map: "LeadSourceConnection_tenant_provider_name_key")
+  @@unique([organizationId, provider, externalAccountId], map: "LeadSourceConnection_tenant_provider_external_key")
+  @@index([organizationId, provider, archivedAt, createdAt], map: "LeadSourceConnection_tenant_provider_archived_created_idx")
+  @@index([organizationId, provider, isActive], map: "LeadSourceConnection_tenant_provider_active_idx")
 }
 
 model DuplicateLeadGroup {

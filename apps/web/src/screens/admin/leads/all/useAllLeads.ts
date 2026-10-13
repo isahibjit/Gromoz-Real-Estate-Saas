@@ -31,6 +31,9 @@ export interface ApiLead {
   mobile: string;
   sourceId?: string | null;
   sourceName?: string | null;
+  integrationConnectionId?: string | null;
+  integrationAccountName?: string | null;
+  integrationProvider?: string | null;
   stageId?: string | null;
   stageName?: string | null;
   statusId?: string | null;
@@ -219,6 +222,7 @@ export interface LeadFilterOption {
 
 export interface LeadListFilters {
   sourceId: string[];
+  integrationConnectionId: string[];
   statusId: string[];
   stageId: string[];
   temperatureId: string[];
@@ -235,6 +239,7 @@ export interface LeadListFilters {
 
 export interface LeadListFilterOptions {
   sourceOptions: LeadFilterOption[];
+  integrationAccountOptions: LeadFilterOption[];
   statusOptions: LeadFilterOption[];
   stageOptions: LeadFilterOption[];
   priorityOptions: LeadFilterOption[];
@@ -362,6 +367,11 @@ const mapUserOptions = (
         role: user.role,
         image: user.image,
       })),
+  ).sort((a, b) =>
+    a.label.localeCompare(b.label, undefined, {
+      sensitivity: "base",
+      numeric: true,
+    }),
   );
 
 const formatBudget = (lead: ApiLead) => {
@@ -469,6 +479,8 @@ export const mapApiLeadToRow = (lead: ApiLead): LeadRow => {
       cleanLabel(lead.sourceName, "") ||
       optionLabel(leadSourceOptions, lead.sourceId, "Unknown"),
     sourceId: lead.sourceId,
+    integrationConnectionId: lead.integrationConnectionId ?? undefined,
+    integrationAccountName: lead.integrationAccountName ?? undefined,
     statusId: lead.statusId ?? lead.stageId,
     temperatureId: lead.temperatureId,
     budgetRange: lead.requirement?.budgetRange,
@@ -484,6 +496,7 @@ export const mapApiLeadToRow = (lead: ApiLead): LeadRow => {
     stage,
     stageTone: stageTone(stage),
     status: stage,
+    statusName: stage,
     priority,
     leadType:
       cleanLabel(lead.temperatureName, "") ||
@@ -557,6 +570,8 @@ export function useAllLeads(
           inactivityDays,
           sourceId:
             serializeFilterValues(filters?.sourceId),
+          integrationConnectionId:
+            serializeFilterValues(filters?.integrationConnectionId),
           statusId:
             serializeFilterValues(filters?.statusId),
           stageId:
@@ -867,12 +882,40 @@ export function useLeadListFilterOptions() {
       ).data.data ?? [],
   });
 
+  const integrationAccountsQuery = useQuery({
+    queryKey: ["lead-imports", "account-filter-options", userId, userRole],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const results = await Promise.allSettled([
+        api.get<{ data: { accounts?: Array<{ id: string; name: string }> } }>(
+          "/integrations/magicbricks/accounts",
+        ),
+        api.get<{ data: { accounts?: Array<{ id: string; name: string }> } }>(
+          "/housing-integrations/accounts",
+        ),
+      ]);
+      return results.flatMap((result, index) => {
+        if (result.status !== "fulfilled") return [];
+        const accounts = result.value.data.data?.accounts ?? [];
+        const provider = index === 0 ? "MagicBricks" : "Housing.com";
+        return accounts.map((account) => ({
+          value: account.id,
+          label: account.name,
+          role: provider,
+        }));
+      });
+    },
+  });
+
   const options = useMemo<LeadListFilterOptions>(
     () => ({
       sourceOptions: mapMasterOptions(
         sourcesQuery.data ?? [],
         fallbackOptions(leadSourceOptions),
       ),
+      integrationAccountOptions: uniqueOptions(
+        integrationAccountsQuery.data ?? [],
+      ).sort((left, right) => left.label.localeCompare(right.label)),
       statusOptions: mapMasterOptions(
         statusesQuery.data ?? [],
         fallbackOptions(statusOptions),
@@ -921,6 +964,11 @@ export function useLeadListFilterOptions() {
             label: project.name,
             value: project.id,
           })),
+      ).sort((a, b) =>
+        a.label.localeCompare(b.label, undefined, {
+          sensitivity: "base",
+          numeric: true,
+        }),
       ),
       ownerOptions: mapUserOptions(usersQuery.data, [
         "ADMIN",
@@ -937,6 +985,11 @@ export function useLeadListFilterOptions() {
           .filter(hasUsableTeamOption)
           .filter((team) => team.isActive !== false)
           .map((team) => ({ label: team.name, value: team.id })),
+      ).sort((a, b) =>
+        a.label.localeCompare(b.label, undefined, {
+          sensitivity: "base",
+          numeric: true,
+        }),
       ),
     }),
     [
@@ -952,6 +1005,7 @@ export function useLeadListFilterOptions() {
       statusesQuery.data,
       usersQuery.data,
       teamsQuery.data,
+      integrationAccountsQuery.data,
     ],
   );
 
@@ -968,7 +1022,8 @@ export function useLeadListFilterOptions() {
       configurationsQuery.isLoading ||
       areaQuery.isLoading ||
       usersQuery.isLoading ||
-      teamsQuery.isLoading,
+      teamsQuery.isLoading ||
+      integrationAccountsQuery.isLoading,
   };
 }
 

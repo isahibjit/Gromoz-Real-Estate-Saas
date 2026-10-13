@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
@@ -6,8 +6,10 @@ import {
   ChevronRight,
   ClipboardCheck,
   Clock,
+  Pencil,
   Plus,
   Search,
+  Trash2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -17,6 +19,7 @@ import {
   DatePicker,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   Input,
@@ -32,6 +35,7 @@ import {
 import { WorkspacePage } from "../../components/layout/PageHeader";
 
 import { api } from "../../common/api";
+import { usePermission } from "../../common/access/usePermission";
 import { useAppSelector } from "../../store";
 import type { SidebarItem } from "../admin/dashboard/dashboardData";
 import { useDashboardLayout } from "../admin/dashboard/DashboardLayoutContext";
@@ -91,8 +95,58 @@ const statuses: TaskStatus[] = ["Pending", "In Progress", "Completed"];
 const priorities: TaskPriority[] = ["High", "Medium", "Low"];
 const taskTypes = ["Call", "Follow-up", "Site Visit", "Documentation", "Internal"];
 
+const isTaskAssignmentRole = (role?: string) => {
+  if (!role) return false;
+  const normalized = role.toUpperCase();
+  return (
+    normalized === "SUPER_ADMIN" ||
+    normalized === "ADMIN" ||
+    normalized === "HR" ||
+    normalized === "SALES_MANAGER" ||
+    normalized === "MANAGER" ||
+    normalized === "TEAM_LEADER" ||
+    normalized === "BACKEND" ||
+    normalized === "BACKEND_EXECUTIVE" ||
+    normalized === "BACK_END_EXECUTIVE" ||
+    normalized === "BACKOFFICE"
+  );
+};
+
 const isAdminRole = (role?: string) =>
-  role === "SUPER_ADMIN" || role === "ADMIN" || role === "SALES_MANAGER";
+  role === "SUPER_ADMIN" ||
+  role === "ADMIN" ||
+  role === "HR" ||
+  role === "SALES_MANAGER" ||
+  role === "MANAGER" ||
+  role === "TEAM_LEADER" ||
+  role === "BACKEND";
+
+const canAssignTaskToOthers = (
+  user?: {
+    role?: string;
+    permissions?: Array<{
+      moduleKey?: string;
+      canView?: boolean;
+      canCreate?: boolean;
+      canUpdate?: boolean;
+    }>;
+  } | null,
+) => {
+  if (!user) return false;
+  if (isTaskAssignmentRole(user.role)) return true;
+
+  const permissions = user.permissions ?? [];
+  return permissions.some((permission) => {
+    const key = permission.moduleKey?.toLowerCase();
+    return (
+      (key === "task_assignment" ||
+        key === "tasks.assign" ||
+        key === "page.tasks_assign" ||
+        key === "tasks_assign") &&
+      Boolean(permission.canView || permission.canCreate || permission.canUpdate)
+    );
+  });
+};
 
 const formatDate = (value?: string | null) =>
   value
@@ -149,34 +203,63 @@ function employmentSidebarItems(role?: string): SidebarItem[] {
     : [...baseItems, myEmploymentSidebarItem];
 }
 
+function getEffectiveTaskAssignee(explicitId: string | null | undefined, canAssign: boolean, currentUserId?: string) {
+  return explicitId || (!canAssign ? currentUserId ?? "" : "");
+}
+
 function TaskDialog({
   open,
+  initialData,
   employees,
   leads,
   onOpenChange,
 }: {
   open: boolean;
+  initialData?: TaskRow | null;
   employees: EmployeeOption[];
   leads: LeadOption[];
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
+  const currentUser = useAppSelector((state) => state.auth.user);
+  const canAssign = canAssignTaskToOthers(currentUser);
+
   const [form, setForm] = useState({
-    title: "",
-    description: "",
-    type: "Follow-up",
-    priority: "Medium" as TaskPriority,
-    dueAt: "",
-    assignedToId: "",
-    leadId: "",
+    title: initialData?.title ?? "",
+    description: initialData?.description ?? "",
+    type: initialData?.type ?? "Follow-up",
+    priority: (initialData?.priority as TaskPriority) ?? "Medium",
+    dueAt: initialData?.dueAt ? initialData.dueAt.slice(0, 10) : "",
+    assignedToId: getEffectiveTaskAssignee(initialData?.assignedToId, canAssign, currentUser?.id),
+    leadId: initialData?.leadId ?? "",
   });
+
+  useEffect(() => {
+    if (open) {
+      setForm({
+        title: initialData?.title ?? "",
+        description: initialData?.description ?? "",
+        type: initialData?.type ?? "Follow-up",
+        priority: (initialData?.priority as TaskPriority) ?? "Medium",
+        dueAt: initialData?.dueAt ? initialData.dueAt.slice(0, 10) : "",
+        assignedToId: getEffectiveTaskAssignee(initialData?.assignedToId, canAssign, currentUser?.id),
+        leadId: initialData?.leadId ?? "",
+      });
+    }
+  }, [open, initialData, canAssign, currentUser?.id]);
 
   const employeeOptions = employees
     .filter((employee) => employee.isActive !== false)
     .map((employee) => ({
       label: `${employee.fullName ?? employee.email} (${employee.role})`,
       value: employee.id,
-    }));
+    }))
+    .sort((a, b) =>
+      a.label.localeCompare(b.label, undefined, {
+        sensitivity: "base",
+        numeric: true,
+      }),
+    );
 
   const assignedLeadOptions = leads
     .filter((lead) =>
@@ -205,34 +288,30 @@ function TaskDialog({
       ]
     : [];
 
-  const createTask = useMutation({
-    mutationFn: async () =>
-      (
-        await api.post("/tasks", {
-          title: form.title.trim(),
-          description: form.description.trim() || undefined,
-          type: form.type,
-          priority: form.priority,
-          dueAt: form.dueAt || undefined,
-          assignedToId: form.assignedToId,
-          leadId: form.leadId || undefined,
-        })
-      ).data,
+  const saveTask = useMutation({
+    mutationFn: async () => {
+      const targetAssignedToId = form.assignedToId || getEffectiveTaskAssignee(undefined, canAssign, currentUser?.id);
+      const payload = {
+        title: form.title.trim(),
+        description: form.description.trim() || undefined,
+        type: form.type,
+        priority: form.priority,
+        dueAt: form.dueAt || undefined,
+        assignedToId: targetAssignedToId,
+        leadId: form.leadId || undefined,
+      };
+      if (initialData?.id) {
+        return (await api.patch(`/tasks/${initialData.id}`, payload)).data;
+      }
+      return (await api.post("/tasks", payload)).data;
+    },
     onSuccess: () => {
-      toast.success("Task created");
+      toast.success(initialData ? "Task updated" : "Task created");
       void queryClient.invalidateQueries({ queryKey: ["employee-tasks"] });
-      setForm({
-        title: "",
-        description: "",
-        type: "Follow-up",
-        priority: "Medium",
-        dueAt: "",
-        assignedToId: "",
-        leadId: "",
-      });
       onOpenChange(false);
     },
-    onError: () => toast.error("Could not create task"),
+    onError: () =>
+      toast.error(initialData ? "Could not update task" : "Could not create task"),
   });
 
   return (
@@ -240,8 +319,13 @@ function TaskDialog({
       <DialogContent className="max-w-2xl rounded-md bg-white">
         <DialogHeader>
           <DialogTitle className="text-xl font-extrabold text-secondary">
-            Create Employee Task
+            {initialData ? "Edit Employee Task" : "Create Employee Task"}
           </DialogTitle>
+          <DialogDescription className="text-xs font-semibold text-muted-foreground">
+            {initialData
+              ? "Update task details and assignments."
+              : "Assign a task to an employee with optional lead context."}
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="space-y-2 sm:col-span-2">
@@ -274,26 +358,28 @@ function TaskDialog({
               }
             />
           </label>
-          <label className="space-y-2">
-            <span className="text-xs font-extrabold text-secondary">
-              Assign to <span className="text-primary">*</span>
-            </span>
-            <SearchableSelect
-              value={form.assignedToId}
-              options={employeeOptions}
-              ariaLabel="Assign task to employee"
-              placeholder="Select employee"
-              searchPlaceholder="Search employees..."
-              onValueChange={(value) =>
-                setForm((current) => ({
-                  ...current,
-                  assignedToId: value,
-                  leadId: "",
-                }))
-              }
-            />
-          </label>
-          <label className="space-y-2">
+          {canAssign ? (
+            <label className="space-y-2">
+              <span className="text-xs font-extrabold text-secondary">
+                Assign to <span className="text-primary">*</span>
+              </span>
+              <SearchableSelect
+                value={form.assignedToId}
+                options={employeeOptions}
+                ariaLabel="Assign task to employee"
+                placeholder="Select employee"
+                searchPlaceholder="Search employees..."
+                onValueChange={(value) =>
+                  setForm((current) => ({
+                    ...current,
+                    assignedToId: value,
+                    leadId: "",
+                  }))
+                }
+              />
+            </label>
+          ) : null}
+          <label className={cn("space-y-2", !canAssign && "sm:col-span-2")}>
             <span className="text-xs font-extrabold text-secondary">
               Lead context
             </span>
@@ -381,11 +467,21 @@ function TaskDialog({
           <Button
             type="button"
             className="h-10 rounded-md px-4"
-            disabled={createTask.isPending || !form.title.trim() || !form.assignedToId}
-            onClick={() => createTask.mutate()}
+            disabled={
+              saveTask.isPending ||
+              !form.title.trim() ||
+              !(form.assignedToId || getEffectiveTaskAssignee(undefined, canAssign, currentUser?.id))
+            }
+            onClick={() => saveTask.mutate()}
           >
             <Plus className="size-4" />
-            {createTask.isPending ? "Creating..." : "Create Task"}
+            {saveTask.isPending
+              ? initialData
+                ? "Saving..."
+                : "Creating..."
+              : initialData
+              ? "Save Changes"
+              : "Create Task"}
           </Button>
         </div>
       </DialogContent>
@@ -396,11 +492,17 @@ function TaskDialog({
 export function EmployeeTasksScreen() {
   const user = useAppSelector((state) => state.auth.user);
   const admin = isAdminRole(user?.role);
+  const { canCreate, canUpdate, canDelete } = usePermission("tasks");
+  const canCreateTask = canCreate || admin;
+  const canUpdateTask = canUpdate || admin;
+  const canDeleteTask = canDelete || admin;
+
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [assignedToId, setAssignedToId] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<TaskRow | null>(null);
 
   useDashboardLayout(
     {
@@ -441,7 +543,6 @@ export function EmployeeTasksScreen() {
 
   const employees = useQuery({
     queryKey: ["employee-task-employees"],
-    enabled: admin,
     queryFn: async () =>
       (await api.get<{ data: EmployeeOption[] }>("/employees", { params: { limit: 200 } }))
         .data.data,
@@ -449,7 +550,6 @@ export function EmployeeTasksScreen() {
 
   const leads = useQuery({
     queryKey: ["employee-task-leads"],
-    enabled: admin,
     queryFn: async () =>
       (await api.get<{ data: LeadOption[] }>("/leads", { params: { limit: 200 } }))
         .data.data,
@@ -469,21 +569,30 @@ export function EmployeeTasksScreen() {
     onError: () => toast.error("Could not update task"),
   });
 
+  const deleteTask = useMutation({
+    mutationFn: async (id: string) => (await api.delete(`/tasks/${id}`)).data,
+    onSuccess: () => {
+      toast.success("Task deleted successfully");
+      void queryClient.invalidateQueries({ queryKey: ["employee-tasks"] });
+    },
+    onError: () => toast.error("Could not delete task"),
+  });
+
   const rows = tasks.data?.data ?? [];
   const stats = [
-    { label: "Pending", value: rows.filter((row) => row.status === "Pending").length, icon: Clock },
+    { label: "Pending", value: rows.filter((row: TaskRow) => row.status === "Pending").length, icon: Clock },
     {
       label: "In progress",
-      value: rows.filter((row) => row.status === "In Progress").length,
+      value: rows.filter((row: TaskRow) => row.status === "In Progress").length,
       icon: ClipboardCheck,
     },
     {
       label: "Completed",
-      value: rows.filter((row) => row.status === "Completed").length,
+      value: rows.filter((row: TaskRow) => row.status === "Completed").length,
       icon: CheckCircle2,
     },
   ];
-  const employeeOptions = (employees.data ?? []).map((employee) => ({
+  const employeeOptions = (employees.data ?? []).map((employee: EmployeeOption) => ({
     label: employee.fullName ?? employee.email,
     value: employee.id,
   }));
@@ -500,11 +609,14 @@ export function EmployeeTasksScreen() {
             Track assigned work outside the follow-up queue with optional lead context.
           </p>
         </div>
-        {admin ? (
+        {canCreateTask ? (
           <Button
             type="button"
             className="h-10 rounded-md px-4"
-            onClick={() => setDialogOpen(true)}
+            onClick={() => {
+              setEditingTask(null);
+              setDialogOpen(true);
+            }}
           >
             <Plus className="size-4" />
             Create Task
@@ -600,85 +712,121 @@ export function EmployeeTasksScreen() {
                   </td>
                 </tr>
               ) : rows.length ? (
-                rows.map((task) => {
+                rows.map((task: TaskRow) => {
                   const nextAction = getNextTaskAction(task.status);
                   return (
                     <tr key={task.id} className="hover:bg-slate-50/80">
-                    <td className="px-4 py-3">
-                      <p className="text-sm font-extrabold text-secondary">
-                        {task.title}
-                      </p>
-                      <p className="mt-0.5 line-clamp-1 text-xs font-semibold text-muted-foreground">
-                        {task.description || task.type || "Task"}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3 text-xs font-semibold text-secondary">
-                      {task.leadId ? (
-                        <>
-                          <span className="block">{task.leadName}</span>
-                          <span className="text-muted-foreground">
-                            {task.leadDisplayId} · {task.leadRequirement || task.leadLocation || "Lead"}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground">No lead linked</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-xs font-bold text-secondary">
-                      <span className="block">{task.assignedToName || "Unassigned"}</span>
-                      <span className="font-semibold text-muted-foreground">
-                        {task.assignedToRole || "Employee"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge
-                        className={cn(
-                          "border-0 px-2 py-1 text-xs font-extrabold",
-                          priorityTone[task.priority as TaskPriority] ??
-                            "bg-slate-100 text-slate-700",
-                        )}
-                      >
-                        {task.priority}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge
-                        className={cn(
-                          "border-0 px-2 py-1 text-xs font-extrabold",
-                          statusTone[task.status],
-                        )}
-                      >
-                        {task.status}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-xs font-semibold text-secondary">
-                      <CalendarDays className="mr-1 inline size-3.5 text-muted-foreground" />
-                      {formatDate(task.dueAt)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex justify-end gap-2">
-                        {nextAction ? (
-                          <Button
-                            type="button"
-                            variant={nextAction.variant}
-                            className="h-8 rounded-md px-3 text-xs"
-                            disabled={updateTask.isPending}
-                            onClick={() =>
-                              updateTask.mutate({
-                                id: task.id,
-                                nextStatus: nextAction.nextStatus,
-                              })
-                            }
-                          >
-                            {nextAction.label}
-                          </Button>
+                      <td className="px-4 py-3">
+                        <p className="text-sm font-extrabold text-secondary">
+                          {task.title}
+                        </p>
+                        <p className="mt-0.5 line-clamp-1 text-xs font-semibold text-muted-foreground">
+                          {task.description || task.type || "Task"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3 text-xs font-semibold text-secondary">
+                        {task.leadId ? (
+                          <>
+                            <span className="block">{task.leadName}</span>
+                            <span className="text-muted-foreground">
+                              {task.leadDisplayId} · {task.leadRequirement || task.leadLocation || "Lead"}
+                            </span>
+                          </>
                         ) : (
-                          <span className="inline-flex h-8 items-center rounded-md border border-emerald-100 bg-emerald-50 px-3 text-xs font-extrabold text-emerald-700">
-                            Completed
-                          </span>
+                          <span className="text-muted-foreground">No lead linked</span>
                         )}
-                      </div>
-                    </td>
+                      </td>
+                      <td className="px-4 py-3 text-xs font-bold text-secondary">
+                        <span className="block">{task.assignedToName || "Unassigned"}</span>
+                        <span className="font-semibold text-muted-foreground">
+                          {task.assignedToRole || "Employee"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          className={cn(
+                            "border-0 px-2 py-1 text-xs font-extrabold",
+                            priorityTone[task.priority as TaskPriority] ??
+                              "bg-slate-100 text-slate-700",
+                          )}
+                        >
+                          {task.priority}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          className={cn(
+                            "border-0 px-2 py-1 text-xs font-extrabold",
+                            statusTone[task.status as TaskStatus] ?? "bg-slate-100 text-slate-700",
+                          )}
+                        >
+                          {task.status}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-xs font-semibold text-secondary">
+                        <CalendarDays className="mr-1 inline size-3.5 text-muted-foreground" />
+                        {formatDate(task.dueAt)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {nextAction ? (
+                            <Button
+                              type="button"
+                              variant={nextAction.variant}
+                              className="h-8 rounded-md px-3 text-xs"
+                              disabled={updateTask.isPending}
+                              onClick={() =>
+                                updateTask.mutate({
+                                  id: task.id,
+                                  nextStatus: nextAction.nextStatus,
+                                })
+                              }
+                            >
+                              {nextAction.label}
+                            </Button>
+                          ) : (
+                            <span className="inline-flex h-8 items-center rounded-md border border-emerald-100 bg-emerald-50 px-3 text-xs font-extrabold text-emerald-700">
+                              Completed
+                            </span>
+                          )}
+                          {canUpdateTask || canDeleteTask ? (
+                            <>
+                              {canUpdateTask ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-md border-slate-200 text-muted-foreground hover:bg-slate-100 hover:text-secondary"
+                                  onClick={() => {
+                                    setEditingTask(task);
+                                    setDialogOpen(true);
+                                  }}
+                                  title="Edit task"
+                                >
+                                  <Pencil className="size-3.5" />
+                                </Button>
+                              ) : null}
+                              {canDeleteTask ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-md border-slate-200 text-muted-foreground hover:bg-red-50 hover:text-red-600"
+                                  disabled={deleteTask.isPending}
+                                  onClick={() => {
+                                    if (window.confirm("Are you sure you want to delete this task?")) {
+                                      deleteTask.mutate(task.id);
+                                    }
+                                  }}
+                                  title="Delete task"
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </Button>
+                              ) : null}
+                            </>
+                          ) : null}
+                        </div>
+                      </td>
                     </tr>
                   );
                 })
@@ -697,14 +845,16 @@ export function EmployeeTasksScreen() {
         </div>
       </Card>
 
-      {admin ? (
-        <TaskDialog
-          open={dialogOpen}
-          employees={employees.data ?? []}
-          leads={leads.data ?? []}
-          onOpenChange={setDialogOpen}
-        />
-      ) : null}
+      <TaskDialog
+        open={dialogOpen}
+        initialData={editingTask}
+        employees={employees.data ?? []}
+        leads={leads.data ?? []}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setEditingTask(null);
+        }}
+      />
     </WorkspacePage>
   );
 }

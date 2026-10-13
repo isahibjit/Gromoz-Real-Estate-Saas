@@ -1,21 +1,17 @@
+import { referenceTenantProviders } from "../../test/reference-tenant-providers";
 import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { createHmac } from 'crypto';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
-import { TenantAccessService } from '../common/tenant/tenant-access.service';
-import { TenantContextService } from '../common/tenant/tenant-context.service';
 import { CrmService } from './crm.service';
 import { LeadVisibilityService } from './lead-visibility.service';
-import { TenantNotificationService } from './notifications/tenant-notification.service';
-import { WhatsAppDispatchService } from './notifications/whatsapp-dispatch.service';
+import { LeadSourceConnectionsService } from './lead-source-connections.service';
 
 describe('MagicBricks pause enforcement', () => {
   const payload = { FirstName: 'Test', LastName: 'Lead', Mobile: '9876543210' };
   let integration: {
-    id: string;
     organizationId: string;
-    provider: string;
+    id: string;
     isActive: boolean;
     status: string;
     webhookKeyId: string;
@@ -25,45 +21,73 @@ describe('MagicBricks pause enforcement', () => {
   let service: CrmService;
   let apiKey: string;
   const db = {
-    portalIntegration: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      update: jest.fn(),
-    },
-    user: { findUnique: jest.fn() },
-    organizationMember: { findMany: jest.fn() },
     lead: { findFirst: jest.fn(), count: jest.fn() },
     project: { findFirst: jest.fn() },
     leadMasterCategory: { upsert: jest.fn() },
     leadMasterValue: { count: jest.fn(), findMany: jest.fn() },
     auditLog: { create: jest.fn() },
   };
+  const connections = {
+    verifyMagicBricksApiKey: jest.fn(),
+    findByWebhookKey: jest.fn(),
+    recordLeadReceived: jest.fn(),
+    getPrimaryAccount: jest.fn(),
+    getAccount: jest.fn(),
+    updateAccount: jest.fn(),
+    saveFieldMapping: jest.fn(),
+    recordTest: jest.fn(),
+    buildMagicBricksApiKey: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.resetAllMocks();
     integration = {
-      id: 'magicbricks-integration',
       organizationId: 'tenant-a',
-      provider: 'magicbricks',
+      id: 'magicbricks-integration',
       isActive: true,
       status: 'Connected',
       webhookKeyId: 'test-key-id',
       displayName: 'MagicBricks',
       fieldMapping: { FirstName: 'leadName', Mobile: 'mobileNumber' },
     };
-    db.portalIntegration.findUnique.mockImplementation(async () => ({
+    connections.verifyMagicBricksApiKey.mockImplementation((key: string) =>
+      key === apiKey ? integration.webhookKeyId : null,
+    );
+    connections.findByWebhookKey.mockImplementation(async () => ({
       ...integration,
+      routingRule: null,
     }));
-    db.portalIntegration.findFirst.mockImplementation(async () => ({
+    connections.getPrimaryAccount.mockImplementation(async () => ({
       ...integration,
+      _count: { leads: 0 },
+      routingRule: null,
     }));
-    db.user.findUnique.mockResolvedValue({ role: 'ADMIN', isActive: true });
-    db.organizationMember.findMany.mockResolvedValue([
-      { organizationId: 'tenant-a' },
-    ]);
-    db.portalIntegration.update.mockImplementation(async () => ({
+    connections.getAccount.mockImplementation(async () => ({
       ...integration,
+      _count: { leads: 0 },
+      routingRule: null,
     }));
+    connections.updateAccount.mockImplementation(
+      async (_provider: string, _id: string, changes: object) => ({
+        ...integration,
+        ...changes,
+        _count: { leads: 0 },
+        routingRule: null,
+      }),
+    );
+    connections.saveFieldMapping.mockImplementation(
+      async (_provider: string, _id: string, fieldMapping: object) => ({
+        ...integration,
+        fieldMapping,
+        _count: { leads: 0 },
+        routingRule: null,
+      }),
+    );
+    connections.recordLeadReceived.mockResolvedValue({});
+    connections.recordTest.mockResolvedValue({});
+    connections.buildMagicBricksApiKey.mockReturnValue(
+      'mb_test-key-id.signature',
+    );
     db.lead.findFirst.mockResolvedValue(null);
     db.lead.count.mockResolvedValue(0);
     db.project.findFirst.mockResolvedValue(null);
@@ -76,38 +100,19 @@ describe('MagicBricks pause enforcement', () => {
     db.auditLog.create.mockResolvedValue({});
     const module = await Test.createTestingModule({
       providers: [
+        ...referenceTenantProviders(),
         CrmService,
         { provide: PrismaService, useValue: db },
         { provide: RealtimeService, useValue: {} },
         { provide: LeadVisibilityService, useValue: {} },
-        { provide: TenantAccessService, useValue: {} },
-        {
-          provide: TenantContextService,
-          useValue: { getTenantId: () => 'tenant-a' },
-        },
-        {
-          provide: TenantNotificationService,
-          useValue: { isChannelEnabled: jest.fn().mockResolvedValue(false) },
-        },
-        {
-          provide: WhatsAppDispatchService,
-          useValue: { enqueueWithClient: jest.fn() },
-        },
+        { provide: LeadSourceConnectionsService, useValue: connections },
       ],
     }).compile();
     service = module.get(CrmService);
     jest
       .spyOn(service, 'createLead')
       .mockResolvedValue({ id: 'lead-1', displayId: 'TR001' });
-    const secret =
-      process.env.MAGICBRICKS_API_KEY_SECRET ??
-      process.env.JWT_ACCESS_SECRET ??
-      'truroot-magicbricks-secret';
-    const signature = createHmac('sha256', secret)
-      .update(`magicbricks:${integration.webhookKeyId}`)
-      .digest('hex')
-      .slice(0, 24);
-    apiKey = `mb_${integration.webhookKeyId}.${signature}`;
+    apiKey = 'mb_test-key-id.signature';
   });
 
   it.each([
@@ -127,7 +132,7 @@ describe('MagicBricks pause enforcement', () => {
     });
     expect(service.createLead).not.toHaveBeenCalled();
     expect(db.lead.findFirst).not.toHaveBeenCalled();
-    expect(db.portalIntegration.update).not.toHaveBeenCalled();
+    expect(connections.recordLeadReceived).not.toHaveBeenCalled();
     expect(JSON.stringify(db.auditLog.create.mock.calls)).not.toContain(apiKey);
   });
 
@@ -135,7 +140,7 @@ describe('MagicBricks pause enforcement', () => {
     integration.isActive = false;
     expect(await service.receiveMagicBricksLead(payload, 'invalid')).toEqual({
       success: false,
-      message: 'Failure: Invalid API key format or signature',
+      message: 'Failure: Invalid API key',
     });
     expect(service.createLead).not.toHaveBeenCalled();
     expect(db.auditLog.create).not.toHaveBeenCalled();
@@ -154,7 +159,7 @@ describe('MagicBricks pause enforcement', () => {
       },
     );
     expect(service.createLead).not.toHaveBeenCalled();
-    expect(db.portalIntegration.update).not.toHaveBeenCalled();
+    expect(connections.recordLeadReceived).not.toHaveBeenCalled();
   });
 
   it('still creates active leads and records receipt', async () => {
@@ -165,10 +170,7 @@ describe('MagicBricks pause enforcement', () => {
       },
     );
     expect(service.createLead).toHaveBeenCalledTimes(1);
-    expect(db.portalIntegration.update).toHaveBeenCalledWith({
-      where: { id: integration.id },
-      data: expect.objectContaining({ totalLeadsReceived: { increment: 1 } }),
-    });
+    expect(connections.recordLeadReceived).toHaveBeenCalledWith(integration.id);
   });
 
   it('keeps duplicate prevention', async () => {
@@ -186,70 +188,53 @@ describe('MagicBricks pause enforcement', () => {
   });
 
   it('persists pause and permits explicit activation', async () => {
-    await service.saveMagicBricksIntegration(
-      { isActive: false },
-      'user-a',
-      'tenant-a',
+    await service.saveMagicBricksIntegration({ isActive: false });
+    expect(connections.updateAccount).toHaveBeenLastCalledWith(
+      'magicbricks',
+      integration.id,
+      expect.objectContaining({ isActive: false }),
+      undefined,
     );
-    expect(db.portalIntegration.update).toHaveBeenLastCalledWith({
-      where: { id: integration.id },
-      data: expect.objectContaining({ isActive: false, status: 'Paused' }),
-    });
     integration.isActive = false;
     integration.status = 'Paused';
-    await service.saveMagicBricksIntegration(
-      { isActive: true },
-      'user-a',
-      'tenant-a',
+    await service.saveMagicBricksIntegration({ isActive: true });
+    expect(connections.updateAccount).toHaveBeenLastCalledWith(
+      'magicbricks',
+      integration.id,
+      expect.objectContaining({ isActive: true }),
+      undefined,
     );
-    expect(db.portalIntegration.update).toHaveBeenLastCalledWith({
-      where: { id: integration.id },
-      data: expect.objectContaining({ isActive: true, status: 'Configured' }),
-    });
   });
 
   it('keeps pause when saving settings or field mapping', async () => {
     integration.isActive = false;
     integration.status = 'Paused';
-    await service.saveMagicBricksIntegration(
-      {
-        notes: 'Keep paused',
-        status: 'Configured',
-      },
-      'user-a',
-      'tenant-a',
-    );
-    expect(db.portalIntegration.update).toHaveBeenLastCalledWith({
-      where: { id: integration.id },
-      data: expect.objectContaining({ status: 'Paused' }),
+    await service.saveMagicBricksIntegration({
+      notes: 'Keep paused',
+      status: 'Configured',
     });
-    expect(db.portalIntegration.update.mock.calls[0][0].data).toEqual(
-      expect.objectContaining({ isActive: false, status: 'Paused' }),
+    expect(connections.updateAccount).toHaveBeenLastCalledWith(
+      'magicbricks',
+      integration.id,
+      expect.objectContaining({ isActive: false }),
+      undefined,
     );
-    await service.saveMagicBricksFieldMapping(
-      {
-        fieldMapping: integration.fieldMapping,
-      },
-      'user-a',
-      'tenant-a',
-    );
-    expect(db.portalIntegration.update).toHaveBeenLastCalledWith({
-      where: { id: integration.id },
-      data: expect.objectContaining({ status: 'Paused' }),
+    await service.saveMagicBricksFieldMapping({
+      fieldMapping: integration.fieldMapping,
     });
+    expect(connections.saveFieldMapping).toHaveBeenCalledWith(
+      'magicbricks',
+      integration.id,
+      expect.any(Object),
+      undefined,
+    );
   });
 
   it('does not report a paused test payload as creatable', async () => {
     integration.isActive = false;
-    const result = await service.testMagicBricksIntegration(
-      {
-        samplePayload: payload,
-      },
-      'user-a',
-      undefined,
-      undefined,
-      'tenant-a',
-    );
+    const result = await service.testMagicBricksIntegration({
+      samplePayload: payload,
+    });
     expect(result.data.wouldCreateLead).toBe(false);
     expect(result.data.errors).toContain('MagicBricks Push API is paused');
     expect(service.createLead).not.toHaveBeenCalled();
@@ -261,7 +246,7 @@ describe('MagicBricks pause enforcement', () => {
       await expect(
         service.saveMagicBricksIntegration({ isActive }),
       ).rejects.toThrow(BadRequestException);
-      expect(db.portalIntegration.update).not.toHaveBeenCalled();
+      expect(connections.updateAccount).not.toHaveBeenCalled();
     },
   );
 });

@@ -4,9 +4,10 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { randomBytes } from 'crypto';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { CrmService } from './crm.service';
+import { LeadSourceConnectionsService } from './lead-source-connections.service';
 
 export const defaultHousingFieldMapping = {
   Name: 'name',
@@ -33,6 +34,23 @@ export const defaultHousingSamplePayload = {
   remarks: 'Looking for 2 BHK ready to move unit',
 };
 
+type HousingPayload = Record<string, unknown>;
+type HousingFieldMapping = typeof defaultHousingFieldMapping;
+
+const payloadText = (
+  payload: HousingPayload,
+  ...keys: Array<string | undefined>
+) => {
+  for (const key of keys) {
+    if (!key) continue;
+    const value = payload[key];
+    if (value !== undefined && value !== null && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  return undefined;
+};
+
 @Injectable()
 export class HousingIntegrationsService {
   private readonly logger = new Logger(HousingIntegrationsService.name);
@@ -40,97 +58,109 @@ export class HousingIntegrationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly crm: CrmService,
+    private readonly connections: LeadSourceConnectionsService,
   ) {}
 
-  private db() {
-    return this.prisma as any;
+  private mapping(value: Prisma.JsonValue | null): HousingFieldMapping {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return { ...defaultHousingFieldMapping };
+    }
+    const supplied = value as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(defaultHousingFieldMapping).map(([key, fallback]) => [
+        key,
+        typeof supplied[key] === 'string' && supplied[key]
+          ? supplied[key]
+          : fallback,
+      ]),
+    ) as HousingFieldMapping;
   }
 
-  private async ensureHousingIntegrationTable() {
-    await this.db().$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "HousingIntegration" (
-        "id" TEXT PRIMARY KEY,
-        "organizationId" TEXT,
-        "webhookKeyId" TEXT NOT NULL UNIQUE,
-        "apiKey" TEXT,
-        "isActive" BOOLEAN NOT NULL DEFAULT true,
-        "fieldMapping" JSONB,
-        "lastWebhookReceivedAt" TIMESTAMP(3),
-        "createdById" TEXT,
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    await this.db().$executeRawUnsafe(`
-      ALTER TABLE "HousingIntegration"
-      ADD COLUMN IF NOT EXISTS "organizationId" TEXT
-    `);
-    await this.db().$executeRawUnsafe(`
-      CREATE INDEX IF NOT EXISTS "HousingIntegration_org_idx"
-      ON "HousingIntegration" ("organizationId")
-    `);
+  private async accountView(
+    account: Awaited<ReturnType<LeadSourceConnectionsService['getAccount']>>,
+  ) {
+    return {
+      ...account,
+      webhookUrl: this.connections.webhookUrl('housing', account.webhookKeyId),
+      fieldMapping: this.mapping(account.fieldMapping),
+      leadCount: account._count.leads,
+      samplePayload: defaultHousingSamplePayload,
+      routing: account.routingRule,
+    };
   }
 
-  async ensureHousingIntegration(actorUserId?: string, organizationId?: string) {
-    const orgId =
-      organizationId ||
-      (await this.crm.resolveTenantOrganizationId(actorUserId));
-    if (!orgId) throw new BadRequestException('Select a tenant workspace');
-    return this.prisma.housingIntegration.upsert({
-      where: { organizationId: orgId },
-      update: {},
-      create: {
-          organizationId: orgId,
-          webhookKeyId: randomBytes(12).toString('hex'),
-          isActive: true,
-          fieldMapping: defaultHousingFieldMapping,
-          createdById: actorUserId,
-      },
-    });
-  }
-
-  async getHousingIntegration(actorUserId?: string, organizationId?: string) {
-    const integration = await this.ensureHousingIntegration(
+  async ensureHousingIntegration(
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    return this.connections.getPrimaryAccount(
+      'housing',
+      defaultHousingFieldMapping,
       actorUserId,
       organizationId,
     );
-    const webhookUrl = `https://crmtrueroot.com/api/v1/public/webhooks/housing/${integration.webhookKeyId}`;
+  }
 
-    const housingSourceMaster = await this.db().leadMasterValue.findFirst({
-      where: {
-        name: { equals: 'Housing.com', mode: 'insensitive' },
-        categoryRef: { code: 'source' },
-      },
-    });
+  async getHousingIntegration(actorUserId?: string, organizationId?: string) {
+    return this.accountView(
+      await this.ensureHousingIntegration(actorUserId, organizationId),
+    );
+  }
 
-    const sourceFilters = [
-      housingSourceMaster?.id,
-      housingSourceMaster?.code,
-      housingSourceMaster?.name,
-      'Housing.com',
-      'HOUSING',
+  async listAccounts(includeArchived = false) {
+    const result = await this.connections.listAccounts(
       'housing',
-    ].filter(Boolean);
-
-    const whereClause: any = {
-      deletedAt: null,
-      sourceId: { in: sourceFilters },
-    };
-    if (integration.organizationId) {
-      whereClause.organizationId = integration.organizationId;
-    }
-
-    const leadCount = await this.db().lead.count({
-      where: whereClause,
-    });
-
+      includeArchived,
+    );
     return {
-      ...integration,
-      webhookUrl,
-      fieldMapping: integration.fieldMapping || defaultHousingFieldMapping,
-      leadCount,
-      samplePayload: defaultHousingSamplePayload,
+      data: {
+        summary: result.summary,
+        accounts: await Promise.all(
+          result.accounts.map((account) => this.accountView(account)),
+        ),
+      },
     };
+  }
+
+  async getAccount(accountId: string) {
+    return {
+      data: await this.accountView(
+        await this.connections.getAccount('housing', accountId),
+      ),
+    };
+  }
+
+  async createAccount(
+    body: { name: string; externalAccountId?: string; apiKey?: string },
+    actorUserId?: string,
+  ) {
+    const account = await this.connections.createAccount(
+      'housing',
+      body,
+      defaultHousingFieldMapping,
+      actorUserId,
+    );
+    return { data: await this.accountView(account) };
+  }
+
+  async updateAccount(
+    accountId: string,
+    body: {
+      name?: string;
+      externalAccountId?: string;
+      apiKey?: string;
+      isActive?: boolean;
+      notes?: string;
+    },
+    actorUserId?: string,
+  ) {
+    const account = await this.connections.updateAccount(
+      'housing',
+      accountId,
+      body,
+      actorUserId,
+    );
+    return { data: await this.accountView(account) };
   }
 
   async saveHousingIntegration(
@@ -138,63 +168,151 @@ export class HousingIntegrationsService {
     actorUserId?: string,
     organizationId?: string,
   ) {
-    const integration = await this.ensureHousingIntegration(
+    const account = await this.ensureHousingIntegration(
       actorUserId,
       organizationId,
     );
-    return this.db().housingIntegration.update({
-      where: { id: integration.id },
-      data: {
-        isActive: body.isActive ?? integration.isActive,
-        apiKey:
-          body.apiKey !== undefined ? body.apiKey.trim() : integration.apiKey,
-      },
-    });
+    await this.connections.updateAccount(
+      'housing',
+      account.id,
+      body,
+      actorUserId,
+    );
+    return this.getHousingIntegration(actorUserId);
+  }
+
+  async setAccountsStatus(isActive: boolean, actorUserId?: string) {
+    await this.connections.setProviderStatus('housing', isActive, actorUserId);
+    return this.listAccounts();
+  }
+
+  async archiveAccount(accountId: string, actorUserId?: string) {
+    await this.connections.archiveAccount('housing', accountId, actorUserId);
+    return this.listAccounts();
+  }
+
+  async restoreAccount(accountId: string, actorUserId?: string) {
+    const account = await this.connections.restoreAccount(
+      'housing',
+      accountId,
+      actorUserId,
+    );
+    return { data: await this.accountView(account) };
   }
 
   async regenerateWebhookKey(actorUserId?: string, organizationId?: string) {
-    const integration = await this.ensureHousingIntegration(
+    const account = await this.ensureHousingIntegration(
       actorUserId,
       organizationId,
     );
-    return this.db().housingIntegration.update({
-      where: { id: integration.id },
-      data: {
-        webhookKeyId: randomBytes(12).toString('hex'),
-      },
-    });
+    await this.connections.regenerateCredential(
+      'housing',
+      account.id,
+      actorUserId,
+    );
+    return this.getHousingIntegration(actorUserId);
+  }
+
+  async regenerateAccountWebhookKey(accountId: string, actorUserId?: string) {
+    const account = await this.connections.regenerateCredential(
+      'housing',
+      accountId,
+      actorUserId,
+    );
+    return { data: await this.accountView(account) };
   }
 
   async saveFieldMapping(
-    fieldMapping: any,
+    fieldMapping: unknown,
     actorUserId?: string,
     organizationId?: string,
   ) {
-    const integration = await this.ensureHousingIntegration(
+    const account = await this.ensureHousingIntegration(
       actorUserId,
       organizationId,
     );
-    return this.db().housingIntegration.update({
-      where: { id: integration.id },
-      data: {
-        fieldMapping: fieldMapping || defaultHousingFieldMapping,
-      },
-    });
+    await this.connections.saveFieldMapping(
+      'housing',
+      account.id,
+      this.mapping(fieldMapping as Prisma.JsonValue),
+      actorUserId,
+    );
+    return this.getHousingIntegration(actorUserId);
   }
 
-  async ingestWebhook(keyId: string, body: any) {
-    await this.ensureHousingIntegrationTable();
-    const integration = await this.db().housingIntegration.findUnique({
-      where: { webhookKeyId: keyId },
-    });
+  async saveAccountFieldMapping(
+    accountId: string,
+    fieldMapping: unknown,
+    actorUserId?: string,
+  ) {
+    const account = await this.connections.saveFieldMapping(
+      'housing',
+      accountId,
+      this.mapping(fieldMapping as Prisma.JsonValue),
+      actorUserId,
+    );
+    return { data: await this.accountView(account) };
+  }
 
+  async saveAccountRouting(
+    accountId: string,
+    body: {
+      projectId?: string;
+      teamId?: string;
+      telecallerId?: string;
+      fieldExecutiveId?: string;
+      sourceId?: unknown;
+    },
+    actorUserId?: string,
+  ) {
+    await this.connections.saveRouting('housing', accountId, body, actorUserId);
+    return this.getAccount(accountId);
+  }
+
+  async getAccountActivity(accountId: string) {
+    return { data: await this.connections.listActivity('housing', accountId) };
+  }
+
+  private async resolveHousingSource() {
+    let source = await this.prisma.leadMasterValue.findFirst({
+      where: {
+        name: { equals: 'Housing.com', mode: 'insensitive' },
+        categoryRef: { code: 'source' },
+      },
+    });
+    if (source) return source;
+
+    const category = await this.prisma.leadMasterCategory.upsert({
+      where: { code: 'source' },
+      update: {},
+      create: { code: 'source', name: 'Lead Source Master' },
+    });
+    source = await this.prisma.leadMasterValue.create({
+      data: {
+        categoryId: category.id,
+        name: 'Housing.com',
+        code: 'HOUSING',
+        description: 'Marketplace portal leads from Housing.com',
+        group: 'Portal',
+        statusType: 'Custom',
+        isActive: true,
+        autoAssignActive: true,
+      },
+    });
+    return source;
+  }
+
+  async ingestWebhook(keyId: string, body: HousingPayload) {
+    const integration = await this.connections.findByWebhookKey(
+      'housing',
+      keyId,
+    );
     if (!integration || !integration.organizationId) {
       throw new NotFoundException('Housing.com webhook endpoint not found');
     }
-
     if (!integration.isActive) {
       this.logger.log(
-        `[HousingWebhook] skipped webhook for keyId=${keyId}: integration is paused`,
+        `[HousingWebhook] skipped webhook for account=${integration.id}: integration is paused`,
       );
       return {
         success: true,
@@ -204,113 +322,132 @@ export class HousingIntegrationsService {
     }
 
     const payload = body || {};
-    const mapping =
-      (integration.fieldMapping as any) || defaultHousingFieldMapping;
-
+    const mapping = this.mapping(integration.fieldMapping);
     const name =
-      payload[mapping.Name] ||
-      payload.name ||
-      payload.full_name ||
-      'Housing Lead';
-    const phone =
-      payload[mapping.Phone] ||
-      payload.phone ||
-      payload.mobile ||
-      payload.contact_number;
-    const email = payload[mapping.Email] || payload.email;
-
+      payloadText(payload, mapping.Name, 'name', 'full_name') ?? 'Housing Lead';
+    const phone = payloadText(
+      payload,
+      mapping.Phone,
+      'phone',
+      'mobile',
+      'contact_number',
+    );
+    const email = payloadText(payload, mapping.Email, 'email');
     if (!phone && !email) {
       throw new BadRequestException(
         'Phone or email is required in Housing.com payload',
       );
     }
 
-    const projectName =
-      payload[mapping.ProjectName] ||
-      payload.project_name ||
-      payload.property_name;
-    const locality = payload[mapping.Locality] || payload.locality;
-    const city = payload[mapping.City] || payload.city;
-    const budget = payload[mapping.Budget] || payload.budget;
-    const remarks =
-      payload[mapping.Remarks] || payload.remarks || payload.comment;
+    const projectName = payloadText(
+      payload,
+      mapping.ProjectName,
+      'project_name',
+      'property_name',
+    );
+    const matchedProject =
+      !integration.routingRule?.projectId && projectName
+        ? await this.prisma.project.findFirst({
+            where: {
+              organizationId: integration.organizationId,
+              status: { not: 'Archived' },
+              OR: [
+                { name: { equals: projectName, mode: 'insensitive' } },
+                { name: { contains: projectName, mode: 'insensitive' } },
+              ],
+            },
+            select: { id: true },
+          })
+        : null;
+    const preferredProjectId =
+      integration.routingRule?.projectId ?? matchedProject?.id;
+    const locality = payloadText(payload, mapping.Locality, 'locality');
+    const city = payloadText(payload, mapping.City, 'city');
+    const budget = payloadText(payload, mapping.Budget, 'budget');
+    const remarks = payloadText(payload, mapping.Remarks, 'remarks', 'comment');
+    const source = await this.resolveHousingSource();
+    const directAssignment = Boolean(
+      integration.routingRule?.telecallerId ||
+        integration.routingRule?.fieldExecutiveId,
+    );
 
-    let housingSourceMaster = await this.db().leadMasterValue.findFirst({
-      where: {
-        name: { equals: 'Housing.com', mode: 'insensitive' },
-        categoryRef: { code: 'source' },
-      },
-    });
-
-    if (!housingSourceMaster) {
-      const sourceCat = await this.db().leadMasterCategory.upsert({
-        where: { code: 'source' },
-        update: {},
-        create: { code: 'source', name: 'Lead Source Master' },
-      });
-      housingSourceMaster = await this.db().leadMasterValue.create({
-        data: {
-          categoryId: sourceCat.id,
-          name: 'Housing.com',
-          code: 'HOUSING',
-          description: 'Marketplace portal leads from Housing.com',
-          group: 'Portal',
-          statusType: 'Custom',
-          isActive: true,
-          autoAssignActive: true,
-        },
-      });
-    }
-
-    const createdLead = await this.crm.createLead({
-      organizationId: integration.organizationId ?? undefined,
-      name: String(name).trim(),
-      phone: phone ? String(phone).trim() : undefined,
-      email: email ? String(email).trim() : undefined,
+    const lead = await this.crm.createLead({
+      organizationId: integration.organizationId,
+      name,
+      phone,
+      email,
       source: 'Housing.com',
-      sourceId: housingSourceMaster.id,
-      requirement: {
-        preferredLocation:
-          [locality, city].filter(Boolean).join(', ') || undefined,
-        budget: budget ? String(budget) : undefined,
-        notes: [
-          projectName ? `Project: ${projectName}` : null,
-          remarks ? `Remarks: ${remarks}` : null,
-        ]
-          .filter(Boolean)
-          .join('\n'),
+      sourceId: source.id,
+      preferredProjectId,
+      preferredLocation:
+        [locality, city].filter(Boolean).join(', ') || undefined,
+      budgetRange: budget,
+      remarks: [
+        projectName && !preferredProjectId ? `Project: ${projectName}` : null,
+        remarks ? `Remarks: ${remarks}` : null,
+      ]
+        .filter((value): value is string => Boolean(value))
+        .join('\n'),
+      telecallerId: integration.routingRule?.telecallerId ?? undefined,
+      fieldExecutiveId: integration.routingRule?.fieldExecutiveId ?? undefined,
+      autoAssignmentTeamId: directAssignment
+        ? undefined
+        : integration.routingRule?.teamId ?? undefined,
+      integrationConnectionId: integration.id,
+    });
+
+    await this.connections.recordLeadReceived(integration.id);
+    await this.prisma.auditLog.create({
+      data: {
+        organizationId: integration.organizationId,
+        action: 'HOUSING_LEAD_RECEIVED',
+        entityType: 'Lead',
+        entityId: lead.id,
+        metadata: {
+          integrationConnectionId: integration.id,
+          integrationAccountName: integration.name,
+          displayId: lead.displayId,
+        },
       },
     });
-
-    await this.db().housingIntegration.update({
-      where: { id: integration.id },
-      data: { lastWebhookReceivedAt: new Date() },
-    });
-
     return {
       success: true,
       message: 'Housing.com lead ingested successfully',
-      leadId: createdLead.id,
-      organizationId: integration.organizationId,
+      leadId: lead.id,
     };
   }
 
   async testIntegration(
-    sampleBody?: any,
+    sampleBody?: HousingPayload,
     actorUserId?: string,
     organizationId?: string,
   ) {
-    const integration = await this.ensureHousingIntegration(
+    const account = await this.ensureHousingIntegration(
       actorUserId,
       organizationId,
     );
-    const result = await this.ingestWebhook(
-      integration.webhookKeyId,
-      sampleBody || defaultHousingSamplePayload,
-    );
-    return {
-      ...result,
-      message: 'Test Housing.com lead ingested successfully',
-    };
+    return this.testAccount(account.id, sampleBody, actorUserId);
+  }
+
+  async testAccount(
+    accountId: string,
+    sampleBody?: HousingPayload,
+    actorUserId?: string,
+  ) {
+    const account = await this.connections.getAccount('housing', accountId);
+    try {
+      const result = await this.ingestWebhook(
+        account.webhookKeyId,
+        sampleBody || defaultHousingSamplePayload,
+      );
+      await this.connections.recordTest(account.id, 'Success', actorUserId);
+      return {
+        ...result,
+        message: 'Test Housing.com lead ingested successfully',
+      };
+    } catch (error) {
+      await this.connections.recordTest(account.id, 'Failed', actorUserId);
+      throw error;
+    }
   }
 }

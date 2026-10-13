@@ -9,7 +9,6 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { UserRole } from '@truroot/shared';
 import { Request } from 'express';
-import { PERMISSION_METADATA_KEY } from '../../common/decorators/require-permission.decorator';
 import { TenantContextPayload } from '../../common/tenant/tenant-context.service';
 
 @Injectable()
@@ -46,18 +45,7 @@ export class RolesGuard implements CanActivate {
       const role = tenant?.role ?? payload.role;
       request['user'] = { ...payload, role };
 
-      const requiredPermission = this.reflector.getAllAndOverride(
-        PERMISSION_METADATA_KEY,
-        [context.getHandler(), context.getClass()],
-      );
-      if (requiredPermission) {
-        return true;
-      }
-
-      if (
-        requiredRoles &&
-        !requiredRoles.some((requiredRole) => requiredRole === role)
-      ) {
+      if (requiredRoles && !requiredRoles.some((requiredRole) => requiredRole === role)) {
         throw new ForbiddenException('Insufficient permissions');
       }
 
