@@ -1,5 +1,4 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import { isAxiosError } from "axios";
 import toast from "react-hot-toast";
 import {
   ArrowRight,
@@ -10,7 +9,7 @@ import {
   Smartphone,
   User,
 } from "lucide-react";
-import { Button, CardContent, Checkbox, Input } from "ui";
+import { Button, CardContent, Input } from "ui";
 
 import { LoginSchema } from "../../../common/authSchemas";
 import {
@@ -55,7 +54,6 @@ export function LoginFormCard() {
   const requestOtpMutation = useRequestLoginOtpMutation();
   const verifyOtpMutation = useVerifyLoginOtpMutation();
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [pendingOtpIdentifier, setPendingOtpIdentifier] = useState("");
@@ -82,7 +80,7 @@ export function LoginFormCard() {
     }
 
     loginMutation.mutate(
-      { credentials: credentials.data, rememberMe },
+      { credentials: credentials.data, rememberMe: false },
       {
         onError: (error) => {
           const message = getLoginErrorMessage(error);
@@ -103,8 +101,12 @@ export function LoginFormCard() {
           if (isAuthTokens(data)) {
             const displayName = data.user.fullName || data.user.email;
             toast.success(`Signed in as ${displayName}.`);
-            setPassword("");
           }
+        },
+        onSettled: () => {
+          setPassword("");
+          setShowPassword(false);
+          loginMutation.reset();
         },
       },
     );
@@ -155,7 +157,7 @@ export function LoginFormCard() {
           verifyOtpMutation.mutate(
             {
               payload: { identifier: pendingOtpIdentifier, otp },
-              rememberMe,
+              rememberMe: false,
             },
             {
               onError: (error) => {
@@ -168,6 +170,7 @@ export function LoginFormCard() {
                 setPendingOtpIdentifier("");
                 setPendingOtpDeliveryTarget("");
               },
+              onSettled: () => verifyOtpMutation.reset(),
             },
           );
         }}
@@ -180,6 +183,7 @@ export function LoginFormCard() {
       <CardContent className="p-5 sm:p-7 lg:p-8 2xl:p-10">
         <form
           className="space-y-4 2xl:space-y-5"
+          autoComplete="off"
           noValidate
           onSubmit={handleSubmit}
         >
@@ -228,7 +232,7 @@ export function LoginFormCard() {
                 <Input
                   id="login-id"
                   aria-label="Email or mobile number"
-                  autoComplete="username"
+                  autoComplete="off"
                   inputMode="text"
                   placeholder="Enter registered email or mobile number"
                   type="text"
@@ -258,7 +262,7 @@ export function LoginFormCard() {
                 <Input
                   id="login-password"
                   aria-label="Password"
-                  autoComplete="current-password"
+                  autoComplete="off"
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   value={password}
@@ -295,16 +299,6 @@ export function LoginFormCard() {
                 </FieldIcon>
               </div>
             </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Checkbox
-              checked={rememberMe}
-              disabled={isSubmitting}
-              onChange={(event) => setRememberMe(event.target.checked)}
-              label="Remember me"
-              className="font-semibold"
-            />
           </div>
 
           <Button

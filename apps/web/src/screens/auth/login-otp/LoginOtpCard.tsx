@@ -84,7 +84,7 @@ export function LoginOtpCard() {
         }}
         onVerified={(otp) => {
           verifyOtpMutation.mutate(
-            { payload: { identifier, otp } },
+            { payload: { identifier, otp }, rememberMe: false },
             {
               onError: (error) => {
                 toast.error(
@@ -95,6 +95,7 @@ export function LoginOtpCard() {
                 const displayName = data.user.fullName || data.user.email;
                 toast.success(`Signed in as ${displayName}.`);
               },
+              onSettled: () => verifyOtpMutation.reset(),
             },
           );
         }}
@@ -107,6 +108,7 @@ export function LoginOtpCard() {
       <CardContent className="p-5 sm:p-7 lg:p-8 2xl:p-10">
         <form
           className="space-y-4 2xl:space-y-5"
+          autoComplete="off"
           noValidate
           onSubmit={handleSubmit}
         >
@@ -143,7 +145,7 @@ export function LoginOtpCard() {
               <Input
                 id="login-otp-identifier"
                 aria-label="Email or Mobile Number"
-                autoComplete="username"
+                autoComplete="off"
                 placeholder="Enter email or mobile number"
                 value={identifier}
                 onChange={(event) => setIdentifier(event.target.value)}

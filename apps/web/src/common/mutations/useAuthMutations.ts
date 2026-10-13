@@ -31,6 +31,7 @@ export const useLoginMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
+    gcTime: 0,
     mutationFn: ({ credentials }: LoginMutationInput) => login(credentials),
 
     onSuccess: (result, variables) => {
@@ -52,6 +53,7 @@ export const useLoginMutation = () => {
 
 export const useRequestLoginOtpMutation = () =>
   useMutation({
+    gcTime: 0,
     mutationFn: requestLoginOtp,
   });
 
@@ -60,6 +62,7 @@ export const useVerifyLoginOtpMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
+    gcTime: 0,
     mutationFn: ({ payload }: VerifyLoginOtpMutationInput) =>
       verifyLoginOtp(payload),
 

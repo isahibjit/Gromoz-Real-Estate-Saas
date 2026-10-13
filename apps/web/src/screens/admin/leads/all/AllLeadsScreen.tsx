@@ -109,7 +109,11 @@ import {
 } from "../site-visits/useSiteVisits";
 import { AddLeadModal, EditLeadModal } from "./AddLeadModal";
 import type { LeadRow } from "./allLeadsTypes";
-import { buildLeadAssignmentChanges } from "./leadAssignmentChanges";
+import {
+  buildLeadAssignmentChanges,
+  getLeadAssignmentEntries,
+  getPreSalesAssignmentId,
+} from "./leadAssignmentChanges";
 import { countLeadMasterValueMatches } from "./leadMasterMatching";
 import {
   canStartSiteVisitStatusTransition,
@@ -219,32 +223,6 @@ const findStatusFilterOption = (
   options.find(
     (option) => option.label.trim().toLowerCase() === label.toLowerCase(),
   );
-
-const assignmentEntries = (lead: LeadRow) => {
-  const entries: Array<{ label: string; value: string }> = [];
-
-  if (lead.telecallerName) {
-    entries.push({ label: "Pre Sales Executive", value: lead.telecallerName });
-  }
-
-  if (lead.fieldExecutiveName) {
-    entries.push({
-      label: "Sales Executive",
-      value: lead.fieldExecutiveName,
-    });
-  }
-
-  if (
-    entries.length === 0 &&
-    lead.ownerName &&
-    lead.ownerName !== lead.telecallerName &&
-    lead.ownerName !== lead.fieldExecutiveName
-  ) {
-    entries.push({ label: "Owner", value: lead.ownerName });
-  }
-
-  return entries;
-};
 
 const initialLeadFilters: LeadListFilters = {
   sourceId: [],
@@ -1309,14 +1287,13 @@ export function LeadsTable({
     if (modal === "assign" || modal === "duplicate") {
       if (selectedRows.length === 1) {
         setSelectedTelecallerId(
-          selectedRows[0].telecallerId || selectedRows[0].ownerId || "",
+          getPreSalesAssignmentId(selectedRows[0]),
         );
         setSelectedFieldExecutiveId(selectedRows[0].fieldExecutiveId || "");
       } else if (selectedRows.length > 1) {
-        const firstTelecaller =
-          selectedRows[0].telecallerId || selectedRows[0].ownerId || "";
+        const firstTelecaller = getPreSalesAssignmentId(selectedRows[0]);
         const allSameTelecaller = selectedRows.every(
-          (row) => (row.telecallerId || row.ownerId || "") === firstTelecaller,
+          (row) => getPreSalesAssignmentId(row) === firstTelecaller,
         );
         setSelectedTelecallerId(allSameTelecaller ? firstTelecaller : "");
 
@@ -1351,7 +1328,7 @@ export function LeadsTable({
 
   const openAssignModalForLead = (lead: LeadRow) => {
     setSelectedLeadIds([lead.id]);
-    setSelectedTelecallerId(lead.telecallerId || lead.ownerId || "");
+    setSelectedTelecallerId(getPreSalesAssignmentId(lead));
     setSelectedFieldExecutiveId(lead.fieldExecutiveId || "");
     setProjectUpdateEnabled(false);
     setSelectedProjectId(lead.projectId || "");
@@ -2049,7 +2026,7 @@ export function LeadsTable({
         className: "w-[142px] max-w-[142px]",
         headerClassName: "w-[142px]",
         cell: (lead) => {
-          const entries = assignmentEntries(lead);
+          const entries = getLeadAssignmentEntries(lead);
           if (entries.length > 0) {
             return (
               <button

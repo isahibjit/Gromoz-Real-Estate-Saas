@@ -206,6 +206,66 @@ describe('Role-flexible auto assignment', () => {
     expect(db.autoAssignmentEvent.create).not.toHaveBeenCalled();
   });
 
+  it('records the first Pre Sales assignment independently of the sales owner', async () => {
+    const salesOwnedLead = {
+      ...baseLead,
+      ownerId: misbahId,
+      fieldExecutiveId: misbahId,
+    };
+    jest.spyOn(service, 'getLead').mockResolvedValue(salesOwnedLead);
+
+    await service.assignLead(
+      baseLead.id,
+      {
+        toUserId: afreenId,
+        assigneeType: 'telecaller',
+        strategy: 'manual',
+      },
+      actorId,
+    );
+
+    expect(db.leadAssignment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        fromUserId: null,
+        toUserId: afreenId,
+        assigneeType: 'telecaller',
+      }),
+    });
+    expect(db.lead.update).toHaveBeenCalledWith({
+      where: { id: baseLead.id },
+      data: expect.objectContaining({
+        telecallerId: afreenId,
+        fieldExecutiveId: misbahId,
+      }),
+    });
+  });
+
+  it('can explicitly assign the owner to an empty Pre Sales slot', async () => {
+    jest.spyOn(service, 'getLead').mockResolvedValue({
+      ...baseLead,
+      ownerId: afreenId,
+      fieldExecutiveId: misbahId,
+    });
+
+    await service.assignLead(
+      baseLead.id,
+      {
+        toUserId: afreenId,
+        assigneeType: 'telecaller',
+        strategy: 'duplicate-assign',
+      },
+      actorId,
+    );
+
+    expect(db.lead.update).toHaveBeenCalledWith({
+      where: { id: baseLead.id },
+      data: expect.objectContaining({
+        telecallerId: afreenId,
+        fieldExecutiveId: misbahId,
+      }),
+    });
+  });
+
   it('hands primary ownership from a sales agent to a telecaller', async () => {
     const assignedLead = {
       ...baseLead,

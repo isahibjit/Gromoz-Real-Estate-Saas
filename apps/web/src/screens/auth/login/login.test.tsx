@@ -7,9 +7,9 @@ import { MemoryRouter } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import { makeStore } from "../../../store";
+import { clearStoredRefreshToken } from "../../../common/authSession";
 import {
   login,
-  requestLoginOtp,
   verifyLoginOtp,
 } from "../../../common/services/auth.api";
 import { LoginScreen } from "./login";
@@ -30,9 +30,6 @@ jest.mock("react-hot-toast", () => ({
 }));
 
 const mockedLogin = login as jest.MockedFunction<typeof login>;
-const mockedRequestLoginOtp = requestLoginOtp as jest.MockedFunction<
-  typeof requestLoginOtp
->;
 const mockedVerifyLoginOtp = verifyLoginOtp as jest.MockedFunction<
   typeof verifyLoginOtp
 >;
@@ -70,12 +67,13 @@ function renderLoginScreen() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  clearStoredRefreshToken();
 });
 
 test("renders the login screen content", () => {
   renderLoginScreen();
 
-  expect(screen.getByAltText("Truroot Realty CRM")).toBeInTheDocument();
+  expect(screen.getByAltText("Brand Logo")).toBeInTheDocument();
   expect(
     screen.getByRole("heading", { name: /Welcome to/i }),
   ).toBeInTheDocument();
@@ -86,7 +84,7 @@ test("renders the login screen content", () => {
   expect(screen.getByText("Password")).toBeInTheDocument();
   expect(screen.getByLabelText("Email or mobile number")).toBeInTheDocument();
   expect(screen.getByLabelText("Password")).toBeInTheDocument();
-  expect(screen.getByLabelText("Remember me")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Remember me")).not.toBeInTheDocument();
   expect(
     screen.queryByRole("link", { name: "Forgot Password?" }),
   ).not.toBeInTheDocument();
@@ -119,6 +117,13 @@ test("toggles password visibility", () => {
   const toggleButton = screen.getByRole("button", { name: "Show password" });
 
   expect(passwordInput).toHaveAttribute("type", "password");
+  expect(passwordInput).toHaveAttribute("autocomplete", "off");
+  expect(screen.getByLabelText("Email or mobile number")).toHaveAttribute(
+    "autocomplete",
+    "off",
+  );
+  expect(passwordInput.closest("form")).toHaveAttribute("autocomplete", "off");
+  expect(screen.queryByLabelText("Remember me")).not.toBeInTheDocument();
 
   fireEvent.click(toggleButton);
 
@@ -130,7 +135,8 @@ test("toggles password visibility", () => {
 
 
 test("submits valid credentials and hydrates auth state", async () => {
-  const { store } = renderLoginScreen();
+  localStorage.setItem("truroot_refresh_token", "previous-persistent-token");
+  const { store, queryClient } = renderLoginScreen();
 
   mockedLogin.mockResolvedValueOnce({
     accessToken: "access-token",
@@ -176,7 +182,13 @@ test("submits valid credentials and hydrates auth state", async () => {
     expect(mockedToast.success).toHaveBeenCalledWith(
       "Signed in as Admin User.",
     );
+    expect(screen.getByLabelText("Password")).toHaveValue("");
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
   });
+  expect(localStorage.getItem("truroot_refresh_token")).toBeNull();
+  expect(sessionStorage.getItem("truroot_refresh_token")).toBe("refresh-token");
+  expect(JSON.stringify(localStorage)).not.toContain("password123");
+  expect(JSON.stringify(sessionStorage)).not.toContain("password123");
 });
 
 test("clears stale lead queries before hydrating the next login", async () => {
@@ -326,7 +338,7 @@ test("shows OTP verification after password login requires two-factor auth", asy
     },
   });
 
-  renderLoginScreen();
+  const { queryClient } = renderLoginScreen();
 
   fireEvent.change(screen.getByLabelText("Email or mobile number"), {
     target: {
@@ -344,6 +356,7 @@ test("shows OTP verification after password login requires two-factor auth", asy
     expect(
       screen.getByRole("heading", { name: "Two-factor verification" }),
     ).toBeInTheDocument();
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
   });
 
   "123456".split("").forEach((digit, index) => {
@@ -358,7 +371,36 @@ test("shows OTP verification after password login requires two-factor auth", asy
       identifier: "admin@truroot.com",
       otp: "123456",
     });
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
+    expect(localStorage.getItem("truroot_refresh_token")).toBeNull();
+    expect(sessionStorage.getItem("truroot_refresh_token")).toBe("refresh-token");
   });
+});
+
+test("clears the password and mutation cache after a rejected login", async () => {
+  const { queryClient } = renderLoginScreen();
+  mockedLogin.mockRejectedValueOnce(new Error("Invalid credentials"));
+
+  fireEvent.change(screen.getByLabelText("Email or mobile number"), {
+    target: { value: "agent@example.com" },
+  });
+  fireEvent.change(screen.getByLabelText("Password"), {
+    target: { value: "WrongPassword123" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Show password" }));
+  fireEvent.click(screen.getByRole("button", { name: "Login" }));
+
+  await waitFor(() => {
+    expect(mockedToast.error).toHaveBeenCalledWith("Invalid credentials");
+    expect(screen.getByLabelText("Password")).toHaveValue("");
+    expect(screen.getByLabelText("Password")).toHaveAttribute("type", "password");
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
+  });
+  expect(screen.getByLabelText("Email or mobile number")).toHaveValue(
+    "agent@example.com",
+  );
+  expect(localStorage.getItem("truroot_refresh_token")).toBeNull();
+  expect(sessionStorage.getItem("truroot_refresh_token")).toBeNull();
 });
 
 test("disables login actions while submission is pending", async () => {

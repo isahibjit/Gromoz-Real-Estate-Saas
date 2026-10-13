@@ -15958,14 +15958,14 @@ export class CrmService {
       ? current.ownerId ?? current.telecallerId ?? current.fieldExecutiveId
       : assigneeType === 'field-executive'
       ? current.fieldExecutiveId
-      : current.telecallerId ?? current.ownerId;
+      : current.telecallerId;
     const isDuplicateAssign = body.strategy === 'duplicate-assign';
     const isSameAssignment = isAutoRouteAssignment
       ? previousAssigneeId === toUserId
       : (assigneeType === 'field-executive' &&
           current.fieldExecutiveId === toUserId) ||
         (assigneeType !== 'field-executive' &&
-          (current.telecallerId ?? current.ownerId) === toUserId);
+          current.telecallerId === toUserId);
     if (!toUserId) throw new BadRequestException('Assignee is required');
     await this.assertUserWithinLeadScope(String(toUserId), actor);
     if (isSameAssignment && isDuplicateAssign) {

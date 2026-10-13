@@ -38,10 +38,11 @@ jest.mock("./useAllLeads", () => ({
   useLeadColumnPreferences: () => ({
     query: {
       data: {
-        visibleColumns: ["name", "leadStatus", "remark"],
+        visibleColumns: ["name", "executive", "leadStatus", "remark"],
         lockedColumns: [],
         systemColumns: [
           { id: "name", label: "Name" },
+          { id: "executive", label: "Executive" },
           { id: "leadStatus", label: "Lead Status" },
           { id: "remark", label: "Remark" },
         ],
@@ -145,7 +146,7 @@ const lead: LeadRow = {
   configuration: "3 BHK",
 };
 
-function renderTable() {
+function renderTable(rows: LeadRow[] = [lead]) {
   render(
     <QueryClientProvider
       client={
@@ -154,7 +155,7 @@ function renderTable() {
     >
       <MemoryRouter>
         <LeadsTable
-          rows={[lead]}
+          rows={rows}
           total={1}
           isLoading={false}
           activeLeadBucketFilter="all"
@@ -174,6 +175,42 @@ function renderTable() {
     </QueryClientProvider>,
   );
 }
+
+test("renders a duplicated sales assignee once in the Executive column", () => {
+  renderTable([
+    {
+      ...lead,
+      ownerId: "sales-1",
+      ownerName: "Akshat",
+      telecallerId: "sales-1",
+      telecallerName: "Akshat",
+      fieldExecutiveId: "sales-1",
+      fieldExecutiveName: "Akshat",
+    },
+  ]);
+
+  expect(screen.getAllByText("Akshat")).toHaveLength(1);
+  expect(screen.getByText("Sales Executive")).toBeInTheDocument();
+  expect(screen.queryByText("Pre Sales Executive")).not.toBeInTheDocument();
+});
+
+test("renders distinct Pre Sales and Sales assignments in the Executive column", () => {
+  renderTable([
+    {
+      ...lead,
+      telecallerId: "pre-sales-1",
+      telecallerName: "Afreen",
+      fieldExecutiveId: "sales-1",
+      fieldExecutiveName: "Akshat",
+    },
+  ]);
+
+  expect(
+    screen.getByRole("button", {
+      name: "Afreen Pre Sales Executive Akshat Sales Executive",
+    }),
+  ).toBeInTheDocument();
+});
 
 test.each(["remark", "status"])(
   "the %s entry point opens the same update form with history",

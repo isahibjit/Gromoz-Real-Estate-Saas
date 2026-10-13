@@ -6,6 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import { makeStore } from "../../../store";
+import { clearStoredRefreshToken } from "../../../common/authSession";
 import { requestLoginOtp, verifyLoginOtp } from "../../../common/services/auth.api";
 import { LoginOtpScreen } from "./LoginOtpScreen";
 
@@ -48,11 +49,15 @@ function renderLoginOtpScreen() {
     </QueryClientProvider>
   );
 
-  return render(<LoginOtpScreen />, { wrapper: Wrapper });
+  return {
+    ...render(<LoginOtpScreen />, { wrapper: Wrapper }),
+    queryClient,
+  };
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
+  clearStoredRefreshToken();
   mockedRequestLoginOtp.mockResolvedValue({
     success: true,
     message: "If the account exists, an OTP has been sent.",
@@ -75,7 +80,7 @@ beforeEach(() => {
 test("renders login otp request card", () => {
   renderLoginOtpScreen();
 
-  expect(screen.getByAltText("Truroot Realty CRM")).toBeInTheDocument();
+  expect(screen.getByAltText("Brand Logo")).toBeInTheDocument();
   expect(
     screen.getByRole("heading", { name: "Login with OTP" }),
   ).toBeInTheDocument();
@@ -101,7 +106,10 @@ test("shows toast validation when identifier is empty", () => {
 });
 
 test("shows otp card after requesting login otp and verifies via toast", async () => {
-  renderLoginOtpScreen();
+  const { queryClient } = renderLoginOtpScreen();
+  const identifierInput = screen.getByLabelText("Email or Mobile Number");
+  expect(identifierInput).toHaveAttribute("autocomplete", "off");
+  expect(identifierInput.closest("form")).toHaveAttribute("autocomplete", "off");
 
   fireEvent.change(screen.getByLabelText("Email or Mobile Number"), {
     target: {
@@ -140,7 +148,10 @@ test("shows otp card after requesting login otp and verifies via toast", async (
 
   await waitFor(() => {
     expect(mockedToast.success).toHaveBeenCalledWith("Signed in as Admin User.");
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
   });
+  expect(localStorage.getItem("truroot_refresh_token")).toBeNull();
+  expect(sessionStorage.getItem("truroot_refresh_token")).toBe("refresh-token");
 });
 
 test("can return to identifier form from otp card", async () => {
