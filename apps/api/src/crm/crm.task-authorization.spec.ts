@@ -1,3 +1,4 @@
+import { referenceTenantProviders } from '../../test/reference-tenant-providers';
 import { Test } from '@nestjs/testing';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { NotFoundException, type INestApplication } from '@nestjs/common';
@@ -14,6 +15,7 @@ describe('Employee task HTTP authorization', () => {
   let app: INestApplication;
   let jwt: JwtService;
   let crm: CrmService;
+  let actorRole = 'HR';
   const existing = {
     id: 'task-1',
     title: 'Prepare documents',
@@ -38,6 +40,7 @@ describe('Employee task HTTP authorization', () => {
       count: jest.fn(),
     },
     user: { findUnique: jest.fn(), findMany: jest.fn() },
+    organizationMember: { findMany: jest.fn() },
     auditLog: { create: jest.fn() },
   };
   beforeAll(async () => {
@@ -45,6 +48,7 @@ describe('Employee task HTTP authorization', () => {
       imports: [JwtModule.register({ secret: 'task-authorization-test-only' })],
       controllers: [TasksController],
       providers: [
+        ...referenceTenantProviders(),
         CrmService,
         { provide: AccessService, useValue: access },
         { provide: LeadVisibilityService, useValue: visibility },
@@ -93,11 +97,28 @@ describe('Employee task HTTP authorization', () => {
         ...data,
       }),
     );
-    db.user.findUnique.mockResolvedValue({
-      id: 'employee',
-      fullName: 'Employee',
-      isActive: true,
-    });
+    db.user.findUnique.mockImplementation(
+      async ({ where }: { where: { id: string } }) => ({
+        id: where.id,
+        fullName: 'Employee',
+        isActive: true,
+        role: actorRole,
+      }),
+    );
+    db.organizationMember.findMany.mockImplementation(async () => [
+      {
+        role: actorRole,
+        isOwner: false,
+        organizationId: 'tenant-a',
+        organization: {
+          id: 'tenant-a',
+          slug: 'fixture',
+          name: 'Fixture',
+          status: 'ACTIVE',
+          setupFeePaid: true,
+        },
+      },
+    ]);
     db.user.findMany.mockResolvedValue([
       { id: 'employee', fullName: 'Employee' },
     ]);
@@ -105,7 +126,10 @@ describe('Employee task HTTP authorization', () => {
   });
   afterEach(() => jest.restoreAllMocks());
   afterAll(async () => app.close());
-  const token = (role = 'HR') => jwt.sign({ sub: 'viewer', role });
+  const token = (role = 'HR') => {
+    actorRole = role;
+    return jwt.sign({ sub: 'viewer', role });
+  };
 
   it('allows HR to create an ordinary task for another employee with create permission', async () => {
     const result = await request(app.getHttpServer())
@@ -246,7 +270,13 @@ describe('Employee task HTTP authorization', () => {
     },
   );
   it('rejects inactive employees before HR task creation writes', async () => {
-    db.user.findUnique.mockResolvedValue({ id: 'employee', isActive: false });
+    db.user.findUnique.mockImplementation(
+      async ({ where }: { where: { id: string } }) => ({
+        id: where.id,
+        isActive: where.id === 'viewer',
+        role: actorRole,
+      }),
+    );
     await request(app.getHttpServer())
       .post('/tasks')
       .set('Authorization', `Bearer ${token()}`)
@@ -255,7 +285,12 @@ describe('Employee task HTTP authorization', () => {
     expect(db.task.create).not.toHaveBeenCalled();
   });
   it('rejects reassignment to a missing employee', async () => {
-    db.user.findUnique.mockResolvedValue(null);
+    db.user.findUnique.mockImplementation(
+      async ({ where }: { where: { id: string } }) =>
+        where.id === 'viewer'
+          ? { id: 'viewer', isActive: true, role: actorRole }
+          : null,
+    );
     await request(app.getHttpServer())
       .patch('/tasks/task-1')
       .set('Authorization', `Bearer ${token()}`)

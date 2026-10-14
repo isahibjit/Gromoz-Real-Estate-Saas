@@ -1,3 +1,6 @@
+import { TenantAccessService } from '../common/tenant/tenant-access.service';
+import { TenantContextService } from '../common/tenant/tenant-context.service';
+import { referenceTenantProviders } from '../../test/reference-tenant-providers';
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { Test } from '@nestjs/testing';
@@ -28,7 +31,10 @@ databaseSuite(
     let tempPrisma: string;
     let service: CrmService;
     let connections: LeadSourceConnectionsService;
+    const organizationId = randomUUID();
+    const foreignOrganizationId = randomUUID();
     let ownerId: string;
+    let foreignOwnerId: string;
     let accountId: string;
     let historicalLeadId: string;
     const dueAt = new Date('2030-01-02T04:30:00Z');
@@ -67,18 +73,51 @@ databaseSuite(
       });
       migrate(url.toString());
       db = new PrismaClient({ datasources: { db: { url: url.toString() } } });
+      await db.organization.createMany({
+        data: [
+          {
+            id: organizationId,
+            name: 'Fixture A',
+            slug: `fixture-${organizationId}`,
+            status: 'ACTIVE',
+            setupFeePaid: true,
+          },
+          {
+            id: foreignOrganizationId,
+            name: 'Fixture B',
+            slug: `fixture-${foreignOrganizationId}`,
+            status: 'ACTIVE',
+            setupFeePaid: true,
+          },
+        ],
+      });
       const owner = await db.user.create({
         data: {
           email: 'rajesh-fixture@example.invalid',
           fullName: 'Rajesh fixture',
           passwordHash: 'not-a-login',
-          role: 'SUPER_ADMIN',
+          role: 'ADMIN',
+          organizationMemberships: {
+            create: { organizationId, role: 'ADMIN' },
+          },
         },
       });
       ownerId = owner.id;
+      const foreign = await db.user.create({
+        data: {
+          email: 'foreign-fixture@example.invalid',
+          passwordHash: 'not-a-login',
+          role: 'ADMIN',
+          organizationMemberships: {
+            create: { organizationId: foreignOrganizationId, role: 'ADMIN' },
+          },
+        },
+      });
+      foreignOwnerId = foreign.id;
       const account = await db.leadSourceConnection.create({
         data: {
           provider: 'magicbricks',
+          organizationId,
           name: 'Primary account',
           webhookKeyId: randomUUID(),
           isPrimary: true,
@@ -90,6 +129,7 @@ databaseSuite(
         data: {
           displayId: randomUUID(),
           name: 'Historical fixture',
+          organizationId,
           mobile: randomUUID(),
           ownerId,
           nextFollowUpAt: dueAt,
@@ -104,6 +144,16 @@ databaseSuite(
       migrate(url.toString());
       const module = await Test.createTestingModule({
         providers: [
+          ...referenceTenantProviders(organizationId),
+          TenantAccessService,
+          {
+            provide: TenantContextService,
+            useValue: {
+              getRequiredTenantId: () => organizationId,
+              getTenantId: () => organizationId,
+              getTenant: () => ({ organizationId, role: 'ADMIN' }),
+            },
+          },
           CrmService,
           LeadSourceConnectionsService,
           { provide: PrismaService, useValue: db },
@@ -179,6 +229,7 @@ databaseSuite(
         {
           displayId: randomUUID(),
           name: 'Direct fixture',
+          organizationId,
           mobile: randomUUID(),
           ownerId,
           integrationConnectionId: accountId,
@@ -226,12 +277,79 @@ databaseSuite(
         await db.autoAssignmentEvent.count({ where: { leadId: lead.id } }),
       ).toBe(0);
     });
+    it('rejects a management owner from another workspace without changing the saved route', async () => {
+      await expect(
+        connections.saveRouting(
+          'magicbricks',
+          accountId,
+          { ownerId: foreignOwnerId },
+          ownerId,
+        ),
+      ).rejects.toThrow('Employee not found in this workspace');
+      expect(
+        (await connections.getAccount('magicbricks', accountId)).routingRule
+          ?.ownerId,
+      ).toBe(ownerId);
+      await expect(
+        service.createLead(
+          {
+            displayId: randomUUID(),
+            name: 'Foreign assignment',
+            mobile: randomUUID(),
+            organizationId,
+            ownerId: foreignOwnerId,
+          },
+          undefined,
+          { fromIntegration: true },
+        ),
+      ).rejects.toThrow('Assignee not found in this workspace');
+    });
+    it('limits HR task reads, edits, deletions and assignment to this workspace', async () => {
+      const own = await db.task.create({
+        data: {
+          title: 'Own task',
+          assignedToId: ownerId,
+          createdById: ownerId,
+        },
+      });
+      const foreign = await db.task.create({
+        data: {
+          title: 'Foreign task',
+          assignedToId: foreignOwnerId,
+          createdById: foreignOwnerId,
+        },
+      });
+      const hr = { sub: ownerId, role: 'HR' };
+      expect(
+        (await service.listTasks({}, hr)).data.map(
+          (task: { id: string }) => task.id,
+        ),
+      ).toEqual([own.id]);
+      await expect(
+        service.updateEmployeeTask(foreign.id, { title: 'Changed' }, hr),
+      ).rejects.toThrow('Task not found');
+      await expect(service.deleteEmployeeTask(foreign.id, hr)).rejects.toThrow(
+        'Task not found',
+      );
+      await expect(
+        service.createEmployeeTask(
+          { title: 'Foreign assignment', assignedToId: foreignOwnerId },
+          hr,
+        ),
+      ).rejects.toThrow('Employee not found in this workspace');
+      expect(
+        await db.task.findUnique({ where: { id: foreign.id } }),
+      ).toMatchObject({ title: 'Foreign task' });
+    });
     it('rejects wrong-role owner updates without altering the saved route', async () => {
       const sales = await db.user.create({
         data: {
           email: 'sales-fixture@example.invalid',
           passwordHash: 'not-a-login',
           role: 'SALES_AGENT',
+          organizationMemberships: {
+            create: { organizationId, role: 'SALES_AGENT' },
+          },
         },
       });
       await expect(

@@ -16,6 +16,7 @@ describe('Housing account assignment routing', () => {
   };
   const integration = {
     id: 'housing-account',
+    organizationId: 'tenant-a',
     name: 'Primary account',
     isActive: true,
     fieldMapping: null,

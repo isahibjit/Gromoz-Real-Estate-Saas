@@ -66,7 +66,8 @@ describe('Role-flexible auto assignment', () => {
   const db = {
     $transaction: jest.fn(),
     $queryRaw: jest.fn(),
-    user: { findUnique: jest.fn(), findMany: jest.fn() },
+    user: { findUnique: jest.fn(), findMany: jest.fn(), count: jest.fn() },
+    organizationMember: { findMany: jest.fn() },
     lead: { findUnique: jest.fn(), update: jest.fn() },
     leadAssignment: { updateMany: jest.fn(), create: jest.fn() },
     autoAssignmentRule: { findFirst: jest.fn(), findUnique: jest.fn() },
@@ -95,6 +96,13 @@ describe('Role-flexible auto assignment', () => {
       async (work: (client: typeof db) => Promise<unknown>) => work(db),
     );
     db.$queryRaw.mockResolvedValue([]);
+    db.user.count.mockImplementation(
+      async ({ where }: { where: { id: { in: string[] } } }) =>
+        where.id.in.length,
+    );
+    db.organizationMember.findMany.mockResolvedValue([
+      { organizationId: 'tenant-a' },
+    ]);
     db.user.findUnique.mockImplementation(
       async ({ where }: { where: { id: string } }) =>
         users.get(where.id) ?? null,

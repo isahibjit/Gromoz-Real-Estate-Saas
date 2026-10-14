@@ -1,7 +1,9 @@
+import { Test } from '@nestjs/testing';
+import { referenceTenantProviders } from '../../test/reference-tenant-providers';
 import { CrmService } from './crm.service';
-import type { PrismaService } from '../persistence/prisma/prisma.service';
-import type { RealtimeService } from '../realtime/realtime.service';
-import type { LeadVisibilityService } from './lead-visibility.service';
+import { PrismaService } from '../persistence/prisma/prisma.service';
+import { RealtimeService } from '../realtime/realtime.service';
+import { LeadVisibilityService } from './lead-visibility.service';
 
 describe('Contact lead search query', () => {
   const db = {
@@ -12,7 +14,7 @@ describe('Contact lead search query', () => {
   };
   const visibility = { resolveAssignmentScopeUserIds: jest.fn() };
   let service: CrmService;
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.resetAllMocks();
     db.contactLead.findMany.mockResolvedValue([]);
     db.contactLead.count.mockResolvedValue(0);
@@ -20,11 +22,16 @@ describe('Contact lead search query', () => {
     db.project.findMany.mockResolvedValue([]);
     db.user.findMany.mockResolvedValue([]);
     visibility.resolveAssignmentScopeUserIds.mockResolvedValue(null);
-    service = new CrmService(
-      db as unknown as PrismaService,
-      {} as RealtimeService,
-      visibility as unknown as LeadVisibilityService,
-    );
+    const module = await Test.createTestingModule({
+      providers: [
+        CrmService,
+        ...referenceTenantProviders(),
+        { provide: PrismaService, useValue: db },
+        { provide: RealtimeService, useValue: {} },
+        { provide: LeadVisibilityService, useValue: visibility },
+      ],
+    }).compile();
+    service = module.get(CrmService);
   });
 
   it('searches valid ContactLead fields, not normal-lead source/property fields', async () => {

@@ -1,3 +1,4 @@
+import { referenceTenantProviders } from '../../test/reference-tenant-providers';
 import { Test } from '@nestjs/testing';
 import { CrmService } from './crm.service';
 import { PrismaService } from '../persistence/prisma/prisma.service';
@@ -19,7 +20,12 @@ describe('Integration lead assignment policy', () => {
   const db = {
     $transaction: jest.fn(),
     lead: { create: jest.fn() },
-    user: { findUnique: jest.fn(), findMany: jest.fn() },
+    user: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn().mockResolvedValue(1),
+    },
+    organizationMember: { findMany: jest.fn() },
     activity: { create: jest.fn() },
     auditLog: { create: jest.fn() },
   };
@@ -41,15 +47,24 @@ describe('Integration lead assignment policy', () => {
         ...data,
       }),
     );
-    db.user.findUnique.mockResolvedValue(null);
+    db.user.findUnique.mockResolvedValue({
+      id: 'operator',
+      isActive: true,
+      role: 'ADMIN',
+    });
     db.user.findMany.mockResolvedValue([
       { id: 'presales', role: 'TELECALLER' },
       { id: 'sales', role: 'SALES_AGENT' },
+    ]);
+    db.user.count.mockResolvedValue(1);
+    db.organizationMember.findMany.mockResolvedValue([
+      { organizationId: 'tenant-a' },
     ]);
     db.auditLog.create.mockResolvedValue({});
     db.activity.create.mockResolvedValue({});
     const module = await Test.createTestingModule({
       providers: [
+        ...referenceTenantProviders(),
         CrmService,
         { provide: PrismaService, useValue: db },
         {

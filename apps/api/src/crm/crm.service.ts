@@ -1254,7 +1254,11 @@ export class CrmService {
   private connections() {
     return (
       this.leadSourceConnections ??
-      new LeadSourceConnectionsService(this.prisma, this.tenantAccess, this.tenantContext)
+      new LeadSourceConnectionsService(
+        this.prisma,
+        this.tenantAccess,
+        this.tenantContext,
+      )
     );
   }
 
@@ -2427,20 +2431,35 @@ export class CrmService {
     return rows[0];
   }
 
-  private async portalIntegrationUpdate(id: string, data: Body, removedMetaPageIds: readonly string[] = []) {
+  private async portalIntegrationUpdate(
+    id: string,
+    data: Body,
+    removedMetaPageIds: readonly string[] = [],
+  ) {
     const delegate = this.portalIntegrationDelegate();
-    if (delegate && data.settings?.formRoutingOverrides && typeof this.prisma.$transaction === 'function') {
+    if (
+      delegate &&
+      data.settings?.formRoutingOverrides &&
+      typeof this.prisma.$transaction === 'function'
+    ) {
       // Existing page/account writers must preserve form saves made since their initial read.
       return this.prisma.$transaction(async (tx) => {
         const records = await tx.$queryRaw<{ settings: Prisma.JsonValue }[]>`
           SELECT "settings" FROM "PortalIntegration" WHERE "id" = ${id} FOR UPDATE
         `;
-        if (!records[0]) throw new NotFoundException('Portal integration not found');
-        const formRoutingOverrides = this.getMetaSettings(records[0].settings).formRoutingOverrides;
-        for (const pageId of removedMetaPageIds) delete formRoutingOverrides[pageId];
+        if (!records[0])
+          throw new NotFoundException('Portal integration not found');
+        const formRoutingOverrides = this.getMetaSettings(
+          records[0].settings,
+        ).formRoutingOverrides;
+        for (const pageId of removedMetaPageIds)
+          delete formRoutingOverrides[pageId];
         return tx.portalIntegration.update({
           where: { id },
-          data: { ...data, settings: { ...data.settings, formRoutingOverrides } },
+          data: {
+            ...data,
+            settings: { ...data.settings, formRoutingOverrides },
+          },
         });
       });
     }
@@ -2538,7 +2557,10 @@ export class CrmService {
     return rows[0];
   }
 
-  private async ensureMagicBricksIntegration(actorUserId?: string, organizationId?: string) {
+  private async ensureMagicBricksIntegration(
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
     const integration = await this.connections().getPrimaryAccount(
       magicBricksProvider,
       defaultMagicBricksFieldMapping,
@@ -2623,7 +2645,7 @@ export class CrmService {
         where: {
           deletedAt: null,
           organizationId,
-      sourceId: { in: sourceFilters },
+          sourceId: { in: sourceFilters },
           createdAt: { gte: monthStart },
         },
       }),
@@ -2724,7 +2746,11 @@ export class CrmService {
     };
   }
 
-  private async normalizeMagicBricksPayload(body: Body, mapping?: unknown, organizationId?: string) {
+  private async normalizeMagicBricksPayload(
+    body: Body,
+    mapping?: unknown,
+    organizationId?: string,
+  ) {
     const payload = this.coalesceMagicBricksPayload(body);
     const fieldMapping = this.getMagicBricksFieldMapping(mapping);
     const normalized: Body = {};
@@ -2818,13 +2844,21 @@ export class CrmService {
     };
   }
 
-  async getMagicBricksIntegration(actorUserId?: string, organizationId?: string) {
-    const integration = await this.ensureMagicBricksIntegration(actorUserId, organizationId);
+  async getMagicBricksIntegration(
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    const integration = await this.ensureMagicBricksIntegration(
+      actorUserId,
+      organizationId,
+    );
     return this.buildMagicBricksAccountResponse(integration);
   }
 
   private async buildMagicBricksAccountResponse(integration: Body) {
-    const stats = await this.getMagicBricksLeadStats(integration.organizationId);
+    const stats = await this.getMagicBricksLeadStats(
+      integration.organizationId,
+    );
     const manual = await this.buildMagicBricksManual(integration);
     const apiKey = this.connections().buildMagicBricksApiKey(
       integration.webhookKeyId,
@@ -2874,8 +2908,9 @@ export class CrmService {
       includeArchived,
     );
     const accounts = await Promise.all(
-      result.accounts.map(async (account) =>
-        (await this.buildMagicBricksAccountResponse(account)).data,
+      result.accounts.map(
+        async (account) =>
+          (await this.buildMagicBricksAccountResponse(account)).data,
       ),
     );
     return { data: { accounts, summary: result.summary } };
@@ -2924,10 +2959,7 @@ export class CrmService {
     return this.buildMagicBricksAccountResponse(account);
   }
 
-  async setMagicBricksAccountsStatus(
-    isActive: boolean,
-    actorUserId?: string,
-  ) {
+  async setMagicBricksAccountsStatus(isActive: boolean, actorUserId?: string) {
     await this.connections().setProviderStatus(
       magicBricksProvider,
       isActive,
@@ -2954,31 +2986,43 @@ export class CrmService {
     return this.buildMagicBricksAccountResponse(account);
   }
 
-  async saveMagicBricksIntegration(body: Body, actorUserId?: string, organizationId?: string) {
+  async saveMagicBricksIntegration(
+    body: Body,
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
     if (body.isActive !== undefined && typeof body.isActive !== 'boolean') {
       throw new BadRequestException('isActive must be a boolean');
     }
-    const integration = await this.ensureMagicBricksIntegration(actorUserId, organizationId);
+    const integration = await this.ensureMagicBricksIntegration(
+      actorUserId,
+      organizationId,
+    );
     const isPaused = requestedIntegrationPauseState(body, integration);
     await this.connections().updateAccount(
       magicBricksProvider,
       integration.id,
       {
-      ...(body.isActive !== undefined ||
-      body.isPaused !== undefined ||
-      body.status !== undefined
+        ...(body.isActive !== undefined ||
+        body.isPaused !== undefined ||
+        body.status !== undefined
           ? { isActive: !isPaused }
-        : {}),
-      notes:
-          body.notes === undefined ? undefined : String(body.notes ?? ''),
+          : {}),
+        notes: body.notes === undefined ? undefined : String(body.notes ?? ''),
       },
       actorUserId,
     );
     return this.getMagicBricksIntegration(actorUserId);
   }
 
-  async regenerateMagicBricksApiKey(actorUserId?: string, organizationId?: string) {
-    const integration = await this.ensureMagicBricksIntegration(actorUserId, organizationId);
+  async regenerateMagicBricksApiKey(
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    const integration = await this.ensureMagicBricksIntegration(
+      actorUserId,
+      organizationId,
+    );
     await this.connections().regenerateCredential(
       magicBricksProvider,
       integration.id,
@@ -2987,8 +3031,15 @@ export class CrmService {
     return this.getMagicBricksIntegration(actorUserId);
   }
 
-  async saveMagicBricksFieldMapping(body: Body, actorUserId?: string, organizationId?: string) {
-    const integration = await this.ensureMagicBricksIntegration(actorUserId, organizationId);
+  async saveMagicBricksFieldMapping(
+    body: Body,
+    actorUserId?: string,
+    organizationId?: string,
+  ) {
+    const integration = await this.ensureMagicBricksIntegration(
+      actorUserId,
+      organizationId,
+    );
     const mapping = this.getMagicBricksFieldMapping(body.fieldMapping);
     const targetValues = Object.values(mapping);
     if (
@@ -3074,7 +3125,10 @@ export class CrmService {
     userAgent?: string,
     organizationId?: string,
   ) {
-    const integration = await this.ensureMagicBricksIntegration(actorUserId, organizationId);
+    const integration = await this.ensureMagicBricksIntegration(
+      actorUserId,
+      organizationId,
+    );
     return this.testMagicBricksAccountRecord(
       integration,
       body,
@@ -3236,7 +3290,8 @@ export class CrmService {
       );
       return {
         success: false,
-        message: 'Failure: MagicBricks Push API is paused. Lead was not created.',
+        message:
+          'Failure: MagicBricks Push API is paused. Lead was not created.',
         status: 'PAUSED',
       };
     }
@@ -3293,44 +3348,48 @@ export class CrmService {
       magicBricksProvider,
       integration.webhookKeyId,
     );
-    if (
-      !currentIntegration ||
-      isIntegrationPaused(currentIntegration)
-    ) {
+    if (!currentIntegration || isIntegrationPaused(currentIntegration)) {
       return {
         success: false,
-        message: 'Failure: MagicBricks Push API is paused. Lead was not created.',
+        message:
+          'Failure: MagicBricks Push API is paused. Lead was not created.',
         status: 'PAUSED',
       };
     }
-    const routing = currentIntegration.routingRule?.isActive === false
-      ? undefined
-      : currentIntegration.routingRule;
-    const lead = await this.createLead({
-      organizationId: integration.organizationId,
-      name: preview.normalizedLead.leadName,
-      mobile: preview.normalizedLead.mobileNumber,
-      email: preview.normalizedLead.emailAddress || undefined,
-      sourceId: preview.normalizedLead.leadSourceId,
-      statusId: preview.normalizedLead.leadStatusId,
-      createdAt: preview.normalizedLead.addedDate,
-      preferredProject:
-        routing?.projectId ??
-        preview.normalizedLead.preferredProjectId,
-      preferredLocation: preview.normalizedLead.preferredLocation || undefined,
-      remarks: preview.normalizedLead.remarks || undefined,
-      configuration: preview.normalizedLead.configuration || undefined,
-      propertyType: preview.normalizedLead.propertyType || undefined,
-      ownerId: routing?.ownerId ?? undefined,
-      telecallerId: routing?.telecallerId ?? undefined,
-      fieldExecutiveId:
-        routing?.fieldExecutiveId ?? undefined,
-      autoAssignmentTeamId:
-        !routing?.ownerId && !routing?.telecallerId && !routing?.fieldExecutiveId
-          ? routing?.teamId ?? undefined
-          : undefined,
-      integrationConnectionId: integration.id,
-    }, undefined, { fromIntegration: true });
+    const routing =
+      currentIntegration.routingRule?.isActive === false
+        ? undefined
+        : currentIntegration.routingRule;
+    const lead = await this.createLead(
+      {
+        organizationId: integration.organizationId,
+        name: preview.normalizedLead.leadName,
+        mobile: preview.normalizedLead.mobileNumber,
+        email: preview.normalizedLead.emailAddress || undefined,
+        sourceId: preview.normalizedLead.leadSourceId,
+        statusId: preview.normalizedLead.leadStatusId,
+        createdAt: preview.normalizedLead.addedDate,
+        preferredProject:
+          routing?.projectId ?? preview.normalizedLead.preferredProjectId,
+        preferredLocation:
+          preview.normalizedLead.preferredLocation || undefined,
+        remarks: preview.normalizedLead.remarks || undefined,
+        configuration: preview.normalizedLead.configuration || undefined,
+        propertyType: preview.normalizedLead.propertyType || undefined,
+        ownerId: routing?.ownerId ?? undefined,
+        telecallerId: routing?.telecallerId ?? undefined,
+        fieldExecutiveId: routing?.fieldExecutiveId ?? undefined,
+        autoAssignmentTeamId:
+          !routing?.ownerId &&
+          !routing?.telecallerId &&
+          !routing?.fieldExecutiveId
+            ? routing?.teamId ?? undefined
+            : undefined,
+        integrationConnectionId: integration.id,
+      },
+      undefined,
+      { fromIntegration: true },
+    );
 
     await this.connections().recordLeadReceived(integration.id);
     await this.audit(undefined, 'MAGICBRICKS_LEAD_RECEIVED', 'Lead', lead.id, {
@@ -4076,7 +4135,11 @@ export class CrmService {
     ownerId?: string,
   ) {
     if (this.tenantAccess.selectedOrganizationId) {
-      await this.tenantAccess.assertEmployees([telecallerId, fieldExecutiveId, ownerId].filter((id): id is string => Boolean(id)));
+      await this.tenantAccess.assertEmployees(
+        [telecallerId, fieldExecutiveId, ownerId].filter((id): id is string =>
+          Boolean(id),
+        ),
+      );
     }
     return assertValidRoutingAssignees(
       this.prisma,
@@ -4213,25 +4276,31 @@ export class CrmService {
       ),
     };
 
-    const sourceMaster = await this.getWebsiteSourceMaster();
     // Test the same routing, duplicate checks, and assignment policy as a real
     // website submission rather than creating an independently routed lead.
-    const result = await this.receiveWebsiteLead(samplePayload, `truroot_web_${integration.webhookKeyId}`, ip, userAgent);
+    const result = await this.receiveWebsiteLead(
+      samplePayload,
+      `truroot_web_${integration.webhookKeyId}`,
+      ip,
+      userAgent,
+    );
     if (!result.success) {
       await this.portalIntegrationUpdate(integration.id, {
         lastTestedAt: new Date(),
         lastTestStatus: 'Failed',
         updatedById: actorUserId,
       });
-      return { data: {
-        valid: false,
-        status: 'Failed',
-        endpointUrl: this.websiteWebhookUrl(),
-        apiKey: `truroot_web_${integration.webhookKeyId}`,
-        samplePayload,
-        wouldCreateLead: false,
-        errors: [result.message],
-      } };
+      return {
+        data: {
+          valid: false,
+          status: 'Failed',
+          endpointUrl: this.websiteWebhookUrl(),
+          apiKey: `truroot_web_${integration.webhookKeyId}`,
+          samplePayload,
+          wouldCreateLead: false,
+          errors: [result.message],
+        },
+      };
     }
 
     await this.portalIntegrationUpdate(integration.id, {
@@ -4251,7 +4320,7 @@ export class CrmService {
           mobileNumber: samplePayload.mobile,
           emailAddress: samplePayload.email,
           configuration: samplePayload.configuration,
-          leadSourceName: sourceMaster?.name ?? 'Website',
+          leadSourceName: 'Website',
         },
         wouldCreateLead: true,
         errors: [],
@@ -4713,7 +4782,11 @@ export class CrmService {
       }
       // Never borrow another website's route for an unknown incoming URL.
       // A URL-less legacy request is attributable only when one site exists.
-      if (matchedWebsiteIndex === -1 && !incomingUrl && connectedWebsites.length === 1) {
+      if (
+        matchedWebsiteIndex === -1 &&
+        !incomingUrl &&
+        connectedWebsites.length === 1
+      ) {
         matchedWebsiteIndex = 0;
       }
       if (matchedWebsiteIndex !== -1) {
@@ -4745,21 +4818,25 @@ export class CrmService {
       if (matchedProj) effectiveProjectId = matchedProj.id;
     }
 
-    const lead = await this.createLead({
-      organizationId,
-      name,
-      mobile,
-      email,
-      sourceId: effectiveSourceId,
-      projectId: effectiveProjectId,
-      preferredProjectId: effectiveProjectId,
-      configuration,
-      ownerId: matchedWebsite?.ownerId,
-      telecallerId: matchedWebsite?.telecallerId,
-      fieldExecutiveId: matchedWebsite?.fieldExecutiveId,
-      autoAssignmentTeamId: matchedWebsite?.teamId,
-      remarks: submittedRemarks,
-    }, undefined, { fromIntegration: true });
+    const lead = await this.createLead(
+      {
+        organizationId,
+        name,
+        mobile,
+        email,
+        sourceId: effectiveSourceId,
+        projectId: effectiveProjectId,
+        preferredProjectId: effectiveProjectId,
+        configuration,
+        ownerId: matchedWebsite?.ownerId,
+        telecallerId: matchedWebsite?.telecallerId,
+        fieldExecutiveId: matchedWebsite?.fieldExecutiveId,
+        autoAssignmentTeamId: matchedWebsite?.teamId,
+        remarks: submittedRemarks,
+      },
+      undefined,
+      { fromIntegration: true },
+    );
 
     this.logger.log(
       `[WebsiteWebhook] created website lead as ${lead.displayId} (${lead.id}) for ${name} (${mobile})`,
@@ -4887,7 +4964,11 @@ export class CrmService {
     if (!payload?.actorUserId || Number(payload.expiresAt) < Date.now()) {
       throw new BadRequestException('Expired OAuth state');
     }
-    return payload as { actorUserId: string; organizationId?: string; reconnectAccountId?: string };
+    return payload as {
+      actorUserId: string;
+      organizationId?: string;
+      reconnectAccountId?: string;
+    };
   }
 
   private getMetaFieldMapping(mapping?: unknown) {
@@ -4988,9 +5069,14 @@ export class CrmService {
     );
     const formRoutingOverrides: MetaFormRoutingOverrides = {};
     const rawFormRouting = source.formRoutingOverrides;
-    if (rawFormRouting && typeof rawFormRouting === 'object' && !Array.isArray(rawFormRouting)) {
+    if (
+      rawFormRouting &&
+      typeof rawFormRouting === 'object' &&
+      !Array.isArray(rawFormRouting)
+    ) {
       for (const [pageId, forms] of Object.entries(rawFormRouting)) {
-        if (!forms || typeof forms !== 'object' || Array.isArray(forms)) continue;
+        if (!forms || typeof forms !== 'object' || Array.isArray(forms))
+          continue;
         for (const [formId, override] of Object.entries(forms)) {
           const result = MetaFormRoutingSchema.safeParse(override);
           if (!result.success || !Object.keys(result.data).length) continue;
@@ -5122,8 +5208,7 @@ export class CrmService {
       teamId: pageTeamMappings[String(page.id ?? '')] ?? '',
       teamName:
         teamsById.get(pageTeamMappings[String(page.id ?? '')] ?? '') ?? '',
-      ownerId:
-        pageAssignmentOverrides[String(page.id ?? '')]?.ownerId ?? '',
+      ownerId: pageAssignmentOverrides[String(page.id ?? '')]?.ownerId ?? '',
       ownerName:
         usersById.get(
           pageAssignmentOverrides[String(page.id ?? '')]?.ownerId ?? '',
@@ -5176,8 +5261,14 @@ export class CrmService {
     return settings.pageFormSelections[String(pageId)] ?? [];
   }
 
-  private async ensureMetaIntegration(actorUserId?: string, organizationId = this.tenantAccess.organizationId) {
-    const existing = await this.portalIntegrationFindByProvider(metaProvider, organizationId);
+  private async ensureMetaIntegration(
+    actorUserId?: string,
+    organizationId = this.tenantAccess.organizationId,
+  ) {
+    const existing = await this.portalIntegrationFindByProvider(
+      metaProvider,
+      organizationId,
+    );
     if (existing) {
       const needsPatch =
         !existing.webhookKeyId ||
@@ -5363,9 +5454,11 @@ export class CrmService {
     > = settings.pageAssignmentOverrides;
     const mappedAssigneeIds = Object.values(assignmentOverrides).flatMap(
       (override) =>
-        [override.ownerId, override.telecallerId, override.fieldExecutiveId].filter(
-          (userId): userId is string => Boolean(userId),
-        ),
+        [
+          override.ownerId,
+          override.telecallerId,
+          override.fieldExecutiveId,
+        ].filter((userId): userId is string => Boolean(userId)),
     );
     const [mappedProjects, mappedSources, mappedTeams, mappedUsers] =
       await Promise.all([
@@ -5794,7 +5887,9 @@ export class CrmService {
     }
 
     if (currentUrl && requireComplete) {
-      throw new BadRequestException('Meta form retrieval could not be completed. Please retry.');
+      throw new BadRequestException(
+        'Meta form retrieval could not be completed. Please retry.',
+      );
     }
     return results;
   }
@@ -6037,7 +6132,12 @@ export class CrmService {
     );
     url.searchParams.set('limit', '100');
     url.searchParams.set('access_token', pageAccessToken);
-    const forms = await this.fetchMetaPaginatedData(url, 'Meta lead forms fetch', 20, true);
+    const forms = await this.fetchMetaPaginatedData(
+      url,
+      'Meta lead forms fetch',
+      20,
+      true,
+    );
     return forms.map((form: Body) => ({
       id: String(form.id ?? ''),
       name: String(form.name ?? 'Untitled form'),
@@ -6146,9 +6246,16 @@ export class CrmService {
     const code = String(query.code ?? '').trim();
     if (!code) throw new BadRequestException('Meta OAuth code is missing');
     const state = this.decodeMetaOAuthState(query.state);
-    if (!state.organizationId) throw new BadRequestException('Reconnect Meta from a tenant workspace');
-    const organizationId = await this.resolveTenantOrganizationId(state.actorUserId, String(state.organizationId));
-    const integration = await this.ensureMetaIntegration(state.actorUserId, organizationId);
+    if (!state.organizationId)
+      throw new BadRequestException('Reconnect Meta from a tenant workspace');
+    const organizationId = await this.resolveTenantOrganizationId(
+      state.actorUserId,
+      String(state.organizationId),
+    );
+    const integration = await this.ensureMetaIntegration(
+      state.actorUserId,
+      organizationId,
+    );
     const settings = this.getMetaSettings(integration.settings);
     const appId = this.configuredMetaAppId(settings);
     if (!appId || !this.metaAppSecret()) {
@@ -6768,11 +6875,18 @@ export class CrmService {
     return this.getMetaIntegration(actorUserId);
   }
 
-  async saveMetaFormRouting(pageId: string, formId: string, body: unknown, actorUserId?: string) {
+  async saveMetaFormRouting(
+    pageId: string,
+    formId: string,
+    body: unknown,
+    actorUserId?: string,
+  ) {
     this.assertTenantWorkspaceMutation();
     const parsed = MetaFormRoutingSchema.safeParse(body);
     if (!parsed.success) {
-      throw new BadRequestException(parsed.error.issues.map((issue) => issue.message).join('; '));
+      throw new BadRequestException(
+        parsed.error.issues.map((issue) => issue.message).join('; '),
+      );
     }
     const routing = parsed.data;
     const integration = await this.ensureMetaIntegration(actorUserId);
@@ -6782,25 +6896,43 @@ export class CrmService {
     }
     const forms = await this.listMetaLeadForms(pageId, actorUserId);
     if (!forms.data.some((form) => form.id === formId)) {
-      throw new BadRequestException('Select a lead form belonging to this Meta Page');
+      throw new BadRequestException(
+        'Select a lead form belonging to this Meta Page',
+      );
     }
     if (routing.projectId) {
       const project = await this.prisma.project.findFirst({
-        where: { id: routing.projectId, organizationId: integration.organizationId, status: { not: 'Archived' } },
+        where: {
+          id: routing.projectId,
+          organizationId: integration.organizationId,
+          status: { not: 'Archived' },
+        },
         select: { id: true },
       });
-      if (!project) throw new BadRequestException('Select an active CRM project for this form');
+      if (!project)
+        throw new BadRequestException(
+          'Select an active CRM project for this form',
+        );
     }
     if (routing.sourceId) {
       const source = await this.prisma.leadMasterValue.findFirst({
-        where: { id: routing.sourceId, isActive: true, categoryRef: { code: 'source' } },
+        where: {
+          id: routing.sourceId,
+          isActive: true,
+          categoryRef: { code: 'source' },
+        },
         select: { id: true },
       });
-      if (!source) throw new BadRequestException('Select an active lead source');
+      if (!source)
+        throw new BadRequestException('Select an active lead source');
     }
     if (routing.assignment?.mode === 'automatic' && routing.assignment.teamId) {
       const team = await this.prisma.team.findFirst({
-        where: { id: routing.assignment.teamId, organizationId: integration.organizationId, isActive: true },
+        where: {
+          id: routing.assignment.teamId,
+          organizationId: integration.organizationId,
+          isActive: true,
+        },
         select: { id: true },
       });
       if (!team) throw new BadRequestException('Select an active CRM team');
@@ -6825,11 +6957,22 @@ export class CrmService {
             || jsonb_build_object(${formId}::text, ${serialized}::jsonb), true)
         END, true),
         "updatedById" = ${actorUserId ?? null}, "updatedAt" = NOW()
-      WHERE "id" = ${integration.id} AND "organizationId" = ${integration.organizationId}
+      WHERE "id" = ${integration.id} AND "organizationId" = ${
+        integration.organizationId
+      }
     `;
-    await this.audit(actorUserId, 'META_FORM_ROUTING_UPDATED', 'PortalIntegration', integration.id, {
-      pageId, formId, routing, reset,
-    });
+    await this.audit(
+      actorUserId,
+      'META_FORM_ROUTING_UPDATED',
+      'PortalIntegration',
+      integration.id,
+      {
+        pageId,
+        formId,
+        routing,
+        reset,
+      },
+    );
     return this.getMetaIntegration(actorUserId);
   }
 
@@ -6876,33 +7019,39 @@ export class CrmService {
     const nextSelectedPageId = removedPageIds.has(settings.selectedPageId)
       ? String(nextPages[0]?.id ?? '')
       : settings.selectedPageId;
-    await this.portalIntegrationUpdate(integration.id, {
-      status: nextPages.length ? integration.status : 'Configured',
-      settings: {
-        ...settings,
-        pageId: nextSelectedPageId,
-        selectedPageId: nextSelectedPageId,
-        selectedFormIds: nextPageFormSelections[nextSelectedPageId] ?? [],
-        pageFormSelections: nextPageFormSelections,
-        pageProjectMappings: nextPageProjectMappings,
-        pageSourceMappings: nextPageSourceMappings,
-        pageTeamMappings: nextPageTeamMappings,
-        pageAssignmentOverrides: nextPageAssignmentOverrides,
-        formRoutingOverrides: Object.fromEntries(
-          Object.entries(settings.formRoutingOverrides).filter(([pageId]) => !removedPageIds.has(pageId)),
-        ),
+    await this.portalIntegrationUpdate(
+      integration.id,
+      {
+        status: nextPages.length ? integration.status : 'Configured',
+        settings: {
+          ...settings,
+          pageId: nextSelectedPageId,
+          selectedPageId: nextSelectedPageId,
+          selectedFormIds: nextPageFormSelections[nextSelectedPageId] ?? [],
+          pageFormSelections: nextPageFormSelections,
+          pageProjectMappings: nextPageProjectMappings,
+          pageSourceMappings: nextPageSourceMappings,
+          pageTeamMappings: nextPageTeamMappings,
+          pageAssignmentOverrides: nextPageAssignmentOverrides,
+          formRoutingOverrides: Object.fromEntries(
+            Object.entries(settings.formRoutingOverrides).filter(
+              ([pageId]) => !removedPageIds.has(pageId),
+            ),
+          ),
+        },
+        credentials: {
+          ...credentials,
+          accounts: nextAccounts,
+          pages: nextPages,
+          pageAccessToken:
+            nextPages.find(
+              (page: Body) => String(page.id ?? '') === nextSelectedPageId,
+            )?.accessToken ?? '',
+        },
+        updatedById: actorUserId,
       },
-      credentials: {
-        ...credentials,
-        accounts: nextAccounts,
-        pages: nextPages,
-        pageAccessToken:
-          nextPages.find(
-            (page: Body) => String(page.id ?? '') === nextSelectedPageId,
-          )?.accessToken ?? '',
-      },
-      updatedById: actorUserId,
-    }, [...removedPageIds]);
+      [...removedPageIds],
+    );
     await this.audit(
       actorUserId,
       'META_ACCOUNT_DISCONNECTED',
@@ -6959,7 +7108,13 @@ export class CrmService {
 
   async verifyMetaWebhook(query: Body) {
     const integration = await this.prisma.portalIntegration.findFirst({
-      where: { provider: metaProvider, organizationId: { not: null }, webhookKeyId: String(query['hub.verify_token'] ?? query.hub_verify_token ?? '') },
+      where: {
+        provider: metaProvider,
+        organizationId: { not: null },
+        webhookKeyId: String(
+          query['hub.verify_token'] ?? query.hub_verify_token ?? '',
+        ),
+      },
       select: { webhookKeyId: true },
     });
     const mode = String(query['hub.mode'] ?? query.hub_mode ?? '');
@@ -7120,14 +7275,22 @@ export class CrmService {
           select: { id: true, name: true, location: true },
         })
       : null;
-    const routing = resolveMetaRouting(settings ?? {
-      pageProjectMappings: {}, pageSourceMappings: {}, pageTeamMappings: {}, pageAssignmentOverrides: {},
-    }, String(payload.pageId ?? ''), String(payload.formId ?? ''));
+    const routing = resolveMetaRouting(
+      settings ?? {
+        pageProjectMappings: {},
+        pageSourceMappings: {},
+        pageTeamMappings: {},
+        pageAssignmentOverrides: {},
+      },
+      String(payload.pageId ?? ''),
+      String(payload.formId ?? ''),
+    );
     const configuredProjectId = routing.projectId ?? '';
     const configuredProject = configuredProjectId
       ? await this.db().project.findFirst({
           where: {
-            id: configuredProjectId, organizationId,
+            id: configuredProjectId,
+            organizationId,
             status: { not: 'Archived' },
           },
           select: { id: true, name: true, location: true },
@@ -7185,17 +7348,23 @@ export class CrmService {
         : Promise.resolve([]),
     ]);
     const configuredOwnerId = configuredUsers.some(
-      (user) => user.id === configuredAssignment.ownerId && ROUTING_OWNER_ROLES.includes(user.role),
+      (user) =>
+        user.id === configuredAssignment.ownerId &&
+        ROUTING_OWNER_ROLES.includes(user.role),
     )
       ? configuredAssignment.ownerId
       : undefined;
     const configuredTelecallerId = configuredUsers.some(
-      (user) => user.id === configuredAssignment.telecallerId && user.role === Role.TELECALLER,
+      (user) =>
+        user.id === configuredAssignment.telecallerId &&
+        user.role === Role.TELECALLER,
     )
       ? configuredAssignment.telecallerId
       : undefined;
     const configuredFieldExecutiveId = configuredUsers.some(
-      (user) => user.id === configuredAssignment.fieldExecutiveId && user.role === Role.SALES_AGENT,
+      (user) =>
+        user.id === configuredAssignment.fieldExecutiveId &&
+        user.role === Role.SALES_AGENT,
     )
       ? configuredAssignment.fieldExecutiveId
       : undefined;
@@ -7283,8 +7452,16 @@ export class CrmService {
           ...(configuredProjectId && !configuredProject ? ['project'] : []),
           ...(configuredSourceId && !configuredSource ? ['source'] : []),
           ...(configuredTeamId && !configuredTeam ? ['team'] : []),
-          ...((configuredAssignment.ownerId || configuredAssignment.telecallerId || configuredAssignment.fieldExecutiveId)
-            && !(configuredOwnerId || configuredTelecallerId || configuredFieldExecutiveId) ? ['person'] : []),
+          ...((configuredAssignment.ownerId ||
+            configuredAssignment.telecallerId ||
+            configuredAssignment.fieldExecutiveId) &&
+          !(
+            configuredOwnerId ||
+            configuredTelecallerId ||
+            configuredFieldExecutiveId
+          )
+            ? ['person']
+            : []),
         ],
         projectMappingApplied: Boolean(configuredProject),
         projectMappingInvalid: Boolean(
@@ -7305,7 +7482,9 @@ export class CrmService {
             configuredFieldExecutiveId,
         ),
         automaticAssignmentConfigured:
-          settings?.formRoutingOverrides?.[String(payload.pageId ?? '')]?.[String(payload.formId ?? '')]?.assignment?.mode === 'automatic',
+          settings?.formRoutingOverrides?.[String(payload.pageId ?? '')]?.[
+            String(payload.formId ?? '')
+          ]?.assignment?.mode === 'automatic',
       },
     };
   }
@@ -7319,27 +7498,62 @@ export class CrmService {
     const errors: string[] = [];
     for (const event of events) {
       const matches = integrations.filter((integration) =>
-        this.getMetaCredentials(integration.credentials).pages.some((page) => String(page.id) === String(event.pageId)),
+        this.getMetaCredentials(integration.credentials).pages.some(
+          (page) => String(page.id) === String(event.pageId),
+        ),
       );
       if (matches.length !== 1) {
-        errors.push(`Meta Page ${String(event.pageId)} has no unique workspace owner`);
+        errors.push(
+          `Meta Page ${String(event.pageId)} has no unique workspace owner`,
+        );
         continue;
       }
       const organizationId = matches[0].organizationId;
       if (!organizationId) continue;
-      const result = await this.tenantContext.run({ organizationId }, () => this.receiveMetaIntegrationWebhook(matches[0], {
-        entry: [{ id: event.pageId, changes: [{ field: 'leadgen', value: {
-          leadgen_id: event.leadgenId, form_id: event.formId, page_id: event.pageId,
-          ad_id: event.adId, created_time: event.createdTime,
-        } }] }],
-      }, ip, userAgent));
+      const result = await this.tenantContext.run({ organizationId }, () =>
+        this.receiveMetaIntegrationWebhook(
+          matches[0],
+          {
+            entry: [
+              {
+                id: event.pageId,
+                changes: [
+                  {
+                    field: 'leadgen',
+                    value: {
+                      leadgen_id: event.leadgenId,
+                      form_id: event.formId,
+                      page_id: event.pageId,
+                      ad_id: event.adId,
+                      created_time: event.createdTime,
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+          ip,
+          userAgent,
+        ),
+      );
       results.push(...(result.results ?? []));
       errors.push(...result.errors);
     }
-    return { received: true, processed: results.filter((result) => result.leadId && !result.skipped).length, results, errors };
+    return {
+      received: true,
+      processed: results.filter((result) => result.leadId && !result.skipped)
+        .length,
+      results,
+      errors,
+    };
   }
 
-  private async receiveMetaIntegrationWebhook(integration: Body, body: Body, ip?: string, userAgent?: string) {
+  private async receiveMetaIntegrationWebhook(
+    integration: Body,
+    body: Body,
+    ip?: string,
+    userAgent?: string,
+  ) {
     if (!integration.isActive || integration.status === 'Paused') {
       this.logger.warn(
         '[MetaWebhook] skipped: integration is inactive or paused',
@@ -7645,33 +7859,39 @@ export class CrmService {
           );
           continue;
         }
-        const lead = await this.createLead({
-          organizationId: integration.organizationId,
-          name: preview.normalizedLead.leadName,
-          mobile: preview.normalizedLead.mobileNumber,
-          email: preview.normalizedLead.emailAddress || undefined,
-          sourceId: preview.normalizedLead.leadSourceId,
-          statusId: preview.normalizedLead.leadStatusId,
-          createdAt: preview.normalizedLead.addedDate,
-          preferredProject: preview.normalizedLead.preferredProjectId,
-          preferredLocation:
-            preview.normalizedLead.preferredLocation || undefined,
-          remarks: preview.normalizedLead.remarks || undefined,
-          configuration: preview.normalizedLead.configuration || undefined,
-          propertyType: preview.normalizedLead.propertyType || undefined,
-          budgetRange: preview.normalizedLead.budgetRange || undefined,
-          ownerId: preview.normalizedLead.ownerId,
-          telecallerId: preview.normalizedLead.telecallerId,
-          fieldExecutiveId: preview.normalizedLead.fieldExecutiveId,
-          autoAssignmentTeamId: preview.normalizedLead.assignmentOverrideApplied
-            ? undefined
-            : preview.normalizedLead.teamMappingApplied
-            ? preview.normalizedLead.configuredTeamId
-            : undefined,
-        }, undefined, {
-          fromIntegration: true,
-          useConfiguredAutomation: preview.normalizedLead.automaticAssignmentConfigured,
-        });
+        const lead = await this.createLead(
+          {
+            organizationId: integration.organizationId,
+            name: preview.normalizedLead.leadName,
+            mobile: preview.normalizedLead.mobileNumber,
+            email: preview.normalizedLead.emailAddress || undefined,
+            sourceId: preview.normalizedLead.leadSourceId,
+            statusId: preview.normalizedLead.leadStatusId,
+            createdAt: preview.normalizedLead.addedDate,
+            preferredProject: preview.normalizedLead.preferredProjectId,
+            preferredLocation:
+              preview.normalizedLead.preferredLocation || undefined,
+            remarks: preview.normalizedLead.remarks || undefined,
+            configuration: preview.normalizedLead.configuration || undefined,
+            propertyType: preview.normalizedLead.propertyType || undefined,
+            budgetRange: preview.normalizedLead.budgetRange || undefined,
+            ownerId: preview.normalizedLead.ownerId,
+            telecallerId: preview.normalizedLead.telecallerId,
+            fieldExecutiveId: preview.normalizedLead.fieldExecutiveId,
+            autoAssignmentTeamId: preview.normalizedLead
+              .assignmentOverrideApplied
+              ? undefined
+              : preview.normalizedLead.teamMappingApplied
+              ? preview.normalizedLead.configuredTeamId
+              : undefined,
+          },
+          undefined,
+          {
+            fromIntegration: true,
+            useConfiguredAutomation:
+              preview.normalizedLead.automaticAssignmentConfigured,
+          },
+        );
         results.push({
           leadgenId: event.leadgenId,
           leadId: lead.id,
@@ -8026,10 +8246,7 @@ export class CrmService {
         select: { id: true },
       });
       const allProjectIds = Array.from(
-        new Set([
-          ...projectFilterIds,
-          ...matchingProjects.map((p) => p.id),
-        ]),
+        new Set([...projectFilterIds, ...matchingProjects.map((p) => p.id)]),
       );
 
       conditions.push({
@@ -8592,7 +8809,9 @@ export class CrmService {
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         include: {
           requirement: true,
-          integrationConnection: { select: { id: true, name: true, provider: true } },
+          integrationConnection: {
+            select: { id: true, name: true, provider: true },
+          },
         },
       }),
       this.db().lead.count({ where }),
@@ -8694,7 +8913,8 @@ export class CrmService {
             ? masterMap.get(lead.sourceId)
             : undefined,
         integrationConnectionId: lead.integrationConnectionId ?? null,
-        integrationAccountName: lead.integrationConnection?.name ?? 'Legacy / unattributed',
+        integrationAccountName:
+          lead.integrationConnection?.name ?? 'Legacy / unattributed',
         integrationProvider: lead.integrationConnection?.provider ?? null,
         stageName: lead.stageId ? masterMap.get(lead.stageId) : undefined,
         statusName: lead.statusId ? masterMap.get(lead.statusId) : undefined,
@@ -9102,9 +9322,15 @@ export class CrmService {
       }),
     ]);
 
-    const formatted = await this.mapLeadListResponse(items, page, limit, total, {
-      canViewSource,
-    });
+    const formatted = await this.mapLeadListResponse(
+      items,
+      page,
+      limit,
+      total,
+      {
+        canViewSource,
+      },
+    );
     const priorityIdSet = new Set(priorityIds);
     const bookedIdSet = new Set(bookedIds);
     const members = teamMembers.map((member: Body) => {
@@ -9462,7 +9688,7 @@ export class CrmService {
     const scopedUserIds =
       await this.leadVisibility.resolveAssignmentScopeUserIds(user);
     return scopedUserIds ?? undefined;
-    }
+  }
 
   private async assertUserWithinLeadScope(
     targetUserId: string,
@@ -9479,6 +9705,37 @@ export class CrmService {
         'Selected user is outside your permitted scope',
       );
     }
+  }
+
+  private async taskTenantWhere(): Promise<Prisma.TaskWhereInput> {
+    const employees = await this.prisma.user.findMany({
+      where: this.tenantAccess.employeeWhere(),
+      select: { id: true },
+    });
+    const employeeIds = employees.map((employee) => employee.id);
+    return {
+      AND: [
+        {
+          OR: [
+            { assignedToId: { in: employeeIds } },
+            { assignedToId: null, createdById: { in: employeeIds } },
+          ],
+        },
+        {
+          OR: [
+            { leadId: null },
+            {
+              lead: {
+                is: {
+                  organizationId: this.tenantAccess.organizationId,
+                  deletedAt: null,
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
   }
 
   private async taskAssignmentScopeUserIds(user?: Body) {
@@ -11360,9 +11617,8 @@ export class CrmService {
           reqPropType === filterPropertyType ||
           Array.from(leadProjectIds).some(
             (id) =>
-              String(
-                projectsById.get(id)?.propertyType ?? '',
-              ).toLowerCase() === filterPropertyType,
+              String(projectsById.get(id)?.propertyType ?? '').toLowerCase() ===
+              filterPropertyType,
           );
         if (!matchesPropType) continue;
       }
@@ -11511,7 +11767,10 @@ export class CrmService {
   async createLead(
     body: Body,
     actor?: string | Body,
-    options: { fromIntegration?: boolean; useConfiguredAutomation?: boolean } = {},
+    options: {
+      fromIntegration?: boolean;
+      useConfiguredAutomation?: boolean;
+    } = {},
   ) {
     if (!body.name && !body.leadName) {
       throw new BadRequestException('Lead name is required');
@@ -11561,31 +11820,30 @@ export class CrmService {
     );
 
     const defaultTelecallerId =
-      !options.fromIntegration && !explicitTelecallerId && actorRole === 'TELECALLER'
+      !options.fromIntegration &&
+      !explicitTelecallerId &&
+      actorRole === 'TELECALLER'
         ? actorUserId
         : undefined;
     const defaultFieldExecutiveId =
-      !options.fromIntegration && !explicitFieldExecutiveId && actorRole === 'SALES_AGENT'
+      !options.fromIntegration &&
+      !explicitFieldExecutiveId &&
+      actorRole === 'SALES_AGENT'
         ? actorUserId
         : undefined;
 
     const telecallerId = explicitTelecallerId ?? defaultTelecallerId;
     const fieldExecutiveId =
       explicitFieldExecutiveId ?? defaultFieldExecutiveId;
-    await assertValidRoutingAssignees(
-      this.db(),
-      telecallerId,
-      fieldExecutiveId,
-      undefined,
-      { allowBothExecutives: true },
-    );
     const managerId = explicitManagerId;
     const ownerId =
       explicitOwnerId ??
       telecallerId ??
       fieldExecutiveId ??
       managerId ??
-      (options.fromIntegration || actorRole === 'SUPER_ADMIN' ? undefined : actorUserId);
+      (options.fromIntegration || actorRole === 'SUPER_ADMIN'
+        ? undefined
+        : actorUserId);
 
     const effectiveOrgId = actorUserId
       ? await this.resolveTenantOrganizationId(
@@ -11596,12 +11854,22 @@ export class CrmService {
 
     const integrationConnectionId = optionalId(body.integrationConnectionId);
     if (integrationConnectionId) {
-      if (!effectiveOrgId) throw new BadRequestException('Integration accounts require a tenant workspace');
+      if (!effectiveOrgId)
+        throw new BadRequestException(
+          'Integration accounts require a tenant workspace',
+        );
       const account = await this.prisma.leadSourceConnection.findFirst({
-        where: { id: integrationConnectionId, organizationId: effectiveOrgId, archivedAt: null },
+        where: {
+          id: integrationConnectionId,
+          organizationId: effectiveOrgId,
+          archivedAt: null,
+        },
         select: { id: true },
       });
-      if (!account) throw new NotFoundException('Integration account not found in this workspace');
+      if (!account)
+        throw new NotFoundException(
+          'Integration account not found in this workspace',
+        );
     }
 
     let rawProjectInput =
@@ -11652,6 +11920,14 @@ export class CrmService {
         fieldExecutiveId,
       });
     }
+
+    await assertValidRoutingAssignees(
+      this.db(),
+      telecallerId,
+      fieldExecutiveId,
+      undefined,
+      { allowBothExecutives: true },
+    );
 
     const createLeadRecord = (displayId: string) =>
       this.db().$transaction(async (tx: Prisma.TransactionClient) => {
@@ -11922,9 +12198,12 @@ export class CrmService {
         },
       })
       .catch(() => undefined);
-    if (!hasExplicitAssignment && (
-      !options.fromIntegration || options.useConfiguredAutomation || optionalId(body.autoAssignmentTeamId)
-    )) {
+    if (
+      !hasExplicitAssignment &&
+      (!options.fromIntegration ||
+        options.useConfiguredAutomation ||
+        optionalId(body.autoAssignmentTeamId))
+    ) {
       await this.createAutoAssignmentEventForLead(
         lead,
         optionalId(body.autoAssignmentTeamId),
@@ -12447,7 +12726,9 @@ export class CrmService {
       if (scopedUserIds) {
         scopedUserIds.forEach((id) => finalTeamUserIds.add(id));
       }
-      teamMembers.forEach((member: Body) => finalTeamUserIds.add(member.userId));
+      teamMembers.forEach((member: Body) =>
+        finalTeamUserIds.add(member.userId),
+      );
     }
 
     return {
@@ -13592,7 +13873,7 @@ export class CrmService {
       ].filter((value): value is string => Boolean(value));
       if (!relatedUserIds.some((userId) => scopedUserIds.includes(userId))) {
         throw new NotFoundException('Booking not found');
-    }
+      }
     }
     const financeViewer = await this.getBookingFinanceViewer(user);
     return this.applyBookingFinanceVisibility(
@@ -14416,12 +14697,12 @@ export class CrmService {
     }
     const ownRoleTypes =
       String(user.role ?? '') === 'TEAM_LEADER'
-      ? new Set(['TEAM_LEADER'])
-      : String(user.role ?? '') === 'TELECALLER'
-      ? new Set(['PRE_SALES'])
-      : String(user.role ?? '') === 'SALES_AGENT'
-      ? new Set(['SALES'])
-      : new Set(['SALES', 'PRE_SALES', 'TEAM_LEADER']);
+        ? new Set(['TEAM_LEADER'])
+        : String(user.role ?? '') === 'TELECALLER'
+        ? new Set(['PRE_SALES'])
+        : String(user.role ?? '') === 'SALES_AGENT'
+        ? new Set(['SALES'])
+        : new Set(['SALES', 'PRE_SALES', 'TEAM_LEADER']);
 
     const assignmentScopeUserIds =
       canManageTeamScope && requestedScope !== 'team'
@@ -15041,7 +15322,9 @@ export class CrmService {
     const current = await this.getLead(id, actor);
     await assertValidRoutingAssignees(
       this.db(),
-      body.telecallerId !== current.telecallerId ? body.telecallerId : undefined,
+      body.telecallerId !== current.telecallerId
+        ? body.telecallerId
+        : undefined,
       body.fieldExecutiveId !== current.fieldExecutiveId
         ? body.fieldExecutiveId
         : undefined,
@@ -15076,7 +15359,11 @@ export class CrmService {
     const statusChanged =
       Boolean(requestedStatus && statusMaster) &&
       String(statusMaster?.id) !== String(current.statusId ?? '');
-    if (statusChanged && statusMaster && this.isProtectedSiteVisitStatus(statusMaster)) {
+    if (
+      statusChanged &&
+      statusMaster &&
+      this.isProtectedSiteVisitStatus(statusMaster)
+    ) {
       throw new BadRequestException(
         this.isSiteVisitCompletionStatus(statusMaster)
           ? 'Complete the site visit from the Site Visits workspace before applying this lead status.'
@@ -15378,6 +15665,7 @@ export class CrmService {
 
   private async taskAssigneeName(assignedToId?: string | null) {
     if (!assignedToId) return null;
+    await this.tenantAccess.assertEmployee(assignedToId);
     const assignee = await this.db().user.findUnique({
       where: { id: assignedToId },
       select: { id: true, fullName: true, email: true, isActive: true },
@@ -15604,7 +15892,7 @@ export class CrmService {
 
   async listTasks(query: Query, user?: Body) {
     const { page, limit, skip } = pageMeta(query);
-    const where: Body = {};
+    const where: Body = { AND: [await this.taskTenantWhere()] };
     const scopedUserIds = await this.taskAssignmentScopeUserIds(user);
     if (scopedUserIds !== null) {
       if (query.assignedToId && query.assignedToId !== 'all') {
@@ -15699,7 +15987,9 @@ export class CrmService {
     ).filter(Boolean) as string[];
     const users = userIds.length
       ? await this.db().user.findMany({
-          where: { id: { in: userIds } },
+          where: {
+            AND: [this.tenantAccess.employeeWhere(), { id: { in: userIds } }],
+          },
           select: {
             id: true,
             fullName: true,
@@ -15766,6 +16056,7 @@ export class CrmService {
     const existing = await this.db().task.findFirst({
       where: {
         id,
+        AND: [await this.taskTenantWhere()],
         OR: [{ leadId: null }, { lead: { is: { deletedAt: null } } }],
       },
     });
@@ -15811,16 +16102,14 @@ export class CrmService {
     const task = await this.db().task.update({
       where: { id: existing.id },
       data: {
-        title:
-          body.title !== undefined ? String(body.title) : existing.title,
+        title: body.title !== undefined ? String(body.title) : existing.title,
         description:
           body.description !== undefined
             ? body.description === null
               ? null
               : String(body.description)
             : existing.description,
-        type:
-          body.type !== undefined ? String(body.type) : existing.type,
+        type: body.type !== undefined ? String(body.type) : existing.type,
         priority:
           body.priority !== undefined
             ? String(body.priority)
@@ -15848,7 +16137,7 @@ export class CrmService {
 
   async deleteEmployeeTask(id: string, user?: Body) {
     const existing = await this.db().task.findFirst({
-      where: { id },
+      where: { id, AND: [await this.taskTenantWhere()] },
     });
     if (!existing) throw new NotFoundException('Task not found');
     const scopedUserIds = await this.taskAssignmentScopeUserIds(user);
@@ -15945,86 +16234,88 @@ export class CrmService {
         ) ?? current.nextFollowUpAt
       : null;
 
-    const result = await this.db().$transaction(async (tx: Prisma.TransactionClient) => {
-      const lead = await tx.lead.update({
-        where: { id: current.id },
-        data: {
-          statusId: status.id,
-          stageId: body.stageId,
-          lostReasonId: body.lostReasonId,
-          lostCompetitor: body.lostCompetitor,
-          lostAt: statusName.includes('lost') ? new Date() : undefined,
-          convertedAt: shouldConvert ? new Date() : undefined,
-          nextFollowUpAt: calculatedNextFollowUpAt,
-        },
-      });
-
-      if (shouldCreateSiteVisit) {
-        if (!body.projectId || !body.scheduledAt) {
-          throw new BadRequestException(
-            'Project and a valid visit schedule are required for a site visit',
-          );
-        }
-        const { fieldExecutiveId } = await this.resolveSiteVisitAssignment(
-          current.id,
-          actorUserId,
-          tx,
-        );
-        await tx.siteVisit.create({
+    const result = await this.db().$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const lead = await tx.lead.update({
+          where: { id: current.id },
           data: {
-            displayId: `SV-${Date.now()}`,
-            leadId: current.id,
-            projectId: body.projectId,
-            unitId: body.unitId,
-            scheduledAt: normalizeDate(body.scheduledAt) ?? new Date(),
-            assignedExecutiveId: fieldExecutiveId,
-            status: 'Scheduled',
-            visitType: body.visitType ?? 'Site Visit',
-            durationMinutes: Number(body.durationMinutes) || undefined,
-            meetingPoint: body.meetingPoint,
-            transportMode: body.transportMode,
-            visitorCount: Number(body.visitorCount) || undefined,
-            specialRequest: body.specialRequest,
-            notes: body.notes,
-            createdById: actorUserId,
+            statusId: status.id,
+            stageId: body.stageId,
+            lostReasonId: body.lostReasonId,
+            lostCompetitor: body.lostCompetitor,
+            lostAt: statusName.includes('lost') ? new Date() : undefined,
+            convertedAt: shouldConvert ? new Date() : undefined,
+            nextFollowUpAt: calculatedNextFollowUpAt,
           },
         });
-      }
 
-      if (shouldConvert) {
-        const booking = await this.createBookingRecord(
-          tx,
-          current.id,
-          body,
-          { sub: actorUserId },
-          'Booked',
-        );
-        await tx.projectUnit.update({
-          where: { id: booking.unitId },
-          data: { availability: 'Booked', bookingStatus: 'Booked' },
-        });
-      }
+        if (shouldCreateSiteVisit) {
+          if (!body.projectId || !body.scheduledAt) {
+            throw new BadRequestException(
+              'Project and a valid visit schedule are required for a site visit',
+            );
+          }
+          const { fieldExecutiveId } = await this.resolveSiteVisitAssignment(
+            current.id,
+            actorUserId,
+            tx,
+          );
+          await tx.siteVisit.create({
+            data: {
+              displayId: `SV-${Date.now()}`,
+              leadId: current.id,
+              projectId: body.projectId,
+              unitId: body.unitId,
+              scheduledAt: normalizeDate(body.scheduledAt) ?? new Date(),
+              assignedExecutiveId: fieldExecutiveId,
+              status: 'Scheduled',
+              visitType: body.visitType ?? 'Site Visit',
+              durationMinutes: Number(body.durationMinutes) || undefined,
+              meetingPoint: body.meetingPoint,
+              transportMode: body.transportMode,
+              visitorCount: Number(body.visitorCount) || undefined,
+              specialRequest: body.specialRequest,
+              notes: body.notes,
+              createdById: actorUserId,
+            },
+          });
+        }
 
-      await tx.activity.create({
-        data: {
-          lead: { connect: { id: current.id } },
-          actorId: actorUserId,
-          type: shouldConvert ? 'Conversion' : 'Status Change',
-          title: shouldConvert
-            ? `Converted lead to ${status.name}`
-            : `Moved to ${status.name}`,
-          description: body.notes,
-          metadata: {
-            fromStatusId: current.statusId,
-            toStatusId: status.id,
-            projectId: body.projectId,
-            unitId: body.unitId,
+        if (shouldConvert) {
+          const booking = await this.createBookingRecord(
+            tx,
+            current.id,
+            body,
+            { sub: actorUserId },
+            'Booked',
+          );
+          await tx.projectUnit.update({
+            where: { id: booking.unitId },
+            data: { availability: 'Booked', bookingStatus: 'Booked' },
+          });
+        }
+
+        await tx.activity.create({
+          data: {
+            lead: { connect: { id: current.id } },
+            actorId: actorUserId,
+            type: shouldConvert ? 'Conversion' : 'Status Change',
+            title: shouldConvert
+              ? `Converted lead to ${status.name}`
+              : `Moved to ${status.name}`,
+            description: body.notes,
+            metadata: {
+              fromStatusId: current.statusId,
+              toStatusId: status.id,
+              projectId: body.projectId,
+              unitId: body.unitId,
+            },
           },
-        },
-      });
+        });
 
-      return lead;
-    });
+        return lead;
+      },
+    );
 
     await this.audit(actorUserId, 'LEAD_PIPELINE_MOVED', 'Lead', current.id, {
       fromStatusId: current.statusId,
@@ -16288,18 +16579,17 @@ export class CrmService {
       current.id,
       assignment,
     );
-    await this.db()
-      .activity.create({
-        data: {
-          leadId: current.id,
-          actorId: actorUserId,
-          type: isReassignment ? 'LEAD_REASSIGNED' : 'LEAD_ASSIGNED',
-          title: isReassignment ? 'Lead reassigned' : 'Lead assigned',
-          description: isReassignment
-            ? `Lead ownership was reassigned from ${previousAssigneeLabel} to ${targetUserLabel}`
-            : `Lead ownership was assigned to ${targetUserLabel}`,
-        },
-      });
+    await this.db().activity.create({
+      data: {
+        leadId: current.id,
+        actorId: actorUserId,
+        type: isReassignment ? 'LEAD_REASSIGNED' : 'LEAD_ASSIGNED',
+        title: isReassignment ? 'Lead reassigned' : 'Lead assigned',
+        description: isReassignment
+          ? `Lead ownership was reassigned from ${previousAssigneeLabel} to ${targetUserLabel}`
+          : `Lead ownership was assigned to ${targetUserLabel}`,
+      },
+    });
     if (!isAutoRouteAssignment && updatedLead.ownerId === toUserId) {
       await this.syncAutoAssignmentEventForAssignee(
         { ...current, ...updatedLead },
@@ -16314,10 +16604,7 @@ export class CrmService {
       body.assigneeType === 'field-executive'
         ? { fieldExecutiveId: 'updated' }
         : { telecallerId: 'updated' };
-    await this.assertLeadUpdateFieldsAllowed(
-      assigneeField,
-      actor,
-    );
+    await this.assertLeadUpdateFieldsAllowed(assigneeField, actor);
     const leadIds = Array.isArray(body.leadIds) ? body.leadIds : [];
     const results = [];
     for (const leadId of leadIds) {
@@ -17909,7 +18196,9 @@ export class CrmService {
         name: body.name,
         location: body.location,
         developer: body.developer,
-        propertyType: body.propertyType ? String(body.propertyType) : 'Residential',
+        propertyType: body.propertyType
+          ? String(body.propertyType)
+          : 'Residential',
         status: body.status ?? 'Active',
         possession: body.possession,
         minPrice: parsePriceInput(
@@ -17970,7 +18259,10 @@ export class CrmService {
         name: body.name,
         location: body.location,
         developer: body.developer,
-        propertyType: body.propertyType !== undefined ? String(body.propertyType) : undefined,
+        propertyType:
+          body.propertyType !== undefined
+            ? String(body.propertyType)
+            : undefined,
         status: body.status,
         possession: body.possession,
         minPrice: parsePriceInput(
@@ -18540,28 +18832,28 @@ export class CrmService {
       ? this.leadVisibility.assignmentScope(scopedUserIds)
       : null;
     const leadSearchWhere = query.search
-          ? {
-              OR: [
-                {
-                  name: {
-                    contains: String(query.search),
-                    mode: 'insensitive',
-                  },
-                },
-                {
-                  mobile: {
-                    contains: String(query.search),
-                    mode: 'insensitive',
-                  },
-                },
-                {
-                  displayId: {
-                    contains: String(query.search),
-                    mode: 'insensitive',
-                  },
-                },
-              ],
-            }
+      ? {
+          OR: [
+            {
+              name: {
+                contains: String(query.search),
+                mode: 'insensitive',
+              },
+            },
+            {
+              mobile: {
+                contains: String(query.search),
+                mode: 'insensitive',
+              },
+            },
+            {
+              displayId: {
+                contains: String(query.search),
+                mode: 'insensitive',
+              },
+            },
+          ],
+        }
       : null;
     const [leads, projects] = await Promise.all([
       this.db().lead.findMany({
@@ -18843,9 +19135,12 @@ export class CrmService {
       : null;
     if (
       requestedLeadStatus &&
-      String(requestedLeadStatus.triggerAction).toUpperCase() !== 'CREATE_SITE_VISIT'
+      String(requestedLeadStatus.triggerAction).toUpperCase() !==
+        'CREATE_SITE_VISIT'
     ) {
-      throw new BadRequestException('The selected lead status does not schedule a site visit.');
+      throw new BadRequestException(
+        'The selected lead status does not schedule a site visit.',
+      );
     }
 
     let displayId = body.displayId;
@@ -18875,11 +19170,13 @@ export class CrmService {
                 status: body.status ?? 'Scheduled',
                 visitType: body.visitType ?? 'Site Visit',
                 scheduledAt,
-                durationMinutes: Number(body.durationMinutes ?? body.duration) || undefined,
+                durationMinutes:
+                  Number(body.durationMinutes ?? body.duration) || undefined,
                 assignedExecutiveId: assignment.fieldExecutiveId,
                 meetingPoint: body.meetingPoint,
                 transportMode: body.transportMode,
-                visitorCount: Number(body.visitorCount ?? body.visitors) || undefined,
+                visitorCount:
+                  Number(body.visitorCount ?? body.visitors) || undefined,
                 specialRequest: body.specialRequest,
                 notes: body.notes,
                 reminderEnabled: body.reminderEnabled ?? false,
@@ -19009,7 +19306,9 @@ export class CrmService {
       body.leadStatusId ??
       body.leadStatus ??
       body.statusId ??
-      (String(visitType ?? '').toLowerCase().includes('revisit')
+      (String(visitType ?? '')
+        .toLowerCase()
+        .includes('revisit')
         ? 'RE_VISIT_DONE'
         : 'SITE_VISIT_DONE');
     const leadStatus = await this.resolveActiveLeadStatus(requestedStatus);
@@ -19028,13 +19327,16 @@ export class CrmService {
           `${String(rawFollowUpDate).slice(0, 10)} ${followUpTime}`,
         );
       }
-      if (!scheduledFollowUp) scheduledFollowUp = normalizeDate(rawFollowUpDate);
+      if (!scheduledFollowUp)
+        scheduledFollowUp = normalizeDate(rawFollowUpDate);
     }
 
     return {
       leadStatusId: leadStatus.id,
       scheduledFollowUp,
-      remarkText: String(body.feedback ?? body.remarks ?? body.notes ?? '').trim(),
+      remarkText: String(
+        body.feedback ?? body.remarks ?? body.notes ?? '',
+      ).trim(),
     };
   }
 
@@ -19146,7 +19448,12 @@ export class CrmService {
             where: { id: existing.id },
             data: updateData,
           });
-          await this.applySiteVisitCompletion(tx, completedVisit, completion, actorUserId);
+          await this.applySiteVisitCompletion(
+            tx,
+            completedVisit,
+            completion,
+            actorUserId,
+          );
           return completedVisit;
         })
       : await this.db().siteVisit.update({
@@ -19498,7 +19805,10 @@ export class CrmService {
       .filter(Boolean)
       .map(String)
       .join(' | ');
-    const completion = await this.resolveSiteVisitCompletion(visit.visitType, body);
+    const completion = await this.resolveSiteVisitCompletion(
+      visit.visitType,
+      body,
+    );
     const checkedOut = await this.db().$transaction(
       async (tx: Prisma.TransactionClient) => {
         const completedVisit = await tx.siteVisit.update({
@@ -19507,14 +19817,24 @@ export class CrmService {
             checkedOutAt: new Date(),
             checkedOutLatitude: latitude,
             checkedOutLongitude: longitude,
-            checkedOutAccuracyM: coordinate(body.accuracy, 0, 100000, 'accuracy'),
+            checkedOutAccuracyM: coordinate(
+              body.accuracy,
+              0,
+              100000,
+              'accuracy',
+            ),
             status: 'Completed',
             feedback,
             rating: body.rating ? Number(body.rating) : undefined,
             notes: notes || undefined,
           },
         });
-        await this.applySiteVisitCompletion(tx, completedVisit, completion, user.sub);
+        await this.applySiteVisitCompletion(
+          tx,
+          completedVisit,
+          completion,
+          user.sub,
+        );
         return completedVisit;
       },
     );
@@ -19872,8 +20192,18 @@ export class CrmService {
         },
       }),
       this.prisma.leadSourceConnection.findMany({
-        where: { organizationId, provider: { in: ['magicbricks', 'housing'] }, archivedAt: null },
-        select: { provider: true, status: true, isActive: true, lastTestStatus: true, lastLeadReceivedAt: true },
+        where: {
+          organizationId,
+          provider: { in: ['magicbricks', 'housing'] },
+          archivedAt: null,
+        },
+        select: {
+          provider: true,
+          status: true,
+          isActive: true,
+          lastTestStatus: true,
+          lastLeadReceivedAt: true,
+        },
       }),
     ]);
 
@@ -19884,17 +20214,27 @@ export class CrmService {
       ]),
     );
     for (const provider of ['magicbricks', 'housing']) {
-      const accounts = portalAccounts.filter((account) => account.provider === provider);
+      const accounts = portalAccounts.filter(
+        (account) => account.provider === provider,
+      );
       portalByProvider.delete(provider);
       if (!accounts.length) continue;
       const active = accounts.filter((account) => account.isActive);
-      const latest = accounts.map((account) => account.lastLeadReceivedAt)
-        .filter((value): value is Date => Boolean(value)).sort((a, b) => b.getTime() - a.getTime())[0];
+      const latest = accounts
+        .map((account) => account.lastLeadReceivedAt)
+        .filter((value): value is Date => Boolean(value))
+        .sort((a, b) => b.getTime() - a.getTime())[0];
       portalByProvider.set(provider, {
         isActive: active.length > 0,
-        status: active.some((account) => /connected/i.test(account.status)) ? 'Connected' : 'Configured',
+        status: active.some((account) => /connected/i.test(account.status))
+          ? 'Connected'
+          : 'Configured',
         lastLeadReceivedAt: latest,
-        lastTestStatus: active.some((account) => /failed|error/i.test(account.lastTestStatus ?? '')) ? 'Failed' : null,
+        lastTestStatus: active.some((account) =>
+          /failed|error/i.test(account.lastTestStatus ?? ''),
+        )
+          ? 'Failed'
+          : null,
       });
     }
     const normalizeState = (integration?: Body | null) => {
@@ -20205,7 +20545,9 @@ export class CrmService {
                 sourceId,
                 preferredProject: preferredProjectId,
                 ownerId:
-                  importedTelecallerId ?? importedFieldExecutiveId ?? assignedToId,
+                  importedTelecallerId ??
+                  importedFieldExecutiveId ??
+                  assignedToId,
                 telecallerId: importedTelecallerId,
                 fieldExecutiveId: importedFieldExecutiveId,
                 remarks: row.note,
@@ -20290,7 +20632,9 @@ export class CrmService {
                   sourceId,
                   preferredProject: preferredProjectId,
                   ownerId:
-                    importedTelecallerId ?? importedFieldExecutiveId ?? assignedToId,
+                    importedTelecallerId ??
+                    importedFieldExecutiveId ??
+                    assignedToId,
                   telecallerId: importedTelecallerId,
                   fieldExecutiveId: importedFieldExecutiveId,
                   remarks: row.note,
@@ -21087,7 +21431,10 @@ export class CrmService {
       this.db()
         .lead.groupBy({
           by: ['integrationConnectionId'],
-          where: { organizationId: this.tenantAccess.organizationId, integrationConnectionId: { not: null } },
+          where: {
+            organizationId: this.tenantAccess.organizationId,
+            integrationConnectionId: { not: null },
+          },
           _count: { _all: true },
         })
         .catch(() => []),
@@ -21097,7 +21444,10 @@ export class CrmService {
       .filter((id: unknown): id is string => typeof id === 'string');
     const accounts = accountIds.length
       ? await this.db().leadSourceConnection.findMany({
-          where: { organizationId: this.tenantAccess.organizationId, id: { in: accountIds } },
+          where: {
+            organizationId: this.tenantAccess.organizationId,
+            id: { in: accountIds },
+          },
           select: { id: true, name: true, provider: true, archivedAt: true },
         })
       : [];

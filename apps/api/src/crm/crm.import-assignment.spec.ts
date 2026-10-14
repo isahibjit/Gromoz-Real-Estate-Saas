@@ -1,3 +1,4 @@
+import { referenceTenantProviders } from '../../test/reference-tenant-providers';
 import { Test } from '@nestjs/testing';
 import { Role } from '@prisma/client';
 import { PrismaService } from '../persistence/prisma/prisma.service';
@@ -21,6 +22,7 @@ describe('Imported lead executive roles', () => {
     db.auditLog.create.mockResolvedValue({});
     const module = await Test.createTestingModule({
       providers: [
+        ...referenceTenantProviders(),
         CrmService,
         { provide: PrismaService, useValue: db },
         { provide: RealtimeService, useValue: {} },
