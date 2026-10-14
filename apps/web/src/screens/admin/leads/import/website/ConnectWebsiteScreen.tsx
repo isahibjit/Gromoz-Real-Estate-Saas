@@ -220,8 +220,8 @@ export function ConnectWebsiteScreen() {
     () => [
       {
         value: "",
-        label: "Use standard auto-assignment",
-        description: "Use normal source and project assignment rules",
+        label: "No team route",
+        description: "Keep leads unassigned unless a person override is selected",
       },
       ...leadFilterOptionsQuery.options.teamOptions,
     ],
@@ -233,7 +233,7 @@ export function ConnectWebsiteScreen() {
       {
         value: "",
         label: "No user override",
-        description: "Let selected team or automatic assignment choose",
+        description: "Use the selected team route; otherwise keep leads unassigned",
       },
       ...getRoutingAssigneeOptions(leadFilterOptionsQuery.options.ownerOptions),
     ],
@@ -659,6 +659,7 @@ export function ConnectWebsiteScreen() {
                                 Person overrides bypass automatic assignment;
                                 otherwise the selected team uses its matching
                                 auto-assignment rule.
+                                Without a person or team route, leads remain unassigned.
                               </p>
                             </div>
                             {selectedProjectId ||

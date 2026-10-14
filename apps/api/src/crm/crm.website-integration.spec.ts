@@ -286,6 +286,32 @@ describe('Website integration pause enforcement', () => {
       expect(db.portalIntegration.update).not.toHaveBeenCalled();
     },
   );
+
+  it.each([
+    { websiteUrl: 'https://example.com', ownerId: 'rajesh' },
+    { websiteUrl: 'https://unknown.com', ownerId: undefined },
+  ])('does not borrow another website route: %j', async ({ websiteUrl, ownerId }) => {
+    integration.fieldMapping = { connectedWebsites: [
+      { id: 'site', url: 'https://example.com', name: 'Example', ownerId: 'rajesh' },
+    ] };
+    Object.defineProperty(service, 'getWebsiteSourceMaster', { value: jest.fn().mockResolvedValue({ id: 'website-source' }) });
+    Object.defineProperty(service, 'sendWebsiteLeadEmailNotification', { value: jest.fn().mockResolvedValue(undefined) });
+    await service.receiveWebsiteLead({ name: 'Fixture', mobile: '0000000000', websiteUrl });
+    expect(service.createLead).toHaveBeenCalledWith(expect.objectContaining({ ownerId }), undefined, { fromIntegration: true });
+  });
+
+  it('tests through real website routing and increments receipt metrics only once', async () => {
+    integration.fieldMapping = { connectedWebsites: [
+      { id: 'site', url: 'https://example.com', name: 'Example', ownerId: 'rajesh' },
+    ] };
+    Object.defineProperty(service, 'getWebsiteSourceMaster', { value: jest.fn().mockResolvedValue({ id: 'website-source' }) });
+    Object.defineProperty(service, 'sendWebsiteLeadEmailNotification', { value: jest.fn().mockResolvedValue(undefined) });
+    const result = await service.testWebsiteIntegration({ samplePayload: { name: 'Fixture', mobile: '0000000000', websiteUrl: 'https://example.com' } });
+    expect(result.data.valid).toBe(true);
+    expect(service.createLead).toHaveBeenCalledWith(expect.objectContaining({ ownerId: 'rajesh' }), undefined, { fromIntegration: true });
+    const receipts = db.portalIntegration.update.mock.calls.filter(([args]) => args.data.totalLeadsReceived);
+    expect(receipts).toHaveLength(1);
+  });
 });
 
 describe('Website routing override validation', () => {

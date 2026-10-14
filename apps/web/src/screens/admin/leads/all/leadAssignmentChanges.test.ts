@@ -5,6 +5,19 @@ import {
 } from "./leadAssignmentChanges";
 
 describe("buildLeadAssignmentChanges", () => {
+  it("does not treat a lead owner as an existing Pre Sales assignment", () => {
+    expect(
+      buildLeadAssignmentChanges(
+        [{ ownerId: "owner-1", fieldExecutiveId: "sales-1" }],
+        { telecallerId: "owner-1", fieldExecutiveId: "sales-1" },
+      ),
+    ).toEqual({
+      telecallerUnchangedForAll: false,
+      fieldExecutiveUnchangedForAll: true,
+      assignments: [{ toUserId: "owner-1", assigneeType: "telecaller" }],
+    });
+  });
+
   it("omits an unchanged Pre Sales assignment when adding a Sales Executive", () => {
     expect(
       buildLeadAssignmentChanges(

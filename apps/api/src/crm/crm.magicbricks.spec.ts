@@ -17,6 +17,12 @@ describe('MagicBricks pause enforcement', () => {
     webhookKeyId: string;
     displayName: string;
     fieldMapping: { FirstName: string; Mobile: string };
+    routingRule?: {
+      ownerId?: string;
+      telecallerId?: string;
+      teamId?: string;
+      isActive?: boolean;
+    };
   };
   let service: CrmService;
   let apiKey: string;
@@ -55,7 +61,7 @@ describe('MagicBricks pause enforcement', () => {
     );
     connections.findByWebhookKey.mockImplementation(async () => ({
       ...integration,
-      routingRule: null,
+      routingRule: integration.routingRule ?? null,
     }));
     connections.getPrimaryAccount.mockImplementation(async () => ({
       ...integration,
@@ -171,6 +177,28 @@ describe('MagicBricks pause enforcement', () => {
     );
     expect(service.createLead).toHaveBeenCalledTimes(1);
     expect(connections.recordLeadReceived).toHaveBeenCalledWith(integration.id);
+    expect(service.createLead).toHaveBeenCalledWith(expect.objectContaining({
+      ownerId: undefined, telecallerId: undefined, autoAssignmentTeamId: undefined,
+    }), undefined, { fromIntegration: true });
+  });
+
+  it('uses Rajesh as owner and suppresses the account team route for a direct override', async () => {
+    integration.routingRule = { ownerId: 'rajesh', teamId: 'team' };
+    await service.receiveMagicBricksLead(payload, apiKey);
+    expect(service.createLead).toHaveBeenCalledWith(expect.objectContaining({
+      ownerId: 'rajesh', telecallerId: undefined, fieldExecutiveId: undefined, autoAssignmentTeamId: undefined,
+    }), undefined, { fromIntegration: true });
+  });
+  it('uses the current route when an override changes during normalization', async () => {
+    connections.findByWebhookKey.mockResolvedValueOnce({ ...integration, routingRule: { telecallerId: 'presales' } })
+      .mockResolvedValueOnce({ ...integration, routingRule: { ownerId: 'rajesh' } });
+    await service.receiveMagicBricksLead(payload, apiKey);
+    expect(service.createLead).toHaveBeenCalledWith(expect.objectContaining({ ownerId: 'rajesh', telecallerId: undefined }), undefined, { fromIntegration: true });
+  });
+  it('does not apply a disabled account assignment route', async () => {
+    integration.routingRule = { ownerId: 'rajesh', teamId: 'team', isActive: false };
+    await service.receiveMagicBricksLead(payload, apiKey);
+    expect(service.createLead).toHaveBeenCalledWith(expect.objectContaining({ ownerId: undefined, autoAssignmentTeamId: undefined }), undefined, { fromIntegration: true });
   });
 
   it('keeps duplicate prevention', async () => {

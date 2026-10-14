@@ -70,6 +70,7 @@ type MappingValue = Record<string, string>;
 interface RoutingRule {
   projectId?: string | null;
   teamId?: string | null;
+  ownerId?: string | null;
   telecallerId?: string | null;
   fieldExecutiveId?: string | null;
   assignmentMode?: string;
@@ -151,7 +152,7 @@ const providerLabel = (provider: Provider) =>
   provider === "magicbricks" ? "MagicBricks" : "Housing.com";
 
 const routingPersonId = (routing?: RoutingRule | null) =>
-  routing?.telecallerId ?? routing?.fieldExecutiveId ?? "";
+  routing?.ownerId || routing?.telecallerId || routing?.fieldExecutiveId || "";
 
 export function PortalAccountsWorkspace({ provider }: { provider: Provider }) {
   const navigate = useNavigate();
@@ -492,6 +493,7 @@ export function PortalAccountsWorkspace({ provider }: { provider: Provider }) {
 
           {selectedAccount ? (
             <AccountDetails
+              key={`${provider}:${selectedAccount.id}`}
               account={selectedAccount}
               provider={provider}
               tab={tab}
@@ -931,14 +933,12 @@ function AccountDetails({
 
         <TabsContent value="routing" className="space-y-5">
           <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-4 text-sm font-semibold leading-6 text-slate-700">
-            Account selections take priority over incoming portal values. A
-            person override bypasses automatic assignment; otherwise the
-            selected team uses its matching auto-assignment rule. Portal source
-            remains {providerLabel(provider)}.
+            Account selections take priority over incoming portal values. A person override bypasses automatic assignment; otherwise the selected team uses its matching auto-assignment rule. Without a person or team route, leads remain unassigned. Portal source remains {providerLabel(provider)}.
           </div>
           <div className="grid gap-5 lg:grid-cols-3">
             <Field label="Project override">
               <SearchableSelect
+                ariaLabel="Project override"
                 value={projectId}
                 onValueChange={setProjectId}
                 options={[
@@ -951,38 +951,44 @@ function AccountDetails({
             </Field>
             <Field label="Team auto-assignment">
               <SearchableSelect
+                ariaLabel="Team auto-assignment"
                 value={teamId}
                 onValueChange={setTeamId}
                 options={[
-                  { label: "No team override", value: "" },
+                  { label: "No team route", value: "" },
                   ...teamOptions,
                 ]}
-                placeholder="Use normal automatic assignment"
+                placeholder="Unassigned unless a person is selected"
                 disabled={Boolean(account.archivedAt)}
               />
             </Field>
             <Field label="Person override">
               <SearchableSelect
+                ariaLabel="Person override"
                 value={personId}
                 onValueChange={setPersonId}
                 options={[
                   { label: "No person override", value: "" },
                   ...assigneeOptions,
                 ]}
-                placeholder="Use team or automatic assignment"
+                placeholder="Unassigned unless a team is selected"
                 disabled={Boolean(account.archivedAt)}
               />
             </Field>
           </div>
           <div className="flex justify-end">
             <Button
-              onClick={() =>
+              onClick={() => {
+                if (personId && !selectedAssignee.ownerId && !selectedAssignee.telecallerId && !selectedAssignee.fieldExecutiveId) {
+                  toast.error("Selected person is unavailable. Select an active person or clear the override.");
+                  return;
+                }
                 onSaveRouting({
                   projectId: projectId || null,
                   teamId: teamId || null,
                   ...selectedAssignee,
-                })
-              }
+                });
+              }}
               disabled={routingSaving || Boolean(account.archivedAt)}
             >
               {routingSaving ? (

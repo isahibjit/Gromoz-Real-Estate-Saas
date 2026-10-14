@@ -5,6 +5,7 @@ import { Building2, MapPin, UserRound } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   Button,
+  DatePicker,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -16,12 +17,18 @@ import {
 } from "ui";
 
 import { api } from "../../../../common/api";
+import { getApiErrorMessage } from "../../../../common/apiError";
 import { useAppSelector } from "../../../../store";
 import {
   scheduledValueToDateInput,
   scheduledValueToPickerTime,
+  scheduledInputToIso,
 } from "../../../../common/time";
-import { useLeadListFilterOptions } from "./useAllLeads";
+import {
+  useLeadListFilterOptions,
+  useLeadUpdateFieldPermissions,
+} from "./useAllLeads";
+import { ClockTimePicker } from "../assignment/ClockTimePicker";
 import { useProjects } from "../../projects/useProjectsApi";
 import type { ProjectCatalogItem } from "../../projects/projectsData";
 import {
@@ -63,6 +70,7 @@ type LiveLeadRecord = {
   alternateCountryCode?: string | null;
   alternateMobile?: string | null;
   sourceId?: string | null;
+  canViewSource?: boolean;
   statusId?: string | null;
   priorityId?: string | null;
   campaignId?: string | null;
@@ -74,6 +82,7 @@ type LiveLeadRecord = {
   referenceBy?: string | null;
   remarks?: string | null;
   createdAt?: string | null;
+  nextFollowUpAt?: string | null;
   followUps?: Array<{
     scheduledAt?: string | null;
     typeId?: string | null;
@@ -110,6 +119,10 @@ type LeadCaptureModalProps = {
   errorMessage: string;
   isPending: boolean;
   loading?: boolean;
+  loadError?: string;
+  onRetry?: () => void;
+  editableFields?: readonly string[];
+  sourceVisible?: boolean;
   defaultToNewLeadStatus?: boolean;
   selfAssignmentUser?: {
     id: string;
@@ -207,10 +220,15 @@ function normalizeConfiguration(value?: string | null) {
 }
 
 function normalizeOptionMatcher(value: string) {
-  return value.trim().toLowerCase().replace(/[\s_-]+/g, "");
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
 }
 
-function findNewLeadStatusValue(options: Array<{ value: string; label: string }>) {
+function findNewLeadStatusValue(
+  options: Array<{ value: string; label: string }>,
+) {
   return (
     options.find((option) =>
       ["newlead", "new"].includes(normalizeOptionMatcher(option.label)),
@@ -245,9 +263,8 @@ function formatAreaRange(
 }
 
 function mapLeadToAddLeadFormData(lead: LiveLeadRecord): AddLeadFormData {
-  const nextFollowUp = lead.followUps?.[0]?.scheduledAt
-    ? new Date(lead.followUps[0].scheduledAt)
-    : null;
+  const scheduledAt = lead.nextFollowUpAt;
+  const nextFollowUp = scheduledAt ? new Date(scheduledAt) : null;
 
   return {
     ...defaultAddLeadFormData,
@@ -293,8 +310,8 @@ function mapLeadToAddLeadFormData(lead: LiveLeadRecord): AddLeadFormData {
     referenceBy: lead.referenceBy?.trim() || "",
     assignDate: lead.createdAt?.slice(0, 10) || "",
     autoAssignFollowUp: Boolean(nextFollowUp),
-    followUpDate: scheduledValueToDateInput(lead.followUps?.[0]?.scheduledAt),
-    followUpTime: scheduledValueToPickerTime(lead.followUps?.[0]?.scheduledAt),
+    followUpDate: scheduledValueToDateInput(scheduledAt),
+    followUpTime: scheduledValueToPickerTime(scheduledAt),
     followUpType: lead.followUps?.[0]?.typeId?.trim() || "",
   };
 }
@@ -314,12 +331,18 @@ function LeadCaptureModal({
   errorMessage,
   isPending,
   loading = false,
+  loadError,
+  onRetry,
+  editableFields,
+  sourceVisible = true,
   defaultToNewLeadStatus = false,
   selfAssignmentUser,
   onSubmit,
 }: LeadCaptureModalProps) {
   const [formData, setFormData] = useState<AddLeadFormData>(initialData);
   const [errors, setErrors] = useState<AddLeadErrors>({});
+  const canUpdateField = (field: string) =>
+    editableFields === undefined || editableFields.includes(field);
   const [hasAppliedDefaultStatus, setHasAppliedDefaultStatus] = useState(false);
   const canAssignToSelf =
     selfAssignmentUser?.role === "TELECALLER" ||
@@ -407,7 +430,10 @@ function LeadCaptureModal({
         .map((project: ProjectCatalogItem) => ({
           value: project.id,
           label: project.name,
-          description: [project.location, project.developer || project.priceRange]
+          description: [
+            project.location,
+            project.developer || project.priceRange,
+          ]
             .filter(Boolean)
             .join(" · "),
         }))
@@ -509,7 +535,8 @@ function LeadCaptureModal({
   const selectedProject = useMemo(
     () =>
       (projectsQuery.data?.projects ?? []).find(
-        (project: ProjectCatalogItem) => project.id === formData.preferredProject,
+        (project: ProjectCatalogItem) =>
+          project.id === formData.preferredProject,
       ),
     [formData.preferredProject, projectsQuery.data?.projects],
   );
@@ -605,7 +632,7 @@ function LeadCaptureModal({
   useEffect(() => {
     if (!open) return;
     setAssignmentMode(
-        canAssignToSelf &&
+      canAssignToSelf &&
         !initialData.telecallerId &&
         !initialData.fieldExecutiveId
         ? "self"
@@ -643,13 +670,15 @@ function LeadCaptureModal({
   const validateStepOne = () => {
     const nextErrors: AddLeadErrors = {};
 
-    if (!formData.leadSource.trim()) {
+    const shouldValidate = (key: keyof AddLeadFormData) =>
+      editableFields === undefined || formData[key] !== initialData[key];
+    if (shouldValidate("leadSource") && !formData.leadSource.trim()) {
       nextErrors.leadSource = "Lead source is required.";
     }
-    if (!formData.leadName.trim()) {
+    if (shouldValidate("leadName") && !formData.leadName.trim()) {
       nextErrors.leadName = "Customer name is required.";
     }
-    if (!formData.mobileNumber.trim()) {
+    if (shouldValidate("mobileNumber") && !formData.mobileNumber.trim()) {
       nextErrors.mobileNumber = "Mobile number is required.";
     }
     setErrors((current) => {
@@ -688,8 +717,8 @@ function LeadCaptureModal({
       await onSubmit(payload);
       toast.success(successMessage);
       close();
-    } catch {
-      toast.error(errorMessage);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, errorMessage));
     }
   };
 
@@ -721,7 +750,17 @@ function LeadCaptureModal({
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-5 py-4 sm:px-6">
-          {loading ? (
+          {loadError ? (
+            <div
+              role="alert"
+              className="space-y-3 py-10 text-sm text-destructive"
+            >
+              <p>{loadError}</p>
+              <Button variant="outline" onClick={onRetry}>
+                Try again
+              </Button>
+            </div>
+          ) : loading ? (
             <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/70 px-5 py-10 text-sm font-semibold text-muted-foreground">
               Loading lead details...
             </div>
@@ -729,20 +768,30 @@ function LeadCaptureModal({
             <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(290px,320px)]">
               <div className="min-w-0 space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
-                  <FormField
-                    label="Source"
-                    required
-                    error={errors.leadSource}
-                  >
+                  <FormField label="Source" required error={errors.leadSource}>
                     <SearchableSelect
-                      value={formData.leadSource}
-                      onValueChange={(value) => updateField("leadSource", value)}
+                      value={
+                        sourceVisible ? formData.leadSource : "source-unknown"
+                      }
+                      onValueChange={(value) =>
+                        updateField("leadSource", value)
+                      }
                       ariaLabel="Lead source"
+                      disabled={!sourceVisible || !canUpdateField("source")}
                       placeholder="Select lead source"
                       searchPlaceholder="Search lead sources..."
                       noOptionsText="No lead sources found"
                       className="h-11 rounded-[10px]"
-                      options={sourceSearchOptions}
+                      options={
+                        sourceVisible
+                          ? sourceSearchOptions
+                          : [
+                              {
+                                value: "source-unknown",
+                                label: "Source Unknown",
+                              },
+                            ]
+                      }
                       modal={false}
                       portaled={false}
                     />
@@ -751,7 +800,9 @@ function LeadCaptureModal({
                   <FormField label="Lead Status" error={errors.leadStatus}>
                     <SearchableSelect
                       value={formData.leadStatus}
-                      onValueChange={(value) => updateField("leadStatus", value)}
+                      onValueChange={(value) =>
+                        updateField("leadStatus", value)
+                      }
                       ariaLabel="Lead status"
                       placeholder={
                         filterOptionsQuery.isLoading
@@ -761,6 +812,7 @@ function LeadCaptureModal({
                       searchPlaceholder="Search lead statuses..."
                       noOptionsText="No lead statuses found"
                       disabled={
+                        !canUpdateField("status") ||
                         filterOptionsQuery.isLoading ||
                         statusOptions.length === 0
                       }
@@ -778,6 +830,7 @@ function LeadCaptureModal({
                   >
                     <Input
                       name="lead-customer-name"
+                      disabled={!canUpdateField("name")}
                       autoComplete="name"
                       value={formData.leadName}
                       placeholder="Enter customer full name"
@@ -795,6 +848,7 @@ function LeadCaptureModal({
                   >
                     <Input
                       name="lead-mobile-number"
+                      disabled={!canUpdateField("mobile")}
                       autoComplete="tel"
                       value={formData.mobileNumber}
                       inputMode="tel"
@@ -812,6 +866,7 @@ function LeadCaptureModal({
                   <FormField label="Alternate mobile number">
                     <Input
                       name="lead-alternate-mobile-number"
+                      disabled={!canUpdateField("mobile")}
                       autoComplete="tel-national"
                       value={formData.alternateNumber}
                       inputMode="tel"
@@ -830,6 +885,7 @@ function LeadCaptureModal({
                     <Input
                       type="email"
                       name="lead-email-address"
+                      disabled={!canUpdateField("email")}
                       autoComplete="email"
                       value={formData.emailAddress}
                       placeholder="Enter email address"
@@ -839,12 +895,11 @@ function LeadCaptureModal({
                       }
                     />
                   </FormField>
-
-
                 </div>
 
                 <FormField label="Note">
                   <Textarea
+                    disabled={!canUpdateField("remark")}
                     value={formData.remarks}
                     placeholder="Add lead notes, call summary, or inquiry details"
                     className="min-h-[72px] rounded-[10px] py-3 text-sm font-semibold"
@@ -853,6 +908,42 @@ function LeadCaptureModal({
                     }
                   />
                 </FormField>
+
+                {editableFields !== undefined &&
+                canUpdateField("followUpDate") ? (
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      Status or note changes require a follow-up date unless the
+                      status is exempt. An unchanged date keeps the existing
+                      schedule.
+                    </p>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <FormField label="Follow-up date">
+                        <DatePicker
+                          aria-label="Follow-up date"
+                          value={formData.followUpDate}
+                          onChange={(event) => {
+                            updateField("followUpDate", event.target.value);
+                            updateField(
+                              "autoAssignFollowUp",
+                              Boolean(event.target.value),
+                            );
+                          }}
+                        />
+                      </FormField>
+                      <FormField label="Follow-up time">
+                        <ClockTimePicker
+                          value={formData.followUpTime}
+                          options={[]}
+                          widthClassName="w-full"
+                          onChange={(value) =>
+                            updateField("followUpTime", value)
+                          }
+                        />
+                      </FormField>
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="rounded-[14px] border border-slate-200 bg-slate-50/70 p-3.5">
                   <div className="mb-3 flex items-start gap-3">
@@ -870,11 +961,17 @@ function LeadCaptureModal({
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2">
-                    <FormField label="Property type" error={errors.propertyType}>
+                    <FormField
+                      label="Property type"
+                      error={errors.propertyType}
+                    >
                       <SearchableSelect
                         value={formData.propertyType}
-                        onValueChange={(value) => updateField("propertyType", value)}
+                        onValueChange={(value) =>
+                          updateField("propertyType", value)
+                        }
                         ariaLabel="Property type"
+                        disabled={!canUpdateField("propertyType")}
                         placeholder="Select property type"
                         searchPlaceholder="Search property types..."
                         noOptionsText="No property types found"
@@ -888,8 +985,11 @@ function LeadCaptureModal({
                     <FormField label="Budget" error={errors.budgetRange}>
                       <SearchableSelect
                         value={formData.budgetRange}
-                        onValueChange={(value) => updateField("budgetRange", value)}
+                        onValueChange={(value) =>
+                          updateField("budgetRange", value)
+                        }
                         ariaLabel="Budget"
+                        disabled={!canUpdateField("budget")}
                         placeholder="Select budget"
                         searchPlaceholder="Search budgets..."
                         noOptionsText="No budget ranges found"
@@ -907,6 +1007,7 @@ function LeadCaptureModal({
                           updateField("configuration", value)
                         }
                         ariaLabel="Configuration"
+                        disabled={!canUpdateField("configuration")}
                         placeholder="Select configuration"
                         searchPlaceholder="Search configurations..."
                         noOptionsText="No configurations found"
@@ -917,13 +1018,17 @@ function LeadCaptureModal({
                       />
                     </FormField>
 
-                    <FormField label="Location" error={errors.preferredLocation}>
+                    <FormField
+                      label="Location"
+                      error={errors.preferredLocation}
+                    >
                       <SearchableSelect
                         value={formData.preferredLocation}
                         onValueChange={(value) =>
                           updateField("preferredLocation", value)
                         }
                         ariaLabel="Preferred location"
+                        disabled={!canUpdateField("location")}
                         placeholder="Select location"
                         searchPlaceholder="Search locations..."
                         noOptionsText="No locations found"
@@ -1012,9 +1117,11 @@ function LeadCaptureModal({
                         onValueChange={(value) => {
                           const project = (
                             projectsQuery.data?.projects ?? []
-                          ).find((item: ProjectCatalogItem) => item.id === value);
+                          ).find(
+                            (item: ProjectCatalogItem) => item.id === value,
+                          );
                           updateField("preferredProject", value);
-                          if (project?.location) {
+                          if (project?.location && canUpdateField("location")) {
                             updateField("preferredLocation", project.location);
                           }
                         }}
@@ -1027,7 +1134,9 @@ function LeadCaptureModal({
                         searchPlaceholder="Search projects..."
                         noOptionsText="No projects found"
                         disabled={
-                          projectsQuery.isLoading || projectOptions.length === 0
+                          !canUpdateField("projectName") ||
+                          projectsQuery.isLoading ||
+                          projectOptions.length === 0
                         }
                         className="h-11 rounded-[10px]"
                         options={projectOptions}
@@ -1044,6 +1153,7 @@ function LeadCaptureModal({
                       <div className="relative">
                         <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
+                          disabled={!canUpdateField("location")}
                           value={formData.preferredLocation}
                           placeholder="Selected project location"
                           className="h-11 rounded-[10px] pl-10 text-sm font-semibold"
@@ -1085,7 +1195,8 @@ function LeadCaptureModal({
                         Assign to
                       </p>
                       <p className="text-xs font-semibold text-muted-foreground">
-                        Choose whether this lead belongs to you or another employee.
+                        Choose whether this lead belongs to you or another
+                        employee.
                       </p>
                     </div>
                   </div>
@@ -1093,7 +1204,9 @@ function LeadCaptureModal({
                     <div className="mb-3 grid gap-2">
                       <Button
                         type="button"
-                        variant={assignmentMode === "self" ? "primary" : "outline"}
+                        variant={
+                          assignmentMode === "self" ? "primary" : "outline"
+                        }
                         className="h-auto w-full justify-start rounded-[10px] px-3 py-2.5 text-left shadow-none"
                         onClick={() => setAssignmentMode("self")}
                       >
@@ -1108,7 +1221,9 @@ function LeadCaptureModal({
                       </Button>
                       <Button
                         type="button"
-                        variant={assignmentMode === "manual" ? "primary" : "outline"}
+                        variant={
+                          assignmentMode === "manual" ? "primary" : "outline"
+                        }
                         className="h-auto w-full justify-start rounded-[10px] px-3 py-2.5 text-left shadow-none"
                         onClick={() => setAssignmentMode("manual")}
                       >
@@ -1133,13 +1248,17 @@ function LeadCaptureModal({
                     className="h-11 rounded-[10px] bg-white"
                     options={assigneeSearchOptions}
                     sortAlphabetical={true}
-                    disabled={canAssignToSelf && assignmentMode === "self"}
+                    disabled={
+                      !canUpdateField("executive") ||
+                      (canAssignToSelf && assignmentMode === "self")
+                    }
                     modal={false}
                     portaled={false}
                   />
                   {canAssignToSelf && assignmentMode === "self" ? (
                     <p className="mt-2 text-xs font-semibold text-muted-foreground">
-                      This lead will be assigned to your {selfAssignmentRoleLabel}
+                      This lead will be assigned to your{" "}
+                      {selfAssignmentRoleLabel}
                       profile when saved.
                     </p>
                   ) : null}
@@ -1162,7 +1281,7 @@ function LeadCaptureModal({
           <Button
             type="button"
             className="h-11 rounded-[10px] px-5"
-            disabled={isPending}
+            disabled={isPending || loading || Boolean(loadError)}
             onClick={submit}
           >
             {isPending ? "Saving..." : submitLabel}
@@ -1213,17 +1332,51 @@ export function EditLeadModal({
 }: EditLeadModalProps) {
   const queryClient = useQueryClient();
   const filterOptionsQuery = useLeadListFilterOptions();
+  const fieldPermissions = useLeadUpdateFieldPermissions();
   const leadQuery = useQuery({
     queryKey: ["lead-edit-modal", leadId],
     enabled: open && Boolean(leadId),
-    queryFn: async () => (await api.get<LiveLeadRecord>(`/leads/${leadId}`)).data,
+    queryFn: async () =>
+      (await api.get<LiveLeadRecord>(`/leads/${leadId}`)).data,
   });
   const updateLeadMutation = useMutation({
-    mutationFn: async (formData: AddLeadFormData) =>
-      (await api.patch(`/leads/${leadId}`, buildLeadPayload(formData))).data,
+    mutationFn: async (formData: AddLeadFormData) => {
+      if (!leadQuery.data || !fieldPermissions.query.data) {
+        throw new Error(
+          "Lead details and field permissions must load before saving.",
+        );
+      }
+      const initialForm = mapLeadToAddLeadFormData(leadQuery.data);
+      const original: Record<string, string | undefined> =
+        buildLeadPayload(initialForm);
+      const updated = buildLeadPayload(formData);
+      const payload: Record<string, string> = Object.fromEntries(
+        Object.entries(updated).filter(
+          ([key, value]) =>
+            value !== undefined &&
+            value !== original[key] &&
+            !["followUpDate", "followUpTime"].includes(key),
+        ),
+      );
+      if (
+        formData.followUpDate &&
+        (formData.followUpDate !== initialForm.followUpDate ||
+          formData.followUpTime !== initialForm.followUpTime)
+      ) {
+        const scheduledAt = scheduledInputToIso(
+          formData.followUpDate,
+          formData.followUpTime,
+        );
+        payload.nextFollowUpAt = scheduledAt;
+      }
+      if (!Object.keys(payload).length) throw new Error("No changes to save.");
+      return (await api.patch(`/leads/${leadId}`, payload)).data;
+    },
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["lead-edit-modal", leadId] }),
+        queryClient.invalidateQueries({
+          queryKey: ["lead-edit-modal", leadId],
+        }),
         queryClient.invalidateQueries({ queryKey: ["lead-details", leadId] }),
         queryClient.invalidateQueries({ queryKey: ["lead-timeline", leadId] }),
         queryClient.invalidateQueries({ queryKey: ["leads"] }),
@@ -1256,7 +1409,23 @@ export function EditLeadModal({
       successMessage="Lead updated successfully"
       errorMessage="Could not update lead"
       isPending={updateLeadMutation.isPending}
-      loading={leadQuery.isLoading && !leadQuery.data}
+      loading={leadQuery.isLoading || fieldPermissions.query.isLoading}
+      editableFields={fieldPermissions.query.data?.enabledFields ?? []}
+      sourceVisible={leadQuery.data?.canViewSource !== false}
+      loadError={
+        leadQuery.isError
+          ? getApiErrorMessage(leadQuery.error, "Could not load lead details.")
+          : fieldPermissions.query.isError
+          ? getApiErrorMessage(
+              fieldPermissions.query.error,
+              "Could not load field permissions.",
+            )
+          : undefined
+      }
+      onRetry={() => {
+        void leadQuery.refetch();
+        void fieldPermissions.query.refetch();
+      }}
       onSubmit={async (formData) => {
         await updateLeadMutation.mutateAsync(formData);
       }}

@@ -46,6 +46,7 @@ import {
   type WorkspaceTarget,
   type UnifiedCardItem,
 } from "../../../../common/hooks/useLeadCardPreferences";
+import { getApiErrorMessage } from "../../../../common/apiError";
 
 const EXTENDED_SAAS_PALETTE = [
   { label: "Blue", hex: "#2563EB" },
@@ -154,24 +155,40 @@ export function CustomizeStatsAndPillsModal({
   const draggingIndexRef = useRef<number | null>(null);
   const overIndexRef = useRef<number | null>(null);
 
-  const preferences = useLeadCardPreferences(activeWorkspace);
+  // Keep each workspace's saved state separate when switching the editor tabs.
+  const allLeadsPreferences = useLeadCardPreferences("all_leads");
+  const followUpPreferences = useLeadCardPreferences("follow_up");
+  const preferences =
+    activeWorkspace === "all_leads"
+      ? allLeadsPreferences
+      : followUpPreferences;
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const draftDirtyRef = useRef(false);
+  const draftSessionRef = useRef({ open: false, workspace: activeWorkspace });
 
   // Local draft items for non-destructive editing until saved
   const [draftItems, setDraftItems] = useState<UnifiedCardItem[]>(
     preferences.items,
   );
 
-  // Sync draft only when modal opens or workspace switches
+  // Load saved preferences on open/switch and late master loads, not over edits.
   useEffect(() => {
-    if (open) {
-      setDraftItems(preferences.items);
+    const sessionChanged =
+      draftSessionRef.current.open !== open ||
+      draftSessionRef.current.workspace !== activeWorkspace;
+    draftSessionRef.current = { open, workspace: activeWorkspace };
+    if (sessionChanged) {
+      draftDirtyRef.current = false;
+      setSaveError(null);
       draggingIndexRef.current = null;
       overIndexRef.current = null;
       setDraggingIndex(null);
       setOverIndex(null);
       setColorPickerItem(null);
     }
-  }, [open, activeWorkspace]);
+    if (open && !draftDirtyRef.current) setDraftItems(preferences.items);
+  }, [open, activeWorkspace, preferences.items]);
 
   // Open color picker sub-modal
   const openColorPicker = (item: UnifiedCardItem) => {
@@ -183,6 +200,7 @@ export function CustomizeStatsAndPillsModal({
   const moveItem = (index: number, direction: "up" | "down") => {
     const targetIndex = direction === "up" ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= draftItems.length) return;
+    draftDirtyRef.current = true;
 
     const next = [...draftItems];
     const [moved] = next.splice(index, 1);
@@ -194,6 +212,7 @@ export function CustomizeStatsAndPillsModal({
 
   // Pointer-based drag starter: 100% reliable, never locks browser
   const startPointerDrag = (e: React.PointerEvent, index: number) => {
+    if (isSaving) return;
     const target = e.target as HTMLElement;
     // Don't drag if clicking buttons, switches, inputs or interactive controls
     if (
@@ -260,6 +279,7 @@ export function CustomizeStatsAndPillsModal({
           !isNaN(toIdx) &&
           fromIdx !== toIdx
         ) {
+          draftDirtyRef.current = true;
           setDraftItems((prev) => {
             const next = [...prev];
             const [moved] = next.splice(fromIdx, 1);
@@ -284,6 +304,7 @@ export function CustomizeStatsAndPillsModal({
     id: string,
     key: "showInStatsCard" | "showInFilterBar",
   ) => {
+    draftDirtyRef.current = true;
     setDraftItems((prev) =>
       prev.map((item) =>
         item.id === id ? { ...item, [key]: !item[key] } : item,
@@ -292,6 +313,7 @@ export function CustomizeStatsAndPillsModal({
   };
 
   const updateColor = (id: string, colorHex: string) => {
+    draftDirtyRef.current = true;
     setDraftItems((prev) =>
       prev.map((item) =>
         item.id === id ? { ...item, displayColor: colorHex } : item,
@@ -300,13 +322,24 @@ export function CustomizeStatsAndPillsModal({
   };
 
   const handleSave = async () => {
-    await preferences.savePreferences(draftItems);
-    onOpenChange(false);
+    if (isSaving) return;
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await preferences.savePreferences(draftItems);
+      onOpenChange(false);
+    } catch (error) {
+      setSaveError(
+        getApiErrorMessage(error, "Could not save card and pill preferences."),
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleReset = () => {
-    preferences.resetToDefaults();
-    setDraftItems(preferences.items);
+    draftDirtyRef.current = true;
+    setDraftItems(preferences.getDefaultItems());
   };
 
   const statsCardsCount = useMemo(
@@ -321,7 +354,12 @@ export function CustomizeStatsAndPillsModal({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (!isSaving) onOpenChange(nextOpen);
+        }}
+      >
         <DialogContent className="max-w-5xl w-[94vw] max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 rounded-xl bg-slate-50 border-slate-200 shadow-2xl">
           {/* Header */}
           <DialogHeader className="p-5 pb-4 bg-white border-b border-slate-200">
@@ -351,6 +389,7 @@ export function CustomizeStatsAndPillsModal({
                         : "text-muted-foreground hover:text-secondary",
                     )}
                     onClick={() => setActiveWorkspace("all_leads")}
+                    disabled={isSaving}
                   >
                     All Leads
                   </Button>
@@ -365,6 +404,7 @@ export function CustomizeStatsAndPillsModal({
                         : "text-muted-foreground hover:text-secondary",
                     )}
                     onClick={() => setActiveWorkspace("follow_up")}
+                    disabled={isSaving}
                   >
                     Follow-Ups
                   </Button>
@@ -423,7 +463,13 @@ export function CustomizeStatsAndPillsModal({
           </div>
 
           {/* Body Content */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-5 relative">
+          {saveError && (
+            <p role="alert" className="px-5 py-3 text-sm text-destructive">
+              {saveError}
+            </p>
+          )}
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 relative">
+            <fieldset disabled={isSaving} className="min-w-0">
             {activeTab === "cards" ? (
               /* ============================================================ */
               /* TAB 1: DRAGGABLE ACTUAL VISUAL STATS CARDS                   */
@@ -783,6 +829,7 @@ export function CustomizeStatsAndPillsModal({
                 })}
               </div>
             )}
+            </fieldset>
           </div>
 
           {/* Footer */}
@@ -793,6 +840,7 @@ export function CustomizeStatsAndPillsModal({
               size="sm"
               className="text-xs font-bold gap-1.5 border-slate-200 shadow-none hover:bg-slate-50"
               onClick={handleReset}
+              disabled={isSaving}
             >
               <RotateCcw className="h-3.5 w-3.5" />
               Reset to Defaults
@@ -805,6 +853,7 @@ export function CustomizeStatsAndPillsModal({
                 size="sm"
                 className="text-xs font-bold shadow-none"
                 onClick={() => onOpenChange(false)}
+                disabled={isSaving}
               >
                 Cancel
               </Button>
@@ -814,8 +863,13 @@ export function CustomizeStatsAndPillsModal({
                 size="sm"
                 className="text-xs font-bold"
                 onClick={handleSave}
+                disabled={
+                  isSaving ||
+                  preferences.statusMaster.isLoading ||
+                  preferences.leadTypeMaster.isLoading
+                }
               >
-                Save Changes
+                {isSaving ? "Saving…" : "Save Changes"}
               </Button>
             </div>
           </DialogFooter>

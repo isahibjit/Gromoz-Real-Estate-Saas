@@ -320,6 +320,7 @@ describe('Meta form routing', () => {
       preferredProjectId: 'form-project',
       configuredTeamId: 'form-team',
       assignmentOverrideApplied: false,
+      automaticAssignmentConfigured: true,
       routingScope: 'form',
     });
     expect(result.normalizedLead.telecallerId).toBeUndefined();
@@ -344,5 +345,6 @@ describe('Meta form routing', () => {
     ]);
     expect(result.normalizedLead.leadSourceId).toBe('meta-source');
     expect(result.normalizedLead.assignmentOverrideApplied).toBe(false);
+    expect(result.normalizedLead.automaticAssignmentConfigured).toBe(false);
   });
 });

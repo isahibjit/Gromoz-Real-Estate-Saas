@@ -16,6 +16,7 @@ export type PortalProvider = (typeof portalProviders)[number];
 export interface ConnectionRoutingInput {
   projectId?: string | null;
   teamId?: string | null;
+  ownerId?: string | null;
   telecallerId?: string | null;
   fieldExecutiveId?: string | null;
   sourceId?: unknown;
@@ -47,8 +48,12 @@ export async function assertValidRoutingAssignees(
   telecallerId?: string | null,
   fieldExecutiveId?: string | null,
   ownerId?: string | null,
+  options: { allowBothExecutives?: boolean } = {},
 ) {
-  if (telecallerId && fieldExecutiveId) {
+  if (ownerId && (telecallerId || fieldExecutiveId)) {
+    throw new BadRequestException('Select exactly one person override');
+  }
+  if (telecallerId && fieldExecutiveId && !options.allowBothExecutives) {
     throw new BadRequestException(
       'Select either a Pre Sales user or a Sales user, not both',
     );
@@ -587,6 +592,7 @@ export class LeadSourceConnectionsService {
 
     const projectId = cleanOptional(body.projectId);
     const teamId = cleanOptional(body.teamId);
+    const ownerId = cleanOptional(body.ownerId);
     const telecallerId = cleanOptional(body.telecallerId);
     const fieldExecutiveId = cleanOptional(body.fieldExecutiveId);
     const [project, team] = await Promise.all([
@@ -611,11 +617,11 @@ export class LeadSourceConnectionsService {
           })
         : null,
       this.tenants.assertEmployees(
-        [telecallerId, fieldExecutiveId].filter((id): id is string =>
+        [ownerId, telecallerId, fieldExecutiveId].filter((id): id is string =>
           Boolean(id),
         ),
       ),
-      assertValidRoutingAssignees(this.prisma, telecallerId, fieldExecutiveId),
+      assertValidRoutingAssignees(this.prisma, telecallerId, fieldExecutiveId, ownerId),
     ]);
     if (projectId && !project) {
       throw new BadRequestException('Select an active CRM project');
@@ -625,11 +631,11 @@ export class LeadSourceConnectionsService {
     }
 
     const assignmentMode =
-      telecallerId || fieldExecutiveId
+      ownerId || telecallerId || fieldExecutiveId
         ? 'DIRECT'
         : teamId
         ? 'TEAM_AUTO'
-        : 'AUTO_ASSIGN';
+        : 'UNASSIGNED';
     const routing = await this.prisma.integrationRoutingRule.upsert({
       where: { connectionId: current.id },
       create: {
@@ -639,6 +645,7 @@ export class LeadSourceConnectionsService {
         connectionId: current.id,
         projectId,
         teamId,
+        ownerId,
         telecallerId,
         fieldExecutiveId,
         assignmentMode,
@@ -649,6 +656,7 @@ export class LeadSourceConnectionsService {
         accountLabel: current.name,
         projectId,
         teamId,
+        ownerId,
         telecallerId,
         fieldExecutiveId,
         assignmentMode,
@@ -664,6 +672,7 @@ export class LeadSourceConnectionsService {
         provider,
         projectId,
         teamId,
+        ownerId,
         telecallerId,
         fieldExecutiveId,
         assignmentMode,

@@ -322,6 +322,9 @@ export class HousingIntegrationsService {
     }
 
     const payload = body || {};
+    const routing = integration.routingRule?.isActive === false
+      ? undefined
+      : integration.routingRule;
     const mapping = this.mapping(integration.fieldMapping);
     const name =
       payloadText(payload, mapping.Name, 'name', 'full_name') ?? 'Housing Lead';
@@ -346,7 +349,7 @@ export class HousingIntegrationsService {
       'property_name',
     );
     const matchedProject =
-      !integration.routingRule?.projectId && projectName
+      !routing?.projectId && projectName
         ? await this.prisma.project.findFirst({
             where: {
               organizationId: integration.organizationId,
@@ -360,21 +363,20 @@ export class HousingIntegrationsService {
           })
         : null;
     const preferredProjectId =
-      integration.routingRule?.projectId ?? matchedProject?.id;
+      routing?.projectId ?? matchedProject?.id;
     const locality = payloadText(payload, mapping.Locality, 'locality');
     const city = payloadText(payload, mapping.City, 'city');
     const budget = payloadText(payload, mapping.Budget, 'budget');
     const remarks = payloadText(payload, mapping.Remarks, 'remarks', 'comment');
     const source = await this.resolveHousingSource();
     const directAssignment = Boolean(
-      integration.routingRule?.telecallerId ||
-        integration.routingRule?.fieldExecutiveId,
+      routing?.ownerId || routing?.telecallerId || routing?.fieldExecutiveId,
     );
 
     const lead = await this.crm.createLead({
       organizationId: integration.organizationId,
       name,
-      phone,
+      mobile: phone,
       email,
       source: 'Housing.com',
       sourceId: source.id,
@@ -388,13 +390,14 @@ export class HousingIntegrationsService {
       ]
         .filter((value): value is string => Boolean(value))
         .join('\n'),
-      telecallerId: integration.routingRule?.telecallerId ?? undefined,
-      fieldExecutiveId: integration.routingRule?.fieldExecutiveId ?? undefined,
+      ownerId: routing?.ownerId ?? undefined,
+      telecallerId: routing?.telecallerId ?? undefined,
+      fieldExecutiveId: routing?.fieldExecutiveId ?? undefined,
       autoAssignmentTeamId: directAssignment
         ? undefined
-        : integration.routingRule?.teamId ?? undefined,
+        : routing?.teamId ?? undefined,
       integrationConnectionId: integration.id,
-    });
+    }, undefined, { fromIntegration: true });
 
     await this.connections.recordLeadReceived(integration.id);
     await this.prisma.auditLog.create({

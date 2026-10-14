@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import { useLeadStatusMaster, useLeadTypeMaster, type StatusMasterItem } from "./useLeadStatusMaster";
+import { useLeadStatusMaster, useLeadTypeMaster } from "./useLeadStatusMaster";
 
 export type WorkspaceTarget = "all_leads" | "follow_up";
 
@@ -224,7 +224,7 @@ export function useLeadCardPreferences(workspace: WorkspaceTarget) {
     }
   }, [buildDefaultItems, leadTypeMaster.isLoading, statusMaster.isLoading]);
 
-  // Save changes to localStorage and optionally sync to backend
+  // Persist masters before publishing saved workspace preferences.
   const savePreferences = useCallback(
     async (newItems: UnifiedCardItem[]) => {
       // Re-index strictly sequential
@@ -235,35 +235,26 @@ export function useLeadCardPreferences(workspace: WorkspaceTarget) {
         }),
       );
 
+      const updates = sequentialItems
+        .filter((i) => i.category === "status" || i.category === "lead_type")
+        .map((item) => ({
+          id: item.id,
+          sortOrder: item.order,
+          showInStatsCard: item.showInStatsCard,
+          showInFilterBar: item.showInFilterBar,
+          displayColor: item.displayColor,
+        }));
+
+      if (updates.length > 0) {
+        await api.post("/lead-masters/bulk-reorder", { items: updates });
+      }
+
+      localStorage.setItem(storageKey, JSON.stringify(sequentialItems));
       setItems(sequentialItems);
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(sequentialItems));
-        window.dispatchEvent(
-          new CustomEvent("crm_card_prefs_updated", { detail: { workspace } }),
-        );
-      } catch (e) {
-        console.warn("Could not save card preferences to localStorage", e);
-      }
-
-      // Sync master values to backend for persistence
-      try {
-        const updates = sequentialItems
-          .filter((i) => i.category === "status" || i.category === "lead_type")
-          .map((item) => ({
-            id: item.id,
-            sortOrder: item.order,
-            showInStatsCard: item.showInStatsCard,
-            showInFilterBar: item.showInFilterBar,
-            displayColor: item.displayColor,
-          }));
-
-        if (updates.length > 0) {
-          await api.post("/lead-masters/bulk-reorder", { items: updates });
-          queryClient.invalidateQueries({ queryKey: ["lead-masters"] });
-        }
-      } catch (err) {
-        console.warn("Could not sync preferences to backend masters", err);
-      }
+      window.dispatchEvent(
+        new CustomEvent("crm_card_prefs_updated", { detail: { workspace } }),
+      );
+      void queryClient.invalidateQueries({ queryKey: ["lead-masters"] });
     },
     [queryClient, storageKey, workspace],
   );
@@ -281,7 +272,9 @@ export function useLeadCardPreferences(workspace: WorkspaceTarget) {
               setItems(parsed);
             }
           }
-        } catch {}
+        } catch {
+          // Ignore unreadable external storage updates and retain current items.
+        }
       }
     };
     window.addEventListener("crm_card_prefs_updated", handleUpdate);
@@ -291,11 +284,6 @@ export function useLeadCardPreferences(workspace: WorkspaceTarget) {
       window.removeEventListener("storage", handleUpdate);
     };
   }, [storageKey, workspace]);
-
-  const resetToDefaults = useCallback(() => {
-    const defaults = buildDefaultItems();
-    savePreferences(defaults);
-  }, [buildDefaultItems, savePreferences]);
 
   const statsCards = useMemo(
     () =>
@@ -318,7 +306,7 @@ export function useLeadCardPreferences(workspace: WorkspaceTarget) {
     statsCards,
     filterPills,
     savePreferences,
-    resetToDefaults,
+    getDefaultItems: buildDefaultItems,
     statusMaster,
     leadTypeMaster,
   };

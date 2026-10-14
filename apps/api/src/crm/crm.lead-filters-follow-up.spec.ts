@@ -29,10 +29,20 @@ describe('Lead assignment filters and follow-up timestamps', () => {
     },
     project: { findMany: jest.fn().mockResolvedValue([]) },
     employeeProfile: { findMany: jest.fn().mockResolvedValue([]) },
-    team: { findMany: jest.fn().mockResolvedValue([]) },
+    team: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
+    siteVisit: {
+      count: jest.fn().mockResolvedValue(0),
+      groupBy: jest.fn().mockResolvedValue([]),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
     teamLeaderVisibilityGrant: { findMany: jest.fn().mockResolvedValue([]) },
     leadVisibilityOverride: { findMany: jest.fn().mockResolvedValue([]) },
     followUp: {
+      count: jest.fn().mockResolvedValue(0),
+      groupBy: jest.fn().mockResolvedValue([]),
       findMany: jest.fn().mockResolvedValue([]),
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       update: jest.fn().mockImplementation(async ({ data }) => ({
@@ -82,6 +92,101 @@ describe('Lead assignment filters and follow-up timestamps', () => {
     }).compile();
     service = module.get(CrmService);
     visibility = module.get(LeadVisibilityService);
+  });
+
+  it.each(['TELECALLER', 'SALES_AGENT'])(
+    'rejects restricted source/executive fields for %s before any write',
+    async (role) => {
+      await expect(
+        service.updateLead(
+          'lead',
+          {
+            leadName: 'Changed name',
+            leadSource: 'referral',
+            telecallerId: 'viewer',
+          },
+          { sub: 'viewer', role },
+        ),
+      ).rejects.toThrow(
+        'You are not allowed to update Source, Executive assignment',
+      );
+      expect(db.lead.update).not.toHaveBeenCalled();
+      expect(db.activity.create).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['TELECALLER', 'SALES_AGENT', 'MANAGER', 'TEAM_LEADER'])(
+    'accepts a changed-field-only name edit for %s without assignment changes',
+    async (role) => {
+      jest
+        .spyOn(service, 'getLead')
+        .mockResolvedValue({ id: 'lead', name: 'Customer' });
+      db.lead.update.mockResolvedValueOnce({
+        id: 'lead',
+        name: 'Changed name',
+      });
+      const response = await service.updateLead(
+        'lead',
+        { leadName: 'Changed name' },
+        { sub: 'viewer', role },
+      );
+      if (role === 'TELECALLER' || role === 'SALES_AGENT') {
+        expect(response.sourceName).toBe('Source Unknown');
+        expect(response.sourceId).toBeNull();
+      }
+      expect(db.lead.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            name: 'Changed name',
+            sourceId: undefined,
+            telecallerId: undefined,
+            fieldExecutiveId: undefined,
+            statusId: undefined,
+          }),
+        }),
+      );
+      expect(db.note.create).not.toHaveBeenCalled();
+      expect(db.followUp.create).not.toHaveBeenCalled();
+    },
+  );
+
+  it('continues enforcing custom field permissions for management roles', async () => {
+    db.leadListColumnPreference.findUnique.mockResolvedValueOnce({
+      visibleColumns: ['email'],
+    });
+    await expect(
+      service.updateLead(
+        'lead',
+        { leadName: 'Changed name' },
+        { sub: 'manager', role: 'MANAGER' },
+      ),
+    ).rejects.toThrow('You are not allowed to update Lead name');
+    expect(db.lead.update).not.toHaveBeenCalled();
+  });
+
+  it('does not let a permitted edit access another employee lead', async () => {
+    await expect(
+      service.updateLead(
+        'outside-lead',
+        { leadName: 'Changed' },
+        { sub: 'viewer', role: 'TELECALLER' },
+      ),
+    ).rejects.toThrow('Lead not found');
+    expect(db.lead.update).not.toHaveBeenCalled();
+  });
+
+  it('retains the follow-up requirement for a single-lead note change', async () => {
+    jest
+      .spyOn(service, 'getLead')
+      .mockResolvedValue({ id: 'lead', remarks: 'Old note' });
+    await expect(
+      service.updateLead(
+        'lead',
+        { remarks: 'New note' },
+        { sub: 'viewer', role: 'TELECALLER' },
+      ),
+    ).rejects.toThrow('A follow-up date is required');
+    expect(db.lead.update).not.toHaveBeenCalled();
   });
 
   it('matches the selected employee in any current assignment, including shared leads', async () => {
@@ -149,6 +254,102 @@ describe('Lead assignment filters and follow-up timestamps', () => {
     await service.listLeads({}, { role: 'ADMIN', sub: 'admin' });
     const where = db.lead.findMany.mock.calls[0][0].where;
     expect(where).toEqual({ deletedAt: null });
+  });
+
+  it('keeps pagination deterministic for filtered export batches without widening user visibility', async () => {
+    await service.listLeads(
+      {
+        page: '2',
+        limit: '5000',
+        projectId: 'project',
+        integrationConnectionId: 'account',
+      },
+      { sub: 'viewer', role: 'TELECALLER' },
+    );
+    expect(db.lead.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 5000,
+        take: 5000,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        where: expect.objectContaining({
+          deletedAt: null,
+          integrationConnectionId: { in: ['account'] },
+          AND: expect.arrayContaining([visibility.assignmentScope(['viewer'])]),
+        }),
+      }),
+    );
+  });
+
+  it('retains project/account filters and stable ordering for a scoped workspace export page', async () => {
+    await service.getTeamLeadWorkspace(
+      {
+        scope: 'mine',
+        page: '2',
+        limit: '5000',
+        projectId: 'project',
+        integrationConnectionId: 'account',
+      },
+      { sub: 'viewer', role: 'TEAM_LEADER' },
+    );
+    expect(db.lead.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 5000,
+        take: 5000,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        where: expect.objectContaining({
+          integrationConnectionId: { in: ['account'] },
+          AND: expect.arrayContaining([
+            visibility.assignmentScope(['viewer']),
+            {
+              OR: expect.arrayContaining([
+                {
+                  requirement: {
+                    is: { preferredProjectId: { in: ['project'] } },
+                  },
+                },
+              ]),
+            },
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it('keeps team member visibility and stable ordering on subsequent team export pages', async () => {
+    db.team.findFirst.mockResolvedValueOnce({
+      id: 'team',
+      name: 'Team',
+      leaderId: 'viewer',
+      members: [
+        {
+          userId: 'member',
+          user: { id: 'member', fullName: 'Member', role: 'TELECALLER' },
+        },
+      ],
+    });
+    jest
+      .spyOn(visibility, 'resolveAssignmentScopeUserIds')
+      .mockResolvedValueOnce(['viewer', 'member']);
+    await service.getTeamLeadWorkspace(
+      {
+        scope: 'team',
+        memberId: 'member',
+        page: '2',
+        limit: '5000',
+        projectId: 'project',
+      },
+      { sub: 'viewer', role: 'TEAM_LEADER' },
+    );
+    expect(db.lead.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 5000,
+        take: 5000,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        where: expect.objectContaining({
+          AND: expect.arrayContaining([visibility.assignmentScope(['member'])]),
+        }),
+      }),
+    );
   });
 
   it.each([

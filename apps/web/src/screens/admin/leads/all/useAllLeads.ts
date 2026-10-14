@@ -19,7 +19,7 @@ import {
 } from "../add/addLeadData";
 import type { LeadRow } from "./allLeadsTypes";
 
-// Lead tables paginate client-side, so their query must include every row the UI can page through.
+// Maximum API batch size; full exports must continue through subsequent pages.
 export const LEAD_TABLE_MAX_ROWS = 5000;
 
 export interface ApiLead {
@@ -324,6 +324,25 @@ const fallbackLeadTypeOptions: LeadFilterOption[] = [
 const serializeFilterValues = (values?: string[]) =>
   values && values.length > 0 ? values.join(",") : undefined;
 
+const leadFilterQueryParams = (filters?: Partial<LeadListFilters>) => ({
+  sourceId: serializeFilterValues(filters?.sourceId),
+  integrationConnectionId: serializeFilterValues(
+    filters?.integrationConnectionId,
+  ),
+  statusId: serializeFilterValues(filters?.statusId),
+  stageId: serializeFilterValues(filters?.stageId),
+  temperatureId: serializeFilterValues(filters?.temperatureId),
+  propertyType: serializeFilterValues(filters?.propertyType),
+  configuration: serializeFilterValues(filters?.configuration),
+  ownerId: serializeFilterValues(filters?.ownerId),
+  telecallerId: serializeFilterValues(filters?.telecallerId),
+  teamId: serializeFilterValues(filters?.teamId),
+  area: serializeFilterValues(filters?.area),
+  projectId: serializeFilterValues(filters?.projectId),
+  from: filters?.from || undefined,
+  to: filters?.to || undefined,
+});
+
 const mapMasterOptions = (
   items: Array<ApiMasterValue | null | undefined>,
   fallback: LeadFilterOption[],
@@ -533,6 +552,120 @@ export const mapApiLeadToRow = (lead: ApiLead): LeadRow => {
   };
 };
 
+export async function fetchLeadsPage(
+  search: string,
+  segment?: string,
+  inactivityDays?: number,
+  filters?: Partial<LeadListFilters>,
+  limit = 100,
+  page = 1,
+): Promise<{ rows: LeadRow[]; total: number }> {
+  const leadsRes = await api.get<LeadsResponse>("/leads", {
+    params: {
+      page,
+      limit,
+      search: search || undefined,
+      segment,
+      inactivityDays,
+      ...leadFilterQueryParams(filters),
+    },
+  });
+
+  let sources: ApiMasterValue[] = [];
+  try {
+    const sourcesRes = await api.get<{ data: ApiMasterValue[] }>(
+      "/lead-masters/source",
+      {
+        params: { limit: 100 },
+      },
+    );
+    sources = (sourcesRes.data?.data || []).filter(hasUsableMasterValue);
+  } catch {
+    sources = [];
+  }
+
+  let statuses: ApiMasterValue[] = [];
+  try {
+    const statusesRes = await api.get<{ data: ApiMasterValue[] }>(
+      "/lead-masters/status",
+      {
+        params: { limit: 100 },
+      },
+    );
+    statuses = (statusesRes.data?.data || []).filter(hasUsableMasterValue);
+  } catch {
+    statuses = [];
+  }
+
+  const getSourceLabel = (sourceId?: string | null) => {
+    if (!sourceId) return "Unknown";
+    const found = sources.find(
+      (source) =>
+        source.id === sourceId ||
+        source.code === sourceId ||
+        source.name === sourceId,
+    );
+    if (found) return found.name;
+    return isRawIdentifier(sourceId)
+      ? "Unknown"
+      : optionLabel(leadSourceOptions, sourceId, "Unknown");
+  };
+
+  const getStageLabel = (lead: ApiLead) => {
+    if (lead.statusName && !isRawIdentifier(lead.statusName)) {
+      return lead.statusName;
+    }
+    if (lead.stageName && !isRawIdentifier(lead.stageName)) {
+      return lead.stageName;
+    }
+
+    if (lead.statusId) {
+      const found = statuses.find(
+        (status) =>
+          status.id === lead.statusId ||
+          status.code === lead.statusId ||
+          status.name === lead.statusId,
+      );
+      if (found) return found.name;
+    }
+
+    if (lead.stageId) {
+      const found = statuses.find(
+        (status) =>
+          status.id === lead.stageId ||
+          status.code === lead.stageId ||
+          status.name === lead.stageId,
+      );
+      if (found) return found.name;
+    }
+
+    return (
+      (!isRawIdentifier(lead.statusId)
+        ? optionLabel(statusOptions, lead.statusId, "")
+        : "") ||
+      (!isRawIdentifier(lead.stageId)
+        ? optionLabel(stageOptions, lead.stageId, "New Lead")
+        : "New Lead")
+    );
+  };
+
+  const rows = (leadsRes.data.data ?? [])
+    .filter(hasUsableApiLead)
+    .map((lead) => {
+      const mapped = mapApiLeadToRow(lead);
+      mapped.source =
+        cleanLabel(lead.sourceName, "") || getSourceLabel(lead.sourceId);
+      mapped.stage = getStageLabel(lead);
+      mapped.stageTone = stageTone(mapped.stage);
+      return mapped;
+    });
+
+  return {
+    rows,
+    total: leadsRes.data.meta.total,
+  };
+}
+
 export function useAllLeads(
   search: string,
   segment?: string,
@@ -542,15 +675,12 @@ export function useAllLeads(
   page = 1,
 ): UseQueryResult<{ rows: LeadRow[]; total: number }> {
   const user = useAppSelector((state) => state.auth.user);
-  const userId = user?.id ?? "anonymous";
-  const userRole = user?.role ?? "anonymous";
-
-  return useQuery<{ rows: LeadRow[]; total: number }>({
+  return useQuery({
     queryKey: [
       "leads",
       "all",
-      userId,
-      userRole,
+      user?.id ?? "anonymous",
+      user?.role ?? "anonymous",
       search,
       segment,
       inactivityDays,
@@ -560,136 +690,41 @@ export function useAllLeads(
     ],
     enabled: Boolean(user?.id),
     placeholderData: keepPreviousData,
-    queryFn: async () => {
-      const leadsRes = await api.get<LeadsResponse>("/leads", {
-        params: {
-          page,
-          limit,
-          search: search || undefined,
-          segment,
-          inactivityDays,
-          sourceId:
-            serializeFilterValues(filters?.sourceId),
-          integrationConnectionId:
-            serializeFilterValues(filters?.integrationConnectionId),
-          statusId:
-            serializeFilterValues(filters?.statusId),
-          stageId:
-            serializeFilterValues(filters?.stageId),
-          temperatureId:
-            serializeFilterValues(filters?.temperatureId),
-          propertyType:
-            serializeFilterValues(filters?.propertyType),
-          configuration:
-            serializeFilterValues(filters?.configuration),
-          ownerId:
-            serializeFilterValues(filters?.ownerId),
-          telecallerId:
-            serializeFilterValues(filters?.telecallerId),
-          teamId:
-            serializeFilterValues(filters?.teamId),
-          area: serializeFilterValues(filters?.area),
-          projectId: serializeFilterValues(filters?.projectId),
-          from: filters?.from || undefined,
-          to: filters?.to || undefined,
-        },
-      });
+    queryFn: () =>
+      fetchLeadsPage(search, segment, inactivityDays, filters, limit, page),
+  });
+}
 
-      let sources: ApiMasterValue[] = [];
-      try {
-        const sourcesRes = await api.get<{ data: ApiMasterValue[] }>(
-          "/lead-masters/source",
-          {
-            params: { limit: 100 },
-          },
-        );
-        sources = (sourcesRes.data?.data || []).filter(hasUsableMasterValue);
-      } catch {
-        sources = [];
-      }
-
-      let statuses: ApiMasterValue[] = [];
-      try {
-        const statusesRes = await api.get<{ data: ApiMasterValue[] }>(
-          "/lead-masters/status",
-          {
-            params: { limit: 100 },
-          },
-        );
-        statuses = (statusesRes.data?.data || []).filter(hasUsableMasterValue);
-      } catch {
-        statuses = [];
-      }
-
-      const getSourceLabel = (sourceId?: string | null) => {
-        if (!sourceId) return "Unknown";
-        const found = sources.find(
-          (source) =>
-            source.id === sourceId ||
-            source.code === sourceId ||
-            source.name === sourceId,
-        );
-        if (found) return found.name;
-        return isRawIdentifier(sourceId)
-          ? "Unknown"
-          : optionLabel(leadSourceOptions, sourceId, "Unknown");
-      };
-
-      const getStageLabel = (lead: ApiLead) => {
-        if (lead.statusName && !isRawIdentifier(lead.statusName)) {
-          return lead.statusName;
-        }
-        if (lead.stageName && !isRawIdentifier(lead.stageName)) {
-          return lead.stageName;
-        }
-
-        if (lead.statusId) {
-          const found = statuses.find(
-            (status) =>
-              status.id === lead.statusId ||
-              status.code === lead.statusId ||
-              status.name === lead.statusId,
-          );
-          if (found) return found.name;
-        }
-
-        if (lead.stageId) {
-          const found = statuses.find(
-            (status) =>
-              status.id === lead.stageId ||
-              status.code === lead.stageId ||
-              status.name === lead.stageId,
-          );
-          if (found) return found.name;
-        }
-
-        return (
-          (!isRawIdentifier(lead.statusId)
-            ? optionLabel(statusOptions, lead.statusId, "")
-            : "") ||
-          (!isRawIdentifier(lead.stageId)
-            ? optionLabel(stageOptions, lead.stageId, "New Lead")
-            : "New Lead")
-        );
-      };
-
-      const rows = (leadsRes.data.data ?? [])
-        .filter(hasUsableApiLead)
-        .map((lead) => {
-          const mapped = mapApiLeadToRow(lead);
-          mapped.source =
-            cleanLabel(lead.sourceName, "") || getSourceLabel(lead.sourceId);
-          mapped.stage = getStageLabel(lead);
-          mapped.stageTone = stageTone(mapped.stage);
-          return mapped;
-        });
-
-      return {
-        rows,
-        total: leadsRes.data.meta.total,
-      };
+export async function fetchTeamLeadWorkspacePage(
+  search: string,
+  filters?: Partial<LeadListFilters>,
+  memberId?: string,
+  limit = 100,
+  page = 1,
+): Promise<TeamLeadWorkspaceResponse> {
+  const response = await api.get<
+    Omit<TeamLeadWorkspaceResponse, "members" | "rows"> & {
+      members?: Array<TeamLeadWorkspaceMember | null | undefined>;
+      rows: Array<ApiLead | null | undefined>;
+    }
+  >("/leads/team-workspace", {
+    params: {
+      scope: "team",
+      page,
+      limit,
+      search: search || undefined,
+      memberId: memberId || undefined,
+      ...leadFilterQueryParams(filters),
     },
   });
+
+  return {
+    ...response.data,
+    members: (response.data.members ?? []).filter(hasUsableWorkspaceMember),
+    rows: (response.data.rows ?? [])
+      .filter(hasUsableApiLead)
+      .map(mapApiLeadToRow),
+  };
 }
 
 export function useTeamLeadWorkspace(
@@ -700,15 +735,12 @@ export function useTeamLeadWorkspace(
   enabled = true,
 ): UseQueryResult<TeamLeadWorkspaceResponse> {
   const user = useAppSelector((state) => state.auth.user);
-  const userId = user?.id ?? "anonymous";
-  const userRole = user?.role ?? "anonymous";
-
-  return useQuery<TeamLeadWorkspaceResponse>({
+  return useQuery({
     queryKey: [
       "leads",
       "team-workspace",
-      userId,
-      userRole,
+      user?.id ?? "anonymous",
+      user?.role ?? "anonymous",
       search,
       filters,
       memberId,
@@ -717,42 +749,70 @@ export function useTeamLeadWorkspace(
     enabled: enabled && Boolean(user?.id),
     placeholderData: keepPreviousData,
     retry: false,
-    queryFn: async () => {
-      const response = await api.get<
-        Omit<TeamLeadWorkspaceResponse, "members" | "rows"> & {
-          members?: Array<TeamLeadWorkspaceMember | null | undefined>;
-          rows: Array<ApiLead | null | undefined>;
-        }
-      >("/leads/team-workspace", {
-        params: {
-          scope: "team",
-          page: 1,
-          limit,
-          search: search || undefined,
-          memberId: memberId || undefined,
-          sourceId: serializeFilterValues(filters?.sourceId),
-          statusId: serializeFilterValues(filters?.statusId),
-          stageId: serializeFilterValues(filters?.stageId),
-          temperatureId: serializeFilterValues(filters?.temperatureId),
-          propertyType: serializeFilterValues(filters?.propertyType),
-          configuration: serializeFilterValues(filters?.configuration),
-          ownerId: serializeFilterValues(filters?.ownerId),
-          telecallerId: serializeFilterValues(filters?.telecallerId),
-          area: serializeFilterValues(filters?.area),
-          from: filters?.from || undefined,
-          to: filters?.to || undefined,
-        },
-      });
-
-      return {
-        ...response.data,
-        members: (response.data.members ?? []).filter(hasUsableWorkspaceMember),
-        rows: (response.data.rows ?? [])
-          .filter(hasUsableApiLead)
-          .map(mapApiLeadToRow),
-      };
-    },
+    queryFn: () => fetchTeamLeadWorkspacePage(search, filters, memberId, limit),
   });
+}
+
+export async function fetchLeadRowsForExport({
+  search,
+  segment,
+  filters,
+  teamScope,
+  memberId,
+}: {
+  search: string;
+  segment?: string;
+  filters?: Partial<LeadListFilters>;
+  teamScope: boolean;
+  memberId?: string;
+}): Promise<LeadRow[]> {
+  const rows: LeadRow[] = [];
+  const seenIds = new Set<string>();
+  let expectedTotal: number | undefined;
+  for (let page = 1; ; page += 1) {
+    const result = teamScope
+      ? await fetchTeamLeadWorkspacePage(
+          search,
+          filters,
+          memberId,
+          LEAD_TABLE_MAX_ROWS,
+          page,
+        )
+      : await fetchLeadsPage(
+          search,
+          segment,
+          undefined,
+          filters,
+          LEAD_TABLE_MAX_ROWS,
+          page,
+        );
+    const total = "meta" in result ? result.meta.total : result.total;
+    if (
+      !Number.isSafeInteger(total) ||
+      total < 0 ||
+      (expectedTotal !== undefined && total !== expectedTotal)
+    ) {
+      throw new Error(
+        "The lead results changed during export. Please try again.",
+      );
+    }
+    expectedTotal = total;
+    for (const row of result.rows) {
+      const id = row.backendId ?? row.id;
+      if (seenIds.has(id))
+        throw new Error(
+          "The lead results changed during export. Please try again.",
+        );
+      seenIds.add(id);
+      rows.push(row);
+    }
+    if (rows.length === total) return rows;
+    if (rows.length > total || result.rows.length === 0) {
+      throw new Error(
+        "Could not load all filtered leads. Please try exporting again.",
+      );
+    }
+  }
 }
 
 export function useLeadListFilterOptions() {
@@ -764,9 +824,12 @@ export function useLeadListFilterOptions() {
     queryKey: ["lead-masters", "source", "filter-options"],
     queryFn: async () =>
       (
-        await api.get<{ data: Array<ApiMasterValue | null | undefined> }>("/lead-masters/source", {
-          params: { limit: 100 },
-        })
+        await api.get<{ data: Array<ApiMasterValue | null | undefined> }>(
+          "/lead-masters/source",
+          {
+            params: { limit: 100 },
+          },
+        )
       ).data.data,
   });
 
@@ -774,9 +837,12 @@ export function useLeadListFilterOptions() {
     queryKey: ["lead-masters", "status", "filter-options"],
     queryFn: async () =>
       (
-        await api.get<{ data: Array<ApiMasterValue | null | undefined> }>("/lead-masters/status", {
-          params: { limit: 100 },
-        })
+        await api.get<{ data: Array<ApiMasterValue | null | undefined> }>(
+          "/lead-masters/status",
+          {
+            params: { limit: 100 },
+          },
+        )
       ).data.data,
   });
 
@@ -784,9 +850,12 @@ export function useLeadListFilterOptions() {
     queryKey: ["lead-masters", "stage", "filter-options"],
     queryFn: async () =>
       (
-        await api.get<{ data: Array<ApiMasterValue | null | undefined> }>("/lead-masters/stage", {
-          params: { limit: 100 },
-        })
+        await api.get<{ data: Array<ApiMasterValue | null | undefined> }>(
+          "/lead-masters/stage",
+          {
+            params: { limit: 100 },
+          },
+        )
       ).data.data,
   });
 
@@ -794,9 +863,12 @@ export function useLeadListFilterOptions() {
     queryKey: ["lead-masters", "priority", "filter-options"],
     queryFn: async () =>
       (
-        await api.get<{ data: Array<ApiMasterValue | null | undefined> }>("/lead-masters/priority", {
-          params: { limit: 100 },
-        })
+        await api.get<{ data: Array<ApiMasterValue | null | undefined> }>(
+          "/lead-masters/priority",
+          {
+            params: { limit: 100 },
+          },
+        )
       ).data.data,
   });
 
@@ -804,9 +876,12 @@ export function useLeadListFilterOptions() {
     queryKey: ["lead-masters", "temperature", "filter-options"],
     queryFn: async () =>
       (
-        await api.get<{ data: Array<ApiMasterValue | null | undefined> }>("/lead-masters/temperature", {
-          params: { limit: 100 },
-        })
+        await api.get<{ data: Array<ApiMasterValue | null | undefined> }>(
+          "/lead-masters/temperature",
+          {
+            params: { limit: 100 },
+          },
+        )
       ).data.data,
   });
 
@@ -814,9 +889,12 @@ export function useLeadListFilterOptions() {
     queryKey: ["lead-masters", "lead_budget_range", "filter-options"],
     queryFn: async () =>
       (
-        await api.get<{ data: Array<ApiMasterValue | null | undefined> }>("/lead-masters/lead_budget_range", {
-          params: { limit: 100 },
-        })
+        await api.get<{ data: Array<ApiMasterValue | null | undefined> }>(
+          "/lead-masters/lead_budget_range",
+          {
+            params: { limit: 100 },
+          },
+        )
       ).data.data,
   });
 
@@ -824,9 +902,12 @@ export function useLeadListFilterOptions() {
     queryKey: ["lead-masters", "property_type", "filter-options"],
     queryFn: async () =>
       (
-        await api.get<{ data: Array<ApiMasterValue | null | undefined> }>("/lead-masters/property_type", {
-          params: { limit: 100 },
-        })
+        await api.get<{ data: Array<ApiMasterValue | null | undefined> }>(
+          "/lead-masters/property_type",
+          {
+            params: { limit: 100 },
+          },
+        )
       ).data.data,
   });
 
@@ -847,9 +928,12 @@ export function useLeadListFilterOptions() {
     queryKey: ["lead-masters", "project_location", "filter-options"],
     queryFn: async () =>
       (
-        await api.get<{ data: Array<ApiMasterValue | null | undefined> }>("/lead-masters/project_location", {
-          params: { limit: 100 },
-        })
+        await api.get<{ data: Array<ApiMasterValue | null | undefined> }>(
+          "/lead-masters/project_location",
+          {
+            params: { limit: 100 },
+          },
+        )
       ).data.data,
   });
 
@@ -868,7 +952,11 @@ export function useLeadListFilterOptions() {
     queryKey: ["teams", "lead-filter-options", userId, userRole],
     enabled: Boolean(user?.id),
     queryFn: async () =>
-      (await api.get<{ data: Array<ApiTeamOption | null | undefined> }>("/teams")).data.data,
+      (
+        await api.get<{ data: Array<ApiTeamOption | null | undefined> }>(
+          "/teams",
+        )
+      ).data.data,
   });
 
   const projectsQuery = useQuery({
@@ -950,15 +1038,14 @@ export function useLeadListFilterOptions() {
       areaOptions: mapNamedMasterOptions(areaQuery.data ?? [], []),
       projectOptions: uniqueOptions(
         (projectsQuery.data ?? [])
-          .filter(
-            (project): project is { id: string; name: string } =>
-              Boolean(
-                project &&
-                  typeof project.id === "string" &&
-                  project.id.trim() &&
-                  typeof project.name === "string" &&
-                  project.name.trim(),
-              ),
+          .filter((project): project is { id: string; name: string } =>
+            Boolean(
+              project &&
+                typeof project.id === "string" &&
+                project.id.trim() &&
+                typeof project.name === "string" &&
+                project.name.trim(),
+            ),
           )
           .map((project) => ({
             label: project.name,

@@ -35,6 +35,7 @@ import {
 import { WorkspacePage } from "../../components/layout/PageHeader";
 
 import { api } from "../../common/api";
+import { getApiErrorMessage } from "../../common/apiError";
 import { usePermission } from "../../common/access/usePermission";
 import { useAppSelector } from "../../store";
 import type { SidebarItem } from "../admin/dashboard/dashboardData";
@@ -310,8 +311,8 @@ function TaskDialog({
       void queryClient.invalidateQueries({ queryKey: ["employee-tasks"] });
       onOpenChange(false);
     },
-    onError: () =>
-      toast.error(initialData ? "Could not update task" : "Could not create task"),
+    onError: (error: unknown) =>
+      toast.error(getApiErrorMessage(error, initialData ? "Could not update task" : "Could not create task")),
   });
 
   return (
@@ -493,9 +494,10 @@ export function EmployeeTasksScreen() {
   const user = useAppSelector((state) => state.auth.user);
   const admin = isAdminRole(user?.role);
   const { canCreate, canUpdate, canDelete } = usePermission("tasks");
-  const canCreateTask = canCreate || admin;
-  const canUpdateTask = canUpdate || admin;
-  const canDeleteTask = canDelete || admin;
+  const { canView: canViewLeads } = usePermission("leads");
+  const canCreateTask = canCreate;
+  const canUpdateTask = canUpdate;
+  const canDeleteTask = canDelete;
 
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -550,6 +552,7 @@ export function EmployeeTasksScreen() {
 
   const leads = useQuery({
     queryKey: ["employee-task-leads"],
+    enabled: canViewLeads,
     queryFn: async () =>
       (await api.get<{ data: LeadOption[] }>("/leads", { params: { limit: 200 } }))
         .data.data,
@@ -566,7 +569,7 @@ export function EmployeeTasksScreen() {
       );
       void queryClient.invalidateQueries({ queryKey: ["employee-tasks"] });
     },
-    onError: () => toast.error("Could not update task"),
+    onError: (error: unknown) => toast.error(getApiErrorMessage(error, "Could not update task")),
   });
 
   const deleteTask = useMutation({
@@ -575,7 +578,7 @@ export function EmployeeTasksScreen() {
       toast.success("Task deleted successfully");
       void queryClient.invalidateQueries({ queryKey: ["employee-tasks"] });
     },
-    onError: () => toast.error("Could not delete task"),
+    onError: (error: unknown) => toast.error(getApiErrorMessage(error, "Could not delete task")),
   });
 
   const rows = tasks.data?.data ?? [];
@@ -769,7 +772,7 @@ export function EmployeeTasksScreen() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {nextAction ? (
+                          {nextAction && canUpdateTask ? (
                             <Button
                               type="button"
                               variant={nextAction.variant}
@@ -784,11 +787,11 @@ export function EmployeeTasksScreen() {
                             >
                               {nextAction.label}
                             </Button>
-                          ) : (
+                          ) : task.status === "Completed" ? (
                             <span className="inline-flex h-8 items-center rounded-md border border-emerald-100 bg-emerald-50 px-3 text-xs font-extrabold text-emerald-700">
                               Completed
                             </span>
-                          )}
+                          ) : null}
                           {canUpdateTask || canDeleteTask ? (
                             <>
                               {canUpdateTask ? (

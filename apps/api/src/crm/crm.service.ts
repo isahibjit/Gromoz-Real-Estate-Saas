@@ -36,6 +36,11 @@ import {
   type SupportedWhatsAppEvent,
 } from './notifications/notification.constants';
 import {
+  HIDDEN_LEAD_SOURCE,
+  leadSourceVisibilityFields,
+  leadActivitySourceVisibility,
+} from './lead-source-visibility';
+import {
   assertValidRoutingAssignees,
   LeadSourceConnectionsService,
   ROUTING_OWNER_ROLES,
@@ -3298,6 +3303,9 @@ export class CrmService {
         status: 'PAUSED',
       };
     }
+    const routing = currentIntegration.routingRule?.isActive === false
+      ? undefined
+      : currentIntegration.routingRule;
     const lead = await this.createLead({
       organizationId: integration.organizationId,
       name: preview.normalizedLead.leadName,
@@ -3307,22 +3315,22 @@ export class CrmService {
       statusId: preview.normalizedLead.leadStatusId,
       createdAt: preview.normalizedLead.addedDate,
       preferredProject:
-        integration.routingRule?.projectId ??
+        routing?.projectId ??
         preview.normalizedLead.preferredProjectId,
       preferredLocation: preview.normalizedLead.preferredLocation || undefined,
       remarks: preview.normalizedLead.remarks || undefined,
       configuration: preview.normalizedLead.configuration || undefined,
       propertyType: preview.normalizedLead.propertyType || undefined,
-      telecallerId: integration.routingRule?.telecallerId ?? undefined,
+      ownerId: routing?.ownerId ?? undefined,
+      telecallerId: routing?.telecallerId ?? undefined,
       fieldExecutiveId:
-        integration.routingRule?.fieldExecutiveId ?? undefined,
+        routing?.fieldExecutiveId ?? undefined,
       autoAssignmentTeamId:
-        !integration.routingRule?.telecallerId &&
-        !integration.routingRule?.fieldExecutiveId
-          ? integration.routingRule?.teamId ?? undefined
+        !routing?.ownerId && !routing?.telecallerId && !routing?.fieldExecutiveId
+          ? routing?.teamId ?? undefined
           : undefined,
       integrationConnectionId: integration.id,
-    });
+    }, undefined, { fromIntegration: true });
 
     await this.connections().recordLeadReceived(integration.id);
     await this.audit(undefined, 'MAGICBRICKS_LEAD_RECEIVED', 'Lead', lead.id, {
@@ -4206,20 +4214,29 @@ export class CrmService {
     };
 
     const sourceMaster = await this.getWebsiteSourceMaster();
-    const lead = await this.createLead({
-      organizationId: integration.organizationId,
-      name: samplePayload.name,
-      mobile: samplePayload.mobile,
-      email: samplePayload.email,
-      sourceId: sourceMaster?.id,
-      configuration: samplePayload.configuration,
-    });
+    // Test the same routing, duplicate checks, and assignment policy as a real
+    // website submission rather than creating an independently routed lead.
+    const result = await this.receiveWebsiteLead(samplePayload, `truroot_web_${integration.webhookKeyId}`, ip, userAgent);
+    if (!result.success) {
+      await this.portalIntegrationUpdate(integration.id, {
+        lastTestedAt: new Date(),
+        lastTestStatus: 'Failed',
+        updatedById: actorUserId,
+      });
+      return { data: {
+        valid: false,
+        status: 'Failed',
+        endpointUrl: this.websiteWebhookUrl(),
+        apiKey: `truroot_web_${integration.webhookKeyId}`,
+        samplePayload,
+        wouldCreateLead: false,
+        errors: [result.message],
+      } };
+    }
 
     await this.portalIntegrationUpdate(integration.id, {
       lastTestedAt: new Date(),
       lastTestStatus: 'Success',
-      lastLeadReceivedAt: new Date(),
-      totalLeadsReceived: { increment: 1 },
     });
 
     return {
@@ -4694,13 +4711,10 @@ export class CrmService {
           );
         });
       }
-      // If no match by URL, fallback to the website with configured routing overrides or first connected website
-      if (matchedWebsiteIndex === -1) {
-        const configuredSiteIndex = connectedWebsites.findIndex(
-          (s: any) => s.projectId || s.sourceId || s.teamId,
-        );
-        matchedWebsiteIndex =
-          configuredSiteIndex !== -1 ? configuredSiteIndex : 0;
+      // Never borrow another website's route for an unknown incoming URL.
+      // A URL-less legacy request is attributable only when one site exists.
+      if (matchedWebsiteIndex === -1 && !incomingUrl && connectedWebsites.length === 1) {
+        matchedWebsiteIndex = 0;
       }
       if (matchedWebsiteIndex !== -1) {
         matchedWebsite = connectedWebsites[matchedWebsiteIndex];
@@ -4745,7 +4759,7 @@ export class CrmService {
       fieldExecutiveId: matchedWebsite?.fieldExecutiveId,
       autoAssignmentTeamId: matchedWebsite?.teamId,
       remarks: submittedRemarks,
-    });
+    }, undefined, { fromIntegration: true });
 
     this.logger.log(
       `[WebsiteWebhook] created website lead as ${lead.displayId} (${lead.id}) for ${name} (${mobile})`,
@@ -7290,6 +7304,8 @@ export class CrmService {
             configuredTelecallerId ||
             configuredFieldExecutiveId,
         ),
+        automaticAssignmentConfigured:
+          settings?.formRoutingOverrides?.[String(payload.pageId ?? '')]?.[String(payload.formId ?? '')]?.assignment?.mode === 'automatic',
       },
     };
   }
@@ -7652,6 +7668,9 @@ export class CrmService {
             : preview.normalizedLead.teamMappingApplied
             ? preview.normalizedLead.configuredTeamId
             : undefined,
+        }, undefined, {
+          fromIntegration: true,
+          useConfiguredAutomation: preview.normalizedLead.automaticAssignmentConfigured,
         });
         results.push({
           leadgenId: event.leadgenId,
@@ -8052,6 +8071,7 @@ export class CrmService {
 
   private async buildLeadSearchConditions(
     searchRaw: unknown,
+    canViewSource = true,
   ): Promise<Prisma.LeadWhereInput[]> {
     const search = String(searchRaw ?? '').trim();
     if (!search) return [];
@@ -8095,7 +8115,9 @@ export class CrmService {
     const matchedPropTypeProjIds = matchingPropTypeProjects.map(
       (p: Body) => p.id,
     );
-    const matchedSourceIds = matchingSources.map((s: Body) => s.id);
+    const matchedSourceIds = canViewSource
+      ? matchingSources.map((s: Body) => s.id)
+      : [];
 
     const conditions: Prisma.LeadWhereInput[] = [
       { name: { contains: search, mode: 'insensitive' } },
@@ -8216,6 +8238,7 @@ export class CrmService {
     if (query.search) {
       const searchConditions = await this.buildLeadSearchConditions(
         query.search,
+        canViewSourceColumn,
       );
       if (searchConditions.length) {
         where.AND = [...(where.AND ?? []), { OR: searchConditions }];
@@ -8566,7 +8589,7 @@ export class CrmService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         include: {
           requirement: true,
           integrationConnection: { select: { id: true, name: true, provider: true } },
@@ -8695,6 +8718,15 @@ export class CrmService {
         fieldExecutiveName: lead.fieldExecutiveId
           ? userMap.get(lead.fieldExecutiveId)
           : undefined,
+        ...(lead.activities
+          ? {
+              activities: lead.activities.map(
+                (activity: { type?: unknown; metadata?: unknown }) =>
+                  leadActivitySourceVisibility(activity, canViewSource),
+              ),
+            }
+          : {}),
+        ...leadSourceVisibilityFields(canViewSource),
       };
     });
 
@@ -8709,6 +8741,7 @@ export class CrmService {
   private async buildTeamLeadWorkspaceWhere(
     query: Query,
     userIds: string[],
+    canViewSource = true,
   ): Promise<Prisma.LeadWhereInput> {
     const activeTenantId = this.tenantAccess.selectedOrganizationId;
     const where: Prisma.LeadWhereInput = {
@@ -8717,6 +8750,9 @@ export class CrmService {
       AND: [this.teamLeadAssignmentScope(userIds)],
     };
     const sourceIds = parseMultiQueryValues(query.sourceId);
+    const integrationConnectionIds = parseMultiQueryValues(
+      query.integrationConnectionId,
+    );
     const statusIds = parseMultiQueryValues(query.statusId);
     const stageIds = parseMultiQueryValues(query.stageId);
     const temperatureIds = parseMultiQueryValues(query.temperatureId);
@@ -8732,6 +8768,7 @@ export class CrmService {
     if (query.search) {
       const searchConditions = await this.buildLeadSearchConditions(
         query.search,
+        canViewSource,
       );
       if (searchConditions.length) {
         where.AND = [
@@ -8741,6 +8778,9 @@ export class CrmService {
       }
     }
     if (sourceIds.length) where.sourceId = { in: sourceIds };
+    if (integrationConnectionIds.length) {
+      where.integrationConnectionId = { in: integrationConnectionIds };
+    }
     if (statusIds.length) where.statusId = { in: statusIds };
     if (stageIds.length) where.stageId = { in: stageIds };
     if (temperatureIds.length) where.temperatureId = { in: temperatureIds };
@@ -8784,6 +8824,8 @@ export class CrmService {
 
   async getTeamLeadWorkspace(query: Query, user?: Body) {
     if (!user?.sub) throw new ForbiddenException('Missing authenticated user');
+    const canViewSource = await this.canViewLeadSource(user);
+    if (!canViewSource) query = { ...query, sourceId: undefined };
     const { page, limit, skip } = pageMeta(query);
     const requestedScope = String(query.scope ?? 'team').toLowerCase();
     const leaderTeam = await this.db().team.findFirst({
@@ -8835,15 +8877,17 @@ export class CrmService {
       reportMembers.length > 0 ||
       hierarchyScopeUserIds.length > 1;
     if (requestedScope === 'mine') {
-      const ownWhere = await this.buildTeamLeadWorkspaceWhere(query, [
-        user.sub,
-      ]);
+      const ownWhere = await this.buildTeamLeadWorkspaceWhere(
+        query,
+        [user.sub],
+        canViewSource,
+      );
       const [ownItems, ownTotal] = await Promise.all([
         this.db().lead.findMany({
           where: ownWhere,
           skip,
           take: limit,
-          orderBy: { createdAt: 'desc' },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
           include: { requirement: true },
         }),
         this.db().lead.count({ where: ownWhere }),
@@ -8853,6 +8897,7 @@ export class CrmService {
         page,
         limit,
         ownTotal,
+        { canViewSource },
       );
       return {
         meta: {
@@ -8910,10 +8955,15 @@ export class CrmService {
     const visibleUserIds = requestedMemberId
       ? [requestedMemberId]
       : scopedMemberIds;
-    const where = await this.buildTeamLeadWorkspaceWhere(query, visibleUserIds);
+    const where = await this.buildTeamLeadWorkspaceWhere(
+      query,
+      visibleUserIds,
+      canViewSource,
+    );
     const memberSummaryWhere = await this.buildTeamLeadWorkspaceWhere(
       { ...query, memberId: undefined },
       scopedMemberIds,
+      canViewSource,
     );
 
     const now = new Date();
@@ -8993,7 +9043,7 @@ export class CrmService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         include: { requirement: true },
       }),
       this.db().lead.count({ where }),
@@ -9052,7 +9102,9 @@ export class CrmService {
       }),
     ]);
 
-    const formatted = await this.mapLeadListResponse(items, page, limit, total);
+    const formatted = await this.mapLeadListResponse(items, page, limit, total, {
+      canViewSource,
+    });
     const priorityIdSet = new Set(priorityIds);
     const bookedIdSet = new Set(bookedIds);
     const members = teamMembers.map((member: Body) => {
@@ -9415,16 +9467,26 @@ export class CrmService {
   private async assertUserWithinLeadScope(
     targetUserId: string,
     actor?: string | Body,
+    domain: 'leads' | 'tasks' = 'leads',
   ) {
     if (!targetUserId || !actor || typeof actor === 'string') return;
     const scopedUserIds =
-      await this.leadVisibility.resolveAssignmentScopeUserIds(actor);
+      domain === 'tasks'
+        ? await this.taskAssignmentScopeUserIds(actor)
+        : await this.leadVisibility.resolveAssignmentScopeUserIds(actor);
     if (scopedUserIds !== null && !scopedUserIds.includes(targetUserId)) {
       throw new ForbiddenException(
         'Selected user is outside your permitted scope',
       );
     }
-    }
+  }
+
+  private async taskAssignmentScopeUserIds(user?: Body) {
+    // HR's employee workspace covers employees, not just HR-owned CRM leads.
+    // This exception applies only to tasks; linked leads retain their checks.
+    if (user?.role === 'HR') return null;
+    return this.leadVisibility.resolveAssignmentScopeUserIds(user);
+  }
 
   private async getVisibleContactLead(id: string, actor?: string | Body) {
     const scopedUserIds =
@@ -9451,8 +9513,8 @@ export class CrmService {
     const areaValues = queryValues(query.area);
     const configurationValues = queryValues(query.configuration);
 
-    if (query.search) {
-      const search = String(query.search).trim();
+    const search = String(query.search ?? '').trim();
+    if (search) {
       const [matchedSources, matchedProjects, matchedUsers] = await Promise.all(
         [
           this.db().leadMasterValue.findMany({
@@ -9491,8 +9553,6 @@ export class CrmService {
         { customerName: { contains: search, mode: 'insensitive' } },
         { mobile: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
-        { source: { contains: search, mode: 'insensitive' } },
-        { propertyType: { contains: search, mode: 'insensitive' } },
         ...(matchedSources.length
           ? [{ sourceId: { in: matchedSources.map((item: Body) => item.id) } }]
           : []),
@@ -9514,7 +9574,7 @@ export class CrmService {
               },
             ]
           : []),
-      ];
+      ] satisfies Prisma.ContactLeadWhereInput[];
     }
     if (statusValues.length) {
       where.status =
@@ -10113,6 +10173,11 @@ export class CrmService {
       lockedColumns: leadListLockedColumns,
       systemColumns: leadListSystemColumns,
     };
+  }
+
+  private async canViewLeadSource(user?: Body) {
+    const preference = await this.getLeadListColumnPreference({}, user);
+    return preference.visibleColumns.includes('source');
   }
 
   async updateLeadListColumnPreference(
@@ -11082,6 +11147,7 @@ export class CrmService {
   }
 
   async getLeadPipeline(query: Query, user?: Body) {
+    const canViewSource = await this.canViewLeadSource(user);
     const statuses = await this.ensureMasters(
       'status',
       defaultPipelineStatuses,
@@ -11120,7 +11186,7 @@ export class CrmService {
         { displayId: { contains: String(query.search), mode: 'insensitive' } },
       ];
     }
-    if (query.sourceId && query.sourceId !== 'all') {
+    if (canViewSource && query.sourceId && query.sourceId !== 'all') {
       const sourceFilter = String(query.sourceId);
       const matchingSource = sources.find(
         (source: Body) =>
@@ -11149,6 +11215,7 @@ export class CrmService {
     if (query.search) {
       const searchConditions = await this.buildLeadSearchConditions(
         query.search,
+        canViewSource,
       );
       if (searchConditions.length) {
         where.AND = [...(where.AND ?? []), { OR: searchConditions }];
@@ -11333,7 +11400,9 @@ export class CrmService {
         displayId: lead.displayId,
         name: lead.name,
         mobile: `${lead.mobileCountryCode ?? '+91'} ${lead.mobile}`,
-        source: sourceMap.get(lead.sourceId) ?? lead.sourceId ?? 'Unknown',
+        source: canViewSource
+          ? sourceMap.get(lead.sourceId) ?? lead.sourceId ?? 'Unknown'
+          : HIDDEN_LEAD_SOURCE,
         propertyRequirement:
           [lead.requirement?.configuration, lead.requirement?.propertyType]
             .filter(Boolean)
@@ -11357,7 +11426,9 @@ export class CrmService {
     const maxCount = Math.max(...columns.map((column) => column.count), 1);
     const sourceCounts = new Map<string, number>();
     for (const lead of includedLeads) {
-      const label = sourceMap.get(lead.sourceId) ?? lead.sourceId ?? 'Unknown';
+      const label = canViewSource
+        ? sourceMap.get(lead.sourceId) ?? lead.sourceId ?? 'Unknown'
+        : HIDDEN_LEAD_SOURCE;
       sourceCounts.set(label, (sourceCounts.get(label) ?? 0) + 1);
     }
 
@@ -11370,7 +11441,7 @@ export class CrmService {
           color: status.displayColor ?? '#2563EB',
           sortOrder: status.sortOrder,
         })),
-        sources: sources.map((source: Body) => ({
+        sources: (canViewSource ? sources : []).map((source: Body) => ({
           id: slug(source.name),
           name: source.name,
         })),
@@ -11437,7 +11508,11 @@ export class CrmService {
     };
   }
 
-  async createLead(body: Body, actor?: string | Body) {
+  async createLead(
+    body: Body,
+    actor?: string | Body,
+    options: { fromIntegration?: boolean; useConfiguredAutomation?: boolean } = {},
+  ) {
     if (!body.name && !body.leadName) {
       throw new BadRequestException('Lead name is required');
     }
@@ -11486,24 +11561,31 @@ export class CrmService {
     );
 
     const defaultTelecallerId =
-      !explicitTelecallerId && actorRole === 'TELECALLER'
+      !options.fromIntegration && !explicitTelecallerId && actorRole === 'TELECALLER'
         ? actorUserId
         : undefined;
     const defaultFieldExecutiveId =
-      !explicitFieldExecutiveId && actorRole === 'SALES_AGENT'
+      !options.fromIntegration && !explicitFieldExecutiveId && actorRole === 'SALES_AGENT'
         ? actorUserId
         : undefined;
 
     const telecallerId = explicitTelecallerId ?? defaultTelecallerId;
     const fieldExecutiveId =
       explicitFieldExecutiveId ?? defaultFieldExecutiveId;
+    await assertValidRoutingAssignees(
+      this.db(),
+      telecallerId,
+      fieldExecutiveId,
+      undefined,
+      { allowBothExecutives: true },
+    );
     const managerId = explicitManagerId;
     const ownerId =
       explicitOwnerId ??
       telecallerId ??
       fieldExecutiveId ??
       managerId ??
-      (actorRole === 'SUPER_ADMIN' ? undefined : actorUserId);
+      (options.fromIntegration || actorRole === 'SUPER_ADMIN' ? undefined : actorUserId);
 
     const effectiveOrgId = actorUserId
       ? await this.resolveTenantOrganizationId(
@@ -11840,7 +11922,9 @@ export class CrmService {
         },
       })
       .catch(() => undefined);
-    if (!hasExplicitAssignment) {
+    if (!hasExplicitAssignment && (
+      !options.fromIntegration || options.useConfiguredAutomation || optionalId(body.autoAssignmentTeamId)
+    )) {
       await this.createAutoAssignmentEventForLead(
         lead,
         optionalId(body.autoAssignmentTeamId),
@@ -11851,7 +11935,7 @@ export class CrmService {
           )}`,
         ),
       );
-    } else {
+    } else if (hasExplicitAssignment && !options.fromIntegration) {
       const explicitAssigneeId = optionalId(
         lead.ownerId || lead.telecallerId || lead.fieldExecutiveId,
       );
@@ -11894,6 +11978,22 @@ export class CrmService {
     }
 
     return returnLead;
+  }
+
+  /** Public presentation response; internal routing/scoring retains the raw source. */
+  async getLeadForViewer(id: string, user?: Body) {
+    const [lead, canViewSource] = await Promise.all([
+      this.getLead(id, user),
+      this.canViewLeadSource(user),
+    ]);
+    return {
+      ...lead,
+      activities: (lead.activities ?? []).map(
+        (activity: { type?: unknown; metadata?: unknown }) =>
+          leadActivitySourceVisibility(activity, canViewSource),
+      ),
+      ...leadSourceVisibilityFields(canViewSource),
+    };
   }
 
   async getLead(id: string, user?: Body | string) {
@@ -14939,6 +15039,15 @@ export class CrmService {
     const actorUserId = this.actorIdFrom(actor);
     await this.assertLeadUpdateFieldsAllowed(body, actor);
     const current = await this.getLead(id, actor);
+    await assertValidRoutingAssignees(
+      this.db(),
+      body.telecallerId !== current.telecallerId ? body.telecallerId : undefined,
+      body.fieldExecutiveId !== current.fieldExecutiveId
+        ? body.fieldExecutiveId
+        : undefined,
+      undefined,
+      { allowBothExecutives: true },
+    );
     await Promise.all(
       [body.ownerId, body.managerId, body.telecallerId, body.fieldExecutiveId]
         .filter((id): id is string => typeof id === 'string' && Boolean(id))
@@ -15226,7 +15335,9 @@ export class CrmService {
       }) | NextFollowUpAt: ${lead.nextFollowUpAt?.toISOString() ?? 'None'}`,
     );
 
-    return this.getLead(lead.id, actor);
+    return actor && typeof actor !== 'string'
+      ? this.getLeadForViewer(lead.id, actor)
+      : this.getLead(lead.id, actor);
   }
 
   private isAdminRole(role?: string | null) {
@@ -15269,9 +15380,11 @@ export class CrmService {
     if (!assignedToId) return null;
     const assignee = await this.db().user.findUnique({
       where: { id: assignedToId },
-      select: { id: true, fullName: true, email: true },
+      select: { id: true, fullName: true, email: true, isActive: true },
     });
-    if (!assignee) throw new BadRequestException('Assigned user is invalid');
+    if (!assignee?.isActive) {
+      throw new BadRequestException('Select an active employee for this task');
+    }
     return assignee.fullName ?? assignee.email ?? null;
   }
 
@@ -15289,7 +15402,11 @@ export class CrmService {
 
     const leadId = fixedLeadId ?? body.leadId;
     const assignedToId = String(body.assignedToId);
-    await this.assertUserWithinLeadScope(assignedToId, user);
+    await this.assertUserWithinLeadScope(
+      assignedToId,
+      user,
+      fixedLeadId ? 'leads' : 'tasks',
+    );
     const assignedToName = await this.taskAssigneeName(assignedToId);
     let lead: Body | null = null;
     if (leadId) {
@@ -15488,8 +15605,7 @@ export class CrmService {
   async listTasks(query: Query, user?: Body) {
     const { page, limit, skip } = pageMeta(query);
     const where: Body = {};
-    const scopedUserIds =
-      await this.leadVisibility.resolveAssignmentScopeUserIds(user);
+    const scopedUserIds = await this.taskAssignmentScopeUserIds(user);
     if (scopedUserIds !== null) {
       if (query.assignedToId && query.assignedToId !== 'all') {
         const requestedId = String(query.assignedToId);
@@ -15552,6 +15668,18 @@ export class CrmService {
       ...(where.AND ?? []),
       { OR: [{ leadId: null }, { lead: { is: { deletedAt: null } } }] },
     ];
+    if (user?.role === 'HR') {
+      const leadUserIds =
+        await this.leadVisibility.resolveAssignmentScopeUserIds(user);
+      if (leadUserIds !== null) {
+        where.AND.push({
+          OR: [
+            { leadId: null },
+            { lead: { is: this.leadVisibility.assignmentScope(leadUserIds) } },
+          ],
+        });
+      }
+    }
 
     const [items, total] = await Promise.all([
       this.db().task.findMany({
@@ -15642,26 +15770,28 @@ export class CrmService {
       },
     });
     if (!existing) throw new NotFoundException('Task not found');
-    const admin = this.isAdminRole(user?.role);
-    const scopedUserIds =
-      await this.leadVisibility.resolveAssignmentScopeUserIds(user);
+    const scopedUserIds = await this.taskAssignmentScopeUserIds(user);
     const canManage =
-      admin ||
-      existing.assignedToId === user?.sub ||
-      existing.createdById === user?.sub ||
-      (scopedUserIds !== null &&
-        Boolean(existing.assignedToId) &&
-        scopedUserIds.includes(existing.assignedToId!));
+      scopedUserIds === null ||
+      (Boolean(existing.assignedToId) &&
+        scopedUserIds.includes(existing.assignedToId!)) ||
+      (!existing.assignedToId && existing.createdById === user?.sub);
     if (!canManage) {
       throw new ForbiddenException('You cannot update this task');
     }
+    if (existing.leadId) await this.getLead(existing.leadId, user);
 
     const nextAssignedToId =
       body.assignedToId !== undefined
         ? String(body.assignedToId)
         : existing.assignedToId;
     if (nextAssignedToId) {
-      await this.assertUserWithinLeadScope(nextAssignedToId, user);
+      await this.assertUserWithinLeadScope(nextAssignedToId, user, 'tasks');
+      if (nextAssignedToId !== existing.assignedToId) {
+        await this.taskAssigneeName(nextAssignedToId);
+      }
+    } else if (body.assignedToId !== undefined) {
+      throw new BadRequestException('Assigned user is required');
     }
     if (body.leadId && nextAssignedToId) {
       const lead = await this.getLead(String(body.leadId), user);
@@ -15721,19 +15851,16 @@ export class CrmService {
       where: { id },
     });
     if (!existing) throw new NotFoundException('Task not found');
-    const admin = this.isAdminRole(user?.role);
-    const scopedUserIds =
-      await this.leadVisibility.resolveAssignmentScopeUserIds(user);
+    const scopedUserIds = await this.taskAssignmentScopeUserIds(user);
     const canManage =
-      admin ||
-      existing.createdById === user?.sub ||
-      existing.assignedToId === user?.sub ||
-      (scopedUserIds !== null &&
-        Boolean(existing.assignedToId) &&
-        scopedUserIds.includes(existing.assignedToId!));
+      scopedUserIds === null ||
+      (Boolean(existing.assignedToId) &&
+        scopedUserIds.includes(existing.assignedToId!)) ||
+      (!existing.assignedToId && existing.createdById === user?.sub);
     if (!canManage) {
       throw new ForbiddenException('You cannot delete this task');
     }
+    if (existing.leadId) await this.getLead(existing.leadId, user);
 
     await this.db().task.delete({
       where: { id: existing.id },
@@ -16009,6 +16136,19 @@ export class CrmService {
 
     if (!targetUser) {
       throw new BadRequestException('Selected assignee is invalid');
+    }
+
+    // Keep management ownership routing compatible, but never put a Sales
+    // Agent in Pre Sales (or a Telecaller in Sales), even through direct calls.
+    if (
+      targetUser.role === Role.SALES_AGENT ||
+      targetUser.role === Role.TELECALLER
+    ) {
+      await assertValidRoutingAssignees(
+        this.db(),
+        assigneeType === 'telecaller' ? String(toUserId) : undefined,
+        assigneeType === 'field-executive' ? String(toUserId) : undefined,
+      );
     }
 
     await this.db().leadAssignment.updateMany({
@@ -17268,6 +17408,7 @@ export class CrmService {
 
   async getTimeline(leadId: string, user?: Body) {
     const lead = await this.getLead(leadId, user);
+    const canViewSource = await this.canViewLeadSource(user);
     const activities = await this.db().activity.findMany({
       where: { leadId: lead.id },
       orderBy: { occurredAt: 'desc' },
@@ -17296,6 +17437,7 @@ export class CrmService {
             actorMap.get(item.actorId)?.email
           : undefined,
         actorRole: item.actorId ? actorMap.get(item.actorId)?.role : undefined,
+        ...leadActivitySourceVisibility(item, canViewSource),
       })),
     };
   }
@@ -17740,6 +17882,7 @@ export class CrmService {
         remarks: body.notes ? `[Public Inquiry]: ${body.notes}` : undefined,
       },
       undefined,
+      { fromIntegration: true },
     );
 
     return { success: true, message: 'Inquiry submitted successfully' };
@@ -19838,7 +19981,7 @@ export class CrmService {
     return project?.id;
   }
 
-  private async resolveImportAssigneeId(value?: unknown, roles?: string[]) {
+  private async resolveImportAssignee(value?: unknown, roles?: string[]) {
     const raw = String(value ?? '').trim();
     if (!raw) return undefined;
     const user = await this.db().user.findFirst({
@@ -19850,9 +19993,9 @@ export class CrmService {
           { fullName: { equals: raw, mode: 'insensitive' } },
         ],
       },
-      select: { id: true },
+      select: { id: true, role: true },
     });
-    return user?.id;
+    return user;
   }
 
   private normalizeImportedLeadRow(
@@ -19987,9 +20130,9 @@ export class CrmService {
       const [
         sourceId,
         preferredProjectId,
-        assignedToId,
-        telecallerId,
-        fieldExecutiveId,
+        genericAssignee,
+        telecaller,
+        fieldExecutive,
         statusId,
         stageId,
         priorityId,
@@ -19998,9 +20141,9 @@ export class CrmService {
       ] = await Promise.all([
         this.resolveImportSourceId(row.sourceValue),
         this.resolveImportProjectId(row.projectValue),
-        this.resolveImportAssigneeId(row.assigneeValue),
-        this.resolveImportAssigneeId(row.telecallerValue, ['TELECALLER']),
-        this.resolveImportAssigneeId(row.fieldExecutiveValue, ['SALES_AGENT']),
+        this.resolveImportAssignee(row.assigneeValue),
+        this.resolveImportAssignee(row.telecallerValue, ['TELECALLER']),
+        this.resolveImportAssignee(row.fieldExecutiveValue, ['SALES_AGENT']),
         targetType === 'LEAD'
           ? this.resolveImportMasterValueId('status', row.statusId)
           : Promise.resolve(undefined),
@@ -20023,6 +20166,16 @@ export class CrmService {
               select: { id: true },
             }),
       ]);
+
+      const assignedToId = genericAssignee?.id;
+      const telecallerId = telecaller?.id;
+      const fieldExecutiveId = fieldExecutive?.id;
+      const importedTelecallerId =
+        telecallerId ??
+        (genericAssignee?.role === Role.TELECALLER ? assignedToId : undefined);
+      const importedFieldExecutiveId =
+        fieldExecutiveId ??
+        (genericAssignee?.role === Role.SALES_AGENT ? assignedToId : undefined);
 
       if (existingRecord?.id) {
         try {
@@ -20051,9 +20204,10 @@ export class CrmService {
                 alternateMobile: row.alternateMobile,
                 sourceId,
                 preferredProject: preferredProjectId,
-                ownerId: telecallerId ?? fieldExecutiveId ?? assignedToId,
-                telecallerId: telecallerId ?? assignedToId,
-                fieldExecutiveId,
+                ownerId:
+                  importedTelecallerId ?? importedFieldExecutiveId ?? assignedToId,
+                telecallerId: importedTelecallerId,
+                fieldExecutiveId: importedFieldExecutiveId,
                 remarks: row.note,
                 preferredLocation: row.preferredLocation,
                 propertyType: row.propertyType,
@@ -20135,9 +20289,10 @@ export class CrmService {
                   alternateMobile: row.alternateMobile,
                   sourceId,
                   preferredProject: preferredProjectId,
-                  ownerId: telecallerId ?? fieldExecutiveId ?? assignedToId,
-                  telecallerId: telecallerId ?? assignedToId,
-                  fieldExecutiveId,
+                  ownerId:
+                    importedTelecallerId ?? importedFieldExecutiveId ?? assignedToId,
+                  telecallerId: importedTelecallerId,
+                  fieldExecutiveId: importedFieldExecutiveId,
                   remarks: row.note,
                   preferredLocation: row.preferredLocation,
                   propertyType: row.propertyType,
@@ -20150,6 +20305,7 @@ export class CrmService {
                   temperatureId,
                 },
                 actorUserId,
+                { fromIntegration: true },
               );
 
         importedRecords.push(createdRecord);

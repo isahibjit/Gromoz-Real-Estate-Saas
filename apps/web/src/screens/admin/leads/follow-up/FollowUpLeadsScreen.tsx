@@ -2533,7 +2533,7 @@ export function FollowUpLeadsScreen() {
 
     const configuredCards = cardPreferences.statsCards;
 
-    if (configuredCards.length > 0) {
+    if (cardPreferences.items.length > 0) {
       return configuredCards.map((item) => {
         if (
           item.id === "core:today-followups" ||
@@ -2703,7 +2703,7 @@ export function FollowUpLeadsScreen() {
         tone: "bg-blue-50 text-blue-700",
       },
     ];
-  }, [leads, cardPreferences.statsCards]);
+  }, [leads, cardPreferences.items, cardPreferences.statsCards]);
 
   const statusTabs = useMemo(
     () => [
@@ -2854,7 +2854,7 @@ export function FollowUpLeadsScreen() {
   );
 
   const quickLeadStatusFilters = useMemo(() => {
-    if (cardPreferences.filterPills.length > 0) {
+    if (cardPreferences.items.length > 0) {
       return cardPreferences.filterPills.map((pill) => ({
         label: pill.name,
         value: pill.id,
@@ -2884,7 +2884,11 @@ export function FollowUpLeadsScreen() {
         kind: "status" as const,
       };
     });
-  }, [cardPreferences.filterPills, leadFilterOptions.options.statusOptions]);
+  }, [
+    cardPreferences.items,
+    cardPreferences.filterPills,
+    leadFilterOptions.options.statusOptions,
+  ]);
 
   const handleQuickLeadStatusFilter = (
     statusId: string,

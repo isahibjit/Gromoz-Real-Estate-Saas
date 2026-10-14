@@ -1377,11 +1377,12 @@ model IntegrationRoutingRule {
   sourceId         String?
   teamId           String?
   projectId        String?
+  ownerId          String?
   telecallerId     String?
   fieldExecutiveId String?
   connectionId     String?  @unique
   connection       LeadSourceConnection? @relation(fields: [connectionId], references: [id], onDelete: Cascade)
-  assignmentMode   String   @default("AUTO_ASSIGN")
+  assignmentMode   String   @default("UNASSIGNED")
   priority         Int      @default(0)
   isActive         Boolean  @default(true)
   createdById      String?

@@ -53,6 +53,7 @@ import {
 } from "ui";
 
 import { api } from "../../../../common/api";
+import { getApiErrorMessage } from "../../../../common/apiError";
 import { canAccess } from "../../../../common/access/access";
 import { usePermission } from "../../../../common/access/usePermission";
 import { useAppSelector } from "../../../../store";
@@ -942,6 +943,8 @@ function ContactsTable({
   currentPage,
   rowsPerPage,
   isLoading,
+  errorMessage,
+  onRetry,
   canUpdate,
   canDelete,
   onPageChange,
@@ -968,6 +971,8 @@ function ContactsTable({
   currentPage: number;
   rowsPerPage: number;
   isLoading: boolean;
+  errorMessage?: string;
+  onRetry?: () => void;
   canUpdate: boolean;
   canDelete: boolean;
   onPageChange: (page: number) => void;
@@ -1299,6 +1304,27 @@ function ContactsTable({
       toggleAll,
     ],
   );
+
+  if (errorMessage) {
+    return (
+      <Card role="alert" className="space-y-3 p-6">
+        <p className="font-semibold text-secondary">
+          Could not load contact leads
+        </p>
+        <p className="text-sm text-muted-foreground">{errorMessage}</p>
+        {onRetry ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onRetry}
+            disabled={isLoading}
+          >
+            Retry
+          </Button>
+        ) : null}
+      </Card>
+    );
+  }
 
   return (
     <Card className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-none">
@@ -2239,6 +2265,12 @@ export function ContactLeadsScreen() {
           currentPage={currentPage}
           rowsPerPage={rowsPerPage}
           isLoading={contactsQuery.isLoading}
+          errorMessage={
+            contactsQuery.isError
+              ? getApiErrorMessage(contactsQuery.error, "Please try again.")
+              : undefined
+          }
+          onRetry={() => void contactsQuery.refetch()}
           canUpdate={canUpdateContacts}
           canDelete={canDeleteContacts}
           onPageChange={setCurrentPage}

@@ -55,6 +55,7 @@ const leadWorkspaceRoles = [
   'TELECALLER',
   'BACKEND',
 ] as const;
+const taskWorkspaceRoles = [...leadReadRoles, 'HR'] as const;
 const notificationRoles = [
   'SUPER_ADMIN',
   'ADMIN',
@@ -168,7 +169,7 @@ export class LeadsController {
   @Get(':id')
   @Roles(...leadReadRoles)
   get(@Param('id') id: string, @Req() req: any) {
-    return this.crm.getLead(id, userFrom(req));
+    return this.crm.getLeadForViewer(id, userFrom(req));
   }
 
   @Patch(':id')
@@ -333,19 +334,19 @@ export class TasksController {
   constructor(private readonly crm: CrmService) {}
 
   @Get()
-  @Roles(...leadWorkspaceRoles)
+  @Roles(...taskWorkspaceRoles)
   list(@Query() query: Record<string, string>, @Req() req: any) {
     return this.crm.listTasks(query, userFrom(req));
   }
 
   @Post()
-  @Roles(...leadWorkspaceRoles)
+  @Roles(...taskWorkspaceRoles)
   create(@Body() body: Record<string, any>, @Req() req: any) {
     return this.crm.createEmployeeTask(body, userFrom(req));
   }
 
   @Patch(':id')
-  @Roles(...leadWorkspaceRoles)
+  @Roles(...taskWorkspaceRoles)
   update(
     @Param('id') id: string,
     @Body() body: Record<string, any>,
@@ -355,7 +356,7 @@ export class TasksController {
   }
 
   @Delete(':id')
-  @Roles(...leadWorkspaceRoles)
+  @Roles(...taskWorkspaceRoles)
   delete(@Param('id') id: string, @Req() req: any) {
     return this.crm.deleteEmployeeTask(id, userFrom(req));
   }

@@ -121,6 +121,7 @@ import {
 } from "./siteVisitStatusTransition";
 import {
   LEAD_TABLE_MAX_ROWS,
+  fetchLeadRowsForExport,
   useAllLeads,
   useBulkAssignSelectedLeads,
   useBulkPatchSelectedLeads,
@@ -821,6 +822,7 @@ export function LeadsTable({
   filterOptions,
   onApplyFilters,
   onExportLeads,
+  isPreparingExport = false,
   onDateRangeChange,
   onFilterChange,
   onResetFilters,
@@ -883,6 +885,7 @@ export function LeadsTable({
   };
   onApplyFilters?: () => void;
   onExportLeads?: () => void;
+  isPreparingExport?: boolean;
   onDateRangeChange?: (value: DateRangeFilter) => void;
   onFilterChange?: <K extends keyof LeadListFilters>(
     key: K,
@@ -2476,9 +2479,10 @@ export function LeadsTable({
                   variant="outline"
                   className="h-9 rounded-md px-5 text-xs font-extrabold shadow-none bg-white"
                   onClick={onExportLeads}
+                  disabled={isPreparingExport}
                 >
                   <Download className="h-3.5 w-3.5 mr-1.5" />
-                  Export Leads
+                  {isPreparingExport ? "Preparing export…" : "Export Leads"}
                 </Button>
               ) : null}
             </div>
@@ -3587,6 +3591,8 @@ export function AllLeadsScreen() {
   );
   const [editLeadId, setEditLeadId] = useState<string | null>(null);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportRows, setExportRows] = useState<LeadRow[]>([]);
+  const [isPreparingExport, setIsPreparingExport] = useState(false);
   const [selectedExportColumnIds, setSelectedExportColumnIds] = useState<
     string[]
   >([]);
@@ -3950,26 +3956,19 @@ export function AllLeadsScreen() {
     statusMasterQuery.filterBarStatuses,
     leadTypeMasterQuery.filterBarLeadTypes,
   ]);
-  const exportRows = useMemo(
-    () =>
-      rows.filter((lead) => {
-        const matchesSla =
-          selectedSlaFilter === "all" ||
-          getAdminLeadSla(lead.id).status === selectedSlaFilter;
-        const matchesBucket = matchesLeadBucketFilter(
-          lead,
-          activeLeadBucketFilter,
-          completedSiteVisitLeadIds,
-        );
-        return matchesSla && matchesBucket;
-      }),
-    [
-      activeLeadBucketFilter,
-      completedSiteVisitLeadIds,
-      rows,
-      selectedSlaFilter,
-    ],
-  );
+  const exportContextKey = JSON.stringify([
+    authUser?.id,
+    authUser?.role,
+    search,
+    leadsSegment,
+    effectiveAppliedFilters,
+    isTeamLeadScope,
+    activeTeamMemberId,
+    activeLeadBucketFilter,
+    selectedSlaFilter,
+  ]);
+  const currentExportContext = useRef(exportContextKey);
+  currentExportContext.current = exportContextKey;
   const displayStats = useMemo(() => {
     if (isTeamLeadScope && teamLeadWorkspaceQuery.data) {
       const summary = teamLeadWorkspaceQuery.data.summary;
@@ -4530,28 +4529,56 @@ export function AllLeadsScreen() {
     setAppliedFilters(draftFilters);
   };
 
-  const handleExportLeads = () => {
-    if (!exportRows.length) {
-      toast.error("No leads available to export");
-      return;
-    }
-
+  const handleExportLeads = async () => {
+    if (isPreparingExport) return;
     if (!exportableColumns.length) {
       toast.error("No export columns are available for your role");
       return;
     }
 
-    const exportableSet = new Set(exportableColumns.map((c) => c.id));
-    const activeVisibleColumns = screenVisibleColumnIds.filter((id: string) =>
-      exportableSet.has(id),
-    );
-
-    setSelectedExportColumnIds(
-      activeVisibleColumns.length > 0
-        ? activeVisibleColumns
-        : exportableColumns.map((column) => column.id),
-    );
-    setExportDialogOpen(true);
+    setIsPreparingExport(true);
+    setExportRows([]);
+    try {
+      const allRows = await fetchLeadRowsForExport({
+        search,
+        segment: leadsSegment,
+        filters: effectiveAppliedFilters,
+        teamScope: isTeamLeadScope,
+        memberId: activeTeamMemberId,
+      });
+      if (currentExportContext.current !== exportContextKey) {
+        throw new Error("The filters or workspace changed. Please export again.");
+      }
+      const filteredRows = allRows.filter(
+        (lead) =>
+          (selectedSlaFilter === "all" ||
+            getAdminLeadSla(lead.id).status === selectedSlaFilter) &&
+          matchesLeadBucketFilter(
+            lead, activeLeadBucketFilter, completedSiteVisitLeadIds,
+          ),
+      );
+      if (!filteredRows.length) {
+        toast.error("No leads available to export");
+        return;
+      }
+      const exportableSet = new Set(exportableColumns.map((column) => column.id));
+      const activeVisibleColumns = screenVisibleColumnIds.filter((id: string) =>
+        exportableSet.has(id),
+      );
+      setSelectedExportColumnIds(
+        activeVisibleColumns.length > 0
+          ? activeVisibleColumns
+          : exportableColumns.map((column) => column.id),
+      );
+      setExportRows(filteredRows);
+      setExportDialogOpen(true);
+    } catch (error) {
+      toast.error(
+        getApiErrorMessage(error, "Could not load all filtered leads for export"),
+      );
+    } finally {
+      setIsPreparingExport(false);
+    }
   };
 
   const handleConfirmExportLeads = () => {
@@ -4773,6 +4800,7 @@ export function AllLeadsScreen() {
             filterOptions={filterOptionsQuery.options}
             onApplyFilters={handleApplyFilters}
             onExportLeads={handleExportLeads}
+            isPreparingExport={isPreparingExport}
             onDateRangeChange={handleDateRangeChange}
             onFilterChange={handleFilterChange}
             onResetFilters={handleResetFilters}

@@ -5,7 +5,10 @@ import { MemoryRouter } from "react-router-dom";
 import { LeadsTable } from "./AllLeadsScreen";
 import type { LeadRow } from "./allLeadsTypes";
 import { api } from "../../../../common/api";
-import { useBulkPatchSelectedLeads } from "./useAllLeads";
+import {
+  useBulkAssignSelectedLeads,
+  useBulkPatchSelectedLeads,
+} from "./useAllLeads";
 import { scheduledInputToIso } from "../../../../common/time";
 
 jest.mock("../../../../common/api", () => ({
@@ -33,7 +36,7 @@ jest.mock("../site-visits/useSiteVisits", () => ({
 jest.mock("./useAllLeads", () => ({
   ...jest.requireActual("./useAllLeads"),
   useBulkUpdateLeadSource: () => ({ isPending: false }),
-  useBulkAssignSelectedLeads: () => ({ isPending: false }),
+  useBulkAssignSelectedLeads: jest.fn(),
   useBulkPatchSelectedLeads: jest.fn(),
   useLeadColumnPreferences: () => ({
     query: {
@@ -61,6 +64,7 @@ jest.mock("./useAllLeads", () => ({
           "configuration",
           "remark",
           "followUpDate",
+          "executive",
         ],
       },
     },
@@ -97,8 +101,14 @@ jest.mock("ui", () => ({
 }));
 
 const mockBulkPatch = jest.fn();
+const mockBulkAssign = jest.fn();
 beforeEach(() => {
   jest.clearAllMocks();
+  mockBulkAssign.mockResolvedValue({});
+  jest.mocked(useBulkAssignSelectedLeads).mockReturnValue({
+    isPending: false,
+    mutateAsync: mockBulkAssign,
+  } as ReturnType<typeof useBulkAssignSelectedLeads>);
   jest.mocked(useBulkPatchSelectedLeads).mockReturnValue({
     isPending: false,
     mutateAsync: mockBulkPatch,
@@ -146,7 +156,8 @@ const lead: LeadRow = {
   configuration: "3 BHK",
 };
 
-function renderTable(rows: LeadRow[] = [lead]) {
+function renderTable(rowsOrOverrides: LeadRow[] | Partial<LeadRow> = {}) {
+  const rows = Array.isArray(rowsOrOverrides) ? rowsOrOverrides : [{ ...lead, ...rowsOrOverrides }];
   render(
     <QueryClientProvider
       client={
@@ -169,7 +180,10 @@ function renderTable(rows: LeadRow[] = [lead]) {
           budgetOptions={[{ value: "budget", label: "One crore" }]}
           configurationOptions={[{ value: "3 BHK", label: "3 BHK" }]}
           areaOptions={[]}
-          assigneeOptions={[]}
+          assigneeOptions={[
+            { value: "afreen", label: "Afreen", role: "TELECALLER" },
+            { value: "akshat", label: "Akshat", role: "SALES_AGENT" },
+          ]}
         />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -210,6 +224,78 @@ test("renders distinct Pre Sales and Sales assignments in the Executive column",
       name: "Afreen Pre Sales Executive Akshat Sales Executive",
     }),
   ).toBeInTheDocument();
+});
+
+test.each(["akshat", "afreen"])(
+  "an owner (%s) is not prefilled as Pre Sales without that assignment",
+  async (ownerId) => {
+    renderTable({
+      ownerId,
+      ownerName: ownerId === "akshat" ? "Akshat" : "Afreen",
+      fieldExecutiveId: "akshat",
+      fieldExecutiveName: "Akshat",
+      assignedTo: "Akshat",
+      assignedRole: "Sales Executive",
+    });
+    const executive = screen.getByRole("button", {
+      name: "Akshat Sales Executive",
+    });
+    await userEvent.click(executive);
+    expect(
+      screen.getByRole("combobox", { name: "Select Pre Sales Executive" }),
+    ).toHaveValue("");
+    expect(screen.getByRole("combobox", { name: "Not assigned" })).toHaveValue(
+      "akshat",
+    );
+  },
+);
+
+test("the executive column and assignment modal preserve distinct Pre Sales and Sales users", async () => {
+  renderTable({
+    ownerId: "afreen",
+    ownerName: "Afreen",
+    telecallerId: "afreen",
+    telecallerName: "Afreen",
+    fieldExecutiveId: "akshat",
+    fieldExecutiveName: "Akshat",
+  });
+  await userEvent.click(
+    screen.getByRole("button", {
+      name: "Afreen Pre Sales Executive Akshat Sales Executive",
+    }),
+  );
+  expect(
+    screen.getByRole("combobox", { name: "Select Pre Sales Executive" }),
+  ).toHaveValue("afreen");
+  expect(screen.getByRole("combobox", { name: "Not assigned" })).toHaveValue(
+    "akshat",
+  );
+});
+
+test("adding Sales sends only the changed Sales assignment and keeps Pre Sales", async () => {
+  renderTable({
+    ownerId: "afreen",
+    ownerName: "Afreen",
+    telecallerId: "afreen",
+    telecallerName: "Afreen",
+  });
+  await userEvent.click(
+    screen.getByRole("button", { name: "Afreen Pre Sales Executive" }),
+  );
+  await userEvent.selectOptions(
+    screen.getByRole("combobox", { name: "Not assigned" }),
+    "akshat",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Assign Leads" }));
+  await waitFor(() =>
+    expect(mockBulkAssign).toHaveBeenCalledWith(
+      expect.objectContaining({
+        leadIds: ["backend-id"],
+        assignments: [{ toUserId: "akshat", assigneeType: "field-executive" }],
+      }),
+    ),
+  );
+  expect(mockBulkPatch).not.toHaveBeenCalled();
 });
 
 test.each(["remark", "status"])(
