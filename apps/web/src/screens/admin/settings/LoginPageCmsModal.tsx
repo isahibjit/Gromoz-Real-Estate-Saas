@@ -21,8 +21,8 @@ import {
   DialogTitle,
   Input,
 } from "ui";
-import trurootLogo from "../../../assets/truroot-logo.png";
 import onboardBuildings from "../../../assets/onboard-buildings.png";
+import { BrandLogo } from "../../../components/ui/BrandLogo";
 
 export interface LoginPageCmsData {
   heroHeadlinePrefix: string;
@@ -49,7 +49,7 @@ export interface LoginPageCmsData {
 
 export const defaultLoginPageCms: LoginPageCmsData = {
   heroHeadlinePrefix: "Welcome to",
-  heroHeadlineHighlight: "Trueroot Realty CRM",
+  heroHeadlineHighlight: "Gromoze",
   heroTagline: "Streamline your leads, follow-ups, site visits and sales - all in one place.",
   heroLogoUrl: "",
   heroBgImageUrl: "",
@@ -91,7 +91,7 @@ export function LoginPageCmsModal({
   onClose,
   initialData,
   onSave,
-  orgName = "Trueroot Realty CRM",
+  orgName = "Gromoze",
   orgLogo = "",
   orgPhone = "+91 98765 43210",
   orgEmail = "support@truerootrealty.com",
@@ -144,7 +144,7 @@ export function LoginPageCmsModal({
     }
   };
 
-  const effectiveLogo = data.heroLogoUrl || orgLogo || trurootLogo;
+  const effectiveLogo = data.heroLogoUrl || orgLogo;
   const effectiveBg = data.heroBgImageUrl || onboardBuildings;
 
   return (
@@ -471,11 +471,11 @@ export function LoginPageCmsModal({
               <div className="relative z-10 p-4 grid grid-cols-1 md:grid-cols-2 gap-3.5 h-full items-center">
                 {/* Mockup Left Banner */}
                 <div className="space-y-2.5">
-                  <img
-                    src={effectiveLogo}
-                    alt="Logo"
-                    className="h-7 max-w-[130px] object-contain"
-                  />
+                  {effectiveLogo ? (
+                    <img src={effectiveLogo} alt="Logo" className="h-7 max-w-[130px] object-contain" />
+                  ) : (
+                    <BrandLogo className="h-auto w-32" />
+                  )}
                   <div>
                     <h3 className="text-xs font-bold leading-tight text-slate-900">
                       {data.heroHeadlinePrefix}{" "}

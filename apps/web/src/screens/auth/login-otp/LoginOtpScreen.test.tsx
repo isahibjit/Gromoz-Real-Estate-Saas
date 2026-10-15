@@ -80,7 +80,7 @@ beforeEach(() => {
 test("renders login otp request card", () => {
   renderLoginOtpScreen();
 
-  expect(screen.getByAltText("Brand Logo")).toBeInTheDocument();
+  expect(screen.getByRole("img", { name: "Gromoze — Real Estate Sales. Simplified." })).toBeInTheDocument();
   expect(
     screen.getByRole("heading", { name: "Login with OTP" }),
   ).toBeInTheDocument();

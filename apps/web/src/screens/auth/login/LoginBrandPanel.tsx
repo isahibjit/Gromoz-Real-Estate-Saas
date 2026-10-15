@@ -1,7 +1,7 @@
 import { ChartNoAxesCombined, MapPinned, UsersRound } from "lucide-react";
 
 import loginBuildings from "../../../assets/login-buildings.png";
-import trurootLogo from "../../../assets/truroot-logo.png";
+import { BrandLogo } from "../../../components/ui/BrandLogo";
 import { LoginFeatureItem } from "./LoginFeatureItem";
 
 const features = [
@@ -33,17 +33,13 @@ export function LoginBrandPanel() {
       />
 
       <div className="relative z-10 flex h-full w-full flex-col px-10  xl:px-16 ">
-        <img
-          src={trurootLogo}
-          alt="Truroot Realty CRM"
-          className="h-auto w-full max-w-[330px] xl:max-w-[360px] my-2"
-        />
+        <BrandLogo className="my-2 h-auto w-80 max-w-full" />
 
         <div className="mt-8 max-w-[620px] xl:mt-10">
           <h1 className="text-[2.2rem] font-bold leading-tight text-foreground xl:text-[2.55rem]">
             Welcome to
             <span className="mt-1.5 block text-[3rem] font-extrabold leading-[1.05] xl:text-[3.5rem]">
-              <span className="text-primary">Trueroot</span> Realty CRM
+              <span className="text-primary">Gromoze</span>
             </span>
           </h1>
           <p className="mt-5 max-w-[540px] text-[1.1rem] leading-8 text-muted-foreground xl:text-[1.22rem] xl:leading-9">

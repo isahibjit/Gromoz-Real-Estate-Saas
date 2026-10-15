@@ -6,19 +6,20 @@ import {
   UsersRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { LoginPageCmsData } from "../settings/LoginPageCmsModal";
+import type { LoginPageCmsData } from "../../admin/settings/LoginPageCmsModal";
+import { BrandLogo } from "../../../components/ui/BrandLogo";
 
 const defaultIcons = [ChartNoAxesCombined, UsersRound, Building2, BarChart3];
 
 interface AuthBrandPanelProps {
-  logoSrc: string;
+  logoSrc?: string;
   heroImageSrc?: string;
   cms?: LoginPageCmsData;
 }
 
 export function AuthBrandPanel({ logoSrc, cms }: AuthBrandPanelProps) {
   const headlinePrefix = cms?.heroHeadlinePrefix ?? "Welcome to";
-  const headlineHighlight = cms?.heroHeadlineHighlight ?? "Trueroot Realty CRM";
+  const headlineHighlight = cms?.heroHeadlineHighlight ?? "Gromoze";
   const tagline = cms?.heroTagline ?? "Streamline your leads, follow-ups, site visits and sales - all in one place.";
   const features = cms?.features ?? [
     { title: "Manage Leads" },
@@ -32,11 +33,15 @@ export function AuthBrandPanel({ logoSrc, cms }: AuthBrandPanelProps) {
   return (
     <aside className="relative flex min-h-[520px] flex-col overflow-hidden px-6 pb-7 pt-6 sm:px-9 lg:min-h-screen lg:px-10 xl:px-12 2xl:px-16">
       <div className="relative z-10 flex flex-1 flex-col">
-        <img
-          src={logoSrc}
-          alt="Brand Logo"
-          className="h-auto w-[190px] sm:w-[235px] lg:w-[245px] 2xl:w-[285px] max-h-[70px] object-contain object-left"
-        />
+        {logoSrc ? (
+          <img
+            src={logoSrc}
+            alt="Brand Logo"
+            className="h-auto w-[190px] sm:w-[235px] lg:w-[245px] 2xl:w-[285px] max-h-[70px] object-contain object-left"
+          />
+        ) : (
+          <BrandLogo className="h-auto w-64 rounded-md bg-white p-2 sm:w-72" />
+        )}
 
         <div className="mt-10 max-w-[600px] sm:mt-12 lg:mt-16 2xl:mt-20">
           <h1 className="text-[2.05rem] font-extrabold leading-[1.08] tracking-[-0.04em] text-secondary sm:text-[2.45rem] xl:text-[2.75rem] 2xl:text-[3.2rem]">
@@ -96,7 +101,7 @@ function AuthFeatureCard({
     <div className="flex min-h-[86px] flex-col hover:scale-105 transition-all duration-200 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-3 text-center 2xl:min-h-[104px] 2xl:gap-3 2xl:py-4 shadow-2xs">
       <Icon
         aria-hidden="true"
-        className="size-6 text-blue-700 2xl:size-8"
+        className="size-6 text-primary 2xl:size-8"
         strokeWidth={1.8}
       />
       <p className="text-[11px] font-extrabold leading-tight text-secondary 2xl:text-[12px]">

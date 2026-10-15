@@ -11,7 +11,7 @@ jest.mock("../../../common/services/auth.api", () => ({
   logout: jest.fn(),
 }));
 
-function renderSidebar(initialPath = "/") {
+function renderSidebar(initialPath = "/", collapsed = false) {
   const store = makeStore();
   store.dispatch(
     setCredentials({
@@ -33,7 +33,7 @@ function renderSidebar(initialPath = "/") {
           future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
         >
           <DashboardSidebar
-            collapsed={false}
+            collapsed={collapsed}
             mobileOpen={false}
             onCollapse={() => undefined}
             onMobileClose={() => undefined}
@@ -43,6 +43,32 @@ function renderSidebar(initialPath = "/") {
     </QueryClientProvider>,
   );
 }
+
+beforeEach(() => localStorage.clear());
+
+test("uses the approved Gromoze lockup by default", () => {
+  renderSidebar();
+  expect(screen.getByRole("img", { name: "Gromoze — Real Estate Sales. Simplified." })).toBeInTheDocument();
+  expect(screen.queryByAltText("Truroot CRM Logo")).not.toBeInTheDocument();
+});
+
+test("uses the symbol instead of shrinking the wordmark when collapsed", () => {
+  renderSidebar("/", true);
+  expect(screen.getByRole("img", { name: "Gromoze logo" })).toBeInTheDocument();
+  expect(screen.queryByRole("img", { name: "Gromoze — Real Estate Sales. Simplified." })).not.toBeInTheDocument();
+});
+
+test.each([false, true])("preserves custom tenant logos when collapsed is %s", (collapsed) => {
+  localStorage.setItem("active_organization_id", "workspace-a");
+  localStorage.setItem("visiblo_workspace_branding_workspace-a", JSON.stringify({
+    logoUrl: "/custom-company-logo.png",
+    collapsedLogoUrl: "/custom-company-symbol.png",
+    showLogoInSidebar: true,
+  }));
+  renderSidebar("/", collapsed);
+  expect(screen.getByAltText("Company Logo")).toHaveAttribute("src", collapsed ? "/custom-company-symbol.png" : "/custom-company-logo.png");
+  expect(screen.queryByRole("img", { name: /Gromoze/ })).not.toBeInTheDocument();
+});
 
 test("uses canonical routes and omits source analytics", () => {
   renderSidebar();

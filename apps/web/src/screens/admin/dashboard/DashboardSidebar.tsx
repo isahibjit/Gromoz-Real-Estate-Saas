@@ -47,7 +47,7 @@ import React, {
 } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Button, cn } from "ui";
-import trurootLogo from "../../../assets/truroot-logo.png";
+import { BrandLogo } from "../../../components/ui/BrandLogo";
 import { useLogoutMutation } from "../../../common/mutations/useAuthMutations";
 import { getUserRoleLabel } from "../../../common/roleLabels";
 import { recordRecentSearch } from "../../../components/navigation/HeaderSearchBar";
@@ -458,7 +458,7 @@ function DashboardSidebarComponent({
     !localStorage.getItem("active_organization_id");
   const categories = isSuperAdminOnly ? superAdminNavCategories : defaultNavCategories;
 
-  const showBigLogo = !collapsed || isHovered;
+  const showBigLogo = mobileOpen || !collapsed || isHovered;
   const hasCustomLogo = Boolean(branding.logoUrl && branding.logoUrl.trim() !== "");
   const hasCollapsedLogo = Boolean(branding.collapsedLogoUrl && branding.collapsedLogoUrl.trim() !== "");
   const canRenderCustomLogoInSidebar = (hasCustomLogo || hasCollapsedLogo) && branding.showLogoInSidebar;
@@ -521,8 +521,10 @@ function DashboardSidebarComponent({
       {/* Refined Enterprise White Theme Sidebar */}
       <aside
         aria-label="Main navigation"
-        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col border-r border-slate-200 bg-white text-slate-700 shadow-xs transition-all duration-300 ease-in-out overflow-x-hidden ${
+        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col border-r border-border bg-sidebar text-sidebar-foreground shadow-xs transition-all duration-300 ease-in-out overflow-x-hidden ${
           showBigLogo ? "w-[295px] shadow-xl" : "w-[80px]"
+        } ${
+          mobileOpen ? "visible translate-x-0" : "invisible -translate-x-full lg:visible lg:translate-x-0"
         }`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -582,19 +584,12 @@ function DashboardSidebarComponent({
                     />
                   </div>
                 ) : (
-                  <img
-                    src={trurootLogo}
-                    alt="Truroot CRM Logo"
-                    style={{
-                      width: "220px",
-                      maxHeight: "58px",
-                      objectFit: "contain",
-                    }}
-                  />
+                  <BrandLogo className="h-auto w-56" />
                 )}
               </Link>
               <button
                 type="button"
+                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
                 onClick={(e) => {
                   e.stopPropagation();
                   onCollapse();
@@ -606,6 +601,7 @@ function DashboardSidebarComponent({
               </button>
               <button
                 type="button"
+                aria-label="Close sidebar"
                 onClick={onMobileClose}
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition duration-200 lg:hidden cursor-pointer"
                 title="Close"
@@ -616,6 +612,7 @@ function DashboardSidebarComponent({
           ) : (
             <button
               type="button"
+              aria-label="Expand sidebar"
               onClick={(e) => {
                 e.stopPropagation();
                 onCollapse();
@@ -652,11 +649,7 @@ function DashboardSidebarComponent({
                   />
                 </div>
               ) : (
-                <img
-                  src={trurootLogo}
-                  alt="Truroot Logo Icon"
-                  className="h-9 w-9 object-contain"
-                />
+                <BrandLogo variant="mark" className="h-11 w-10" />
               )}
             </button>
           )}
@@ -674,7 +667,7 @@ function DashboardSidebarComponent({
           {categories.map((cat, idx) => (
             <div key={idx} className="space-y-0.5">
               {showBigLogo && (
-                <p className="px-3 text-[11px] font-medium text-slate-400 pt-2 pb-1">
+                <p className="px-3 text-[11px] font-medium text-sidebar-muted pt-2 pb-1">
                   {cat.title}
                 </p>
               )}
@@ -703,14 +696,14 @@ function DashboardSidebarComponent({
                     } ${
                       active
                         ? "bg-primary text-white shadow-xs font-semibold" /* Active State */
-                        : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900" /* Default & Hover State */
+                        : "text-sidebar-muted hover:bg-surface-subtle hover:text-secondary" /* Default & Hover State */
                     }`}
                   >
                     <Icon
                       className={`h-4 w-4 shrink-0 transition-colors ${
                         active
                           ? "text-white"
-                          : "text-slate-500 group-hover:text-slate-700"
+                          : "text-sidebar-muted group-hover:text-secondary"
                       }`}
                     />
 
@@ -721,8 +714,8 @@ function DashboardSidebarComponent({
                           <span
                             className={`shrink-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-extrabold transition-colors ${
                               active
-                                ? "bg-tertiary text-white border border-tertiary"
-                                : "bg-red-50 text-tertiary border border-red-200/60"
+                                ? "bg-white text-primary border border-white/70"
+                                : "bg-surface-subtle text-primary border border-primary/15"
                             }`}
                           >
                             {item.badge}

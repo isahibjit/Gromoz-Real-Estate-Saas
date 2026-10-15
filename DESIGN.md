@@ -1,24 +1,26 @@
-# Truroot CRM design system
+# Gromoze CRM design system
 
 ## Visual authority
 
-The authenticated product shell is the visual source of truth. Main-body screens must feel native to the existing white sidebar and header: compact Manrope typography, crisp borders, restrained depth, navy structure, and limited red emphasis.
+The approved Gromoze logo defines the product's brand palette: navy structure, teal actions, white surfaces and cool, quiet neutrals. The authenticated product shell remains the visual source of truth for layout: compact Manrope typography, crisp borders and restrained depth. Red is reserved for destructive actions and error states.
 
 The interface is an operational SaaS workspace. Scanability, stable layouts, clear hierarchy, and fast task completion take priority over decoration.
 
 ## Theme source
 
-Brand and neutral colors are owned by `apps/web/src/styles/global.css`. Change the `--brand-primary`, `--brand-secondary`, and `--brand-tertiary` variables there to update their Tailwind utilities throughout the product.
+Brand and neutral colors are owned by `apps/web/src/styles/global.css`. The supplied artwork's dominant navy is `#0B335B` and teal is `#009998`. Keep these primitives in `--brand-navy` and `--brand-teal`. Use the darker derived teal `#007C7B` for white-label controls and small link text; the original teal alone does not meet AA text contrast on white. Hover teal is `#006563`.
 
 Use semantic Tailwind classes:
 
-- `primary` for navigation, primary actions, focus, and structural emphasis.
-- `secondary` for supporting brand emphasis and strong body headings.
-- `tertiary` for small brand accents and notification emphasis.
+- `primary` for teal navigation selection, primary actions, links and focus.
+- `secondary` for navy structure, supporting actions and strong body headings.
+- `tertiary` is a compatibility alias to accessible teal for existing brand accents and notification emphasis.
 - `success`, `warning`, and `destructive` only for their semantic states.
 - `background`, `surface`, `card`, `muted`, `border`, and `foreground` for neutral UI.
 
 Do not add brand hex values to components. Runtime customer-selected colors and provider-owned brand marks are the only exceptions.
+
+The shared `BrandLogo` component uses the exact supplied PNG, framing the full lockup or symbol with an SVG viewBox. Do not recreate the wordmark, recolor it, stretch it, or render the complete wordmark as the collapsed icon. Preserve customer-supplied expanded and collapsed logos and saved login CMS overrides.
 
 ## Typography
 

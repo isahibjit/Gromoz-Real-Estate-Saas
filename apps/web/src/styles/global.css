@@ -44,12 +44,16 @@
      * Brand palette: the single source of truth for the product UI.
      * Values are HSL channels so Tailwind opacity modifiers keep working.
      */
-    --brand-primary: 218 65% 15%;
-    --brand-primary-hover: 218 65% 10%;
-    --brand-secondary: 215 66% 25%;
-    --brand-secondary-hover: 215 66% 20%;
-    --brand-tertiary: 356 95% 45%;
-    --brand-tertiary-hover: 356 95% 39%;
+    /* Gromoze artwork: navy #0B335B and teal #009998. */
+    --brand-navy: 210 78.431% 20%;
+    --brand-teal: 179.608 100% 30%;
+    /* Darker teal preserves AA contrast for white labels and small link text. */
+    --brand-primary: 179.516 100% 24.314%;
+    --brand-primary-hover: 178.812 100% 19.804%;
+    --brand-secondary: var(--brand-navy);
+    --brand-secondary-hover: 209 78.947% 14.902%;
+    --brand-tertiary: var(--brand-primary);
+    --brand-tertiary-hover: var(--brand-primary-hover);
 
     /* Semantic aliases consumed by Tailwind and the shared UI package. */
     --primary: var(--brand-primary);
@@ -65,13 +69,13 @@
     --accent-foreground: 0 0% 100%;
 
     /* Neutral workspace palette. */
-    --background: 216 20% 97%;
-    --foreground: 218 43% 17%;
+    --background: 200 37.5% 96.863%;
+    --foreground: var(--brand-navy);
     --surface: 0 0% 100%;
-    --surface-subtle: 214 32% 96%;
+    --surface-subtle: 180 35.484% 93.922%;
     --surface-raised: 0 0% 100%;
-    --muted: 214 28% 95%;
-    --muted-foreground: 215 16% 42%;
+    --muted: 200 25% 95%;
+    --muted-foreground: 206.341 21.466% 37.451%;
     --card: 0 0% 100%;
     --card-foreground: var(--foreground);
     --border: 214 24% 88%;
@@ -82,19 +86,19 @@
     --success: 142 76% 36%;
     --success-soft: 142 76% 96%;
     --warning: 25 95% 53%;
-    --info: 218 65% 15%;
-    --info-soft: 218 65% 96%;
-    --auth-surface: 213 58% 96.3%;
-    --auth-surface-soft: 240 14% 98.6%;
-    --sidebar: var(--brand-primary);
-    --sidebar-deep: var(--brand-primary-hover);
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-muted: 210 24% 74%;
+    --info: var(--brand-navy);
+    --info-soft: 210 50% 96%;
+    --auth-surface: var(--surface-subtle);
+    --auth-surface-soft: var(--background);
+    --sidebar: var(--surface);
+    --sidebar-deep: var(--surface);
+    --sidebar-foreground: var(--brand-navy);
+    --sidebar-muted: var(--muted-foreground);
     --sidebar-active: var(--brand-primary);
     --sidebar-active-foreground: 0 0% 100%;
-    --chart-navy: var(--brand-primary);
-    --chart-blue: 205 65% 52%;
-    --chart-sky: 197 75% 66%;
+    --chart-navy: var(--brand-navy);
+    --chart-blue: var(--brand-teal);
+    --chart-sky: 180 36% 67%;
     --chart-orange: 25 100% 50%;
     --chart-gold: 35 100% 56%;
     --radius-xs: 4px;
@@ -126,6 +130,11 @@
     font: inherit;
   }
 
+  input,
+  textarea {
+    caret-color: hsl(var(--primary));
+  }
+
   ::selection {
     @apply bg-primary/20 text-foreground;
   }
@@ -150,17 +159,13 @@
 
   /* ─── Sidebar Custom Components ─── */
   .crm-sidebar {
-    @apply bg-gradient-to-b from-sidebar to-sidebar-deep text-sidebar-foreground;
+    @apply bg-sidebar text-sidebar-foreground;
   }
   .crm-sidebar-item {
     @apply flex h-11 items-center gap-3 rounded-sm px-3 text-[14px] font-medium transition-colors;
   }
-  .crm-sidebar-item-active {
-    @apply bg-primary text-white font-semibold shadow-xs;
-  }
-
   .crm-sidebar-scrollbar {
-    scrollbar-color: #cbd5e1 transparent;
+    scrollbar-color: hsl(var(--border)) transparent;
     scrollbar-width: thin;
   }
 
@@ -173,7 +178,7 @@
   }
 
   .crm-sidebar-scrollbar::-webkit-scrollbar-thumb {
-    background-color: #cbd5e1;
+    background-color: hsl(var(--border));
     border-radius: 999px;
   }
 
@@ -227,14 +232,11 @@
   }
 
   .auth-btn-primary {
-    @apply auth-btn text-white;
-    background: linear-gradient(135deg, hsl(223 78% 31%), hsl(170 100% 39%));
+    @apply auth-btn bg-primary text-primary-foreground;
   }
 
   .auth-btn-primary:hover:not(:disabled) {
-    background: linear-gradient(135deg, hsl(223 78% 26%), hsl(170 100% 34%));
-    transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgb(18 58 143 / 0.25);
+    background-color: hsl(var(--primary-hover));
   }
 
   .auth-btn-outline {
@@ -334,7 +336,7 @@
 }
 
 .recharts-default-tooltip {
-  background-color: hsl(var(--primary)) !important;
+  background-color: hsl(var(--secondary)) !important;
   border-radius: var(--radius-card) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   box-shadow: 0 12px 30px -5px hsl(var(--primary) / 0.4) !important;
@@ -342,7 +344,7 @@
 }
 
 .recharts-tooltip-label {
-  color: hsl(var(--tertiary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
   font-weight: 700 !important;
   font-size: 12px !important;
   margin-bottom: 4px !important;

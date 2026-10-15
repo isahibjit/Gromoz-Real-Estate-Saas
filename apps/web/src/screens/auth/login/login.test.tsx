@@ -73,7 +73,7 @@ beforeEach(() => {
 test("renders the login screen content", () => {
   renderLoginScreen();
 
-  expect(screen.getByAltText("Brand Logo")).toBeInTheDocument();
+  expect(screen.getByRole("img", { name: "Gromoze — Real Estate Sales. Simplified." })).toBeInTheDocument();
   expect(
     screen.getByRole("heading", { name: /Welcome to/i }),
   ).toBeInTheDocument();

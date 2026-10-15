@@ -2,7 +2,6 @@ import type { MouseEvent, PropsWithChildren } from "react";
 import { ShieldCheck } from "lucide-react";
 
 import onboardBuildings from "../../../assets/onboard-buildings.png";
-import trurootLogo from "../../../assets/truroot-logo.png";
 import { AuthBrandPanel } from "./AuthBrandPanel";
 import { useLoginPageCms } from "./useLoginPageCms";
 
@@ -29,7 +28,7 @@ export function AuthLayout({
 }: AuthLayoutProps) {
   const cms = useLoginPageCms();
 
-  const effectiveLogo = logoSrc || cms.heroLogoUrl || trurootLogo;
+  const effectiveLogo = logoSrc || cms.heroLogoUrl;
   const effectiveBg = heroImageSrc || cms.heroBgImageUrl || onboardBuildings;
   const effectiveTerms = termsUrl || cms.termsUrl || "/terms";
   const effectivePrivacy = privacyUrl || cms.privacyUrl || "/privacy-policy";
@@ -41,7 +40,7 @@ export function AuthLayout({
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#eef5ff] text-foreground">
+    <main className="relative min-h-screen overflow-hidden bg-auth-surface text-foreground">
       <img
         src={effectiveBg}
         alt=""
