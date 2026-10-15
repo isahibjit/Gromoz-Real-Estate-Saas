@@ -30,6 +30,7 @@ import {
   DatePicker,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DropdownMenu,
@@ -692,6 +693,85 @@ function ContactLeadModal({
   );
 }
 
+function ContactLeadNoteDialog({
+  contact,
+  canUpdate,
+  isPending,
+  onClose,
+  onSave,
+}: {
+  contact: ContactLead;
+  canUpdate: boolean;
+  isPending: boolean;
+  onClose: () => void;
+  onSave: (note: string) => Promise<void>;
+}) {
+  const [note, setNote] = useState(contact.note ?? "");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !isPending) onClose();
+      }}
+    >
+      <DialogContent className="max-w-lg gap-0 p-0" showCloseButton={!isPending}>
+        <DialogHeader className="border-b border-slate-100 px-6 py-4 pr-12">
+          <DialogTitle>Contact note</DialogTitle>
+          <DialogDescription>{contact.customerName}</DialogDescription>
+        </DialogHeader>
+        <form
+          onSubmit={async (event) => {
+            event.preventDefault();
+            if (!canUpdate || isPending) return;
+            setErrorMessage("");
+            try {
+              await onSave(note.trim());
+            } catch (error) {
+              setErrorMessage(getApiErrorMessage(error));
+            }
+          }}
+        >
+          <div className="space-y-3 px-6 py-4">
+            <label className="block space-y-2">
+              <span className="text-sm font-semibold text-secondary">Note</span>
+              <Textarea
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                readOnly={!canUpdate}
+                disabled={isPending}
+                rows={6}
+                placeholder="Add context, call summary, or cold-contact notes"
+              />
+            </label>
+            {errorMessage ? (
+              <p role="alert" className="text-sm text-destructive">
+                {errorMessage}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending}
+              onClick={onClose}
+            >
+              {canUpdate ? "Cancel" : "Close"}
+            </Button>
+            {canUpdate ? (
+              <Button type="submit" disabled={isPending}>
+                {isPending ? "Saving…" : "Save note"}
+              </Button>
+            ) : null}
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function FiltersCard({
   filters,
   activeFilterCount,
@@ -950,6 +1030,7 @@ function ContactsTable({
   onPageChange,
   onRowsPerPageChange,
   onEdit,
+  onNote,
   onInterested,
   onNotInterested,
   onDelete,
@@ -978,6 +1059,7 @@ function ContactsTable({
   onPageChange: (page: number) => void;
   onRowsPerPageChange: (limit: number) => void;
   onEdit: (contact: ContactLead) => void;
+  onNote: (contact: ContactLead) => void;
   onInterested: (contact: ContactLead) => void;
   onNotInterested: (contact: ContactLead) => void;
   onDelete: (contact: ContactLead) => void;
@@ -1254,9 +1336,16 @@ function ContactsTable({
         className: "w-[164px] max-w-[164px]",
         headerClassName: "w-[164px]",
         cell: (contact: ContactLead) => (
-          <p className="block w-full truncate text-[10px] font-semibold text-muted-foreground">
+          <Button
+            type="button"
+            variant="ghost"
+            className="block h-auto w-full truncate p-1 text-left text-[10px] font-semibold text-muted-foreground"
+            aria-label={`${canUpdate ? "Edit" : "View"} note for ${contact.customerName}`}
+            title={contact.note || "No note added"}
+            onClick={() => onNote(contact)}
+          >
             {contact.note || "No note added"}
-          </p>
+          </Button>
         ),
       },
       {
@@ -1294,6 +1383,7 @@ function ContactsTable({
       navigate,
       onConvert,
       onEdit,
+      onNote,
       onInterested,
       onNotInterested,
       onDelete,
@@ -1624,6 +1714,7 @@ export function ContactLeadsScreen() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<ContactLead | null>(null);
+  const [noteContact, setNoteContact] = useState<ContactLead | null>(null);
   const [form, setForm] = useState<ContactLeadForm>(emptyForm);
   const navigate = useNavigate();
   const [contactPendingDeletion, setContactPendingDeletion] =
@@ -2279,6 +2370,7 @@ export function ContactLeadsScreen() {
             setCurrentPage(1);
           }}
           onEdit={openEditModal}
+          onNote={setNoteContact}
           onInterested={(contact) =>
             runAction(
               () => markInterested.mutateAsync(contact.id),
@@ -2356,6 +2448,23 @@ export function ContactLeadsScreen() {
         />
       </section>
 
+      {noteContact ? (
+        <ContactLeadNoteDialog
+          key={noteContact.id}
+          contact={noteContact}
+          canUpdate={canUpdateContacts}
+          isPending={updateContact.isPending}
+          onClose={() => setNoteContact(null)}
+          onSave={async (note) => {
+            await updateContact.mutateAsync({
+              id: noteContact.id,
+              payload: { note },
+            });
+            toast.success("Contact note updated");
+            setNoteContact(null);
+          }}
+        />
+      ) : null}
       <ContactLeadModal
         open={modalOpen}
         onOpenChange={closeModal}

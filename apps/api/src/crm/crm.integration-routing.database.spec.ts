@@ -4,6 +4,9 @@ import { referenceTenantProviders } from '../../test/reference-tenant-providers'
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { Test } from '@nestjs/testing';
+import { JwtModule, JwtService } from '@nestjs/jwt';
+import type { INestApplication } from '@nestjs/common';
+import request from 'supertest';
 import { randomUUID } from 'crypto';
 import { mkdtempSync, cpSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
@@ -14,6 +17,9 @@ import { LeadSourceConnectionsService } from './lead-source-connections.service'
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { LeadVisibilityService } from './lead-visibility.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { AccessService } from '../access/access.service';
+import { RedisService } from '../redis/redis.service';
+import { ContactLeadsController } from './crm.controllers';
 
 const databaseSuite =
   process.env.INTEGRATION_ROUTING_DB_TEST === '1' ? describe : describe.skip;
@@ -31,6 +37,9 @@ databaseSuite(
     let tempPrisma: string;
     let service: CrmService;
     let connections: LeadSourceConnectionsService;
+    let app: INestApplication;
+    let jwt: JwtService;
+    const access = { hasPermission: jest.fn().mockResolvedValue(true) };
     const organizationId = randomUUID();
     const foreignOrganizationId = randomUUID();
     let ownerId: string;
@@ -143,6 +152,10 @@ databaseSuite(
       );
       migrate(url.toString());
       const module = await Test.createTestingModule({
+        imports: [
+          JwtModule.register({ secret: 'tenant-contact-note-test-only' }),
+        ],
+        controllers: [ContactLeadsController],
         providers: [
           ...referenceTenantProviders(organizationId),
           TenantAccessService,
@@ -157,6 +170,8 @@ databaseSuite(
           CrmService,
           LeadSourceConnectionsService,
           { provide: PrismaService, useValue: db },
+          { provide: AccessService, useValue: access },
+          { provide: RedisService, useValue: { get: async () => null } },
           {
             provide: RealtimeService,
             useValue: { enqueueLeadCreated: async () => undefined },
@@ -169,9 +184,13 @@ databaseSuite(
       }).compile();
       service = module.get(CrmService);
       connections = module.get(LeadSourceConnectionsService);
+      jwt = module.get(JwtService);
+      app = module.createNestApplication();
+      await app.init();
       jest.spyOn(service, 'sendPushNotification').mockResolvedValue(undefined);
     }, 90000);
     afterAll(async () => {
+      await app?.close();
       await db?.$disconnect();
       if (!/^integration_route_test_[a-f0-9]{32}$/.test(databaseName))
         throw new Error('Unsafe disposable database target');
@@ -364,6 +383,216 @@ databaseSuite(
         (await connections.getAccount('magicbricks', accountId)).routingRule
           ?.ownerId,
       ).toBe(ownerId);
+    });
+    it('imports a fresh website lead using its legacy management override as canonical owner', async () => {
+      const site = {
+        id: 'legacy-website',
+        url: 'https://legacy-fixture.example.invalid',
+        name: 'Legacy fixture',
+        telecallerId: ownerId,
+        sourceId: 'website-source-fixture',
+        leadsCount: 4,
+      };
+      const integration = await db.portalIntegration.create({
+        data: {
+          organizationId,
+          provider: 'website',
+          displayName: 'Website Leads',
+          status: 'Configured',
+          webhookKeyId: randomUUID(),
+          fieldMapping: { connectedWebsites: [site] },
+        },
+      });
+      Object.defineProperty(service, 'sendWebsiteLeadEmailNotification', {
+        value: jest.fn().mockResolvedValue(undefined),
+      });
+      const result = await service.receiveWebsiteLead(
+        {
+          name: 'Legacy routing fixture',
+          mobile: '0000000471',
+          websiteUrl: site.url,
+        },
+        `truroot_web_${integration.webhookKeyId}`,
+      );
+      expect(result.success).toBe(true);
+      expect(
+        await db.lead.findUnique({
+          where: { id: result.leadId },
+          select: { ownerId: true, telecallerId: true, fieldExecutiveId: true },
+        }),
+      ).toEqual({ ownerId, telecallerId: null, fieldExecutiveId: null });
+      expect(
+        await db.autoAssignmentEvent.count({
+          where: { leadId: result.leadId },
+        }),
+      ).toBe(0);
+      const reloaded = await service.getWebsiteIntegration();
+      expect(reloaded.data.connectedWebsites[0]).toMatchObject({
+        ownerId,
+        leadsCount: 5,
+      });
+      expect(reloaded.data.connectedWebsites[0].telecallerId).toBeUndefined();
+      const stored = await db.portalIntegration.findUniqueOrThrow({
+        where: {
+          organizationId_provider: { organizationId, provider: 'website' },
+        },
+        select: { fieldMapping: true, totalLeadsReceived: true },
+      });
+      expect(stored).toMatchObject({
+        totalLeadsReceived: 1,
+        fieldMapping: {
+          connectedWebsites: [
+            expect.objectContaining({ telecallerId: ownerId, leadsCount: 5 }),
+          ],
+        },
+      });
+    });
+    it('does not normalize or ingest a foreign legacy management override', async () => {
+      const integration = await db.portalIntegration.findUniqueOrThrow({
+        where: {
+          organizationId_provider: { organizationId, provider: 'website' },
+        },
+      });
+      const site = {
+        id: 'foreign-route',
+        url: 'https://foreign-route.example.invalid',
+        telecallerId: foreignOwnerId,
+      };
+      await db.portalIntegration.update({
+        where: { id: integration.id },
+        data: { fieldMapping: { connectedWebsites: [site] } },
+      });
+      const config = await service.getWebsiteIntegration();
+      expect(config.data.connectedWebsites[0]).toMatchObject({
+        telecallerId: foreignOwnerId,
+      });
+      expect(config.data.connectedWebsites[0].ownerId).toBeUndefined();
+      await expect(
+        service.receiveWebsiteLead(
+          { name: 'Rejected lead', mobile: '0000000472', websiteUrl: site.url },
+          `truroot_web_${integration.webhookKeyId}`,
+        ),
+      ).rejects.toThrow('Assignee not found in this workspace');
+      expect(await db.lead.count({ where: { mobile: '0000000472' } })).toBe(0);
+    });
+    it('counts distinct captures using matching lead and audit tenants, excluding deleted and manual-source leads', async () => {
+      const before = await service.getLeadImportStats();
+      const ids = Array.from({ length: 5 }, () => randomUUID());
+      await db.lead.createMany({
+        data: ids.map((id, index) => ({
+          id,
+          displayId: id,
+          name: 'Count fixture',
+          mobile: id,
+          organizationId: index === 2 ? foreignOrganizationId : organizationId,
+          deletedAt: index === 1 ? new Date() : null,
+          sourceId: index === 4 ? 'website-source-fixture' : 'changed-source',
+        })),
+      });
+      await db.auditLog.createMany({
+        data: [
+          { organizationId, entityId: ids[0] },
+          { organizationId, entityId: ids[0] },
+          { organizationId, entityId: ids[1] },
+          { organizationId: foreignOrganizationId, entityId: ids[2] },
+          { organizationId, entityId: ids[2] },
+          { organizationId: foreignOrganizationId, entityId: ids[3] },
+        ].map((audit) => ({
+          ...audit,
+          action: 'WEBSITE_LEAD_RECEIVED',
+          entityType: 'Lead',
+        })),
+      });
+      const after = await service.getLeadImportStats();
+      expect(after.sourceCounts.website).toBe(before.sourceCounts.website + 1);
+      expect(
+        after.connectors.find((connector) => connector.id === 'website')
+          ?.leadCount,
+      ).toBe(after.sourceCounts.website);
+    });
+    it('keeps contact notes, list counts and reassignment inside the active workspace', async () => {
+      const actor = { sub: ownerId, role: 'ADMIN' };
+      const own = await db.contactLead.create({
+        data: {
+          customerName: 'Own contact',
+          mobile: '0000000473',
+          assignedToId: ownerId,
+          createdById: ownerId,
+          note: 'Original',
+        },
+      });
+      const foreign = await db.contactLead.create({
+        data: {
+          customerName: 'Foreign contact',
+          mobile: '0000000474',
+          assignedToId: foreignOwnerId,
+          createdById: foreignOwnerId,
+          note: 'Foreign note',
+        },
+      });
+      const unassigned = await db.contactLead.create({
+        data: {
+          customerName: 'Unassigned contact',
+          mobile: '0000000475',
+          createdById: ownerId,
+        },
+      });
+      expect(
+        (await service.listContactLeads({}, actor)).data
+          .map((contact: { id: string }) => contact.id)
+          .sort(),
+      ).toEqual([own.id, unassigned.id].sort());
+      expect(
+        (await service.listContactLeads({ search: 'Foreign' }, actor)).meta
+          .total,
+      ).toBe(0);
+      await expect(
+        service.updateContactLead(foreign.id, { note: 'Changed' }, actor),
+      ).rejects.toThrow('Contact lead not found');
+      await expect(
+        service.updateContactLead(
+          own.id,
+          { assignedToId: foreignOwnerId },
+          actor,
+        ),
+      ).rejects.toThrow('Employee not found in this workspace');
+      expect(
+        await db.contactLead.findUnique({ where: { id: foreign.id } }),
+      ).toMatchObject({ note: 'Foreign note' });
+
+      const token = jwt.sign({ sub: ownerId, role: 'ADMIN' });
+      await request(app.getHttpServer())
+        .patch(`/contact-leads/${own.id}`)
+        .send({ note: 'Denied' })
+        .expect(401);
+      access.hasPermission.mockResolvedValueOnce(false);
+      await request(app.getHttpServer())
+        .patch(`/contact-leads/${own.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ note: 'Denied' })
+        .expect(403);
+      await request(app.getHttpServer())
+        .patch(`/contact-leads/${foreign.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ note: 'Denied' })
+        .expect(404);
+      await request(app.getHttpServer())
+        .patch(`/contact-leads/${own.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ note: '  Updated note  ' })
+        .expect(200);
+      expect(
+        await db.contactLead.findUnique({ where: { id: own.id } }),
+      ).toMatchObject({
+        note: 'Updated note',
+        assignedToId: ownerId,
+        customerName: 'Own contact',
+        mobile: '0000000473',
+      });
+      await service.updateContactLead(own.id, { note: '' }, actor);
+      expect(
+        await db.contactLead.findUnique({ where: { id: own.id } }),
+      ).toMatchObject({ note: null });
     });
   },
 );

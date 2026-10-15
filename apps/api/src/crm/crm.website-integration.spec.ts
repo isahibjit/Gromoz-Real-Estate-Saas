@@ -96,7 +96,14 @@ describe('Website integration pause enforcement', () => {
         { provide: PrismaService, useValue: db },
         { provide: RealtimeService, useValue: {} },
         { provide: LeadVisibilityService, useValue: {} },
-        { provide: TenantAccessService, useValue: {} },
+        {
+          provide: TenantAccessService,
+          useValue: {
+            employeeWhere: () => ({
+              organizationMemberships: { some: { organizationId: 'tenant-a' } },
+            }),
+          },
+        },
         {
           provide: TenantContextService,
           useValue: { getTenantId: () => 'tenant-a' },
@@ -358,6 +365,85 @@ describe('Website integration pause enforcement', () => {
       ([args]) => args.data.totalLeadsReceived,
     );
     expect(receipts).toHaveLength(1);
+  });
+
+  it('routes a legacy management override to owner rather than Pre Sales', async () => {
+    integration.fieldMapping = {
+      mapping: { name: 'leadName' },
+      connectedWebsites: [
+        {
+          id: 'site',
+          url: 'https://example.com',
+          name: 'Example',
+          telecallerId: 'rajesh',
+          projectId: 'project',
+          sourceId: 'source',
+          leadsCount: 4,
+        },
+      ],
+    };
+    db.user.findMany.mockResolvedValue([{ id: 'rajesh', role: 'ADMIN' }]);
+    Object.defineProperty(service, 'sendWebsiteLeadEmailNotification', {
+      value: jest.fn().mockResolvedValue(undefined),
+    });
+
+    await service.receiveWebsiteLead(
+      {
+        name: 'Fixture',
+        mobile: '0000000000',
+        websiteUrl: 'https://example.com',
+      },
+      'truroot_web_website-key-id',
+    );
+
+    expect(service.createLead).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerId: 'rajesh',
+        telecallerId: undefined,
+        fieldExecutiveId: undefined,
+        sourceId: 'source',
+        preferredProjectId: 'project',
+      }),
+      undefined,
+      { fromIntegration: true },
+    );
+    // Receipt updates preserve stored configuration; only the approved repair changes it.
+    expectIntegrationUpdate({
+      fieldMapping: expect.objectContaining({
+        connectedWebsites: [
+          expect.objectContaining({ telecallerId: 'rajesh', leadsCount: 5 }),
+        ],
+      }),
+    });
+  });
+
+  it('returns canonical legacy routing to the editor without rewriting saved settings', async () => {
+    const site = {
+      id: 'site',
+      url: 'https://example.com',
+      telecallerId: 'rajesh',
+      leadsCount: 4,
+    };
+    integration.fieldMapping = {
+      connectedWebsites: [site],
+      mapping: { name: 'leadName' },
+    };
+    db.user.findMany.mockResolvedValue([{ id: 'rajesh', role: 'ADMIN' }]);
+    const result = await service.getWebsiteIntegration();
+    expect(result.data.connectedWebsites).toEqual([
+      expect.objectContaining({
+        ownerId: 'rajesh',
+        telecallerId: undefined,
+        fieldExecutiveId: undefined,
+        leadsCount: 4,
+      }),
+    ]);
+    expect(site.telecallerId).toBe('rajesh');
+    expect(
+      db.portalIntegration.update.mock.calls.every(
+        ([args]) => !args.data.fieldMapping,
+      ),
+    ).toBe(true);
   });
 });
 

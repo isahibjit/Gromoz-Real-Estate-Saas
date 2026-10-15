@@ -3,8 +3,122 @@ import { BadRequestException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import {
   assertValidRoutingAssignees,
+  normalizeLegacyRoutingOwners,
   LeadSourceConnectionsService,
 } from './lead-source-connections.service';
+
+describe('Legacy saved website owners', () => {
+  const db = { user: { findMany: jest.fn() } };
+  const employeeScope = {
+    role: { not: Role.SUPER_ADMIN },
+    organizationMemberships: {
+      some: { organizationId: 'tenant-a' },
+      none: { organizationId: { not: 'tenant-a' } },
+    },
+  };
+  beforeEach(() => jest.resetAllMocks());
+
+  it.each([Role.ADMIN, Role.MANAGER, Role.TEAM_LEADER, Role.SALES_MANAGER])(
+    'normalizes only a sole active %s executive override',
+    async (role) => {
+      db.user.findMany.mockResolvedValue([{ id: 'owner', role }]);
+      for (const slot of ['telecallerId', 'fieldExecutiveId'] as const) {
+        const route = {
+          telecallerId: slot === 'telecallerId' ? 'owner' : undefined,
+          fieldExecutiveId: slot === 'fieldExecutiveId' ? 'owner' : undefined,
+          projectId: 'project',
+          leadsCount: 4,
+        };
+        const [resolved] = await normalizeLegacyRoutingOwners(
+          db as never,
+          [route],
+          employeeScope,
+        );
+        expect(resolved).toEqual({
+          ...route,
+          ownerId: 'owner',
+          telecallerId: undefined,
+          fieldExecutiveId: undefined,
+        });
+        expect(route[slot]).toBe('owner');
+        await expect(
+          assertValidRoutingAssignees(
+            db as never,
+            resolved.telecallerId,
+            resolved.fieldExecutiveId,
+            resolved.ownerId,
+          ),
+        ).resolves.toBeUndefined();
+      }
+    },
+  );
+
+  it('batches lookups and preserves canonical executives, empty routes and unrelated fields', async () => {
+    db.user.findMany.mockResolvedValue([
+      { id: 'tc', role: Role.TELECALLER },
+      { id: 'sales', role: Role.SALES_AGENT },
+      { id: 'owner', role: Role.ADMIN },
+    ]);
+    const routes = [
+      { telecallerId: 'tc' },
+      { fieldExecutiveId: 'sales' },
+      { telecallerId: 'owner', sourceId: 'source' },
+      { telecallerId: 'owner' },
+      {},
+      { ownerId: 'canonical' },
+    ];
+    const resolved = await normalizeLegacyRoutingOwners(
+      db as never,
+      routes,
+      employeeScope,
+    );
+    expect(db.user.findMany).toHaveBeenCalledTimes(1);
+    expect(db.user.findMany).toHaveBeenCalledWith({
+      where: {
+        AND: [
+          employeeScope,
+          { id: { in: ['tc', 'sales', 'owner'] }, isActive: true },
+        ],
+      },
+      select: { id: true, role: true },
+    });
+    expect(resolved[0]).toBe(routes[0]);
+    expect(resolved[1]).toBe(routes[1]);
+    expect(resolved[2]).toMatchObject({ ownerId: 'owner', sourceId: 'source' });
+    expect(resolved[4]).toBe(routes[4]);
+    expect(resolved[5]).toBe(routes[5]);
+  });
+
+  it.each([{ users: [] }, { users: [{ id: 'invalid', role: Role.HR }] }])(
+    'does not convert missing, inactive or unsupported assignees into owners',
+    async ({ users }) => {
+      db.user.findMany.mockResolvedValue(users);
+      const route = { telecallerId: 'invalid' };
+      const [resolved] = await normalizeLegacyRoutingOwners(
+        db as never,
+        [route],
+        employeeScope,
+      );
+      expect(resolved).toBe(route);
+      await expect(
+        assertValidRoutingAssignees(db as never, resolved.telecallerId),
+      ).rejects.toThrow('Select an active Pre Sales user');
+    },
+  );
+
+  it('never chooses between conflicting person slots or overrides a canonical owner', async () => {
+    const routes = [
+      { ownerId: 'owner', telecallerId: 'tc' },
+      { telecallerId: 'owner', fieldExecutiveId: 'sales' },
+      { ownerId: 'owner' },
+      {},
+    ];
+    expect(
+      await normalizeLegacyRoutingOwners(db as never, routes, employeeScope),
+    ).toEqual(routes);
+    expect(db.user.findMany).not.toHaveBeenCalled();
+  });
+});
 
 describe('LeadSourceConnectionsService routing', () => {
   const account = {

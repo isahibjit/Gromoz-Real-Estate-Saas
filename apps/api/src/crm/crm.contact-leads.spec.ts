@@ -28,14 +28,16 @@ describe('Contact lead conversion', () => {
   };
 
   const db = {
-    contactLead: { findUnique: jest.fn(), update: jest.fn() },
+    contactLead: { findFirst: jest.fn(), update: jest.fn() },
+    user: { findMany: jest.fn() },
     lead: { findFirst: jest.fn() },
     auditLog: { create: jest.fn() },
   };
 
   beforeEach(async () => {
     jest.resetAllMocks();
-    db.contactLead.findUnique.mockResolvedValue({ ...contactLead });
+    db.contactLead.findFirst.mockResolvedValue({ ...contactLead });
+    db.user.findMany.mockResolvedValue([{ id: 'user-1' }]);
     db.contactLead.update.mockImplementation(async ({ data }) => ({
       ...contactLead,
       ...data,
@@ -54,7 +56,10 @@ describe('Contact lead conversion', () => {
         { provide: PrismaService, useValue: db },
         { provide: RealtimeService, useValue: {} },
         { provide: LeadVisibilityService, useValue: {} },
-        { provide: TenantAccessService, useValue: {} },
+        {
+          provide: TenantAccessService,
+          useValue: { employeeWhere: () => ({}) },
+        },
         {
           provide: TenantContextService,
           useValue: { getTenantId: () => undefined },
@@ -102,7 +107,7 @@ describe('Contact lead conversion', () => {
   });
 
   it('returns the existing converted lead id when already converted', async () => {
-    db.contactLead.findUnique.mockResolvedValueOnce({
+    db.contactLead.findFirst.mockResolvedValueOnce({
       ...contactLead,
       status: 'CONVERTED',
       convertedLeadId: 'already-converted',

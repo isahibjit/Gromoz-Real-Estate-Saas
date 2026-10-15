@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { api } from "../../../../common/api";
+import { usePermission } from "../../../../common/access/usePermission";
 import {
   DashboardLayoutProvider,
   useDashboardLayoutContext,
@@ -14,6 +15,9 @@ jest.mock("../../../../common/api", () => ({
 }));
 jest.mock("../../../../store", () => ({
   useAppSelector: () => ({ id: "admin", role: "SUPER_ADMIN" }),
+}));
+jest.mock("../../../../common/access/usePermission", () => ({
+  usePermission: jest.fn(),
 }));
 jest.mock("../../projects/useProjectsApi", () => ({
   useProjects: () => ({ data: { projects: [] } }),
@@ -42,6 +46,7 @@ const contacts = [
   {
     id: "other",
     customerName: "Another customer",
+    note: "Call after 6 pm",
     mobile: "8888888888",
     status: "INTERESTED",
     createdAt: "2026-10-12T07:00:00Z",
@@ -49,12 +54,27 @@ const contacts = [
   },
 ];
 let failSearch = false;
+let savedNote: string | undefined;
 beforeEach(() => {
   jest.clearAllMocks();
   failSearch = false;
+  savedNote = undefined;
+  jest.mocked(usePermission).mockReturnValue({
+    canView: true,
+    canCreate: true,
+    canUpdate: true,
+    canDelete: true,
+    canPunchIn: false,
+    canPunchOut: false,
+  });
+  jest.mocked(api.patch).mockResolvedValue({ data: {} });
   jest.mocked(api.get).mockImplementation(async (url, config) => {
     const search = String(config?.params?.search ?? "").toLowerCase();
-    const results = contacts.filter((contact) =>
+    const results = contacts.map((contact) => (
+      contact.id === "sandeep" && savedNote !== undefined
+        ? { ...contact, note: savedNote }
+        : contact
+    )).filter((contact) =>
       contact.customerName.toLowerCase().includes(search),
     );
     if (url === "/contact-leads/stats")
@@ -179,4 +199,84 @@ test("an API search failure is not shown as zero contacts and Retry restores the
   await userEvent.click(screen.getByRole("button", { name: "Retry" }));
   await screen.findByText("Sandeep Kumar");
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+test("clicking an empty note saves only the note and refreshes the contact row", async () => {
+  jest.mocked(api.patch).mockImplementation(async () => {
+    savedNote = "Requested a call tomorrow";
+    return { data: {} };
+  });
+  renderContacts();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit note for Sandeep Kumar" }));
+  await userEvent.type(screen.getByRole("textbox", { name: "Note" }), "  Requested a call tomorrow  ");
+  await userEvent.click(screen.getByRole("button", { name: "Save note" }));
+
+  await waitFor(() => expect(api.patch).toHaveBeenCalledWith(
+    "/contact-leads/sandeep", { note: "Requested a call tomorrow" },
+  ));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(screen.getByRole("button", { name: "Edit note for Sandeep Kumar" })).toHaveTextContent("Requested a call tomorrow");
+});
+
+test("existing notes open in full and cancel discards changes", async () => {
+  renderContacts();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit note for Another customer" }));
+  const note = screen.getByRole("textbox", { name: "Note" });
+  expect(note).toHaveValue("Call after 6 pm");
+  await userEvent.type(note, " tomorrow");
+  await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(api.patch).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole("button", { name: "Edit note for Another customer" }));
+  expect(screen.getByRole("textbox", { name: "Note" })).toHaveValue("Call after 6 pm");
+});
+
+test("clearing an existing note submits an empty note", async () => {
+  renderContacts();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit note for Another customer" }));
+  await userEvent.clear(screen.getByRole("textbox", { name: "Note" }));
+  await userEvent.click(screen.getByRole("button", { name: "Save note" }));
+  await waitFor(() => expect(api.patch).toHaveBeenCalledWith("/contact-leads/other", { note: "" }));
+});
+
+test("a failed note save shows the API message and keeps the draft for retry", async () => {
+  jest.mocked(api.patch).mockRejectedValueOnce({ response: { data: { message: "Unable to save contact note" } } });
+  renderContacts();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit note for Sandeep Kumar" }));
+  await userEvent.type(screen.getByRole("textbox", { name: "Note" }), "Keep this draft");
+  await userEvent.click(screen.getByRole("button", { name: "Save note" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Unable to save contact note");
+  expect(screen.getByRole("textbox", { name: "Note" })).toHaveValue("Keep this draft");
+  await userEvent.click(screen.getByRole("button", { name: "Save note" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+});
+
+test("users without update permission can read the full note without saving", async () => {
+  jest.mocked(usePermission).mockReturnValue({
+    canView: true, canCreate: false, canUpdate: false, canDelete: false,
+    canPunchIn: false, canPunchOut: false,
+  });
+  renderContacts();
+  await userEvent.click(await screen.findByRole("button", { name: "View note for Another customer" }));
+  expect(screen.getByRole("textbox", { name: "Note" })).toHaveValue("Call after 6 pm");
+  expect(screen.getByRole("textbox", { name: "Note" })).toHaveAttribute("readonly");
+  expect(screen.queryByRole("button", { name: "Save note" })).not.toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(api.patch).not.toHaveBeenCalled();
+});
+
+test("note saving disables repeat submission until the request finishes", async () => {
+  let finishSave: () => void = () => { throw new Error("No save pending"); };
+  jest.mocked(api.patch).mockImplementationOnce(() => new Promise((resolve) => {
+    finishSave = () => resolve({ data: {} });
+  }));
+  renderContacts();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit note for Sandeep Kumar" }));
+  await userEvent.type(screen.getByRole("textbox", { name: "Note" }), "New note");
+  await userEvent.click(screen.getByRole("button", { name: "Save note" }));
+  expect(await screen.findByRole("button", { name: "Saving…" })).toBeDisabled();
+  expect(screen.getByRole("textbox", { name: "Note" })).toBeDisabled();
+  expect(api.patch).toHaveBeenCalledTimes(1);
+  finishSave();
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 });

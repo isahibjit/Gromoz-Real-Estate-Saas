@@ -42,6 +42,7 @@ import {
 } from './lead-source-visibility';
 import {
   assertValidRoutingAssignees,
+  normalizeLegacyRoutingOwners,
   LeadSourceConnectionsService,
   ROUTING_OWNER_ROLES,
 } from './lead-source-connections.service';
@@ -3973,9 +3974,13 @@ export class CrmService {
       organizationId,
     );
     const rawMapping = (integration.fieldMapping as any) ?? {};
-    const connectedWebsites = Array.isArray(rawMapping.connectedWebsites)
-      ? rawMapping.connectedWebsites
-      : [];
+    const connectedWebsites = await normalizeLegacyRoutingOwners(
+      this.db(),
+      Array.isArray(rawMapping.connectedWebsites)
+        ? rawMapping.connectedWebsites
+        : [],
+      this.tenantAccess.employeeWhere(integration.organizationId),
+    );
     const fieldMapping = rawMapping.mapping ?? {
       name: 'leadName',
       mobile: 'mobileNumber',
@@ -4818,6 +4823,11 @@ export class CrmService {
       if (matchedProj) effectiveProjectId = matchedProj.id;
     }
 
+    const [routing] = await normalizeLegacyRoutingOwners(
+      this.prisma,
+      [matchedWebsite ?? {}],
+      this.tenantAccess.employeeWhere(organizationId),
+    );
     const lead = await this.createLead(
       {
         organizationId,
@@ -4828,9 +4838,9 @@ export class CrmService {
         projectId: effectiveProjectId,
         preferredProjectId: effectiveProjectId,
         configuration,
-        ownerId: matchedWebsite?.ownerId,
-        telecallerId: matchedWebsite?.telecallerId,
-        fieldExecutiveId: matchedWebsite?.fieldExecutiveId,
+        ownerId: routing.ownerId,
+        telecallerId: routing.telecallerId,
+        fieldExecutiveId: routing.fieldExecutiveId,
         autoAssignmentTeamId: matchedWebsite?.teamId,
         remarks: submittedRemarks,
       },
@@ -9745,23 +9755,40 @@ export class CrmService {
     return this.leadVisibility.resolveAssignmentScopeUserIds(user);
   }
 
+  private async contactLeadTenantWhere(): Promise<Prisma.ContactLeadWhereInput> {
+    const employees = await this.prisma.user.findMany({
+      where: this.tenantAccess.employeeWhere(),
+      select: { id: true },
+    });
+    const employeeIds = employees.map((employee) => employee.id);
+    return {
+      OR: [
+        { assignedToId: { in: employeeIds } },
+        { assignedToId: null, createdById: { in: employeeIds } },
+      ],
+    };
+  }
+
   private async getVisibleContactLead(id: string, actor?: string | Body) {
     const scopedUserIds =
       actor && typeof actor !== 'string'
         ? await this.leadVisibility.resolveAssignmentScopeUserIds(actor)
         : null;
-    const contact =
-      scopedUserIds === null
-        ? await this.db().contactLead.findUnique({ where: { id } })
-        : await this.db().contactLead.findFirst({
-            where: { id, assignedToId: { in: scopedUserIds } },
-          });
+    const contact = await this.prisma.contactLead.findFirst({
+      where: {
+        id,
+        AND: [await this.contactLeadTenantWhere()],
+        ...(scopedUserIds === null
+          ? {}
+          : { assignedToId: { in: scopedUserIds } }),
+      },
+    });
     if (!contact) throw new NotFoundException('Contact lead not found');
     return contact;
   }
 
   private async buildContactLeadsWhere(query: Query, user?: Body) {
-    const where: Body = {};
+    const where: Body = { AND: [await this.contactLeadTenantWhere()] };
     const statusValues = queryValues(query.status);
     const sourceIds = queryValues(query.sourceId);
     const assignedToIds = queryValues(query.assignedToId);
@@ -10058,6 +10085,7 @@ export class CrmService {
       throw new BadRequestException('Assigned user is required');
     }
     if (assignedToId) {
+      await this.tenantAccess.assertEmployee(assignedToId);
       await this.assertUserWithinLeadScope(assignedToId, actor);
     }
     const contact = await this.db().contactLead.create({
@@ -10090,6 +10118,7 @@ export class CrmService {
     await this.getVisibleContactLead(id, actor);
     const requestedAssignedToId = body.assignedToId ?? body.assignTo;
     if (requestedAssignedToId !== undefined && requestedAssignedToId !== null) {
+      await this.tenantAccess.assertEmployee(String(requestedAssignedToId));
       await this.assertUserWithinLeadScope(
         String(requestedAssignedToId),
         actor,
@@ -20146,6 +20175,43 @@ export class CrmService {
         sourceCounts['walk-in'] += count;
       }
     });
+
+    // Integration routing can intentionally override a lead's CRM source. Count
+    // successful channel captures from their lead audit records so these cards
+    // continue to represent the originating connector, not the selected source.
+    // Join to active leads and count distinct lead IDs to exclude deleted leads
+    // and avoid double-counting duplicate audit entries.
+    const integrationLeadCounts = await this.db().$queryRaw<
+      Array<{ action: string; count: number }>
+    >`
+      SELECT audit."action", COUNT(DISTINCT lead."id")::int AS "count"
+      FROM "AuditLog" audit
+      INNER JOIN "Lead" lead
+        ON lead."id" = audit."entityId"
+       AND lead."deletedAt" IS NULL
+      WHERE audit."entityType" = 'Lead'
+        AND lead."organizationId" = ${organizationId}
+        AND audit."organizationId" = ${organizationId}
+        AND audit."action" IN (
+          'MAGICBRICKS_LEAD_RECEIVED',
+          'HOUSING_LEAD_RECEIVED',
+          'WEBSITE_LEAD_RECEIVED',
+          'META_LEAD_RECEIVED'
+        )
+      GROUP BY audit."action"
+    `;
+    const integrationCountsByAction = new Map<string, number>();
+    for (const { action, count } of integrationLeadCounts) {
+      integrationCountsByAction.set(action, Number(count));
+    }
+    sourceCounts.magicbricks =
+      integrationCountsByAction.get('MAGICBRICKS_LEAD_RECEIVED') ?? 0;
+    sourceCounts.housing =
+      integrationCountsByAction.get('HOUSING_LEAD_RECEIVED') ?? 0;
+    sourceCounts.website =
+      integrationCountsByAction.get('WEBSITE_LEAD_RECEIVED') ?? 0;
+    sourceCounts.meta =
+      integrationCountsByAction.get('META_LEAD_RECEIVED') ?? 0;
 
     const newStatusMaster = await this.db().leadMasterValue.findFirst({
       where: {

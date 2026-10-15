@@ -182,6 +182,10 @@ describe('Portal connection tenant isolation', () => {
       { sourceId: 'source-magic', _count: { _all: 1 } },
       { sourceId: 'source-website', _count: { _all: 2 } },
     ]);
+    prisma.$queryRaw.mockResolvedValue([
+      { action: 'MAGICBRICKS_LEAD_RECEIVED', count: 1 },
+      { action: 'WEBSITE_LEAD_RECEIVED', count: 2 },
+    ]);
     prisma.lead.count.mockResolvedValue(3);
     prisma.leadImport.count.mockResolvedValue(2);
     prisma.portalIntegration.findMany.mockResolvedValue([

@@ -43,6 +43,56 @@ export const ROUTING_OWNER_ROLES: Role[] = [
   Role.TEAM_LEADER,
 ];
 
+// Older Website saves put every non-Sales user in the Pre Sales slot.
+// Only normalize an unambiguous, active management override at the read boundary.
+// New routing writes and ordinary lead assignment retain strict role validation.
+type RoutingPersonFields = Pick<
+  ConnectionRoutingInput,
+  'ownerId' | 'telecallerId' | 'fieldExecutiveId'
+>;
+
+export async function normalizeLegacyRoutingOwners<
+  T extends RoutingPersonFields,
+>(
+  prisma: PrismaService,
+  routes: readonly T[],
+  employeeScope: Prisma.UserWhereInput,
+): Promise<Array<Omit<T, keyof RoutingPersonFields> & RoutingPersonFields>> {
+  const legacyId = (route: T) => {
+    if (
+      route.ownerId ||
+      Boolean(route.telecallerId) === Boolean(route.fieldExecutiveId)
+    ) {
+      return null;
+    }
+    return route.telecallerId || route.fieldExecutiveId || null;
+  };
+  const ids = [
+    ...new Set(routes.map(legacyId).filter((id): id is string => Boolean(id))),
+  ];
+  if (!ids.length) return [...routes];
+  const users = await prisma.user.findMany({
+    where: { AND: [employeeScope, { id: { in: ids }, isActive: true }] },
+    select: { id: true, role: true },
+  });
+  const ownerIds = new Set(
+    users
+      .filter((user) => ROUTING_OWNER_ROLES.includes(user.role))
+      .map((user) => user.id),
+  );
+  return routes.map((route) => {
+    const id = legacyId(route);
+    return id && ownerIds.has(id)
+      ? {
+          ...route,
+          ownerId: id,
+          telecallerId: undefined,
+          fieldExecutiveId: undefined,
+        }
+      : route;
+  });
+}
+
 export async function assertValidRoutingAssignees(
   prisma: PrismaService,
   telecallerId?: string | null,

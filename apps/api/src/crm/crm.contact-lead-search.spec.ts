@@ -97,7 +97,12 @@ describe('Contact lead search query', () => {
     expect(db.contactLead.findMany.mock.calls[0][0].where.OR).toBeUndefined();
     expect(db.leadMasterValue.findMany).not.toHaveBeenCalled();
     expect(db.project.findMany).not.toHaveBeenCalled();
-    expect(db.user.findMany).not.toHaveBeenCalled();
+    // Tenant employee lookup still runs even when the search is cleared.
+    expect(db.user.findMany).toHaveBeenCalledTimes(1);
+    expect(db.user.findMany).toHaveBeenCalledWith({
+      where: {},
+      select: { id: true },
+    });
   });
 
   it.each(['MANAGER', 'TEAM_LEADER', 'TELECALLER'])(

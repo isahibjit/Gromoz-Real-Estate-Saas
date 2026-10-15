@@ -1,5 +1,7 @@
 # Reference CRM port into SaaS
 
+For the latest continuation, see [the 15 October 2026 port report](REFERENCE_CRM_PORT_2026-10-15.md).
+
 Compared on 2026-10-13. Reference repository: `../Real Estate CRM`, commit `72198bb5`. Shared source snapshot: `ad1ada38`; the SaaS initial snapshot `85d5f871` matches it throughout `apps` and `packages`, except the API client's base URL. Destination before this continuation: `24e66db1`, branch `port/reference-changes`.
 
 This is a three-way port of the reference application's committed changes, with SaaS adaptations. It is not a deployment or clearance to launch all existing tenant modules.
