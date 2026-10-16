@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { TenantAccessService } from '../common/tenant/tenant-access.service';
 import { TenantContextService } from '../common/tenant/tenant-context.service';
@@ -22,8 +23,20 @@ describe('HR tenant isolation', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
-    employeeProfile: { count: jest.fn(), findFirst: jest.fn().mockResolvedValue(null) },
+    employeeProfile: {
+      count: jest.fn(),
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
     team: { count: jest.fn() },
+    payrollRecord: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+    bookingIncentive: { findMany: jest.fn() },
+    bookingExtraIncentive: { findMany: jest.fn() },
     $transaction: jest.fn((operations: Promise<unknown>[]) =>
       Promise.all(operations),
     ),
@@ -43,6 +56,10 @@ describe('HR tenant isolation', () => {
     prisma.user.findUnique.mockResolvedValue(null);
     prisma.user.count.mockResolvedValue(0);
     prisma.employeeProfile.count.mockResolvedValue(0);
+    prisma.payrollRecord.findMany.mockResolvedValue([]);
+    prisma.payrollRecord.findFirst.mockResolvedValue(null);
+    prisma.bookingIncentive.findMany.mockResolvedValue([]);
+    prisma.bookingExtraIncentive.findMany.mockResolvedValue([]);
     const module = await Test.createTestingModule({
       providers: [
         HrService,
@@ -150,5 +167,201 @@ describe('HR tenant isolation', () => {
       'Select a tenant workspace',
     );
     expect(prisma.user.findMany).not.toHaveBeenCalled();
+  });
+
+  it.each(['SALES_AGENT', 'TELECALLER'])(
+    '%s payroll is restricted to self and exclusively owned workspace employees',
+    async (role) => {
+      await run(() =>
+        service.listPayroll(
+          {
+            year: '2026',
+            month: '10',
+            employeeId: 'foreign-user',
+            teamId: 'foreign-team',
+          },
+          { sub: 'self', role },
+        ),
+      );
+      expect(prisma.payrollRecord.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            AND: [
+              { year: 2026, month: 10, employeeId: 'self' },
+              {
+                organizationId: 'tenant-a',
+                employee: run(() => tenants.employeeWhere()),
+              },
+            ],
+          },
+          include: expect.objectContaining({
+            employee: expect.objectContaining({
+              select: expect.objectContaining({
+                ledTeams: {
+                  where: { organizationId: 'tenant-a' },
+                  select: { id: true, name: true },
+                },
+              }),
+            }),
+          }),
+        }),
+      );
+    },
+  );
+
+  it('intersects administrator payroll filters with the selected tenant', async () => {
+    await run(() => service.listPayroll({ employeeId: 'foreign-user' }, actor));
+    expect(prisma.payrollRecord.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          AND: [
+            { employeeId: 'foreign-user' },
+            {
+              organizationId: 'tenant-a',
+              employee: run(() => tenants.employeeWhere()),
+            },
+          ],
+        },
+      }),
+    );
+  });
+
+  it('cannot list payroll without a selected tenant', async () => {
+    await expect(service.listPayroll({}, actor)).rejects.toThrow(
+      'Select a tenant workspace',
+    );
+    expect(prisma.payrollRecord.findMany).not.toHaveBeenCalled();
+  });
+
+  it.each(['amend', 'finalize', 'pay'] as const)(
+    'rejects foreign, shared or unowned payroll before %s writes',
+    async (operation) => {
+      await expect(
+        run(() =>
+          operation === 'amend'
+            ? service.updatePayrollDraft('foreign-record', {}, actor)
+            : operation === 'finalize'
+            ? service.finalizePayroll('foreign-record', {}, actor)
+            : service.markPayrollPaid('foreign-record', actor),
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.payrollRecord.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: 'foreign-record',
+            organizationId: 'tenant-a',
+            employee: run(() => tenants.employeeWhere()),
+          },
+        }),
+      );
+      expect(prisma.payrollRecord.update).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not run payroll for an employee outside this workspace', async () => {
+    await expect(
+      run(() =>
+        service.runPayroll(
+          { year: 2026, month: 10, employeeId: 'foreign-user' },
+          actor,
+        ),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          AND: [run(() => tenants.employeeWhere())],
+          id: 'foreign-user',
+        }),
+      }),
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it.each([null, 'tenant-b'])(
+    'does not adopt an existing payroll owned by %s',
+    async (organizationId) => {
+      prisma.user.findMany.mockResolvedValue([{ id: 'self' }]);
+      prisma.payrollRecord.findUnique.mockResolvedValue({ organizationId });
+      prisma.$transaction.mockImplementationOnce(async (work: unknown) => {
+        if (typeof work !== 'function')
+          throw new Error('Expected transaction callback');
+        return work(prisma);
+      });
+      await expect(
+        run(() => service.runPayroll({ year: 2026, month: 10 }, actor)),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.payrollRecord.create).not.toHaveBeenCalled();
+      expect(prisma.payrollRecord.update).not.toHaveBeenCalled();
+    },
+  );
+
+  it('stamps a new payroll with its tenant and limits incentive calculations to that tenant', async () => {
+    const stop = new Error('Stop before write');
+    prisma.user.findMany.mockResolvedValue([
+      {
+        id: 'self',
+        employeeProfile: {
+          monthlyBasic: new Prisma.Decimal(30000),
+          monthlyAllowances: new Prisma.Decimal(0),
+          monthlyDeductions: new Prisma.Decimal(0),
+        },
+      },
+    ]);
+    prisma.payrollRecord.findUnique.mockResolvedValue(null);
+    prisma.payrollRecord.create.mockRejectedValueOnce(stop);
+    prisma.$transaction.mockImplementationOnce(async (work: unknown) => {
+      if (typeof work !== 'function')
+        throw new Error('Expected transaction callback');
+      return work(prisma);
+    });
+    const summary = {
+      salaryDivisorDays: 30,
+      earnedPayableDays: 30,
+      presentDays: 30,
+      paidLeaveDays: 0,
+      unpaidDays: 0,
+      holidayDays: 0,
+    };
+    const attendance = jest
+      .spyOn(
+        service as unknown as {
+          attendanceSummary: () => Promise<typeof summary>;
+        },
+        'attendanceSummary',
+      )
+      .mockResolvedValue(summary);
+    try {
+      await expect(
+        run(() => service.runPayroll({ year: 2026, month: 10 }, actor)),
+      ).rejects.toBe(stop);
+      expect(prisma.payrollRecord.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            organizationId: 'tenant-a',
+            employeeId: 'self',
+            year: 2026,
+            month: 10,
+          }),
+        }),
+      );
+      for (const model of [
+        prisma.bookingIncentive,
+        prisma.bookingExtraIncentive,
+      ]) {
+        expect(model.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              booking: expect.objectContaining({
+                lead: { organizationId: 'tenant-a' },
+              }),
+            }),
+          }),
+        );
+      }
+    } finally {
+      attendance.mockRestore();
+    }
   });
 });

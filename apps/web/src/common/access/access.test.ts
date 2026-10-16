@@ -166,3 +166,52 @@ test("shows Contact Leads to Pre Sales with its dedicated module and page access
   expect(moduleKeyForPath("/leads/contact")).toBe("contact_leads");
   expect(pageKeyForPath("/leads/contact")).toBe("page.contact_leads");
 });
+
+test.each(["SALES_AGENT", "TELECALLER"] as const)(
+  "%s sees Contact Leads and Payroll when their page permissions are enabled",
+  (role) => {
+    const user = userWithPermissions(role, [
+      permission("contact_leads", true),
+      permission("page.contact_leads", true),
+      permission("payroll", true),
+      permission("page.payroll", true),
+    ]);
+    const navigation = getNavigationForUser(user);
+    expect(navigation.filter((item) => item.to === "/leads/contact")).toHaveLength(1);
+    const employment = navigation.find((item) => item.label === "My Employment");
+    expect(employment?.children).toContainEqual(expect.objectContaining({
+      label: "Payroll", to: "/admin/payroll",
+    }));
+  },
+);
+
+test.each(["SALES_AGENT", "TELECALLER"] as const)(
+  "%s loses Contact Leads and Payroll navigation when page access is revoked",
+  (role) => {
+    const user = userWithPermissions(role, [
+      permission("contact_leads", true),
+      permission("page.contact_leads", false),
+      permission("payroll", true),
+      permission("page.payroll", false),
+    ]);
+    const navigation = getNavigationForUser(user);
+    expect(navigation.some((item) => item.to === "/leads/contact")).toBe(false);
+    expect(navigation.flatMap((item) => item.children ?? []).some((child) => child.to === "/admin/payroll")).toBe(false);
+  },
+);
+
+test("Contact Leads still requires its dedicated module permission", () => {
+  const user = userWithPermissions("SALES_AGENT", [
+    permission("contact_leads", false),
+    permission("page.contact_leads", true),
+  ]);
+  expect(getNavigationForUser(user).some((item) => item.to === "/leads/contact")).toBe(false);
+});
+
+test("Payroll appears once for management users", () => {
+  const user = userWithPermissions("ADMIN", [
+    permission("payroll", true), permission("page.payroll", true),
+  ]);
+  expect(getNavigationForUser(user).flatMap((item) => item.children ?? [])
+    .filter((child) => child.to === "/admin/payroll")).toHaveLength(1);
+});

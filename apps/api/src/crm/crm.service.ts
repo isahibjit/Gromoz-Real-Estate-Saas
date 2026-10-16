@@ -11807,6 +11807,34 @@ export class CrmService {
     if (!body.mobile && !body.mobileNumber) {
       throw new BadRequestException('Mobile number is required');
     }
+    const createdAt = normalizeDate(body.createdAt);
+    const calendarDate =
+      typeof body.createdAt === 'string'
+        ? body.createdAt.match(/^(\d{4})-(\d{2})-(\d{2})/)
+        : null;
+    const validCalendarDate =
+      !calendarDate ||
+      new Date(
+        Date.UTC(
+          Number(calendarDate[1]),
+          Number(calendarDate[2]) - 1,
+          Number(calendarDate[3]),
+        ),
+      )
+        .toISOString()
+        .slice(0, 10) === calendarDate[0];
+    if (
+      body.createdAt !== undefined &&
+      (!createdAt ||
+        Number.isNaN(createdAt.getTime()) ||
+        !validCalendarDate ||
+        (typeof body.createdAt !== 'string' &&
+          !(body.createdAt instanceof Date)))
+    ) {
+      throw new BadRequestException(
+        'Valid lead added date and time is required',
+      );
+    }
 
     const actorUser =
       typeof actor === 'string' ? { sub: actor, role: undefined } : actor;
@@ -11987,7 +12015,7 @@ export class CrmService {
             fieldExecutiveId,
             integrationConnectionId,
             createdById: actorUserId,
-            createdAt: normalizeDate(body.createdAt),
+            createdAt,
             assignedAt: normalizeDate(body.assignDate),
             nextFollowUpAt: normalizeDate(body.followUpDate),
             requirement: {
@@ -14843,7 +14871,17 @@ export class CrmService {
         this.db(),
         recipientUserIds,
       );
-    const monthsInRange = Math.max(monthKeys.size, 1);
+    // Named periods carry their full target even early in the period. Using
+    // elapsed months makes a quarter equal to a month in October, and a
+    // half-year equal to four months rather than six.
+    const presetTargetMonths: Partial<Record<string, number>> = {
+      this_month: 1,
+      quarterly: 3,
+      half_yearly: 6,
+      yearly: 12,
+    };
+    const monthsInRange =
+      presetTargetMonths[preset] ?? Math.max(monthKeys.size, 1);
     const targetForUser = (userId: string) => {
       return Number(monthlyTargetByUserId.get(userId) ?? 0) * monthsInRange;
     };

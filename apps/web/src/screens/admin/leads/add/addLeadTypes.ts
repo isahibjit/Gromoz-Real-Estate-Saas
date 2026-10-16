@@ -37,6 +37,7 @@ export interface QuickActionItem {
 }
 
 export interface AddLeadFormData {
+  createdAt?: string;
   leadName: string;
   mobileNumber: string;
   mobileCountryCode: string;

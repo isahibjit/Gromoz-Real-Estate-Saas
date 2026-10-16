@@ -109,16 +109,7 @@ it("keeps off values after save, reopening, workspace switching and remount", as
   await waitFor(() =>
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
   );
-  expect(api.post).toHaveBeenCalledWith("/lead-masters/bulk-reorder", {
-    items: [
-      expect.objectContaining({
-        id: "interested",
-        sortOrder: 6,
-        showInStatsCard: false,
-        showInFilterBar: false,
-      }),
-    ],
-  });
+  expect(api.post).not.toHaveBeenCalled();
   expect(localStorage.getItem(allLeadsKey)).toBeNull();
   await userEvent.click(
     screen.getByRole("button", { name: "Reopen customization" }),
@@ -141,7 +132,6 @@ it("does not report success or replace saved preferences after an API failure", 
     response: { data: { message: "Insufficient permissions" } },
   });
   renderModal();
-  await userEvent.click(screen.getByRole("button", { name: "Follow-Ups" }));
   await userEvent.click(switches()[0]);
   await userEvent.click(screen.getByRole("button", { name: "Save Changes" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(

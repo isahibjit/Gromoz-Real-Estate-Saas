@@ -4,7 +4,8 @@ import {
   PERMISSION_METADATA_KEY,
   SKIP_PERMISSION_METADATA_KEY,
 } from '../common/decorators/require-permission.decorator';
-import { AttendanceController } from './hr.controllers';
+import { AttendanceController, PayrollController } from './hr.controllers';
+import { TenantGuard } from '../common/tenant/tenant.guard';
 import type { HrService } from './hr.service';
 
 describe('AttendanceController permissions', () => {
@@ -53,5 +54,46 @@ describe('AttendanceController permissions', () => {
       sub: 'employee-1',
       role: 'SALES_AGENT',
     });
+  });
+});
+
+describe('PayrollController access', () => {
+  it('resolves the tenant before role and permission checks', () => {
+    const guards = Reflect.getMetadata('__guards__', PayrollController);
+    expect(guards.map((guard: { name: string }) => guard.name)).toEqual([
+      'AuthGuard',
+      TenantGuard.name,
+      'RolesGuard',
+      'PermissionGuard',
+    ]);
+  });
+
+  it('permits employee reads but retains administrator roles for processing', () => {
+    expect(
+      Reflect.getMetadata('roles', PayrollController.prototype.list),
+    ).toEqual(expect.arrayContaining(['SALES_AGENT', 'TELECALLER']));
+    for (const method of [
+      'run',
+      'updateDraft',
+      'finalize',
+      'pay',
+      'updateSettings',
+    ] as const) {
+      const roles = Reflect.getMetadata(
+        'roles',
+        PayrollController.prototype[method],
+      );
+      expect(roles).not.toEqual(expect.arrayContaining(['SALES_AGENT']));
+      expect(roles).not.toEqual(expect.arrayContaining(['TELECALLER']));
+      expect(
+        Reflect.getMetadata(
+          PERMISSION_METADATA_KEY,
+          PayrollController.prototype[method],
+        ),
+      ).toEqual({
+        moduleKey: 'payroll',
+        action: method === 'run' ? 'create' : 'update',
+      });
+    }
   });
 });

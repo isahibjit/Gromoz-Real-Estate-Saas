@@ -2201,7 +2201,6 @@ export function LeadsTable({
 
   const multiSelectFields = [
     "sourceId",
-    "integrationConnectionId",
     "statusId",
     "temperatureId",
     "propertyType",
@@ -2228,12 +2227,6 @@ export function LeadsTable({
           label: "Lead Source",
           placeholder: "All Source",
           options: filterOptions.sourceOptions,
-        },
-        {
-          key: "integrationConnectionId",
-          label: "Source account",
-          placeholder: "All source accounts",
-          options: filterOptions.integrationAccountOptions,
         },
         {
           key: "statusId",

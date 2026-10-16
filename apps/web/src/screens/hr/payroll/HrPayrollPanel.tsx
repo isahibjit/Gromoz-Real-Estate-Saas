@@ -39,6 +39,8 @@ import {
 } from "ui";
 import { HrStatCard } from "../components/HrStatCard";
 import { HrEmployeeIdentityCell } from "../components/HrEmployeeIdentityCell";
+import { useAppSelector } from "../../../store";
+import { usePermission } from "../../../common/access/usePermission";
 
 const cn = (...classes: (string | undefined | null | false)[]) =>
   classes.filter(Boolean).join(" ");
@@ -403,6 +405,13 @@ export const HrPayrollPanel: React.FC<{
   employees,
   mutations,
 }) => {
+  const currentUser = useAppSelector((state) => state.auth.user);
+  const permission = usePermission("payroll");
+  const isPayrollAdministrator = ["SUPER_ADMIN", "ADMIN", "HR", "SALES_MANAGER"].includes(
+    currentUser?.role ?? "",
+  );
+  const canRunPayroll = isPayrollAdministrator && permission.canCreate;
+  const canUpdatePayroll = isPayrollAdministrator && permission.canUpdate;
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -633,6 +642,7 @@ export const HrPayrollPanel: React.FC<{
   ]);
 
   const handleRunPayroll = async () => {
+    if (!canRunPayroll) return;
     if (runPayrollScope === "employee" && !runPayrollEmployeeId) {
       toast.error("Select an employee before running payroll.");
       return;
@@ -722,6 +732,7 @@ export const HrPayrollPanel: React.FC<{
   };
 
   const handleSaveDraft = () => {
+    if (!canUpdatePayroll) return;
     if (!processModalEntry || processModalEntry.status !== "Draft") return;
 
     const payload = buildPayrollProcessPayload();
@@ -770,6 +781,7 @@ export const HrPayrollPanel: React.FC<{
   };
 
   const handleProcessEntry = async () => {
+    if (!canUpdatePayroll) return;
     if (!processModalEntry) return;
 
     setSavingProcessNetSalary(true);
@@ -864,16 +876,16 @@ export const HrPayrollPanel: React.FC<{
 
           <div className="h-6 w-px bg-primary/5 mx-1 hidden sm:block" />
 
-          <button
+          {canUpdatePayroll ? <button
             type="button"
             onClick={() => setSettingsModalOpen(true)}
             className="flex items-center gap-2 rounded-lg border border-primary/20 bg-white px-5 py-2 text-sm font-bold text-primary shadow-sm transition-all hover:bg-primary/5 active:scale-95"
           >
             <Settings className="h-4 w-4" />
             <span>Settings</span>
-          </button>
+          </button> : null}
 
-          <button
+          {canRunPayroll ? <button
             onClick={() => {
               syncDraftPeriod();
               setRunPayrollModalOpen(true);
@@ -885,7 +897,7 @@ export const HrPayrollPanel: React.FC<{
             <span>
               {mutations.runPayroll.isPending ? "Running..." : "Run Payroll"}
             </span>
-          </button>
+          </button> : null}
         </div>
       </section>
 
@@ -1176,7 +1188,7 @@ export const HrPayrollPanel: React.FC<{
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {entry.status === "Draft" ? (
+                        {canUpdatePayroll && entry.status === "Draft" ? (
                           <button
                             onClick={() => setProcessModalEntry(entry)}
                             className="rounded-md p-1.5 transition-all text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
@@ -1184,7 +1196,7 @@ export const HrPayrollPanel: React.FC<{
                           >
                             <Send className="h-4 w-4" />
                           </button>
-                        ) : entry.status === "Finalized" ? (
+                        ) : canUpdatePayroll && entry.status === "Finalized" ? (
                           <button
                             onClick={() => setProcessModalEntry(entry)}
                             className="rounded-md p-1.5 transition-all text-amber-500 hover:bg-amber-50 hover:text-amber-700"
@@ -1203,7 +1215,7 @@ export const HrPayrollPanel: React.FC<{
         </div>
       </Card>
 
-      <Dialog open={runPayrollModalOpen} onOpenChange={setRunPayrollModalOpen}>
+      <Dialog open={canRunPayroll && runPayrollModalOpen} onOpenChange={setRunPayrollModalOpen}>
         <DialogContent className="max-w-md rounded-xl border border-zinc-200 bg-white p-0 shadow-xl">
           <div className="px-6 py-6">
             <DialogHeader className="space-y-1 text-left">
@@ -1351,7 +1363,7 @@ export const HrPayrollPanel: React.FC<{
       </Dialog>
 
       <Dialog
-        open={Boolean(processModalEntry)}
+        open={canUpdatePayroll && Boolean(processModalEntry)}
         onOpenChange={(open) => !open && setProcessModalEntry(null)}
       >
         <DialogContent className="!w-[calc(100vw-32px)] !max-w-[1180px] p-0 border-none bg-transparent shadow-none !rounded-none">
@@ -1852,7 +1864,7 @@ export const HrPayrollPanel: React.FC<{
       </Dialog>
 
       <PayrollSettingsModal
-        isOpen={settingsModalOpen}
+        isOpen={canUpdatePayroll && settingsModalOpen}
         onClose={() => setSettingsModalOpen(false)}
       />
     </div>

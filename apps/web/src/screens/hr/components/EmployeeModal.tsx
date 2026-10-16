@@ -48,6 +48,9 @@ import type { ModulePermission } from "@truroot/shared/auth";
 export interface Employee {
   id: string;
   fullName: string;
+  name?: string;
+  employeeCode?: string | null;
+  reportingToId?: string | null;
   role: string;
   email: string;
   phone?: string;
@@ -170,7 +173,7 @@ type AccessTemplate = {
 
 const adminReportingRoles = new Set(["ADMIN", "SUPER_ADMIN"]);
 const teamLeaderReportingRoles = new Set(["MANAGER", "SALES_MANAGER"]);
-const staffReportingRoles = new Set(["TEAM_LEADER"]);
+const staffReportingRoles = new Set(["TEAM_LEADER", "MANAGER", "SALES_MANAGER"]);
 
 const roleForHierarchy = (role?: string) =>
   role === "FIELD_EXECUTIVE" ? "SALES_AGENT" : role ?? "";
@@ -206,10 +209,10 @@ const reportingDescriptionForRole = (role?: string) => {
     return "Team Leaders report to managers.";
   }
   if (normalizedRole === "TELECALLER" || normalizedRole === "SALES_AGENT") {
-    return "Pre Sales and Sales Executives can report to a Team Leader.";
+    return "Pre Sales and Sales Executives can report to a Team Leader or Manager.";
   }
   if (normalizedRole === "MARKETING") {
-    return "This role can report to a Team Leader.";
+    return "This role can report to a Team Leader or Manager.";
   }
   if (normalizedRole === "BACKEND") {
     return "Back-End Executive can report to a Team Leader or Manager.";
@@ -539,8 +542,10 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
           ]);
         if (isMounted) {
           const managers = (managersRes.data?.data || [])
-            .filter((m: any) =>
+            .filter((m: Employee) => m.isActive !== false)
+            .filter((m: Employee) =>
               [
+                "SUPER_ADMIN",
                 "ADMIN",
                 "HR",
                 "SALES_MANAGER",
@@ -548,9 +553,9 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                 "MANAGER",
               ].includes(String(m.role)),
             )
-            .map((m: any) => ({
+            .map((m: Employee) => ({
               id: m.id,
-              name: m.fullName || m.name,
+              name: m.fullName || m.name || m.email || "Unnamed employee",
               email: m.email,
               role: m.role,
               image: m.image ?? null,
@@ -1670,6 +1675,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                         Reporting manager
                       </span>
                       <SearchableSelect
+                        ariaLabel="Reporting manager"
                         value={formData.reportingManagerId || "none"}
                         onValueChange={(value) => {
                           if (value === "none") {

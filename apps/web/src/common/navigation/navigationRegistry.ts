@@ -146,6 +146,14 @@ export const myEmploymentNavigationItem: NavigationItem = {
       pageKey: "page.payslips",
     }),
     selfServiceChild({
+      id: "employee.payroll",
+      label: "Payroll",
+      to: "/admin/payroll",
+      moduleKey: "payroll",
+      pageKey: "page.payroll",
+      roleScopes: [...preSalesRoles, ...fieldExecutiveRoles],
+    }),
+    selfServiceChild({
       id: "employee.holidays",
       label: "Holidays",
       to: "/employee/holidays",
@@ -275,6 +283,7 @@ export const navigationRegistry: NavigationItem[] = [
     to: "/leads/contact",
     moduleKey: "contact_leads",
     pageKey: "page.contact_leads",
+    roleScopes: [...preSalesRoles, ...fieldExecutiveRoles],
   }),
   fieldExecutive({
     id: "field.leads",

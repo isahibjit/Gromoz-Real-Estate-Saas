@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { useLeadStatusMaster, useLeadTypeMaster } from "./useLeadStatusMaster";
+import {
+  assertCurrentOrganization,
+  currentOrganizationId,
+} from "../tenantRequestScope";
 
 export type WorkspaceTarget = "all_leads" | "follow_up";
 
@@ -114,7 +118,8 @@ export function useLeadCardPreferences(workspace: WorkspaceTarget) {
   const statusMaster = useLeadStatusMaster();
   const leadTypeMaster = useLeadTypeMaster();
 
-  const storageKey = `${STORAGE_KEY_PREFIX}${workspace}`;
+  const organizationId = currentOrganizationId();
+  const storageKey = `${STORAGE_KEY_PREFIX}${workspace}${organizationId ? `:${organizationId}` : ""}`;
 
   // Build baseline combined items from core defaults and current masters
   const buildDefaultItems = useCallback((): UnifiedCardItem[] => {
@@ -227,6 +232,7 @@ export function useLeadCardPreferences(workspace: WorkspaceTarget) {
   // Persist masters before publishing saved workspace preferences.
   const savePreferences = useCallback(
     async (newItems: UnifiedCardItem[]) => {
+      assertCurrentOrganization(organizationId);
       // Re-index strictly sequential
       const sequentialItems = sanitizeCardItems(newItems).map(
         (item, idx) => ({
@@ -245,18 +251,23 @@ export function useLeadCardPreferences(workspace: WorkspaceTarget) {
           displayColor: item.displayColor,
         }));
 
-      if (updates.length > 0) {
+      // Follow-Ups has its own local layout. Publishing those switches to
+      // master values hides All Leads cards for every other browser and role.
+      if (workspace === "all_leads" && updates.length > 0) {
         await api.post("/lead-masters/bulk-reorder", { items: updates });
       }
 
+      assertCurrentOrganization(organizationId);
       localStorage.setItem(storageKey, JSON.stringify(sequentialItems));
       setItems(sequentialItems);
       window.dispatchEvent(
         new CustomEvent("crm_card_prefs_updated", { detail: { workspace } }),
       );
-      void queryClient.invalidateQueries({ queryKey: ["lead-masters"] });
+      if (workspace === "all_leads") {
+        void queryClient.invalidateQueries({ queryKey: ["lead-masters"] });
+      }
     },
-    [queryClient, storageKey, workspace],
+    [queryClient, storageKey, workspace, organizationId],
   );
 
   // Listen to preference changes from other components/tabs
@@ -285,24 +296,36 @@ export function useLeadCardPreferences(workspace: WorkspaceTarget) {
     };
   }, [storageKey, workspace]);
 
+  // All Leads master cards use the API's shared layout, including after storage
+  // events. Retain local preferences only for the workspace's synthetic core.
+  const resolvedItems = useMemo(() => {
+    const savedItems = sanitizeCardItems(items);
+    if (workspace !== "all_leads") return savedItems;
+    return buildDefaultItems().map((item) => {
+      if (item.category !== "core") return item;
+      const saved = savedItems.find((previous) => previous.id === item.id);
+      return saved ? { ...item, ...saved } : item;
+    });
+  }, [buildDefaultItems, items, workspace]);
+
   const statsCards = useMemo(
     () =>
-      sanitizeCardItems(items)
+      resolvedItems
         .filter((i) => i.showInStatsCard)
         .sort((a, b) => a.order - b.order),
-    [items],
+    [resolvedItems],
   );
 
   const filterPills = useMemo(
     () =>
-      sanitizeCardItems(items)
+      resolvedItems
         .filter((i) => i.showInFilterBar)
         .sort((a, b) => a.order - b.order),
-    [items],
+    [resolvedItems],
   );
 
   return {
-    items,
+    items: resolvedItems,
     statsCards,
     filterPills,
     savePreferences,

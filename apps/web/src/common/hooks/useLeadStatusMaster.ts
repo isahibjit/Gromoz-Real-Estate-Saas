@@ -34,6 +34,7 @@ const sanitizeMasterItems = (
 export function useLeadStatusMaster() {
   const query = useQuery({
     queryKey: ["lead-masters", "status"],
+    refetchOnWindowFocus: "always",
     queryFn: async () => {
       const { data } = await api.get<{
         data: Array<StatusMasterItem | null | undefined>;
@@ -72,6 +73,7 @@ export function useLeadStatusMaster() {
 export function useLeadTypeMaster() {
   const query = useQuery({
     queryKey: ["lead-masters", "temperature"],
+    refetchOnWindowFocus: "always",
     queryFn: async () => {
       const { data } = await api.get<{
         data: Array<StatusMasterItem | null | undefined>;

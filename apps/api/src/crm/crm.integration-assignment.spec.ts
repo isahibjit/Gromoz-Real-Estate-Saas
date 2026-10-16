@@ -108,6 +108,55 @@ describe('Integration lead assignment policy', () => {
       expect(explicitEnrollment).not.toHaveBeenCalled();
     },
   );
+  it.each([
+    ['2026-10-01T09:15:00+05:30', '2026-10-01T03:45:00.000Z'],
+    ['2026-10-01T09:15', '2026-10-01T03:45:00.000Z'],
+    ['2026-10-01', '2026-09-30T18:30:00.000Z'],
+  ])(
+    'persists the chosen added date %s separately from assignment dates',
+    async (createdAt, expected) => {
+      const lead = await service.createLead(
+        { ...payload, createdAt },
+        { role: 'ADMIN' },
+      );
+      expect(lead.createdAt).toEqual(new Date(expected));
+      expect(lead.assignedAt).toBeUndefined();
+      expect(lead.nextFollowUpAt).toBeUndefined();
+    },
+  );
+
+  it('keeps the database current-time default when no added date is supplied', async () => {
+    await service.createLead(payload, { role: 'ADMIN' });
+    expect(db.lead.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ createdAt: undefined }),
+      }),
+    );
+  });
+
+  it('preserves provider-supplied Date timestamps', async () => {
+    const createdAt = new Date('2026-10-01T03:45:00.000Z');
+    const lead = await service.createLead(
+      { ...payload, createdAt },
+      undefined,
+      { fromIntegration: true },
+    );
+    expect(lead.createdAt).toEqual(createdAt);
+  });
+
+  it.each([null, '', 'invalid-date', '2026-02-30T09:15', 123, new Date(NaN)])(
+    'rejects an invalid added date before writes: %s',
+    async (createdAt) => {
+      await expect(
+        service.createLead({ ...payload, createdAt }),
+      ).rejects.toMatchObject({
+        status: 400,
+        message: 'Valid lead added date and time is required',
+      });
+      expect(db.$transaction).not.toHaveBeenCalled();
+      expect(db.lead.create).not.toHaveBeenCalled();
+    },
+  );
   it.each(['SUPER_ADMIN', 'TELECALLER', 'SALES_AGENT'])(
     'does not assign an imported lead to the %s operator implicitly',
     async (role) => {

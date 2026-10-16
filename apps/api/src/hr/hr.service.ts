@@ -2444,6 +2444,13 @@ export class HrService {
     return withIncentivePolicyDefaults(settings);
   }
 
+  private payrollScopeWhere(): Prisma.PayrollRecordWhereInput {
+    return {
+      organizationId: this.tenants.organizationId,
+      employee: this.tenants.employeeWhere(),
+    };
+  }
+
   async listPayroll(query: Record<string, string>, actor: Actor) {
     const teamId = this.text(query.teamId);
     const baseWhere: Prisma.PayrollRecordWhereInput = {
@@ -2463,7 +2470,9 @@ export class HrService {
           employeeId: actor.sub,
         };
     const records = await this.prisma.payrollRecord.findMany({
-      where,
+      where: {
+        AND: [where, this.payrollScopeWhere()],
+      },
       orderBy: [{ year: 'desc' }, { month: 'desc' }],
       include: {
         employee: {
@@ -2474,7 +2483,10 @@ export class HrService {
             role: true,
             avatarStorageKey: true,
             employeeProfile: true,
-            ledTeams: { select: { id: true, name: true } },
+            ledTeams: {
+              where: { organizationId: this.tenants.organizationId },
+              select: { id: true, name: true },
+            },
           },
         },
         payslip: true,
@@ -2495,6 +2507,7 @@ export class HrService {
   }
 
   async runPayroll(body: Record<string, unknown>, actor: Actor) {
+    const organizationId = this.tenants.organizationId;
     const year = Number(body.year);
     const month = Number(body.month);
     const teamId = this.text(body.teamId);
@@ -2511,6 +2524,7 @@ export class HrService {
       );
     const employees = await this.prisma.user.findMany({
       where: {
+        AND: [this.tenants.employeeWhere()],
         isActive: true,
         role: {
           in: [
@@ -2541,6 +2555,11 @@ export class HrService {
               employeeId_year_month: { employeeId: employee.id, year, month },
             },
           });
+          if (existing && existing.organizationId !== organizationId) {
+            throw new NotFoundException(
+              'Payroll record not found in this workspace',
+            );
+          }
           if (existing && !rerun) return existing;
           if (existing?.status === 'Paid') {
             return existing;
@@ -2569,6 +2588,7 @@ export class HrService {
             .minus(unpaidDeduction)
             .plus(payrollIncentive);
           const payrollData = {
+            organizationId,
             year,
             month,
             basicSalary: profile.monthlyBasic,
@@ -2665,6 +2685,7 @@ export class HrService {
           recipientUserId: employeeId,
           paymentStatus: { in: incentiveStatuses },
           booking: {
+            lead: { organizationId: this.tenants.organizationId },
             status: 'Booked',
             bookingDate: { gte: start, lt: end },
           },
@@ -2690,6 +2711,7 @@ export class HrService {
           recipientUserId: employeeId,
           paymentStatus: { in: incentiveStatuses },
           booking: {
+            lead: { organizationId: this.tenants.organizationId },
             status: 'Booked',
             bookingDate: { gte: start, lt: end },
           },
@@ -2774,6 +2796,7 @@ export class HrService {
           recipientUserId: employeeId,
           paymentStatus: { in: payableStatuses },
           booking: {
+            lead: { organizationId: this.tenants.organizationId },
             status: 'Booked',
             bookingDate: { gte: start, lt: end },
           },
@@ -2785,6 +2808,7 @@ export class HrService {
           recipientUserId: employeeId,
           paymentStatus: { in: payableStatuses },
           booking: {
+            lead: { organizationId: this.tenants.organizationId },
             status: 'Booked',
             bookingDate: { gte: start, lt: end },
           },
@@ -2811,8 +2835,8 @@ export class HrService {
     body: Record<string, unknown>,
     actor: Actor,
   ) {
-    const record = await this.prisma.payrollRecord.findUnique({
-      where: { id },
+    const record = await this.prisma.payrollRecord.findFirst({
+      where: { id, ...this.payrollScopeWhere() },
       include: {
         employee: {
           include: {
@@ -2861,8 +2885,8 @@ export class HrService {
     body: Record<string, unknown>,
     actor: Actor,
   ) {
-    const record = await this.prisma.payrollRecord.findUnique({
-      where: { id },
+    const record = await this.prisma.payrollRecord.findFirst({
+      where: { id, ...this.payrollScopeWhere() },
     });
     if (!record) throw new NotFoundException('Payroll record not found');
     if (record.status !== 'Draft')
@@ -2948,8 +2972,8 @@ export class HrService {
   }
 
   async markPayrollPaid(id: string, actor: Actor) {
-    const record = await this.prisma.payrollRecord.findUnique({
-      where: { id },
+    const record = await this.prisma.payrollRecord.findFirst({
+      where: { id, ...this.payrollScopeWhere() },
     });
     if (!record) throw new NotFoundException('Payroll record not found');
     if (record.status !== 'Finalized')
@@ -2984,6 +3008,7 @@ export class HrService {
           recipientUserId: record.employeeId,
           paymentStatus: { in: payableStatuses },
           booking: {
+            lead: { organizationId: this.tenants.organizationId },
             status: 'Booked',
             bookingDate: { gte: start, lt: end },
           },
@@ -2995,6 +3020,7 @@ export class HrService {
           recipientUserId: record.employeeId,
           paymentStatus: { in: payableStatuses },
           booking: {
+            lead: { organizationId: this.tenants.organizationId },
             status: 'Booked',
             bookingDate: { gte: start, lt: end },
           },

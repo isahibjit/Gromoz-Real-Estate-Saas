@@ -252,7 +252,7 @@ export class LeavesController {
 }
 
 @Controller('payroll')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('payroll')
 export class PayrollController {
   constructor(private readonly hr: HrService) {}

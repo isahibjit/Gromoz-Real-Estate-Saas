@@ -23,6 +23,7 @@ import {
   scheduledValueToDateInput,
   scheduledValueToPickerTime,
   scheduledInputToIso,
+  pickerTimeToTwentyFourHour,
 } from "../../../../common/time";
 import {
   useLeadListFilterOptions,
@@ -114,6 +115,7 @@ type LeadCaptureModalProps = {
   description: string;
   timestampLabel: string;
   timestampValue: string;
+  editableTimestamp?: boolean;
   submitLabel: string;
   successMessage: string;
   errorMessage: string;
@@ -326,6 +328,7 @@ function LeadCaptureModal({
   description,
   timestampLabel,
   timestampValue,
+  editableTimestamp = false,
   submitLabel,
   successMessage,
   errorMessage,
@@ -405,9 +408,19 @@ function LeadCaptureModal({
   useEffect(() => {
     if (!open) return;
     setErrors({});
-    setFormData(initialData);
+    const now = new Date();
+    setFormData(
+      editableTimestamp
+        ? {
+            ...initialData,
+            createdAt: `${scheduledValueToDateInput(
+              now,
+            )}T${pickerTimeToTwentyFourHour(scheduledValueToPickerTime(now))}`,
+          }
+        : initialData,
+    );
     setHasAppliedDefaultStatus(false);
-  }, [initialData, open]);
+  }, [initialData, open, editableTimestamp]);
 
   const updateField = <K extends keyof AddLeadFormData>(
     key: K,
@@ -681,11 +694,15 @@ function LeadCaptureModal({
     if (shouldValidate("mobileNumber") && !formData.mobileNumber.trim()) {
       nextErrors.mobileNumber = "Mobile number is required.";
     }
+    if (editableTimestamp && !formData.createdAt) {
+      nextErrors.createdAt = "Select a valid lead added date and time.";
+    }
     setErrors((current) => {
       const next = { ...current };
       delete next.leadSource;
       delete next.leadName;
       delete next.mobileNumber;
+      delete next.createdAt;
       delete next.propertyType;
       delete next.budgetRange;
       delete next.preferredLocation;
@@ -738,14 +755,35 @@ function LeadCaptureModal({
                 {description}
               </p>
             </div>
-            <div className="max-w-full shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left sm:text-right">
-              <p className="text-[11px] font-bold text-muted-foreground">
-                {timestampLabel}
-              </p>
-              <p className="mt-1 whitespace-nowrap text-sm font-bold text-secondary">
-                {timestampValue}
-              </p>
-            </div>
+            {editableTimestamp ? (
+              <div className="w-full shrink-0 sm:w-64">
+                <FormField
+                  label="Lead added date and time"
+                  required
+                  error={errors.createdAt}
+                >
+                  <Input
+                    type="datetime-local"
+                    aria-label="Lead added date and time"
+                    aria-invalid={Boolean(errors.createdAt)}
+                    value={formData.createdAt ?? ""}
+                    onChange={(event) =>
+                      updateField("createdAt", event.target.value)
+                    }
+                    disabled={isPending}
+                  />
+                </FormField>
+              </div>
+            ) : (
+              <div className="max-w-full shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left sm:text-right">
+                <p className="text-[11px] font-bold text-muted-foreground">
+                  {timestampLabel}
+                </p>
+                <p className="mt-1 whitespace-nowrap text-sm font-bold text-secondary">
+                  {timestampValue}
+                </p>
+              </div>
+            )}
           </div>
         </DialogHeader>
 
@@ -1312,6 +1350,7 @@ export function AddLeadModal({
       description="Capture contact details, project requirements, and assignment in one workspace."
       timestampLabel="Auto timestamp"
       timestampValue={formatDateTime()}
+      editableTimestamp
       submitLabel="Save lead"
       successMessage="Lead added successfully"
       errorMessage="Could not add lead"

@@ -162,6 +162,25 @@ async function openFilters() {
   );
 }
 
+it("removes only the source account filter while retaining source and project filters", async () => {
+  await openFilters();
+  expect(screen.queryByText("Source account")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("listbox", { name: "Source account" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("listbox", { name: "Lead Source" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("listbox", { name: "Project" }),
+  ).toBeInTheDocument();
+  const leadCalls = jest
+    .mocked(api.get)
+    .mock.calls.filter(([url]) => url === "/leads");
+  expect(leadCalls.length).toBeGreaterThan(0);
+  expect(leadCalls[0][1]?.params?.integrationConnectionId).toBeUndefined();
+});
+
 it("exports every applied-project match, not the ten loaded table rows or an unsaved draft", async () => {
   await openFilters();
   await userEvent.selectOptions(

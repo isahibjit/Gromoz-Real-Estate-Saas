@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient, UseMutationResult } from "@tanstack/react-query";
 
 import { api } from "../../../../common/api";
+import { scheduledInputToIso } from "../../../../common/time";
 import type { AddLeadFormData } from "./addLeadTypes";
 
 const moneyMultiplier = (unit: string) => {
@@ -54,8 +55,18 @@ const parseAreaRange = (value: string) => {
 export const buildLeadPayload = (formData: AddLeadFormData) => {
   const budgetRange = parseBudgetRange(formData.budgetRange);
   const areaRange = parseAreaRange(formData.carpetAreaRange);
+  let createdAt: string | undefined;
+  if (formData.createdAt !== undefined) {
+    const [date, time] = formData.createdAt.split("T");
+    try {
+      createdAt = scheduledInputToIso(date, time ?? "");
+    } catch {
+      throw new Error("Select a valid lead added date and time.");
+    }
+  }
 
   return {
+    createdAt,
     leadName: formData.leadName,
     mobileNumber: formData.mobileNumber,
     mobileCountryCode: formData.mobileCountryCode,
