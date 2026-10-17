@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { platformSuperAdminNavigation } from '../../common/navigation/navigationRegistry';
 import {
   Search,
   Clock,
@@ -95,9 +96,10 @@ export function recordRecentSearch(item: {
 
 interface HeaderSearchBarProps {
   navCategories?: NavCategory[];
+  scope?: 'platform' | 'tenant';
 }
 
-export function HeaderSearchBar({ navCategories = [] }: HeaderSearchBarProps) {
+export function HeaderSearchBar({ navCategories = [], scope = 'tenant' }: HeaderSearchBarProps) {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -109,14 +111,16 @@ export function HeaderSearchBar({ navCategories = [] }: HeaderSearchBarProps) {
       const stored = localStorage.getItem(RECENT_SEARCHES_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) return parsed.filter((item: RecentSearchItem) =>
+          scope === 'platform' ? item.to.startsWith('/superadmin') : !item.to.startsWith('/superadmin'));
       }
+      if (scope === 'platform') return [];
       localStorage.setItem(RECENT_SEARCHES_STORAGE_KEY, JSON.stringify(INITIAL_DEFAULT_RECENT));
       return INITIAL_DEFAULT_RECENT;
     } catch {
-      return INITIAL_DEFAULT_RECENT;
+      return scope === 'platform' ? [] : INITIAL_DEFAULT_RECENT;
     }
-  }, []);
+  }, [scope]);
 
   const [recentSearches, setRecentSearches] = useState<RecentSearchItem[]>(loadRecentSearches);
 
@@ -125,6 +129,7 @@ export function HeaderSearchBar({ navCategories = [] }: HeaderSearchBarProps) {
 
   // Listen for storage / custom events to keep recentSearches 100% in sync
   useEffect(() => {
+    setRecentSearches(loadRecentSearches());
     const handleUpdate = () => {
       setRecentSearches(loadRecentSearches());
     };
@@ -193,13 +198,18 @@ export function HeaderSearchBar({ navCategories = [] }: HeaderSearchBarProps) {
   // Flattened list of all sidebar navigation items
   const allNavItems = useMemo(() => {
     const list: { item: NavItem; category: string }[] = [];
-    navCategories.forEach((cat) => {
+    const categories = scope === 'platform' ? [{
+      title: 'Platform', items: platformSuperAdminNavigation.map(item => ({
+        label: item.label, icon: item.icon || Globe, to: item.to || '/superadmin',
+      })),
+    }] : navCategories;
+    categories.forEach((cat) => {
       cat.items.forEach((item) => {
         list.push({ item, category: cat.title });
       });
     });
     return list;
-  }, [navCategories]);
+  }, [navCategories, scope]);
 
   // Filtered sidebar items matching query
   const searchResults = useMemo(() => {
@@ -216,7 +226,10 @@ export function HeaderSearchBar({ navCategories = [] }: HeaderSearchBarProps) {
 
   // Quick link sections
   const quickLinks = useMemo(
-    () => [
+    () => scope === 'platform' ? platformSuperAdminNavigation.slice(0, 4).map(item => ({
+      label: item.label, desc: 'Open platform management', to: item.to || '/superadmin',
+      category: 'Platform', icon: item.icon || Globe, iconBg: 'bg-primary/10 text-primary',
+    })) : [
       {
         label: 'All Leads Pipeline',
         desc: 'Find, track, and assign customer leads',
@@ -250,7 +263,7 @@ export function HeaderSearchBar({ navCategories = [] }: HeaderSearchBarProps) {
         iconBg: 'bg-rose-100 text-rose-500',
       },
     ],
-    []
+    [scope]
   );
 
   const totalSelectable = searchResults.length;
@@ -281,7 +294,7 @@ export function HeaderSearchBar({ navCategories = [] }: HeaderSearchBarProps) {
       } else if (query.trim() && searchResults.length > 0) {
         const first = searchResults[0];
         handleSelect(first.item.label, first.category, first.item.to, first.item.badge);
-      } else if (query.trim()) {
+      } else if (query.trim() && scope !== 'platform') {
         const q = query.trim();
         handleSelect(q, 'Search', `/leads/all?search=${encodeURIComponent(q)}`);
       }
@@ -501,6 +514,8 @@ export function HeaderSearchBar({ navCategories = [] }: HeaderSearchBarProps) {
                     })}
                   </div>
                 </div>
+              ) : scope === 'platform' ? (
+                <p className="px-4 py-6 text-sm text-muted-foreground">No platform pages match your search.</p>
               ) : (
                 /* Freeform search suggestion */
                 <div className="px-3 py-2">

@@ -1,0 +1,9 @@
+[Unit]
+Description=Configure registered Gromoze workspace subdomains and HTTPS
+After=network-online.target postgresql.service nginx.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/sbin/gromoze-tenant-domains.py
+TimeoutStartSec=20min

@@ -3,10 +3,18 @@ import {
   ACTIVE_ORGANIZATION_KEY,
   assertCurrentOrganization,
   currentOrganizationId,
+  isPlatformView,
 } from "./tenantRequestScope";
 
 describe("tenant request scope", () => {
   beforeEach(() => localStorage.clear());
+
+  it("keeps platform pages independent of a previously selected tenant", () => {
+    localStorage.setItem(ACTIVE_ORGANIZATION_KEY, "tenant-a");
+    expect(isPlatformView("SUPER_ADMIN", "/superadmin/audit")).toBe(true);
+    expect(isPlatformView("SUPER_ADMIN", "/admin/dashboard")).toBe(false);
+    expect(isPlatformView("ADMIN", "/admin/dashboard")).toBe(false);
+  });
 
   it("accepts responses from the same workspace", () => {
     localStorage.setItem(ACTIVE_ORGANIZATION_KEY, "tenant-a");

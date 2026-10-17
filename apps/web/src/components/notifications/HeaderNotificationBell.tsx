@@ -60,6 +60,7 @@ export function HeaderNotificationBell() {
   const { unreadCount, notifications } = visibleFeed;
 
   const loadNotifications = useCallback(async () => {
+    if (organizationId === "unscoped") return;
     try {
       setLoading(true);
       const res = await api.get("/notifications").catch(() => null);
@@ -92,6 +93,7 @@ export function HeaderNotificationBell() {
   }, [organizationId]);
 
   useEffect(() => {
+    if (organizationId === "unscoped") return;
     loadNotifications();
     const interval = setInterval(loadNotifications, 30000);
     return () => clearInterval(interval);
@@ -165,6 +167,8 @@ export function HeaderNotificationBell() {
         return <Bell className="h-4 w-4 text-primary" />;
     }
   };
+
+  if (organizationId === "unscoped") return null;
 
   return (
     <div className="relative" ref={dropdownRef}>

@@ -15,7 +15,8 @@ import { PrismaService } from '../persistence/prisma/prisma.service';
 import { BillingService, DEFAULT_TRIAL_DAYS } from '../billing/billing.service';
 import { Role, OrganizationStatus } from '@prisma/client';
 
-import { IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
+import { isPlatformHost, normalizeTenantHost, TenantSlugSchema, tenantSlugFromHost, tenantWorkspaceUrl, PLATFORM_HOST } from '@truroot/shared';
 
 const resolveCnameAsync = promisify(dns.resolveCname);
 
@@ -85,6 +86,12 @@ export class RegisterOrgDto {
   state?: string;
 }
 
+export class ProvisionOrgDto extends RegisterOrgDto {
+  @IsBoolean()
+  @IsOptional()
+  isTrial?: boolean;
+}
+
 export class InviteMemberDto {
   email!: string;
   role?: Role;
@@ -125,7 +132,13 @@ export class OrganizationService {
     private readonly billingService: BillingService,
   ) {}
 
-  async registerOrganization(dto: RegisterOrgDto) {
+  async provisionOrganization(dto: ProvisionOrgDto, actorId: string) {
+    const actor = await this.prisma.user.findUnique({ where: { id: actorId }, select: { role: true, isActive: true } });
+    if (actor?.role !== 'SUPER_ADMIN' || !actor.isActive) throw new ForbiddenException('Platform SuperAdmin access required');
+    return this.registerOrganization(dto, dto.isTrial === true);
+  }
+
+  async registerOrganization(dto: RegisterOrgDto, trial = false) {
     const rawOrgName = (dto.organizationName || dto.orgName || '').trim();
     const rawSlug = (dto.subdomain || dto.orgSlug || '').trim();
     const rawAdminFullName = (dto.fullName || dto.adminFullName || '').trim();
@@ -146,7 +159,11 @@ export class OrganizationService {
       throw new BadRequestException('Admin password must be at least 6 characters long');
     }
 
-    const cleanSlug = rawSlug.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    const slugResult = TenantSlugSchema.safeParse(rawSlug);
+    if (!slugResult.success) {
+      throw new BadRequestException(slugResult.error.issues[0].message);
+    }
+    const cleanSlug = slugResult.data;
     const existingOrg = await this.prisma.organization.findUnique({
       where: { slug: cleanSlug },
     });
@@ -183,7 +200,8 @@ export class OrganizationService {
         data: {
           name: rawOrgName,
           slug: cleanSlug,
-          status: 'SETUP_PENDING',
+          status: trial ? 'TRIAL' : 'SETUP_PENDING',
+          trialEndsAt: trial ? new Date(Date.now() + DEFAULT_TRIAL_DAYS * 86400000) : null,
           planTier,
           industry: dto.industry || 'Real Estate',
           city: dto.city || null,
@@ -212,17 +230,20 @@ export class OrganizationService {
       return { user, organization, member };
     });
 
-    const checkoutOrder = await this.billingService.createSetupCheckout(
-      result.organization.id,
-      { initialSeats },
-    );
+    // Provisioning must not fail after the account transaction has committed
+    // merely because an external checkout provider is unavailable.
+    const checkoutOrder = trial ? null : await this.billingService.createSetupCheckout(
+      result.organization.id, { initialSeats },
+    ).catch(() => null);
 
     return {
-      message: 'Organization created successfully. Complete setup payment to activate.',
+      message: trial ? 'Organization created with a 14-day trial.' : 'Organization created successfully. Setup payment is pending.',
       organization: {
         id: result.organization.id,
         name: result.organization.name,
         slug: result.organization.slug,
+        workspaceUrl: tenantWorkspaceUrl(result.organization.slug),
+        trialEndsAt: result.organization.trialEndsAt,
         status: result.organization.status,
       },
       user: {
@@ -275,7 +296,7 @@ export class OrganizationService {
       },
       domain: {
         slug: org.slug,
-        subdomain: `${org.slug}.yourcrm.com`,
+        subdomain: `${org.slug}.gromoze.com`,
         customDomain: org.customDomain || null,
         customDomainVerified: org.customDomainVerified,
         customDomainSslStatus: org.customDomainSslStatus,
@@ -336,8 +357,8 @@ export class OrganizationService {
         showDownloadApp: true,
         supportTitle: "Need help?",
         supportSubtitle: "Contact our support team",
-        supportPhone: org.primaryPhone || "+91 98765 43210",
-        supportEmail: org.primaryEmail || "support@truerootrealty.com",
+        supportPhone: org.primaryPhone || "+91 98700 66177",
+        supportEmail: org.primaryEmail || "support@gromoze.com",
         termsUrl: "/terms",
         privacyUrl: "/privacy-policy",
       },
@@ -356,7 +377,9 @@ export class OrganizationService {
     // If updating subdomain/slug, check uniqueness
     let newSlug = org.slug;
     if (dto.subdomain && dto.subdomain !== org.slug) {
-      const cleanSubdomain = dto.subdomain.toLowerCase().trim().replace(/[^a-z0-9-]/g, '-');
+      const parsedSlug = TenantSlugSchema.safeParse(dto.subdomain);
+      if (!parsedSlug.success) throw new BadRequestException(parsedSlug.error.issues[0].message);
+      const cleanSubdomain = parsedSlug.data;
       const conflict = await this.prisma.organization.findUnique({
         where: { slug: cleanSubdomain },
       });
@@ -452,13 +475,10 @@ export class OrganizationService {
       const records = await resolveCnameAsync(domain);
       isVerified = records.some(
         (r) =>
-          r.toLowerCase().includes('cname.yourcrm.com') ||
-          r.toLowerCase().includes('yourcrm.com') ||
-          r.toLowerCase().includes('app.crm.com'),
+          normalizeTenantHost(r) === PLATFORM_HOST,
       );
     } catch {
-      // In development/test environments or mock DNS, accept format validation
-      isVerified = domain.includes('.');
+      isVerified = false;
     }
 
     if (isVerified) {
@@ -466,7 +486,7 @@ export class OrganizationService {
         where: { id: orgId },
         data: {
           customDomainVerified: true,
-          customDomainSslStatus: 'ACTIVE',
+          customDomainSslStatus: 'PENDING',
         },
       });
 
@@ -474,8 +494,8 @@ export class OrganizationService {
         success: true,
         domain,
         verified: true,
-        sslStatus: 'ACTIVE',
-        message: `Custom domain ${domain} verified and SSL certificate active!`,
+        sslStatus: 'PENDING',
+        message: `Custom domain ${domain} DNS verified. HTTPS certificate setup is still required.`,
       };
     } else {
       return {
@@ -483,70 +503,32 @@ export class OrganizationService {
         domain,
         verified: false,
         sslStatus: 'PENDING',
-        message: `DNS CNAME record for ${domain} was not found pointing to cname.yourcrm.com. Please allow a few minutes for DNS propagation.`,
+        message: `DNS CNAME record for ${domain} was not found pointing to ${PLATFORM_HOST}. Please allow a few minutes for DNS propagation.`,
       };
     }
   }
 
   async resolveDomain(host: string) {
-    const cleanHost = host.toLowerCase().split(':')[0]; // remove port
+    const cleanHost = normalizeTenantHost(host);
+    if (!cleanHost || isPlatformHost(cleanHost)) return { found: false };
 
     // 1. Check custom domain
-    let org = await this.prisma.organization.findUnique({
-      where: { customDomain: cleanHost },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        logoUrl: true,
-        brandingPrimaryColor: true,
-        brandingSecondaryColor: true,
-        status: true,
-        showLogoInLogin: true,
-        workspaceSettingsJson: true,
-      },
+    const select = {
+      id: true, name: true, slug: true, logoUrl: true,
+      brandingPrimaryColor: true, brandingSecondaryColor: true, status: true,
+      showLogoInLogin: true, workspaceSettingsJson: true,
+    } as const;
+    let org = await this.prisma.organization.findFirst({
+      where: { customDomain: cleanHost, customDomainVerified: true },
+      select,
     });
-
-    // 2. Check subdomain: e.g. "skyline.yourcrm.com" -> slug: "skyline"
-    if (!org && cleanHost.includes('.')) {
-      const parts = cleanHost.split('.');
-      if (parts.length >= 2) {
-        const potentialSlug = parts[0];
-        org = await this.prisma.organization.findUnique({
-          where: { slug: potentialSlug },
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            logoUrl: true,
-            brandingPrimaryColor: true,
-            brandingSecondaryColor: true,
-            status: true,
-            showLogoInLogin: true,
-            workspaceSettingsJson: true,
-          },
-        });
-      }
-    }
-
-    // 3. Check direct slug match (e.g., host param passed as slug directly)
-    if (!org && cleanHost) {
+    const slug = tenantSlugFromHost(cleanHost);
+    if (!org && slug) {
       org = await this.prisma.organization.findUnique({
-        where: { slug: cleanHost },
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          logoUrl: true,
-          brandingPrimaryColor: true,
-          brandingSecondaryColor: true,
-          status: true,
-          showLogoInLogin: true,
-          workspaceSettingsJson: true,
-        },
+        where: { slug },
+        select,
       });
     }
-
     if (!org) {
       return { found: false };
     }
@@ -1168,6 +1150,8 @@ export class OrganizationService {
       targetType: log.entityType,
       targetId: log.entityId,
       metadata: log.metadata,
+      ip: log.ip,
+      userAgent: log.userAgent,
       createdAt: log.createdAt,
       user: log.actorUser,
       organization: log.organization,

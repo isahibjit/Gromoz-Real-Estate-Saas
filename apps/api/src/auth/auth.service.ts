@@ -19,6 +19,7 @@ import {
   LoginOtpRequestSchema,
   LoginOtpVerifySchema,
   LoginSchema,
+  workspaceIsAccessible,
   type AuthTokens,
   type LoginInput,
   type LoginOtpRequestInput,
@@ -138,6 +139,7 @@ export class AuthService {
                     name: true,
                     status: true,
                     setupFeePaid: true,
+                    trialEndsAt: true,
                   },
                 },
               },
@@ -194,7 +196,7 @@ export class AuthService {
     if (user.role !== 'SUPER_ADMIN' && user.organizationMemberships?.length) {
       const hasActiveOrg = user.organizationMemberships.some(
         (m) =>
-          m.organization.status === 'ACTIVE' && m.organization.setupFeePaid,
+          workspaceIsAccessible(m.organization),
       );
 
       if (!hasActiveOrg) {
@@ -601,7 +603,7 @@ export class AuthService {
     if (user.role !== 'SUPER_ADMIN' && user.organizationMemberships?.length) {
       const hasActiveOrg = user.organizationMemberships.some(
         (m) =>
-          m.organization.status === 'ACTIVE' && m.organization.setupFeePaid,
+          workspaceIsAccessible(m.organization),
       );
 
       if (!hasActiveOrg) {
@@ -657,6 +659,7 @@ export class AuthService {
                 name: true,
                 status: true,
                 setupFeePaid: true,
+                    trialEndsAt: true,
               },
             },
           },
@@ -705,6 +708,7 @@ export class AuthService {
                   name: true,
                   status: true,
                   setupFeePaid: true,
+                    trialEndsAt: true,
                 },
               },
             },
@@ -727,6 +731,7 @@ export class AuthService {
                 name: true,
                 status: true,
                 setupFeePaid: true,
+                    trialEndsAt: true,
               },
             },
           },

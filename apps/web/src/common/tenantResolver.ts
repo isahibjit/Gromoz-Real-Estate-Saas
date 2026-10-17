@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { isPlatformHost } from "@truroot/shared";
 
 export interface ResolvedTenant {
   id: string;
@@ -24,6 +25,8 @@ export async function resolveTenantFromHost(): Promise<ResolvedTenant | null> {
     try {
       const response = await api.get(`/organizations/resolve-domain?host=${encodeURIComponent(explicitOrg)}`);
       if (response.data?.found && response.data?.organization) {
+        localStorage.setItem("active_organization_id", response.data.organization.id);
+        localStorage.setItem("active_organization_slug", response.data.organization.slug);
         return response.data.organization;
       }
     } catch {
@@ -33,18 +36,8 @@ export async function resolveTenantFromHost(): Promise<ResolvedTenant | null> {
 
   const hostname = window.location.hostname.toLowerCase();
 
-  // If local development, check localStorage first
-  if (hostname === "localhost" || hostname === "127.0.0.1") {
-    const cachedOrg = localStorage.getItem("active_organization_data");
-    if (cachedOrg) {
-      try {
-        return JSON.parse(cachedOrg);
-      } catch {
-        // continue
-      }
-    }
-    return null;
-  }
+  // Platform login must not inherit another workspace's cached branding.
+  if (isPlatformHost(hostname)) return null;
 
   try {
     const response = await api.get(`/organizations/resolve-domain?host=${encodeURIComponent(hostname)}`);

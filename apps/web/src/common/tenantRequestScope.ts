@@ -6,6 +6,13 @@ export function currentOrganizationId(): string | null {
   return localStorage.getItem(ACTIVE_ORGANIZATION_KEY);
 }
 
+export function isPlatformView(role?: string, pathname = window.location.pathname): boolean {
+  return role === "SUPER_ADMIN" && (
+    pathname === "/superadmin" || pathname.startsWith("/superadmin/") ||
+    !currentOrganizationId()
+  );
+}
+
 export function assertCurrentOrganization(
   organizationId: string | null | undefined,
 ): void {

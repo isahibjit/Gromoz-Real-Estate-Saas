@@ -17,6 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { AuthTokens } from "@truroot/shared/auth";
+import { isPlatformView } from "../tenantRequestScope";
 
 import type {
   SidebarChildItem,
@@ -658,7 +659,7 @@ export const platformSuperAdminNavigation: NavigationItem[] = [
 ];
 
 export function getNavigationForUser(user: AuthUser) {
-  if (user?.role === "SUPER_ADMIN" && !localStorage.getItem("active_organization_id")) {
+  if (isPlatformView(user?.role)) {
     return platformSuperAdminNavigation;
   }
 
@@ -668,7 +669,7 @@ export function getNavigationForUser(user: AuthUser) {
 }
 
 export function getFirstAccessibleNavigationPath(user: AuthUser) {
-  if (user?.role === "SUPER_ADMIN" && !localStorage.getItem("active_organization_id")) {
+  if (isPlatformView(user?.role)) {
     return "/superadmin";
   }
   const [firstItem] = getNavigationForUser(user);

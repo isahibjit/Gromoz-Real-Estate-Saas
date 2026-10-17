@@ -89,6 +89,40 @@ protected off-server storage for recovery from loss of the instance. Restore a
 database dump with `pg_restore` into a separate database first, and inspect it
 before replacing live data. Upload archives restore under `/var/lib/gromoze`.
 
+## Workspace domains and platform access
+
+The platform console remains at `crm.gromoze.com`. Customer workspaces use
+`<slug>.gromoze.com`; DNS must contain `A * -> 13.201.20.104`. Slugs are unique,
+validated DNS labels. Infrastructure names such as `crm`, `www`, `api`, and
+`admin` are reserved. Host resolution accepts our exact domain suffix, explicit
+slugs, or verified custom domains; another domain's first label is never treated
+as a tenant identifier.
+
+Deployment installs `gromoze-tenant-domains.timer`. Every two minutes it reads
+registered slugs, checks their DNS, obtains individual Let's Encrypt certificates
+using HTTP-01, and installs matching nginx hosts. New workspace HTTPS can take
+a few minutes. Existing Certbot renewal reloads nginx through a deploy hook.
+Failed certificate attempts back off for six hours; inspect
+`journalctl -u gromoze-tenant-domains`. Individual certificates are subject to the
+CA's issuance limits; large onboarding batches need a DNS-01 wildcard deployment.
+No DNS provider credentials are stored on the application server.
+
+`POST /organizations/provision` reuses organization registration but requires a
+currently active platform super administrator. It can create a 14-day trial with
+an owner membership and deadline. Public registration cannot request a free
+trial. Paid onboarding remains `SETUP_PENDING` until payment confirmation;
+unavailable Razorpay must not roll a committed account into a misleading error.
+
+Platform headers use the session identity and platform navigation. Employee
+profile/payroll/attendance routes are not platform account routes. Platform
+admins use `/superadmin/account`, and must explicitly select a workspace only
+when inspecting its CRM. TenantGuard still rejects unscoped tenant requests.
+Trial access ends at `trialEndsAt`; suspended and cancelled tenants stay blocked.
+
+The audit view displays the latest 100 records, with counts and filters limited
+to those records. IP and user-agent fields are returned when recorded; the UI
+does not invent locations, percentage trends, or immutable-storage guarantees.
+
 ## Platform email and trial payment reminders
 
 The production sender is configured in `/etc/gromoze/api.env`, never in Git or

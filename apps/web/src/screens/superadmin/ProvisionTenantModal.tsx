@@ -222,6 +222,8 @@ export function ProvisionTenantModal({
     paymentLinkUrl: string;
     totalAmount: number;
     seats: number;
+    status: string;
+    workspaceUrl: string;
   } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -230,7 +232,8 @@ export function ProvisionTenantModal({
 
     setIsSubmitting(true);
     try {
-      const res = await api.post("/organizations/register", {
+      const res = await api.post("/organizations/provision", {
+        isTrial: form.isTrial,
         organizationName: form.companyName.trim(),
         subdomain: form.slug.trim().toLowerCase(),
         fullName: form.adminFullName.trim(),
@@ -253,6 +256,8 @@ export function ProvisionTenantModal({
         paymentLinkUrl: linkUrl,
         totalAmount: checkoutData?.amount || 0,
         seats: checkoutData?.seatsCount || Number(form.seats) || 5,
+        status: res.data.organization.status,
+        workspaceUrl: res.data.organization.workspaceUrl,
       });
 
       toast.success(`Tenant organization "${form.companyName}" successfully provisioned!`);
@@ -436,12 +441,12 @@ export function ProvisionTenantModal({
                     style={{ outline: "none", border: "none", boxShadow: "none" }}
                     className="h-11 flex-1 bg-transparent border-none outline-none ring-0 shadow-none text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-0 focus:border-none focus:shadow-none focus:bg-transparent focus-visible:outline-none focus-visible:ring-0 focus-visible:border-none focus-visible:shadow-none invalid:outline-none invalid:shadow-none px-0"
                   />
-                  <span className="text-xs font-semibold text-slate-400 shrink-0 pl-1">.truerootcrm.com</span>
+                  <span className="text-xs font-semibold text-slate-400 shrink-0 pl-1">.gromoze.com</span>
                 </div>
                 <p className="text-[11px] text-slate-400 font-medium mt-1">
                   Tenant workspace will be accessible at:{" "}
                   <span className="font-mono font-bold text-primary">
-                    https://{form.slug || "slug"}.truerootcrm.com
+                    https://{form.slug || "slug"}.gromoze.com
                   </span>
                 </p>
               </div>
@@ -771,7 +776,7 @@ export function ProvisionTenantModal({
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[11px]">URL:</span>
-                    <strong className="text-slate-800">{form.slug || "slug"}.truerootcrm.com</strong>
+                    <strong className="text-slate-800">{form.slug || "slug"}.gromoze.com</strong>
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[11px]">Commercial Plan:</span>
@@ -782,7 +787,7 @@ export function ProvisionTenantModal({
                   <div>
                     <span className="text-slate-400 block text-[11px]">Status:</span>
                     <strong className={form.isTrial ? "text-blue-600" : "text-emerald-600"}>
-                      {form.isTrial ? "14-Day Trial" : "Active Commercial"}
+                      {form.isTrial ? "14-Day Trial" : "Payment pending"}
                     </strong>
                   </div>
                 </div>
@@ -799,7 +804,7 @@ export function ProvisionTenantModal({
                   Workspace Provisioned Successfully!
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Tenant <strong className="text-slate-800">{createdTenantResult.companyName}</strong> has been created and is awaiting activation payment.
+                  Tenant <strong className="text-slate-800">{createdTenantResult.companyName}</strong> has been created. {createdTenantResult.status === "TRIAL" ? "Your 14-day trial is ready." : "Activation payment is pending."}
                 </p>
               </div>
 
@@ -808,7 +813,7 @@ export function ProvisionTenantModal({
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-500 font-medium">Workspace Status:</span>
                   <span className="bg-amber-100 text-amber-800 font-semibold px-2.5 py-0.5 rounded-full">
-                    SETUP_PENDING
+                    {createdTenantResult.status}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
@@ -819,6 +824,7 @@ export function ProvisionTenantModal({
                   <span className="text-slate-500 font-medium">Allocated Seats:</span>
                   <span className="font-semibold text-slate-800">{createdTenantResult.seats} Seats</span>
                 </div>
+                <div className="text-xs"><span className="text-slate-500">Workspace address: </span><a className="text-primary underline" href={`${createdTenantResult.workspaceUrl}/login`} target="_blank" rel="noreferrer">{createdTenantResult.workspaceUrl}</a><p className="mt-1 text-slate-500">HTTPS setup may take a few minutes after creation.</p></div>
               </div>
 
               {/* Payment Link & Sharing Controls */}

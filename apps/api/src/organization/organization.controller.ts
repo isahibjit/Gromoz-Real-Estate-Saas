@@ -18,6 +18,7 @@ import {
   InviteMemberDto,
   OrganizationService,
   RegisterOrgDto,
+  ProvisionOrgDto,
   UpdateWorkspaceSettingsDto,
 } from './organization.service';
 
@@ -28,6 +29,12 @@ export class OrganizationController {
   @Post('register')
   async registerOrganization(@Body() dto: RegisterOrgDto) {
     return this.orgService.registerOrganization(dto);
+  }
+
+  @Post('provision')
+  @UseGuards(AuthGuard)
+  async provisionOrganization(@Body() dto: ProvisionOrgDto, @Req() req: { user: { sub: string } }) {
+    return this.orgService.provisionOrganization(dto, req.user.sub);
   }
 
   @Get('resolve-domain')

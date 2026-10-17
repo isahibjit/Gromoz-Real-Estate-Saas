@@ -11,6 +11,8 @@ import { TenantOverviewScreen } from "./screens/superadmin/TenantOverviewScreen"
 import { PlansPricingScreen } from "./screens/superadmin/PlansPricingScreen";
 import { PlatformAuditLogsScreen } from "./screens/superadmin/PlatformAuditLogsScreen";
 import { PlatformSettingsScreen } from "./screens/superadmin/PlatformSettingsScreen";
+import { PlatformAccountScreen } from "./screens/superadmin/PlatformAccountScreen";
+import { isPlatformView } from "./common/tenantRequestScope";
 import { WorkspaceSettingsPage } from "./screens/admin/settings/WorkspaceSettingsPage";
 import { DownloadAppScreen } from "./screens/public/DownloadAppScreen";
 import { MobileAppScreen } from "./screens/admin/settings/MobileAppScreen";
@@ -372,8 +374,7 @@ function AdminRoute({ children }: PropsWithChildren) {
   // If Platform SuperAdmin is not impersonating a tenant, redirect them to the Platform SuperAdmin portal
   if (
     user?.role === "SUPER_ADMIN" &&
-    !localStorage.getItem("active_organization_id") &&
-    location.pathname === DASHBOARD_PATH
+    isPlatformView(user?.role, location.pathname)
   ) {
     return <Navigate to={SUPERADMIN_PATH} replace />;
   }
@@ -447,6 +448,9 @@ function EmployeeRoute({ children }: PropsWithChildren) {
   const user = useAppSelector((state) => state.auth.user);
   const location = useLocation();
   if (!isAuthenticated) return <Navigate to={LOGIN_PATH} replace state={{ from: location }} />;
+  if (user?.role === "SUPER_ADMIN") {
+    return <Navigate to="/superadmin/account" replace />;
+  }
   if (!["SUPER_ADMIN", "ADMIN", "HR", "SALES_MANAGER", "TEAM_LEADER", "MANAGER", "TELECALLER", "SALES_AGENT", "BACKEND"].includes(user?.role ?? "")) {
     return buildInaccessibleRouteFallback(user, location.pathname);
   }
@@ -467,6 +471,9 @@ function PermissionRoute({ children }: PropsWithChildren) {
   const location = useLocation();
   if (!isAuthenticated) {
     return <Navigate to={LOGIN_PATH} replace state={{ from: location }} />;
+  }
+  if (isPlatformView(user?.role, location.pathname)) {
+    return <Navigate to={SUPERADMIN_PATH} replace />;
   }
   const moduleKey = moduleKeyForPath(location.pathname);
   const pageKey = pageKeyForPath(location.pathname);
@@ -651,6 +658,10 @@ export default function App() {
             <PlatformAuditLogsScreen />
           </SuperAdminRoute>
         }
+      />
+      <Route
+        path="/superadmin/account"
+        element={<SuperAdminRoute><PlatformAccountScreen /></SuperAdminRoute>}
       />
       <Route
         path="/superadmin/settings"

@@ -24,6 +24,7 @@ import { HeaderSearchBar } from "../../../components/navigation/HeaderSearchBar"
 import { HeaderNotificationBell } from "../../../components/notifications/HeaderNotificationBell";
 import { getUserRoleLabel } from "../../../common/roleLabels";
 import { buildBreadcrumbsFromNavigation } from "../../../common/navigation/navigationRegistry";
+import { isPlatformView } from "../../../common/tenantRequestScope";
 
 interface DashboardHeaderProps {
   search?: string;
@@ -53,15 +54,16 @@ export function DashboardHeader({
 
   const user = useAppSelector((state) => state.auth.user);
   const logoutMutation = useLogoutMutation();
+  const isPlatformSuperAdminView = isPlatformView(user?.role, location.pathname);
 
   const meQuery = useQuery({
-    queryKey: ["dashboard-header", "me", user?.id],
+    queryKey: ["dashboard-header", "me", user?.id, localStorage.getItem("active_organization_id")],
     queryFn: async () =>
       (await api.get("/employees/me")).data as {
         image?: string | null;
         fullName?: string | null;
       },
-    enabled: Boolean(user?.id),
+    enabled: Boolean(user?.id) && user?.role !== "SUPER_ADMIN",
     retry: false,
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
@@ -101,12 +103,8 @@ export function DashboardHeader({
 
   const profileImage = meQuery.data?.image ?? user?.image ?? undefined;
   const profileName = meQuery.data?.fullName ?? user?.fullName ?? "Admin User";
-  const userRoleText = getUserRoleLabel(user?.role);
+  const userRoleText = user?.role === "SUPER_ADMIN" ? "Platform Super Admin" : getUserRoleLabel(user?.role);
   const breadcrumbList = buildBreadcrumbsFromNavigation(location.pathname);
-
-  const isPlatformSuperAdminView =
-    user?.role === "SUPER_ADMIN" &&
-    !localStorage.getItem("active_organization_id");
 
   return (
     <header className="flex h-20 flex-shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6 shadow-sm gap-4 sticky top-0 z-30">
@@ -157,7 +155,7 @@ export function DashboardHeader({
 
         {/* Search Bar on the Left */}
         <div className="flex-1 max-w-[480px] lg:max-w-[540px] min-w-[240px]">
-          <HeaderSearchBar />
+          <HeaderSearchBar scope={isPlatformSuperAdminView ? "platform" : "tenant"} />
         </div>
       </div>
 
@@ -175,12 +173,15 @@ export function DashboardHeader({
           </Button>
         )}
 
-        <HeaderNotificationBell />
+        {!isPlatformSuperAdminView && <HeaderNotificationBell />}
 
         {/* User Profile Avatar Card in Header */}
         {user && (
           <div className="relative" ref={headerRef}>
-            <div
+            <button
+              type="button"
+              aria-label="Open account menu"
+              aria-expanded={headerMenuOpen}
               onClick={() => setHeaderMenuOpen(!headerMenuOpen)}
               className="flex items-center gap-2.5 p-1 rounded-sm cursor-pointer hover:bg-slate-100/80 transition-all"
             >
@@ -206,7 +207,7 @@ export function DashboardHeader({
               </div>
 
               <ChevronDown className="hidden size-3.5 text-slate-400 md:block" />
-            </div>
+            </button>
 
             {/* Header User Dropdown Card */}
             {headerMenuOpen && (
@@ -220,14 +221,14 @@ export function DashboardHeader({
                   </p>
                 </div>
                 <NavLink
-                  to="/employee/me"
+                  to={user.role === "SUPER_ADMIN" ? "/superadmin/account" : "/employee/me"}
                   onClick={() => setHeaderMenuOpen(false)}
                   className="flex items-center gap-2.5 rounded-sm px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-primary"
                 >
                   <User className="h-4 w-4 text-tertiary" /> My Profile
                 </NavLink>
                 <NavLink
-                  to="/employee/settings"
+                  to={user.role === "SUPER_ADMIN" ? "/superadmin/account#security" : "/employee/settings"}
                   onClick={() => setHeaderMenuOpen(false)}
                   className="flex items-center gap-2.5 rounded-sm px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-primary"
                 >
@@ -236,7 +237,6 @@ export function DashboardHeader({
                 <Button
                   variant="ghost"
                   size="sm"
-                  fullWidth
                   onClick={handleLogout}
                   className="flex items-center justify-start gap-2.5 text-rose-600 hover:bg-rose-50 hover:text-rose-700 font-semibold text-xs mt-1 rounded-sm border-t border-slate-100 pt-2 w-full"
                 >

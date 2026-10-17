@@ -62,6 +62,11 @@ export function RegisterOrganizationScreen() {
       });
 
       const { organization, checkoutOrder } = response.data;
+      if (!checkoutOrder) {
+        toast.success(`Workspace ${organization.slug}.gromoze.com created. Contact support to complete the pending setup payment.`);
+        navigate("/login");
+        return;
+      }
       localStorage.setItem("active_organization_id", organization.id);
       toast.success("Organization initialized! Launching secure payment gateway...");
 

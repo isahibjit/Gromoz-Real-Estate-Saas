@@ -380,7 +380,7 @@ export function AllTenantsScreen() {
                               <Eye className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 text-blue-600 transition" />
                             </p>
                             <p className="text-[11px] font-medium text-slate-400">
-                              {t.customDomain || `${t.slug}.truerootcrm.com`}
+                              {t.customDomain || `${t.slug}.gromoze.com`}
                             </p>
                           </div>
                         </div>

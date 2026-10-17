@@ -14,6 +14,7 @@ jest.mock("../../common/api", () => ({
 const mockedApi = api as jest.Mocked<typeof api>;
 
 test("loads the notification feed from the registered notifications endpoint", async () => {
+  localStorage.setItem("active_organization_id", "tenant-a");
   mockedApi.get.mockResolvedValue({
     data: { unreadCount: 0, data: [], meta: { page: 1, limit: 10, total: 0 } },
   });
@@ -29,4 +30,12 @@ test("loads the notification feed from the registered notifications endpoint", a
   await waitFor(() => {
     expect(mockedApi.get).toHaveBeenCalledWith("/notifications");
   });
+});
+
+test("does not request tenant notifications without a selected workspace", () => {
+  localStorage.clear();
+  mockedApi.get.mockClear();
+  const { queryByTitle } = render(<MemoryRouter><HeaderNotificationBell /></MemoryRouter>);
+  expect(mockedApi.get).not.toHaveBeenCalled();
+  expect(queryByTitle("Notifications")).not.toBeInTheDocument();
 });

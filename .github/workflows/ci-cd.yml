@@ -80,6 +80,7 @@ jobs:
           src/crm/email-connectors.service.spec.ts
           src/billing/trial-reminder.worker.spec.ts
           src/organization/organization.service.trial.spec.ts
+          src/organization/organization.service.domains.spec.ts
           src/uploads/uploads.service.spec.ts
           src/app.controller.spec.ts
       - name: Web sign-in, OTP, recovery and tenant branding regression tests
@@ -90,6 +91,10 @@ jobs:
           src/screens/auth/forgot-password/ForgotPasswordScreen.test.tsx
           src/screens/auth/reset-password/ResetPasswordScreen.test.tsx
           src/screens/admin/settings/LoginPagePreview.test.tsx
+          src/screens/superadmin/PlatformAuditLogsScreen.test.tsx
+          src/components/notifications/HeaderNotificationBell.test.tsx
+          src/common/tenantRequestScope.test.ts
+          src/screens/admin/dashboard/DashboardHeader.platform.test.tsx
       - name: Build production web application
         run: npm run build --workspace=web
         env:

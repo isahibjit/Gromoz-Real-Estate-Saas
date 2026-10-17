@@ -31,6 +31,7 @@ VITE_API_URL=/api npm run build --workspace=web
 sudo /usr/local/sbin/gromoze-backup
 (cd apps/api && npx prisma migrate deploy)
 sudo systemctl restart gromoze-api
+bash deploy/production/install-tenant-domains.sh
 for attempt in {1..30}; do
     if curl --fail --silent http://127.0.0.1:5002/health/ready; then
         sudo nginx -t

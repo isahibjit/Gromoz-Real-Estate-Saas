@@ -53,6 +53,7 @@ import { getUserRoleLabel } from "../../../common/roleLabels";
 import { recordRecentSearch } from "../../../components/navigation/HeaderSearchBar";
 import { useAppSelector } from "../../../store";
 import { useDashboardLayoutContext } from "./DashboardLayoutContext";
+import { isPlatformView } from "../../../common/tenantRequestScope";
 
 export interface NavItem {
   label: string;
@@ -372,7 +373,8 @@ function DashboardSidebarComponent({
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-  const activeOrgId = localStorage.getItem("active_organization_id") || "default";
+  const isSuperAdminOnly = isPlatformView(user?.role, location.pathname);
+  const activeOrgId = isSuperAdminOnly ? "default" : localStorage.getItem("active_organization_id") || "default";
 
   // Dynamic Workspace Branding
   const [branding, setBranding] = useState<{
@@ -453,9 +455,6 @@ function DashboardSidebarComponent({
     logoutMutation.mutate();
   };
 
-  const isSuperAdminOnly =
-    user?.role === "SUPER_ADMIN" &&
-    !localStorage.getItem("active_organization_id");
   const categories = isSuperAdminOnly ? superAdminNavCategories : defaultNavCategories;
 
   const showBigLogo = mobileOpen || !collapsed || isHovered;
@@ -813,7 +812,7 @@ function DashboardSidebarComponent({
                     </p>
                   </div>
                   <NavLink
-                    to="/employee/me"
+                    to={user.role === "SUPER_ADMIN" ? "/superadmin/account" : "/employee/me"}
                     onClick={() => {
                       setUserMenuOpen(false);
                       onMobileClose();
@@ -823,7 +822,7 @@ function DashboardSidebarComponent({
                     <User className="h-4 w-4 text-tertiary" /> My Profile
                   </NavLink>
                   <NavLink
-                    to="/employee/settings"
+                    to={user.role === "SUPER_ADMIN" ? "/superadmin/account#security" : "/employee/settings"}
                     onClick={() => {
                       setUserMenuOpen(false);
                       onMobileClose();

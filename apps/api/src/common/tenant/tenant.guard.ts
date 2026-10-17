@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../persistence/prisma/prisma.service';
 import { TenantContextPayload } from './tenant-context.service';
+import { workspaceIsAccessible } from '@truroot/shared';
 
 interface TenantRequest {
   headers: Record<string, string | string[] | undefined>;
@@ -100,10 +101,7 @@ export class TenantGuard implements CanActivate {
         'Platform privileges cannot be granted by tenant membership',
       );
     }
-    if (
-      membership.organization.status !== 'ACTIVE' ||
-      !membership.organization.setupFeePaid
-    ) {
+    if (!workspaceIsAccessible(membership.organization)) {
       if (
         membership.organization.status === 'SETUP_PENDING' ||
         !membership.organization.setupFeePaid

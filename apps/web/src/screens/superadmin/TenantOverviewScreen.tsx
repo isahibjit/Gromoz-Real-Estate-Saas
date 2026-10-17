@@ -195,7 +195,7 @@ export function TenantOverviewScreen() {
               </div>
               <p className="text-xs text-slate-500 font-medium flex items-center gap-2 mt-0.5">
                 <Globe className="h-3.5 w-3.5 text-slate-400" />
-                <span>{tenant.customDomain || `${tenant.slug}.truerootcrm.com`}</span>
+                <span>{tenant.customDomain || `${tenant.slug}.gromoze.com`}</span>
                 <span className="text-slate-300">•</span>
                 <span className="font-mono text-slate-400">Slug: {tenant.slug}</span>
               </p>
@@ -364,7 +364,7 @@ export function TenantOverviewScreen() {
             <div>
               <span className="text-slate-400 font-medium block">Subdomain URL:</span>
               <p className="font-mono font-semibold text-blue-600 mt-0.5">
-                https://{tenant.slug}.truerootcrm.com
+                https://{tenant.slug}.gromoze.com
               </p>
             </div>
             <div>

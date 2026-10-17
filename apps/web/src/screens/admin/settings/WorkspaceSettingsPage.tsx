@@ -469,7 +469,7 @@ export function WorkspaceSettingsPage() {
         setForm((prev) => ({
           ...prev,
           customDomainVerified: true,
-          customDomainSslStatus: "ACTIVE",
+          customDomainSslStatus: res.data.sslStatus || "PENDING",
         }));
       } else {
         toast(res.data.message, { icon: "ℹ️" });
@@ -670,11 +670,11 @@ export function WorkspaceSettingsPage() {
                     className="flex-1 px-3 text-xs font-semibold text-foreground bg-transparent focus:outline-none"
                   />
                   <span className="inline-flex items-center px-3 bg-muted border-l border-border text-xs font-mono text-muted-foreground select-none">
-                    .yourcrm.com
+                    .gromoze.com
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Your team access URL: <strong className="text-primary font-mono">https://{form.subdomain || "workspace"}.yourcrm.com</strong>
+                  Your team access URL: <strong className="text-primary font-mono">https://{form.subdomain || "workspace"}.gromoze.com</strong>
                 </p>
               </div>
 
@@ -718,7 +718,7 @@ export function WorkspaceSettingsPage() {
                     </p>
                     <div className="font-mono text-[11px] bg-background/80 p-2 rounded border border-border text-foreground">
                       <div><strong>Host:</strong> {form.customDomain.split(".")[0] || "crm"}</div>
-                      <div><strong>Target:</strong> cname.yourcrm.com</div>
+                      <div><strong>Target:</strong> crm.gromoze.com</div>
                     </div>
                   </div>
                 )}

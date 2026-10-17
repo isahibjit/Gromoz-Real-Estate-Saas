@@ -10,6 +10,7 @@ import { DashboardHeader } from "./DashboardHeader";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { TodayFollowUpsFab } from "../leads/follow-up/TodayFollowUpsFab";
 import { useAppSelector } from "../../../store";
+import { isPlatformView } from "../../../common/tenantRequestScope";
 import {
   getActiveNavigation,
   getNavigationForUser,
@@ -21,13 +22,14 @@ function DashboardWorkspaceLayoutContent({ children }: { children?: ReactNode })
   const layout = useDashboardLayoutContext();
   const location = useLocation();
   const user = useAppSelector((state) => state.auth.user);
+  const platformView = isPlatformView(user?.role, location.pathname);
   const header = layout?.header ?? {};
   const sidebar = layout?.sidebar ?? {};
   const sidebarItems = getNavigationForUser(user);
   const activeNavigation = getActiveNavigation(location.pathname, sidebarItems);
 
   const isSuperAdminImpersonating =
-    user?.role === "SUPER_ADMIN" && Boolean(localStorage.getItem("active_organization_id"));
+    user?.role === "SUPER_ADMIN" && !platformView;
 
   const handleExitImpersonation = () => {
     localStorage.removeItem("active_organization_id");
@@ -88,7 +90,7 @@ function DashboardWorkspaceLayoutContent({ children }: { children?: ReactNode })
             {children ?? <Outlet />}
           </div>
         </main>
-        <TodayFollowUpsFab />
+        {!platformView && <TodayFollowUpsFab />}
       </div>
     </div>
   );
