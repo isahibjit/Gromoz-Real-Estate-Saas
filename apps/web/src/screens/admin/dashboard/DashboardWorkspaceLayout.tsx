@@ -33,7 +33,15 @@ function DashboardWorkspaceLayoutContent({ children }: { children?: ReactNode })
 
   const handleExitImpersonation = () => {
     localStorage.removeItem("active_organization_id");
-    window.location.href = "/superadmin";
+    localStorage.removeItem("active_organization_slug");
+    localStorage.removeItem("active_organization_data");
+    const isPlatform = [
+      "crm.gromoze.com",
+      "gromoze.com",
+      "localhost",
+      "127.0.0.1",
+    ].includes(window.location.hostname.toLowerCase());
+    window.location.href = isPlatform ? "/superadmin" : "https://crm.gromoze.com/superadmin";
   };
 
   return (

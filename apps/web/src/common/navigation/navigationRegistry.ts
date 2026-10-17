@@ -571,6 +571,7 @@ function removeDuplicateSelfServiceNavigation(
 }
 
 function roleMatches(item: { roleScopes?: NavigationRole[] }, user: AuthUser) {
+  if (user?.role === "SUPER_ADMIN") return true;
   if (!item.roleScopes?.length) return true;
   return Boolean(user?.role && item.roleScopes.includes(user.role as NavigationRole));
 }

@@ -17,6 +17,8 @@ import { Role, OrganizationStatus } from '@prisma/client';
 
 import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
 import { isPlatformHost, normalizeTenantHost, TenantSlugSchema, tenantSlugFromHost, tenantWorkspaceUrl, PLATFORM_HOST } from '@truroot/shared';
+import { encryptPassword, decryptPassword } from '../common/utils/cipher.util';
+import * as nodemailer from 'nodemailer';
 
 const resolveCnameAsync = promisify(dns.resolveCname);
 
@@ -180,7 +182,8 @@ export class OrganizationService {
       throw new ConflictException('An account with this email address already exists. Please log in.');
     }
 
-    const passwordHash = await argon2.hash(rawAdminPassword);
+    // Customer tenant accounts store reversible AES encrypted passwords so admins can manage/view them
+    const passwordHash = encryptPassword(rawAdminPassword);
     const planTier = (['STARTER', 'GROWTH', 'ENTERPRISE'].includes((dto.planTier || '').toUpperCase())
       ? dto.planTier!.toUpperCase()
       : 'STARTER') as any;
@@ -236,6 +239,27 @@ export class OrganizationService {
       result.organization.id, { initialSeats },
     ).catch(() => null);
 
+    const paymentLinkUrl = checkoutOrder?.paymentLinkUrl || checkoutOrder?.shortUrl || null;
+
+    // Dispatch automated Welcome Kit Email to tenant administrator
+    let welcomeEmailSent = false;
+    try {
+      welcomeEmailSent = await this.sendTenantWelcomeKit({
+        adminEmail: rawAdminEmail.toLowerCase(),
+        adminFullName: rawAdminFullName || 'Organization Admin',
+        adminPassword: rawAdminPassword,
+        organizationName: rawOrgName,
+        subdomain: cleanSlug,
+        workspaceUrl: tenantWorkspaceUrl(cleanSlug),
+        isTrial: trial,
+        planTier,
+        seats: initialSeats,
+        paymentLinkUrl,
+      });
+    } catch (err: any) {
+      console.error(`[OrganizationService] Welcome email failed for ${rawAdminEmail}:`, err?.message || err);
+    }
+
     return {
       message: trial ? 'Organization created with a 14-day trial.' : 'Organization created successfully. Setup payment is pending.',
       organization: {
@@ -252,6 +276,7 @@ export class OrganizationService {
         fullName: result.user.fullName,
       },
       checkoutOrder,
+      welcomeEmailSent,
     };
   }
 
@@ -821,6 +846,322 @@ export class OrganizationService {
       success: true,
       message: `Tenant status updated to ${status}`,
       organization: updated,
+    };
+  }
+
+  private getSmtpTransporter() {
+    const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+    const port = Number(process.env.SMTP_PORT) || 465;
+    const secure = process.env.SMTP_SECURE === 'true' || port === 465;
+    const user = process.env.SMTP_USER || '';
+    const pass = process.env.SMTP_PASS || '';
+
+    if (!user || !pass) {
+      return null;
+    }
+
+    return nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: { user, pass },
+      tls: {
+        rejectUnauthorized: false,
+      },
+    });
+  }
+
+  async sendTenantWelcomeKit(params: {
+    adminEmail: string;
+    adminFullName: string;
+    adminPassword?: string;
+    organizationName: string;
+    subdomain: string;
+    workspaceUrl: string;
+    isTrial: boolean;
+    planTier: string;
+    seats: number;
+    paymentLinkUrl?: string | null;
+  }): Promise<boolean> {
+    const transporter = this.getSmtpTransporter();
+    if (!transporter) {
+      console.warn('[OrganizationService] SMTP not configured. Welcome email skipped.');
+      return false;
+    }
+
+    const fromName = process.env.SMTP_FROM_NAME || 'Gromoze CRM';
+    const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@gromoze.com';
+    const loginUrl = `${params.workspaceUrl}/login`;
+    const subject = `Welcome to Gromoze CRM - Your Workspace "${params.organizationName}" is Ready!`;
+
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 24px; }
+        .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .header { background: #0D1F3D; color: #ffffff; padding: 32px 28px; text-align: center; }
+        .header h1 { margin: 0 0 8px 0; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
+        .header p { margin: 0; font-size: 14px; opacity: 0.85; }
+        .content { padding: 32px 28px; line-height: 1.6; }
+        .greeting { font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 12px; }
+        .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0; }
+        .label { color: #64748b; font-weight: 500; }
+        .cred-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 18px; margin: 20px 0; }
+        .cred-title { font-size: 12px; font-weight: 700; color: #1d4ed8; text-transform: uppercase; margin-bottom: 10px; }
+        .btn { display: inline-block; background: #0D1F3D; color: #ffffff !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 14px; margin: 16px 0; text-align: center; }
+        .btn-pay { display: inline-block; background: #2563eb; color: #ffffff !important; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 13px; margin: 10px 0; }
+        .footer { background: #f1f5f9; padding: 20px 28px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1 style="color:#ffffff;">Gromoze CRM</h1>
+          <p style="color:#94a3b8;">Enterprise Workspace Provisioning Confirmation</p>
+        </div>
+        <div class="content">
+          <p class="greeting">Hello ${params.adminFullName || 'Administrator'},</p>
+          <p>Welcome to <strong>Gromoze Real Estate CRM</strong>! Your workspace for <strong>${params.organizationName}</strong> has been provisioned and is ready for use.</p>
+          
+          <div class="card">
+            <div style="margin-bottom: 8px;"><strong style="font-size: 14px; color: #0f172a;">Workspace Overview</strong></div>
+            <div style="font-size: 13px; margin-bottom: 6px;"><span class="label">Organization Name:</span> <strong>${params.organizationName}</strong></div>
+            <div style="font-size: 13px; margin-bottom: 6px;"><span class="label">Subdomain Slug:</span> <code>${params.subdomain}</code></div>
+            <div style="font-size: 13px; margin-bottom: 6px;"><span class="label">Plan Tier:</span> <strong>${params.planTier} (${params.seats} Seats)</strong></div>
+            <div style="font-size: 13px; margin-bottom: 6px;"><span class="label">Account Status:</span> <strong>${params.isTrial ? '14-Day Free Trial' : 'Active Workspace'}</strong></div>
+            <div style="font-size: 13px;"><span class="label">Workspace URL:</span> <a href="${loginUrl}" style="color: #2563eb; font-weight: 600;">${loginUrl}</a></div>
+          </div>
+
+          <div class="cred-box">
+            <div class="cred-title">Your Administrator Credentials</div>
+            <div style="font-size: 13px; margin-bottom: 6px;"><span style="color: #475569;">Admin Email:</span> <strong style="color: #0f172a;">${params.adminEmail}</strong></div>
+            ${params.adminPassword ? `<div style="font-size: 13px;"><span style="color: #475569;">Initial Password:</span> <strong style="color: #0f172a; font-family: monospace; background: #dbeafe; padding: 2px 6px; border-radius: 4px;">${params.adminPassword}</strong></div>` : ''}
+          </div>
+
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="${loginUrl}" class="btn" target="_blank" style="color: #ffffff;">Access Your CRM Workspace &rarr;</a>
+          </div>
+
+          ${params.paymentLinkUrl ? `
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+            <div style="font-size: 12px; font-weight: 700; color: #15803d; text-transform: uppercase; margin-bottom: 6px;">Activation Payment Link</div>
+            <p style="margin: 0 0 10px 0; font-size: 13px; color: #166534;">You can complete or share your official Razorpay setup payment link:</p>
+            <a href="${params.paymentLinkUrl}" class="btn-pay" target="_blank" style="color: #ffffff;">Open Razorpay Payment Link</a>
+          </div>
+          ` : ''}
+
+          <p style="font-size: 13px; color: #64748b; margin-top: 24px;">
+            <strong>Security Notice:</strong> Please log in and customize your profile and settings. Keep these credentials confidential.
+          </p>
+        </div>
+        <div class="footer">
+          &copy; ${new Date().getFullYear()} Gromoze CRM SaaS Platform. All rights reserved.<br/>
+          Support: solverixtechnologies@gmail.com
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+
+    await transporter.sendMail({
+      from: `"${fromName}" <${fromAddress}>`,
+      to: params.adminEmail,
+      subject,
+      html,
+    });
+
+    return true;
+  }
+
+  async sendPasswordResetEmail(params: {
+    adminEmail: string;
+    adminFullName: string;
+    newPassword: string;
+    organizationName: string;
+    workspaceUrl: string;
+  }): Promise<boolean> {
+    const transporter = this.getSmtpTransporter();
+    if (!transporter) return false;
+
+    const fromName = process.env.SMTP_FROM_NAME || 'Gromoze CRM';
+    const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@gromoze.com';
+    const loginUrl = `${params.workspaceUrl}/login`;
+    const subject = `Credentials Updated: Gromoze CRM for ${params.organizationName}`;
+
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8">
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 24px; }
+      .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; }
+      .header { background: #0D1F3D; color: #ffffff; padding: 28px; text-align: center; }
+      .content { padding: 28px; }
+      .cred-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 18px; margin: 20px 0; }
+      .btn { display: inline-block; background: #0D1F3D; color: #ffffff !important; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 14px; margin: 16px 0; }
+      .footer { background: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #64748b; }
+    </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h2 style="margin: 0; color: #ffffff;">Gromoze CRM</h2>
+          <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.85; color: #94a3b8;">Administrator Password Reset</p>
+        </div>
+        <div class="content">
+          <p>Hello <strong>${params.adminFullName}</strong>,</p>
+          <p>The platform administrator has updated your login credentials for <strong>${params.organizationName}</strong>.</p>
+          <div class="cred-box">
+            <div style="font-size: 13px; margin-bottom: 6px;">Login Email: <strong>${params.adminEmail}</strong></div>
+            <div style="font-size: 13px;">New Password: <strong style="font-family: monospace; background: #dbeafe; padding: 3px 8px; border-radius: 4px; color: #1e40af;">${params.newPassword}</strong></div>
+          </div>
+          <div style="text-align: center;">
+            <a href="${loginUrl}" class="btn" target="_blank" style="color: #ffffff;">Log In to Your Workspace &rarr;</a>
+          </div>
+          <p style="font-size: 12px; color: #64748b; margin-top: 20px;">
+            Workspace Address: <a href="${loginUrl}" style="color: #2563eb;">${loginUrl}</a>
+          </p>
+        </div>
+        <div class="footer">&copy; ${new Date().getFullYear()} Gromoze CRM. All rights reserved.</div>
+      </div>
+    </body>
+    </html>
+    `;
+
+    await transporter.sendMail({
+      from: `"${fromName}" <${fromAddress}>`,
+      to: params.adminEmail,
+      subject,
+      html,
+    });
+    return true;
+  }
+
+  async updateTenantDetails(
+    orgId: string,
+    dto: {
+      name?: string;
+      planTier?: string;
+      allocatedSeats?: number;
+      status?: OrganizationStatus;
+      customDomain?: string;
+    },
+  ) {
+    const org = await this.prisma.organization.findFirst({
+      where: { OR: [{ id: orgId }, { slug: orgId }] },
+    });
+    if (!org) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    const data: any = {};
+    if (dto.name !== undefined && dto.name.trim()) {
+      data.name = dto.name.trim();
+    }
+    if (dto.planTier !== undefined) {
+      const tier = String(dto.planTier).toUpperCase();
+      if (['STARTER', 'GROWTH', 'ENTERPRISE'].includes(tier)) {
+        data.planTier = tier;
+      }
+    }
+    if (dto.allocatedSeats !== undefined) {
+      const seats = Number(dto.allocatedSeats);
+      if (seats >= 1) {
+        data.allocatedSeats = seats;
+      }
+    }
+    if (dto.status !== undefined) {
+      data.status = dto.status;
+      if (dto.status === 'TRIAL' && !org.trialEndsAt) {
+        data.trialEndsAt = new Date(Date.now() + DEFAULT_TRIAL_DAYS * 24 * 60 * 60 * 1000);
+      }
+    }
+    if (dto.customDomain !== undefined) {
+      data.customDomain = dto.customDomain ? dto.customDomain.trim().toLowerCase() : null;
+    }
+
+    const updated = await this.prisma.organization.update({
+      where: { id: org.id },
+      data,
+    });
+
+    return {
+      success: true,
+      message: 'Tenant workspace profile updated successfully',
+      organization: updated,
+    };
+  }
+
+  async resetTenantAdminPassword(
+    orgId: string,
+    newPassword?: string,
+    notifyEmail = true,
+  ) {
+    const org = await this.prisma.organization.findFirst({
+      where: { OR: [{ id: orgId }, { slug: orgId }] },
+      include: {
+        memberships: {
+          where: { isOwner: true, isActive: true },
+          include: { user: true },
+        },
+      },
+    });
+
+    if (!org) {
+      throw new NotFoundException('Tenant organization not found');
+    }
+
+    let adminUser = org.memberships[0]?.user;
+    if (!adminUser) {
+      const anyAdmin = await this.prisma.organizationMember.findFirst({
+        where: { organizationId: org.id, role: 'ADMIN', isActive: true },
+        include: { user: true },
+      });
+      adminUser = anyAdmin?.user;
+    }
+
+    if (!adminUser) {
+      throw new NotFoundException('No active administrator account found for this tenant workspace');
+    }
+
+    const nextPassword =
+      newPassword && newPassword.trim().length >= 6
+        ? newPassword.trim()
+        : crypto.randomBytes(6).toString('hex') + '!9A';
+
+    // Tenant accounts use reversible AES encryptPassword, NOT argon2 hash
+    const passwordHash = encryptPassword(nextPassword);
+
+    await this.prisma.user.update({
+      where: { id: adminUser.id },
+      data: { passwordHash },
+    });
+
+    let emailSent = false;
+    if (notifyEmail && adminUser.email) {
+      try {
+        await this.sendPasswordResetEmail({
+          adminEmail: adminUser.email,
+          adminFullName: adminUser.fullName || 'Tenant Administrator',
+          newPassword: nextPassword,
+          organizationName: org.name,
+          workspaceUrl: tenantWorkspaceUrl(org.slug),
+        });
+        emailSent = true;
+      } catch (err: any) {
+        console.error('[OrganizationService] Failed to send password reset email:', err?.message || err);
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Tenant administrator password has been updated successfully',
+      adminEmail: adminUser.email,
+      newPassword: nextPassword,
+      emailSent,
     };
   }
 

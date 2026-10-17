@@ -13,6 +13,7 @@ import { PlatformAuditLogsScreen } from "./screens/superadmin/PlatformAuditLogsS
 import { PlatformSettingsScreen } from "./screens/superadmin/PlatformSettingsScreen";
 import { PlatformAccountScreen } from "./screens/superadmin/PlatformAccountScreen";
 import { isPlatformView } from "./common/tenantRequestScope";
+import { isPlatformHost } from "@truroot/shared";
 import { WorkspaceSettingsPage } from "./screens/admin/settings/WorkspaceSettingsPage";
 import { DownloadAppScreen } from "./screens/public/DownloadAppScreen";
 import { MobileAppScreen } from "./screens/admin/settings/MobileAppScreen";
@@ -487,7 +488,12 @@ function PermissionRoute({ children }: PropsWithChildren) {
 }
 
 function defaultDashboardPath(role?: string) {
-  if (role === "SUPER_ADMIN") return SUPERADMIN_PATH;
+  if (role === "SUPER_ADMIN") {
+    if (!isPlatformHost(window.location.hostname)) {
+      return DASHBOARD_PATH;
+    }
+    return SUPERADMIN_PATH;
+  }
   if (role === "SALES_AGENT") return FIELD_EXECUTIVE_DASHBOARD_PATH;
   if (role === "TEAM_LEADER" || role === "MANAGER") return ALL_LEADS_PATH;
   return role === "TELECALLER" ? TELECALLER_DASHBOARD_PATH : DASHBOARD_PATH;

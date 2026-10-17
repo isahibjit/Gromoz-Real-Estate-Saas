@@ -179,4 +179,32 @@ export class OrganizationController {
     }
     return this.orgService.updateTenantStatus(id, status);
   }
+
+  @Patch('tenants/:id')
+  @UseGuards(AuthGuard)
+  async updateTenantDetails(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: any,
+  ) {
+    if (req.user.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Platform SuperAdmin access required');
+    }
+    return this.orgService.updateTenantDetails(id, dto);
+  }
+
+  @Post('tenants/:id/reset-admin-password')
+  @UseGuards(AuthGuard)
+  async resetTenantAdminPassword(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body('newPassword') newPassword?: string,
+    @Body('notifyEmail') notifyEmail?: boolean,
+  ) {
+    if (req.user.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Platform SuperAdmin access required');
+    }
+    return this.orgService.resetTenantAdminPassword(id, newPassword, notifyEmail);
+  }
 }
+

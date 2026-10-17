@@ -219,11 +219,14 @@ export function ProvisionTenantModal({
     companyName: string;
     subdomain: string;
     adminEmail: string;
+    adminPassword?: string;
     paymentLinkUrl: string;
     totalAmount: number;
     seats: number;
     status: string;
     workspaceUrl: string;
+    welcomeEmailSent?: boolean;
+    isTrial?: boolean;
   } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -253,11 +256,14 @@ export function ProvisionTenantModal({
         companyName: form.companyName.trim(),
         subdomain: form.slug.trim().toLowerCase(),
         adminEmail: form.adminEmail.trim().toLowerCase(),
+        adminPassword: form.adminPassword,
         paymentLinkUrl: linkUrl,
         totalAmount: checkoutData?.amount || 0,
         seats: checkoutData?.seatsCount || Number(form.seats) || 5,
-        status: res.data.organization.status,
-        workspaceUrl: res.data.organization.workspaceUrl,
+        status: res.data?.organization?.status || (form.isTrial ? "TRIAL" : "SETUP_PENDING"),
+        workspaceUrl: res.data?.organization?.workspaceUrl || `https://${form.slug.trim().toLowerCase()}.gromoze.com`,
+        welcomeEmailSent: res.data?.welcomeEmailSent,
+        isTrial: form.isTrial,
       });
 
       toast.success(`Tenant organization "${form.companyName}" successfully provisioned!`);
@@ -812,78 +818,185 @@ export function ProvisionTenantModal({
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-500 font-medium">Workspace Status:</span>
-                  <span className="bg-amber-100 text-amber-800 font-semibold px-2.5 py-0.5 rounded-full">
-                    {createdTenantResult.status}
+                  <span className={`font-semibold px-2.5 py-0.5 rounded-full ${
+                    createdTenantResult.status === "TRIAL"
+                      ? "bg-emerald-100 text-emerald-800"
+                      : "bg-amber-100 text-amber-800"
+                  }`}>
+                    {createdTenantResult.status === "TRIAL" ? "14-Day Free Trial" : createdTenantResult.status}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-500 font-medium">Admin Email:</span>
-                  <span className="font-semibold text-slate-800">{createdTenantResult.adminEmail}</span>
+                  <span className="font-semibold text-slate-800 font-mono">{createdTenantResult.adminEmail}</span>
                 </div>
+                {createdTenantResult.adminPassword && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500 font-medium">Initial Password:</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-bold bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-800">
+                        {createdTenantResult.adminPassword}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-slate-500 hover:text-slate-800"
+                        onClick={() => {
+                          navigator.clipboard.writeText(createdTenantResult.adminPassword || "");
+                          toast.success("Password copied!");
+                        }}
+                      >
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-500 font-medium">Allocated Seats:</span>
                   <span className="font-semibold text-slate-800">{createdTenantResult.seats} Seats</span>
                 </div>
-                <div className="text-xs"><span className="text-slate-500">Workspace address: </span><a className="text-primary underline" href={`${createdTenantResult.workspaceUrl}/login`} target="_blank" rel="noreferrer">{createdTenantResult.workspaceUrl}</a><p className="mt-1 text-slate-500">HTTPS setup may take a few minutes after creation.</p></div>
+                <div className="text-xs">
+                  <span className="text-slate-500">Workspace Login URL: </span>
+                  <a className="text-primary font-bold underline" href={`${createdTenantResult.workspaceUrl}/login`} target="_blank" rel="noreferrer">
+                    {createdTenantResult.workspaceUrl}/login
+                  </a>
+                </div>
               </div>
 
-              {/* Payment Link & Sharing Controls */}
-              <div className="space-y-3 bg-blue-50/60 border border-blue-200/80 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <CreditCard className="w-4 h-4 text-blue-600" />
-                    Shareable Razorpay Payment Link:
-                  </label>
-                  <span className="text-[11px] text-blue-700 font-medium">Automated Email Sent</span>
+              {/* Email Delivery Notice */}
+              <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-xs">
+                <div className="flex items-center gap-2 text-emerald-800 font-medium">
+                  <Mail className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    {createdTenantResult.welcomeEmailSent !== false
+                      ? `Welcome kit email with credentials dispatched to ${createdTenantResult.adminEmail}`
+                      : `Credentials ready for administrator (${createdTenantResult.adminEmail})`}
+                  </span>
                 </div>
+                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                  {createdTenantResult.welcomeEmailSent !== false ? "Email Sent" : "Ready"}
+                </span>
+              </div>
 
-                <div className="flex items-center gap-2">
-                  <Input
-                    readOnly
-                    value={createdTenantResult.paymentLinkUrl || "Generating payment link..."}
-                    className="font-mono text-xs bg-white border-blue-200 text-slate-800 select-all"
-                  />
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    className="flex items-center gap-1.5 whitespace-nowrap bg-blue-600 hover:bg-blue-700"
-                    onClick={() => {
-                      if (createdTenantResult.paymentLinkUrl) {
-                        navigator.clipboard.writeText(createdTenantResult.paymentLinkUrl);
-                        toast.success("Payment link copied to clipboard!");
-                      }
-                    }}
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    Copy Link
-                  </Button>
-                </div>
-
-                {createdTenantResult.paymentLinkUrl && (
+              {/* Payment Link OR Trial Information */}
+              {createdTenantResult.status === "TRIAL" || createdTenantResult.isTrial ? (
+                <div className="space-y-3 bg-emerald-50/70 border border-emerald-200 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      14-Day Free Trial Active:
+                    </label>
+                    <span className="text-[11px] text-emerald-700 font-semibold">No Payment Required</span>
+                  </div>
+                  <p className="text-xs text-emerald-800 leading-relaxed">
+                    This customer workspace is fully activated in 14-day trial mode. The tenant administrator can sign in immediately at their subdomain portal using the credentials above.
+                  </p>
                   <div className="flex items-center gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-1.5 text-xs bg-white text-slate-700 hover:bg-slate-50 border-slate-300"
+                      onClick={() => {
+                        const credentialsText = `Gromoze CRM Workspace Credentials:\n\nCompany: ${createdTenantResult.companyName}\nLogin URL: ${createdTenantResult.workspaceUrl}/login\nEmail: ${createdTenantResult.adminEmail}\nPassword: ${createdTenantResult.adminPassword || "Set during creation"}\nPlan: 14-Day Free Trial`;
+                        navigator.clipboard.writeText(credentialsText);
+                        toast.success("Full workspace credentials copied!");
+                      }}
+                    >
+                      <Copy className="w-3.5 h-3.5 text-slate-500" />
+                      Copy Credentials
+                    </Button>
                     <a
                       href={`https://wa.me/?text=${encodeURIComponent(
-                        `Hello! Here is your official setup & activation payment link for ${createdTenantResult.companyName} CRM: ${createdTenantResult.paymentLinkUrl}`
+                        `Hello! Welcome to Gromoze CRM. Here are your official workspace access details:\n\nWorkspace: ${createdTenantResult.companyName}\nPortal: ${createdTenantResult.workspaceUrl}/login\nAdmin Email: ${createdTenantResult.adminEmail}\nTemporary Password: ${createdTenantResult.adminPassword || ""}\n\nPlease log in and get started!`
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-3 py-1.5 rounded-lg transition-colors"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 px-3 py-1.5 rounded-lg transition-colors"
                     >
                       <Send className="w-3.5 h-3.5 text-emerald-600" />
                       Share via WhatsApp
                     </a>
-                    <a
-                      href={createdTenantResult.paymentLinkUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 px-3 py-1.5 rounded-lg transition-colors"
-                    >
-                      Open Link <ChevronRight className="w-3.5 h-3.5" />
-                    </a>
                   </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="space-y-3 bg-blue-50/60 border border-blue-200/80 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <CreditCard className="w-4 h-4 text-blue-600" />
+                      Shareable Razorpay Payment Link:
+                    </label>
+                    <span className="text-[11px] text-blue-700 font-medium">Activation Payment</span>
+                  </div>
+
+                  {createdTenantResult.paymentLinkUrl ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          readOnly
+                          value={createdTenantResult.paymentLinkUrl}
+                          className="font-mono text-xs bg-white border-blue-200 text-slate-800 select-all"
+                        />
+                        <Button
+                          type="button"
+                          variant="primary"
+                          size="sm"
+                          className="flex items-center gap-1.5 whitespace-nowrap bg-blue-600 hover:bg-blue-700"
+                          onClick={() => {
+                            navigator.clipboard.writeText(createdTenantResult.paymentLinkUrl);
+                            toast.success("Payment link copied to clipboard!");
+                          }}
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          Copy Link
+                        </Button>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1">
+                        <a
+                          href={`https://wa.me/?text=${encodeURIComponent(
+                            `Hello! Here is your official setup & activation payment link for ${createdTenantResult.companyName} CRM: ${createdTenantResult.paymentLinkUrl}`
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          <Send className="w-3.5 h-3.5 text-emerald-600" />
+                          Share via WhatsApp
+                        </a>
+                        <a
+                          href={createdTenantResult.paymentLinkUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          Open Link <ChevronRight className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="p-3 bg-white border border-slate-200 rounded-lg text-xs space-y-2">
+                      <p className="text-slate-600 font-medium">
+                        Payment link generation is pending or simulated. You can collect payment or generate an updated invoice link anytime from the Billing dashboard.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => {
+                          const credentialsText = `Gromoze CRM Workspace Credentials:\n\nCompany: ${createdTenantResult.companyName}\nLogin URL: ${createdTenantResult.workspaceUrl}/login\nEmail: ${createdTenantResult.adminEmail}\nPassword: ${createdTenantResult.adminPassword || "Set during creation"}`;
+                          navigator.clipboard.writeText(credentialsText);
+                          toast.success("Credentials copied!");
+                        }}
+                      >
+                        <Copy className="w-3.5 h-3.5 mr-1" /> Copy Workspace Credentials
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
