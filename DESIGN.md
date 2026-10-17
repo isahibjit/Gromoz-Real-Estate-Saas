@@ -20,7 +20,7 @@ Use semantic Tailwind classes:
 
 Do not add brand hex values to components. Runtime customer-selected colors and provider-owned brand marks are the only exceptions.
 
-The shared `BrandLogo` component uses the exact supplied PNG, framing the full lockup or symbol with an SVG viewBox. Do not recreate the wordmark, recolor it, stretch it, or render the complete wordmark as the collapsed icon. Preserve customer-supplied expanded and collapsed logos and saved login CMS overrides.
+The shared `BrandLogo` component uses the supplied transparent PNG (577 × 433), framing the full lockup or symbol with an SVG viewBox. Preserve the alpha channel without adding a background behind the logo. Do not recreate the wordmark, recolor it, stretch it, or render the complete wordmark as the collapsed icon. Preserve customer-supplied expanded and collapsed logos and saved login CMS overrides.
 
 ## Typography
 

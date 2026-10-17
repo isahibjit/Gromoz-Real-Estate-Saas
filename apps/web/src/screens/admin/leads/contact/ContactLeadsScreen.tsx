@@ -310,26 +310,6 @@ const statusFilterOptions: Array<{
   { label: "Converted", value: "CONVERTED" },
 ];
 
-function getApiErrorMessage(error: unknown) {
-  if (typeof error === "object" && error !== null && "response" in error) {
-    const response = error.response;
-    if (typeof response === "object" && response !== null && "data" in response) {
-      const data = response.data;
-      if (typeof data === "object" && data !== null && "message" in data) {
-        const message = data.message;
-        if (typeof message === "string") return message;
-        if (Array.isArray(message)) return message.join(", ");
-        if (typeof message === "object" && message !== null && "message" in message) {
-          const nested = message.message;
-          if (typeof nested === "string") return nested;
-        }
-      }
-    }
-  }
-  if (error instanceof Error && error.message) return error.message;
-  return "Contact lead action failed";
-}
-
 function ContactLeadIdentityCell({ contact }: { contact: ContactLead }) {
   return (
     <div className="min-w-0">
@@ -729,7 +709,7 @@ function ContactLeadNoteDialog({
             try {
               await onSave(note.trim());
             } catch (error) {
-              setErrorMessage(getApiErrorMessage(error));
+              setErrorMessage(getApiErrorMessage(error, "Contact lead action failed"));
             }
           }}
         >
@@ -2083,7 +2063,7 @@ export function ContactLeadsScreen() {
       }
       closeModal(false);
     } catch (error) {
-      toast.error(getApiErrorMessage(error));
+      toast.error(getApiErrorMessage(error, "Contact lead action failed"));
     }
   };
 
@@ -2095,7 +2075,7 @@ export function ContactLeadsScreen() {
       await action();
       toast.success(successMessage);
     } catch (error) {
-      toast.error(getApiErrorMessage(error));
+      toast.error(getApiErrorMessage(error, "Contact lead action failed"));
     }
   };
 
@@ -2116,7 +2096,7 @@ export function ContactLeadsScreen() {
         `${successMessage} (${contacts.length} contact${contacts.length === 1 ? "" : "s"})`,
       );
     } catch (error) {
-      toast.error(getApiErrorMessage(error));
+      toast.error(getApiErrorMessage(error, "Contact lead action failed"));
     }
   };
 
@@ -2144,7 +2124,7 @@ export function ContactLeadsScreen() {
         })`,
       );
     } catch (error) {
-      toast.error(getApiErrorMessage(error));
+      toast.error(getApiErrorMessage(error, "Contact lead action failed"));
     }
   };
 
@@ -2494,7 +2474,7 @@ export function ContactLeadsScreen() {
             toast.success("Contact lead deleted");
             setContactPendingDeletion(null);
           } catch (error) {
-            toast.error(getApiErrorMessage(error));
+            toast.error(getApiErrorMessage(error, "Contact lead action failed"));
           }
         }}
         onCancel={() => setContactPendingDeletion(null)}
@@ -2520,7 +2500,7 @@ export function ContactLeadsScreen() {
             );
             setContactsPendingBulkDelete(null);
           } catch (error) {
-            toast.error(getApiErrorMessage(error));
+            toast.error(getApiErrorMessage(error, "Contact lead action failed"));
           }
         }}
         onCancel={() => setContactsPendingBulkDelete(null)}

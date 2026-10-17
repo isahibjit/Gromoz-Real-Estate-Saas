@@ -1,5 +1,7 @@
 # Gromoze brand and theme review
 
+Update, 17 October 2026: the default artwork was replaced with the supplied transparent `gromoze-logo-removebg-preview.png` (577 × 433), preserved byte-for-byte. `BrandLogo` now frames this asset's full lockup and symbol; the login fallback no longer adds a white backing. Customer logo overrides and the theme palette are unchanged. The review below records the original 15 October artwork and validation.
+
 Date: 15 October 2026. Based on the supplied final logo, `Gromoze Real Estate Logo.png` (1448 × 1086).
 
 ## Findings

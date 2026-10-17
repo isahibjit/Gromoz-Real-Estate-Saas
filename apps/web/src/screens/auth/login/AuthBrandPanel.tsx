@@ -40,7 +40,7 @@ export function AuthBrandPanel({ logoSrc, cms }: AuthBrandPanelProps) {
             className="h-auto w-[190px] sm:w-[235px] lg:w-[245px] 2xl:w-[285px] max-h-[70px] object-contain object-left"
           />
         ) : (
-          <BrandLogo className="h-auto w-64 rounded-md bg-white p-2 sm:w-72" />
+          <BrandLogo className="h-auto w-64 sm:w-72" />
         )}
 
         <div className="mt-10 max-w-[600px] sm:mt-12 lg:mt-16 2xl:mt-20">

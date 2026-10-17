@@ -37,6 +37,10 @@ export function getApiErrorMessage(error: unknown, fallback: string) {
           return message;
         }
 
+        if (isRecord(message) && typeof message.message === "string" && message.message.trim()) {
+          return message.message;
+        }
+
         if (typeof data.error === "string" && data.error.trim()) {
           return data.error;
         }

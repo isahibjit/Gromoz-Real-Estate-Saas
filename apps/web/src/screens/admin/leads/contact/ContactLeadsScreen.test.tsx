@@ -238,13 +238,17 @@ test("clearing an existing note submits an empty note", async () => {
   await waitFor(() => expect(api.patch).toHaveBeenCalledWith("/contact-leads/other", { note: "" }));
 });
 
-test("a failed note save shows the API message and keeps the draft for retry", async () => {
-  jest.mocked(api.patch).mockRejectedValueOnce({ response: { data: { message: "Unable to save contact note" } } });
+test.each([
+  [{ response: { data: { message: "Unable to save contact note" } } }, "Unable to save contact note"],
+  [{ response: { data: { message: { message: "Nested validation error" } } } }, "Nested validation error"],
+  [{}, "Contact lead action failed"],
+])("a failed note save shows its error and keeps the draft for retry (%#)", async (error, message) => {
+  jest.mocked(api.patch).mockRejectedValueOnce(error);
   renderContacts();
   await userEvent.click(await screen.findByRole("button", { name: "Edit note for Sandeep Kumar" }));
   await userEvent.type(screen.getByRole("textbox", { name: "Note" }), "Keep this draft");
   await userEvent.click(screen.getByRole("button", { name: "Save note" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("Unable to save contact note");
+  expect(await screen.findByRole("alert")).toHaveTextContent(message);
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveValue("Keep this draft");
   await userEvent.click(screen.getByRole("button", { name: "Save note" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
