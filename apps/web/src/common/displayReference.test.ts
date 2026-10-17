@@ -10,7 +10,7 @@ test("keeps business references and replaces internal identifiers with readable 
   expect(displayReference("TR-1042", "Lead")).toBe("TR-1042");
   expect(displayReference("INV-2026-014", "Invoice")).toBe("INV-2026-014");
   expect(displayReference(id.toUpperCase(), "Lead")).toBe("Lead");
-  expect(displayReference(id.replaceAll("-", ""), "Lead")).toBe("Lead");
+  expect(displayReference(id.replace(/-/g, ""), "Lead")).toBe("Lead");
   expect(displayReference(null, "Unassigned")).toBe("Unassigned");
   expect(displayText(`Record ${id} unavailable`)).toBe(
     "Record internal reference unavailable",

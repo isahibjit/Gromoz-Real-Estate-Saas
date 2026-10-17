@@ -266,7 +266,8 @@ export const PAGE_VISIBILITY_MODULES: AccessModuleDefinition[] = [
     key: 'page.mobile_app',
     label: 'Mobile app',
     group: 'Page visibility: Settings',
-    description: 'Android app publishing settings. Platform super administrators only.',
+    description:
+      'Android app publishing settings. Platform super administrators only.',
     actions: readOnly,
     kind: 'page',
     parentModuleKey: 'mobile_app',
@@ -763,8 +764,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, ModulePermission[]> = {
     ...allowPages(adminPageKeys),
   ],
   ADMIN: [
-    ...CORE_ACCESS_MODULES.map((module) => allowAll(module.key)),
-    ...allowPages(adminPageKeys),
+    ...CORE_ACCESS_MODULES.filter((module) => module.key !== 'mobile_app').map(
+      (module) => allowAll(module.key),
+    ),
+    ...allowPages(adminPageKeys.filter((key) => key !== 'page.mobile_app')),
   ],
   HR: [
     allow('dashboard'),

@@ -69,4 +69,16 @@ describe('Employee access-control tenant isolation', () => {
     expect(prisma.accessTemplate.findMany).not.toHaveBeenCalled();
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
+
+  it('does not offer platform app publishing in tenant permission editors', async () => {
+    jest.spyOn(service, 'ensureDefaultTemplates').mockResolvedValue();
+    const result = await run(() => service.listModules());
+    expect(
+      result.data.some(
+        (module) =>
+          module.key === 'mobile_app' || module.key === 'page.mobile_app',
+      ),
+    ).toBe(false);
+    expect(result.data.some((module) => module.key === 'leads')).toBe(true);
+  });
 });

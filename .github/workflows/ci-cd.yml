@@ -83,6 +83,8 @@ jobs:
           src/organization/organization.service.domains.spec.ts
           src/uploads/uploads.service.spec.ts
           src/mobile-app/mobile-app-admin.guard.spec.ts
+          src/access/access.constants.spec.ts
+          src/access/access.service.tenant-isolation.spec.ts
           src/app.controller.spec.ts
       - name: Web sign-in, OTP, recovery and tenant branding regression tests
         run: >-

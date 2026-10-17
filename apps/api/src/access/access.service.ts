@@ -370,7 +370,8 @@ export class AccessService implements OnModuleInit {
     await this.ensureDefaultTemplates();
     return {
       data: ACCESS_MODULES.filter(
-        (module) => module.key !== 'mobile_app' && module.key !== 'page.mobile_app',
+        (module) =>
+          module.key !== 'mobile_app' && module.key !== 'page.mobile_app',
       ),
     };
   }

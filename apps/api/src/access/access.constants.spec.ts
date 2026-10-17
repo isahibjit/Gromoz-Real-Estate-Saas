@@ -21,9 +21,17 @@ function visiblePageKeysFor(role: Role): Set<string> {
 describe('default access role permissions', () => {
   const allPageKeys = PAGE_VISIBILITY_MODULES.map((page) => page.key);
 
-  it('keeps full page visibility for admins', () => {
-    expect(visiblePageKeysFor('ADMIN')).toEqual(new Set(allPageKeys));
+  it('reserves app releases for platform super admins while keeping tenant admin pages', () => {
+    expect(visiblePageKeysFor('ADMIN')).toEqual(
+      new Set(allPageKeys.filter((key) => key !== 'page.mobile_app')),
+    );
     expect(visiblePageKeysFor('SUPER_ADMIN')).toEqual(new Set(allPageKeys));
+    expect(
+      DEFAULT_ROLE_PERMISSIONS.ADMIN.some(
+        (permission) =>
+          permission.moduleKey === 'mobile_app' && permission.canCreate,
+      ),
+    ).toBe(false);
   });
 
   it('does not enable every page for employee-facing roles', () => {
@@ -131,4 +139,3 @@ describe('default access role permissions', () => {
     }
   });
 });
-

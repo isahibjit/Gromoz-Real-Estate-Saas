@@ -64,7 +64,7 @@ function resourceLabel(log: AuditLog) {
   if (log.targetType === "ORGANIZATION" && log.targetId === log.organization?.id) {
     return log.organization.name;
   }
-  return displayReference(log.targetId, log.targetType?.toLowerCase().replaceAll("_", " ") || "Not recorded");
+  return displayReference(log.targetId, log.targetType?.toLowerCase().replace(/_/g, " ") || "Not recorded");
 }
 const isSecurityEvent = (action: string) =>
   /LOGIN_FAILED|LOGIN_BLOCKED|LOCK|PERMISSION|ROLE|SECURITY|PASSWORD|TWO_FACTOR|LOGOUT/i.test(
