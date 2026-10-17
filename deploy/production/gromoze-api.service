@@ -1,0 +1,26 @@
+[Unit]
+Description=Gromoze CRM API
+After=network-online.target postgresql.service redis-server.service
+Wants=network-online.target
+Requires=postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=gromoze
+Group=gromoze
+WorkingDirectory=/srv/gromoze/app/apps/api
+EnvironmentFile=/etc/gromoze/api.env
+ExecStart=/usr/local/bin/node --use-system-ca /srv/gromoze/app/apps/api/dist/src/main.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/gromoze
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

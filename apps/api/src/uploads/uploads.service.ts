@@ -34,7 +34,7 @@ export class UploadsService {
 
   async uploadImage(file: UploadedImageFile, actorUserId?: string) {
     if (!file) throw new BadRequestException('Image file is required');
-    
+
     // Auto-delegate video uploads to uploadProjectVideo
     if (
       file.mimetype?.startsWith('video/') ||
@@ -62,8 +62,7 @@ export class UploadsService {
       const absolutePath = join(dir, filename);
       fs.writeFileSync(absolutePath, file.buffer);
 
-      const port = this.configService.get<string>('PORT') || '5002';
-      const url = `http://localhost:${port}/uploads/${filename}`;
+      const url = this.localUploadUrl(filename);
 
       return {
         key: `uploads/${filename}`,
@@ -104,7 +103,9 @@ export class UploadsService {
       !file.mimetype?.startsWith('video/') &&
       !file.originalname?.match(/\.(mp4|webm|mov|avi|mkv|m4v)$/i)
     ) {
-      throw new BadRequestException('Only video files (.mp4, .webm, .mov) are allowed');
+      throw new BadRequestException(
+        'Only video files (.mp4, .webm, .mov) are allowed',
+      );
     }
     const maxVideoBytes = 100 * 1024 * 1024; // 100 MB limit for video
     if (file.size > maxVideoBytes) {
@@ -141,8 +142,7 @@ export class UploadsService {
       const absolutePath = join(dir, filename);
       fs.writeFileSync(absolutePath, buffer);
 
-      const port = this.configService.get<string>('PORT') || '5002';
-      const url = `http://localhost:${port}/uploads/${filename}`;
+      const url = this.localUploadUrl(filename);
 
       return {
         key: `uploads/${filename}`,
@@ -175,6 +175,14 @@ export class UploadsService {
       mimeType: mimetype,
       sizeBytes: buffer.length,
     };
+  }
+
+  private localUploadUrl(filename: string): string {
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+    const path = `/uploads/${encodeURIComponent(filename)}`;
+    if (frontendUrl) return new URL(path, frontendUrl).toString();
+    const port = this.configService.get<string>('PORT') || '5002';
+    return `http://localhost:${port}${path}`;
   }
 
   async uploadProjectBrochure(

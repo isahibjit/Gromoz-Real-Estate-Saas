@@ -1,0 +1,8 @@
+[Unit]
+Description=Back up Gromoze database and uploads
+After=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/gromoze-backup
+UMask=0077

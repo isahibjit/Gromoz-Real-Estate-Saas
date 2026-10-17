@@ -6,6 +6,7 @@ export interface EnvironmentVariables {
   JWT_REFRESH_SECRET: string;
   FRONTEND_URL?: string;
   PORT?: number;
+  API_HOST?: string;
   THROTTLE_ENABLED?: boolean;
   RATE_LIMIT_TTL_MS: number;
   RATE_LIMIT_LIMIT: number;
@@ -48,6 +49,7 @@ export const validationSchemaForEnv = Joi.object<EnvironmentVariables, true>({
   JWT_REFRESH_SECRET: Joi.string().min(32).required(),
   FRONTEND_URL: Joi.string().uri().allow('').optional(),
   PORT: Joi.number().integer().positive().default(5002),
+  API_HOST: Joi.string().hostname().default('0.0.0.0'),
   THROTTLE_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
   RATE_LIMIT_TTL_MS: Joi.number().integer().positive().default(60000),
   RATE_LIMIT_LIMIT: Joi.number().integer().positive().default(120),

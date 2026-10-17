@@ -105,7 +105,7 @@ async function bootstrap() {
   // Let disk-spooled APK uploads complete; the upload interceptor bounds their lifetime.
   app.getHttpServer().requestTimeout = 10 * 60 * 1000;
 
-  await app.listen(PORT);
+  await app.listen(PORT, configService.get<string>('API_HOST') ?? '0.0.0.0');
 
   if (module.hot) {
     module.hot.accept();
