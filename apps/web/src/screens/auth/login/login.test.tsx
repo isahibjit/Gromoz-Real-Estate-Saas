@@ -160,7 +160,7 @@ test("renders the login screen content", () => {
   expect(screen.getByText("Need help?")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "+91 98700 66177" })).toHaveAttribute(
     "href",
-    "tel:+919876543210",
+    "tel:+919870066177",
   );
   expect(
     screen.getByRole("link", { name: "support@gromoze.com" }),
