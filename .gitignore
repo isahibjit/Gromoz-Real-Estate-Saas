@@ -40,6 +40,7 @@ yarn-error.log*
 
 # generated local handover/export files
 outputs/
+**/.impeccable/review/
 
 # scratch & temporary debug scripts
 scratch/

@@ -46,7 +46,7 @@ beforeEach(() => {
 test("renders the forgot password auth card", () => {
   renderForgotPasswordScreen();
 
-  expect(screen.getByAltText("Truroot Realty CRM")).toBeInTheDocument();
+  expect(screen.getByRole("img", { name: "Gromoze — Real Estate Sales. Simplified." })).toBeInTheDocument();
   expect(
     screen.getByRole("heading", { name: "Forgot Password?" }),
   ).toBeInTheDocument();

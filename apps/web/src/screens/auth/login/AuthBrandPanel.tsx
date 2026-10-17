@@ -11,19 +11,28 @@ import type { LoginPageCmsData } from "../../admin/settings/LoginPageCmsModal";
 import { BrandLogo } from "../../../components/ui/BrandLogo";
 
 const defaultIcons = [ChartNoAxesCombined, UsersRound, Building2, BarChart3];
+const featureDescriptions = [
+  "Capture and organize leads effortlessly",
+  "Never miss a follow-up",
+  "Streamline your sales process",
+  "Get real insights and reports",
+];
 
 interface AuthBrandPanelProps {
   logoSrc?: string;
   heroImageSrc?: string;
   cms?: LoginPageCmsData;
   compact?: boolean;
+  variant?: "default" | "platform";
 }
 
 export function AuthBrandPanel({
   logoSrc,
   cms,
   compact = false,
+  variant = "default",
 }: AuthBrandPanelProps) {
+  const isPlatform = variant === "platform";
   const headlinePrefix = cms?.heroHeadlinePrefix ?? "Welcome to";
   const headlineHighlight = cms?.heroHeadlineHighlight ?? "Gromoze";
   const tagline =
@@ -47,12 +56,13 @@ export function AuthBrandPanel({
     <aside
       className={cn(
         "relative flex flex-col overflow-hidden",
+        isPlatform && "platform-brand-panel",
         compact
           ? "p-5"
           : "min-h-[520px] px-6 pb-7 pt-6 sm:px-9 lg:min-h-screen lg:px-10 xl:px-12 2xl:px-16",
       )}
     >
-      <div className="relative z-10 flex flex-1 flex-col">
+      <div className="auth-brand-content relative z-10 flex flex-1 flex-col">
         {logoSrc ? (
           <img
             src={logoSrc}
@@ -70,44 +80,50 @@ export function AuthBrandPanel({
         )}
 
         <div
+          data-slot="auth-hero"
           className={
             compact ? "mt-6" : "mt-10 max-w-[600px] sm:mt-12 lg:mt-16 2xl:mt-20"
           }
         >
+          {isPlatform ? (
+            <p className="platform-product-label">All-in-one real estate CRM</p>
+          ) : null}
           <Headline
             className={cn(
-              "font-extrabold text-secondary",
+              "auth-headline font-extrabold text-secondary",
               compact
                 ? "text-xl leading-tight break-words"
                 : "text-[2.05rem] leading-[1.08] tracking-[-0.04em] sm:text-[2.45rem] xl:text-[2.75rem] 2xl:text-[3.2rem]",
             )}
           >
-            {headlinePrefix}
+            {headlinePrefix}{" "}
             <span className="mt-2 block text-primary">{headlineHighlight}</span>
           </Headline>
           <div
             className={cn(
-              "h-0.5 w-16 rounded-full bg-primary",
+              "auth-heading-rule h-0.5 w-16 rounded-full bg-primary",
               compact ? "mt-3" : "mt-5 2xl:mt-7 2xl:w-20",
             )}
           />
           <p
-            className={
+            className={cn(
+              "auth-tagline",
               compact
                 ? "mt-3 text-xs font-medium leading-5 text-secondary break-words"
-                : "mt-5 max-w-[500px] text-base font-semibold leading-7 text-secondary sm:text-lg sm:leading-8 2xl:mt-7 2xl:text-xl 2xl:leading-9"
-            }
+                : "mt-5 max-w-[500px] text-base font-semibold leading-7 text-secondary sm:text-lg sm:leading-8 2xl:mt-7 2xl:text-xl 2xl:leading-9",
+            )}
           >
             {tagline}
           </p>
         </div>
 
         <div
-          className={
+          className={cn(
+            "auth-features",
             compact
               ? "mt-5 grid grid-cols-2 gap-2"
-              : "mt-7 grid max-w-[540px] grid-cols-2 gap-3 sm:grid-cols-4 2xl:mt-8 2xl:max-w-[620px] 2xl:gap-4"
-          }
+              : "mt-7 grid max-w-[540px] grid-cols-2 gap-3 sm:grid-cols-4 2xl:mt-8 2xl:max-w-[620px] 2xl:gap-4",
+          )}
         >
           {features.slice(0, 4).map((feature, idx) => (
             <AuthFeatureCard
@@ -115,18 +131,20 @@ export function AuthBrandPanel({
               title={feature.title}
               icon={defaultIcons[idx % defaultIcons.length]}
               compact={compact}
+              description={isPlatform ? featureDescriptions[idx] : undefined}
             />
           ))}
         </div>
 
         <div
-          className={
-            compact ? "mt-auto pt-5" : "my-auto pt-32 sm:pt-44 lg:pt-0"
-          }
+          className={cn(
+            "auth-trust-position",
+            compact ? "mt-auto pt-5" : "my-auto pt-32 sm:pt-44 lg:pt-0",
+          )}
         >
           <div
             className={cn(
-              "rounded-md border border-secondary bg-secondary text-white",
+              "auth-trust-panel rounded-md border border-secondary bg-secondary text-white",
               compact ? "p-3" : "max-w-[390px] p-4 2xl:max-w-[430px] 2xl:p-5",
             )}
           >
@@ -178,25 +196,32 @@ function AuthFeatureCard({
   title,
   icon: Icon,
   compact = false,
+  description,
 }: {
   title: string;
   icon: LucideIcon;
   compact?: boolean;
+  description?: string;
 }) {
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-3 text-center",
+        "auth-feature flex flex-col items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-3 text-center",
         compact
           ? "min-w-0"
           : "min-h-[86px] hover:scale-105 transition-all duration-200 2xl:min-h-[104px] 2xl:gap-3 2xl:py-4 shadow-2xs",
       )}
     >
-      <Icon
-        aria-hidden="true"
-        className={cn("text-primary", compact ? "size-4" : "size-6 2xl:size-8")}
-        strokeWidth={1.8}
-      />
+      <span className={description ? "auth-feature-icon" : undefined}>
+        <Icon
+          aria-hidden="true"
+          className={cn(
+            "text-primary",
+            compact ? "size-4" : "size-6 2xl:size-8",
+          )}
+          strokeWidth={1.8}
+        />
+      </span>
       <p
         className={
           compact
@@ -206,6 +231,9 @@ function AuthFeatureCard({
       >
         {title}
       </p>
+      {description ? (
+        <p className="auth-feature-description">{description}</p>
+      ) : null}
     </div>
   );
 }

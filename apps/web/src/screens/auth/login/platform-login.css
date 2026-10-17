@@ -1,0 +1,464 @@
+/* Platform-only composition. Tenant login and CMS previews retain their layout. */
+main.platform-login {
+  min-height: 100svh;
+  background: hsl(var(--secondary));
+}
+
+.platform-login .auth-background-overlay {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--card) / 0.75),
+    hsl(var(--card) / 0.45) 30%,
+    transparent 62%
+  );
+}
+
+.platform-wave {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  object-fit: fill;
+}
+
+.platform-login .auth-layout-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(27rem, 38%);
+  min-height: 100svh;
+}
+
+.platform-login .platform-brand-panel {
+  min-height: 100svh;
+  padding: clamp(2rem, 4.5vw, 5.5rem);
+  overflow: visible;
+}
+
+.platform-login .auth-brand-content {
+  justify-content: flex-start;
+  gap: clamp(1.5rem, 2.8vh, 2rem);
+}
+
+.platform-login .auth-brand-content > svg,
+.platform-login .auth-brand-content > img {
+  width: clamp(14rem, 19vw, 19rem);
+  height: auto;
+  margin-bottom: 0;
+}
+
+.platform-login [data-slot="auth-hero"] {
+  margin-top: 1.5rem;
+  max-width: 32rem;
+}
+
+.platform-product-label {
+  color: hsl(var(--primary));
+  font-size: 0.875rem;
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+}
+
+.platform-login .auth-headline {
+  font-size: clamp(2.75rem, 3.4vw, 4rem);
+  line-height: 1.06;
+  letter-spacing: -0.035em;
+}
+
+.platform-login .auth-heading-rule {
+  margin-top: 1.25rem;
+  width: 4rem;
+  height: 0.25rem;
+}
+
+.platform-login .auth-tagline {
+  margin-top: 1.25rem;
+  max-width: 28rem;
+  font-size: clamp(1rem, 1.15vw, 1.375rem);
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.platform-login .auth-features {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  max-width: 44rem;
+  margin-top: 0;
+  gap: 0.75rem;
+}
+
+.platform-login .auth-feature {
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 1rem;
+  gap: 0.5rem;
+  border-radius: var(--radius-card);
+  text-align: left;
+  min-height: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+.platform-login .auth-feature-icon {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background: hsl(var(--primary) / 0.1);
+  margin-bottom: 0.25rem;
+}
+
+.platform-login .auth-feature-icon svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+.platform-login .auth-feature > p:first-of-type {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+.platform-login .auth-feature-description {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.platform-login .auth-trust-position {
+  margin: 0;
+  padding: 0;
+}
+.platform-login .auth-trust-panel {
+  max-width: 29rem;
+  padding: 1.125rem;
+  border-radius: var(--radius-card);
+  border-color: transparent;
+  background: hsl(var(--secondary) / 0.96);
+}
+.platform-login .auth-trust-panel h2 {
+  font-size: 0.9375rem;
+}
+.platform-login .auth-trust-panel p {
+  font-weight: 400;
+}
+
+.platform-login .auth-access-panel {
+  position: relative;
+  min-height: 100svh;
+  padding: 2rem clamp(1.5rem, 3vw, 4.5rem) 2rem 0;
+  isolation: isolate;
+}
+
+.platform-sales {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 1.25rem;
+  color: hsl(var(--secondary-foreground));
+  font-size: 0.8125rem;
+  margin-bottom: 1.5rem;
+}
+.platform-sales a {
+  border-color: hsl(var(--secondary-foreground) / 0.6);
+  color: hsl(var(--secondary-foreground));
+  background: transparent;
+  box-shadow: none;
+  padding-inline: 1.25rem;
+}
+.platform-sales a:hover {
+  background: hsl(var(--secondary-foreground) / 0.1);
+}
+
+.platform-login .auth-form-position {
+  padding-block: 0;
+}
+.platform-login .auth-form-container {
+  max-width: 38rem;
+}
+.platform-login .platform-form-card {
+  border-radius: var(--radius-dialog);
+  border-color: hsl(var(--border));
+}
+.platform-login .auth-card-content {
+  padding: clamp(1.5rem, 2.2vw, 2.5rem);
+}
+.platform-login .auth-card-content form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.platform-login .auth-card-content form > * {
+  margin-top: 0;
+}
+.platform-login .auth-form-heading {
+  gap: 1rem;
+  margin-bottom: 0.25rem;
+}
+.platform-login .auth-form-heading-icon {
+  width: 3.5rem;
+  height: 3.5rem;
+}
+.platform-login .auth-form-heading h2 {
+  font-size: clamp(1.5rem, 1.7vw, 2rem);
+  letter-spacing: -0.03em;
+}
+.platform-login .auth-form-heading p {
+  font-weight: 500;
+  line-height: 1.5;
+}
+.platform-login .auth-card-content label {
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+.platform-login .auth-credential-input {
+  height: 3rem;
+  border-radius: var(--radius-control);
+  border-color: hsl(var(--border));
+  font-size: 1rem;
+  font-weight: 400;
+  color: hsl(var(--foreground));
+  caret-color: hsl(var(--primary));
+}
+.platform-login .auth-credential-input:focus-visible {
+  border-color: hsl(var(--primary));
+}
+.platform-login .auth-credential-input::placeholder {
+  color: hsl(var(--muted-foreground));
+  opacity: 1;
+  font-size: 0.875rem;
+}
+.platform-password-help {
+  text-align: right;
+  font-size: 0.8125rem;
+  margin-top: -0.75rem;
+}
+.platform-password-help a {
+  color: hsl(var(--primary));
+  font-weight: 700;
+}
+.platform-password-help a:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.25rem;
+}
+.platform-login .auth-submit {
+  height: 3rem;
+  background: hsl(var(--primary));
+  border-radius: var(--radius-control);
+  font-weight: 800;
+}
+.platform-login .auth-submit:hover {
+  background: hsl(var(--primary-hover));
+}
+.platform-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+  margin-bottom: 0.875rem;
+}
+.platform-divider::before,
+.platform-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: hsl(var(--border));
+}
+.platform-login .auth-download {
+  height: 2.75rem;
+  border-color: hsl(var(--secondary) / 0.5);
+  box-shadow: none;
+}
+.platform-login .auth-support {
+  margin-top: 0.25rem;
+  padding: 1rem;
+  border-radius: var(--radius-control);
+  border-color: hsl(var(--border));
+  background: hsl(var(--surface-subtle));
+}
+.platform-login .auth-support-layout {
+  grid-template-columns: 1fr;
+  gap: 0.875rem;
+}
+.platform-login .auth-support-icon {
+  background: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+}
+.platform-login .auth-support-contacts {
+  min-width: 0;
+  font-weight: 600;
+}
+.platform-login .auth-support-contacts a {
+  width: fit-content;
+  min-height: 1.5rem;
+  overflow-wrap: anywhere;
+}
+.platform-login .auth-support-contacts a svg {
+  flex-shrink: 0;
+  color: hsl(var(--secondary));
+}
+.platform-login .auth-legal {
+  margin-top: 1rem;
+  font-weight: 400;
+}
+.platform-login .auth-legal > svg {
+  display: none;
+}
+.platform-login .auth-legal span {
+  color: hsl(var(--secondary-foreground));
+  line-height: 1.7;
+}
+.platform-login .auth-legal a {
+  color: hsl(var(--secondary-foreground));
+  text-decoration: underline;
+  text-underline-offset: 0.2rem;
+  font-weight: 600;
+}
+.platform-login a:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 4px;
+  border-radius: var(--radius-xs);
+}
+.platform-login .platform-sales a:focus-visible,
+.platform-login .auth-legal a:focus-visible {
+  outline-color: hsl(var(--secondary-foreground));
+}
+
+@media (min-width: 1600px) {
+  .platform-login .auth-support-layout {
+    grid-template-columns: 1fr auto;
+    gap: 1rem;
+  }
+  .platform-login .auth-support-contacts {
+    border-left: 1px solid hsl(var(--border));
+    padding-left: 1rem;
+  }
+}
+
+@media (max-width: 1199px) and (min-width: 1024px) {
+  .platform-login .platform-brand-panel {
+    padding-inline: 2rem;
+  }
+  .platform-login .auth-features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: 24rem;
+  }
+  .platform-login .auth-feature {
+    padding: 0.875rem;
+  }
+  .platform-login .auth-feature-description {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .platform-login .auth-layout-grid {
+    display: flex;
+    flex-direction: column;
+  }
+  .platform-login .auth-background {
+    height: 24rem;
+    object-position: center;
+  }
+  .platform-login .auth-background-overlay {
+    height: 24rem;
+    background: hsl(var(--card) / 0.55);
+  }
+  .platform-login .platform-brand-panel {
+    min-height: 0;
+    padding: 2rem 1.5rem;
+  }
+  .platform-login .auth-brand-content {
+    gap: 0;
+  }
+  .platform-login .auth-brand-content > svg {
+    width: 14rem;
+    margin-bottom: 0;
+  }
+  .platform-login [data-slot="auth-hero"] {
+    margin-top: 1.5rem;
+  }
+  .platform-login .platform-product-label,
+  .platform-login .auth-heading-rule,
+  .platform-login .auth-features,
+  .platform-login .auth-trust-position {
+    display: none;
+  }
+  .platform-login .auth-headline {
+    font-size: 2.25rem;
+  }
+  .platform-login .auth-headline span {
+    display: inline;
+    margin-left: 0.5rem;
+  }
+  .platform-login .auth-tagline {
+    margin-top: 0.75rem;
+    max-width: 30rem;
+    font-size: 0.9375rem;
+  }
+  .platform-login .auth-access-panel {
+    min-height: 0;
+    padding: 0 1.5rem 2rem;
+  }
+  .platform-wave {
+    display: none;
+  }
+  .platform-login .auth-form-position {
+    justify-content: center;
+  }
+  .platform-login .auth-form-container {
+    max-width: 34rem;
+  }
+  .platform-sales {
+    justify-content: center;
+    margin-top: 0.25rem;
+  }
+  .platform-login .platform-sales {
+    order: 1;
+    margin-top: 1.5rem;
+    margin-bottom: 0;
+  }
+  .platform-login .auth-card-content {
+    padding: 1.5rem;
+  }
+  .platform-login .auth-support-layout {
+    grid-template-columns: 1fr auto;
+  }
+}
+
+@media (max-width: 540px) {
+  .platform-login .platform-brand-panel {
+    padding: 1.5rem 1.25rem;
+  }
+  .platform-login .auth-brand-content > svg {
+    width: 11rem;
+  }
+  .platform-login [data-slot="auth-hero"] {
+    margin-top: 1rem;
+  }
+  .platform-login .auth-headline {
+    font-size: 1.875rem;
+  }
+  .platform-login .auth-access-panel {
+    padding-inline: 1rem;
+  }
+  .platform-login .auth-card-content {
+    padding: 1.25rem;
+  }
+  .platform-login .auth-card-content form {
+    gap: 1.125rem;
+  }
+  .platform-login .auth-form-heading {
+    gap: 0.75rem;
+  }
+  .platform-login .auth-form-heading-icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0.75rem;
+  }
+  .platform-login .auth-form-heading h2 {
+    font-size: 1.25rem;
+  }
+  .platform-login .auth-form-heading p {
+    font-size: 0.8125rem;
+  }
+  .platform-login .auth-support-layout {
+    grid-template-columns: 1fr;
+  }
+}

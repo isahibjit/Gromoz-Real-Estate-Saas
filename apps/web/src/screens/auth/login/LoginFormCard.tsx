@@ -6,12 +6,15 @@ import {
   EyeOff,
   Lock,
   LockKeyhole,
+  Mail,
   Smartphone,
   User,
 } from "lucide-react";
 import { Button, CardContent, Input } from "ui";
 
 import { LoginSchema } from "../../../common/authSchemas";
+import { getApiErrorMessage } from "../../../common/apiError";
+import { defaultLoginPageCms } from "../../admin/settings/LoginPageCmsModal";
 import {
   useLoginMutation,
   useRequestLoginOtpMutation,
@@ -48,8 +51,14 @@ function isAuthTokens(data: LoginResponse): data is AuthTokens {
   return "accessToken" in data && "refreshToken" in data && "user" in data;
 }
 
-export function LoginFormCard() {
-  const cms = useLoginPageCms();
+export function LoginFormCard({
+  variant = "default",
+}: {
+  variant?: "default" | "platform";
+}) {
+  const configuredCms = useLoginPageCms();
+  const isPlatform = variant === "platform";
+  const cms = isPlatform ? defaultLoginPageCms : configuredCms;
   const loginMutation = useLoginMutation();
   const requestOtpMutation = useRequestLoginOtpMutation();
   const verifyOtpMutation = useVerifyLoginOtpMutation();
@@ -94,7 +103,9 @@ export function LoginFormCard() {
               expiresInSeconds: data.expiresInSeconds,
               resendAfterSeconds: data.resendAfterSeconds,
             });
-            toast.success("Password verified. Enter the OTP sent to your registered phone.");
+            toast.success(
+              "Password verified. Enter the OTP sent to your registered phone.",
+            );
             return;
           }
 
@@ -179,16 +190,19 @@ export function LoginFormCard() {
   }
 
   return (
-    <AuthCard>
-      <CardContent className="p-5 sm:p-7 lg:p-8 2xl:p-10">
+    <AuthCard className={isPlatform ? "platform-form-card" : undefined}>
+      <CardContent className="auth-card-content p-5 sm:p-7 lg:p-8 2xl:p-10">
         <form
-          className="space-y-4 2xl:space-y-5"
+          aria-busy={isSubmitting}
+          className={
+            isPlatform ? "platform-login-form" : "space-y-4 2xl:space-y-5"
+          }
           autoComplete="off"
           noValidate
           onSubmit={handleSubmit}
         >
-          <div className="flex items-center gap-3 2xl:gap-4">
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10 p-3 text-primary 2xl:size-14">
+          <div className="auth-form-heading flex items-center gap-3 2xl:gap-4">
+            <span className="auth-form-heading-icon flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10 p-3 text-primary 2xl:size-14">
               <LockKeyhole
                 aria-hidden="true"
                 className="size-6 2xl:size-7"
@@ -215,7 +229,13 @@ export function LoginFormCard() {
               </label>
               <div className="relative">
                 <FieldIcon side="left">
-                  {loginId.includes("@") ? (
+                  {isPlatform ? (
+                    <Mail
+                      aria-hidden="true"
+                      className="size-5"
+                      strokeWidth={1.8}
+                    />
+                  ) : loginId.includes("@") ? (
                     <User
                       aria-hidden="true"
                       className="size-5"
@@ -239,7 +259,7 @@ export function LoginFormCard() {
                   value={loginId}
                   disabled={isSubmitting}
                   onChange={(event) => setLoginId(event.target.value)}
-                  className="h-11 rounded-lg border-slate-200 bg-white pl-12 pr-4 text-sm font-semibold shadow-none focus-visible:border-primary 2xl:h-12 2xl:text-base"
+                  className="auth-credential-input h-11 rounded-lg border-slate-200 bg-white pl-12 pr-4 text-sm font-semibold shadow-none focus-visible:border-primary 2xl:h-12 2xl:text-base"
                 />
               </div>
             </div>
@@ -268,7 +288,7 @@ export function LoginFormCard() {
                   value={password}
                   disabled={isSubmitting}
                   onChange={(event) => setPassword(event.target.value)}
-                  className="h-11 rounded-lg border-slate-200 bg-white pl-12 pr-12 text-sm font-semibold shadow-none focus-visible:border-primary 2xl:h-12 2xl:text-base"
+                  className="auth-credential-input h-11 rounded-lg border-slate-200 bg-white pl-12 pr-12 text-sm font-semibold shadow-none focus-visible:border-primary 2xl:h-12 2xl:text-base"
                 />
                 <FieldIcon side="right">
                   <Button
@@ -301,11 +321,21 @@ export function LoginFormCard() {
             </div>
           </div>
 
+          {isPlatform ? (
+            <div className="platform-password-help">
+              <a
+                href={`mailto:${cms.supportEmail}?subject=Gromoze%20account%20access%20help`}
+              >
+                Forgot password?
+              </a>
+            </div>
+          ) : null}
+
           <Button
             type="submit"
             size="lg"
             disabled={isSubmitting}
-            className="relative h-11 w-full rounded-md bg-gradient-to-r from-primary to-primary-hover text-base font-extrabold hover:from-primary-hover hover:to-primary 2xl:h-12"
+            className="auth-submit relative h-11 w-full rounded-md bg-gradient-to-r from-primary to-primary-hover text-base font-extrabold hover:from-primary-hover hover:to-primary 2xl:h-12"
           >
             {isSubmitting ? "Signing in..." : "Login"}
             {!isSubmitting ? (
@@ -323,11 +353,32 @@ export function LoginFormCard() {
           ) : null}
 
           {cms.showDownloadApp ? (
-            <Button asChild variant="outline" className="w-full">
-              <a href={cms.downloadAppUrl || "/download-app"} target="_blank" rel="noopener noreferrer">
-                {cms.downloadAppLabel || "Download Android app"}
-              </a>
-            </Button>
+            <div className={isPlatform ? "platform-download" : undefined}>
+              {isPlatform ? (
+                <div className="platform-divider">
+                  <span>or</span>
+                </div>
+              ) : null}
+              <Button
+                asChild
+                variant="outline"
+                className="auth-download w-full"
+              >
+                <a
+                  href={cms.downloadAppUrl || "/download-app"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {isPlatform ? (
+                    <Smartphone
+                      aria-hidden="true"
+                      className="size-5 text-primary"
+                    />
+                  ) : null}
+                  {cms.downloadAppLabel || "Download Android app"}
+                </a>
+              </Button>
+            </div>
           ) : null}
 
           <SupportBox
@@ -343,22 +394,8 @@ export function LoginFormCard() {
 }
 
 function getLoginErrorMessage(error: unknown) {
-  if (typeof error === "object" && error !== null) {
-    const dataMessage = (error as any).response?.data?.message;
-
-    if (typeof dataMessage === "string" && dataMessage.trim().length > 0) {
-      return dataMessage;
-    }
-
-    if (Array.isArray(dataMessage) && typeof dataMessage[0] === "string") {
-      return dataMessage[0];
-    }
-
-    const message = (error as any).message;
-    if (typeof message === "string" && message.trim().length > 0) {
-      return message;
-    }
-  }
-
-  return "Unable to sign in. Check your credentials and try again.";
+  return getApiErrorMessage(
+    error,
+    "Unable to sign in. Check your credentials and try again.",
+  );
 }

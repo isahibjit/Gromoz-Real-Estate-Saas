@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
-import { defaultLoginPageCms, type LoginPageCmsData } from "../../admin/settings/LoginPageCmsModal";
-import { resolveTenantFromHostname } from "../../../common/tenantResolver";
+import {
+  defaultLoginPageCms,
+  type LoginPageCmsData,
+} from "../../admin/settings/LoginPageCmsModal";
+import { useLoginTenant } from "./useLoginTenant";
 
 export function useLoginPageCms(): LoginPageCmsData {
+  const { data: tenant } = useLoginTenant();
   const [cmsData, setCmsData] = useState<LoginPageCmsData>(() => {
     try {
       const stored = localStorage.getItem("truroot_login_cms");
@@ -20,10 +24,9 @@ export function useLoginPageCms(): LoginPageCmsData {
 
     async function loadTenantCms() {
       try {
-        const tenantInfo = await resolveTenantFromHostname();
-        if (tenantInfo && tenantInfo.organization) {
-          const org = tenantInfo.organization;
-          const loginCms = (org as any).loginCms;
+        if (tenant) {
+          const org = tenant;
+          const loginCms: Partial<LoginPageCmsData> | undefined = org.loginCms;
 
           if (loginCms && isMounted) {
             setCmsData({
@@ -31,8 +34,10 @@ export function useLoginPageCms(): LoginPageCmsData {
               ...loginCms,
               heroHeadlineHighlight: loginCms.heroHeadlineHighlight || org.name,
               heroLogoUrl: loginCms.heroLogoUrl || org.logoUrl || "",
-              supportPhone: loginCms.supportPhone || (org as any).primaryPhone || defaultLoginPageCms.supportPhone,
-              supportEmail: loginCms.supportEmail || (org as any).primaryEmail || defaultLoginPageCms.supportEmail,
+              supportPhone:
+                loginCms.supportPhone || defaultLoginPageCms.supportPhone,
+              supportEmail:
+                loginCms.supportEmail || defaultLoginPageCms.supportEmail,
             });
             return;
           }
@@ -70,7 +75,7 @@ export function useLoginPageCms(): LoginPageCmsData {
       window.removeEventListener("truroot_login_cms_updated", handleCmsUpdate);
       window.removeEventListener("storage", handleCmsUpdate);
     };
-  }, []);
+  }, [tenant]);
 
   return cmsData;
 }

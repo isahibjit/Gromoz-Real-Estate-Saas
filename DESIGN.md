@@ -52,3 +52,13 @@ Data tables stay full width, keep headers and cells on one line, and use horizon
 - Use toast messages for form-level errors and field styling for local validation.
 - Respect reduced-motion preferences.
 - Preserve manual workflows when optional integrations such as maps are unavailable.
+
+## Platform login
+
+The platform login extends this system with the user's architectural composition. Retain Manrope, semantic navy/teal tokens, the unchanged `BrandLogo`, and the existing `AuthLayout`, `AuthBrandPanel`, `AuthCard`, `LoginFormCard`, `SupportBox`, and shared controls. Keep the styling scoped to the platform variant in `apps/web/src/screens/auth/login/platform-login.css`; tenant login and CMS previews retain their existing layout and saved branding.
+
+On desktop, the photograph supports the introduction, four feature cards and trust panel on the left. The supplied curved navy artwork supports the white account-access card on the right, with sales, download, support and legal links. Use `apps/web/src/assets/platform-login-background.png` (the supplied `Golden Hour Apartment Boulevard.png`) and `apps/web/src/assets/platform-login-wave.png` (the supplied transparent `Deep Blue Curved Wave Panel.png`) directly. Preserve the photograph and the wave's original contour and transparency; do not replace the wave with CSS geometry.
+
+Below the desktop breakpoint (1024px), use a short branded photographic header followed by the usable form on navy. Hide the wave and optional feature/trust content, and place sales after the form and legal links. Keep the white form readable, controls labelled and keyboard focus visible at every size.
+
+The platform variant is selected only after the shared cached hostname lookup resolves without a tenant. Preserve existing credential validation, password visibility, loading/error states, two-factor verification, and the no-remember-me policy. `Forgot password?` and `Contact sales` use the existing support email; they do not represent a password-reset API or a separate sales service. These composition rules apply only to the platform login, not the authenticated product shell or tenant identities.

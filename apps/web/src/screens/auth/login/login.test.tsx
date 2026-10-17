@@ -8,11 +8,13 @@ import toast from "react-hot-toast";
 
 import { makeStore } from "../../../store";
 import { clearStoredRefreshToken } from "../../../common/authSession";
-import {
-  login,
-  verifyLoginOtp,
-} from "../../../common/services/auth.api";
+import { login, verifyLoginOtp } from "../../../common/services/auth.api";
 import { LoginScreen } from "./login";
+import { resolveTenantFromHostname } from "../../../common/tenantResolver";
+
+jest.mock("../../../common/tenantResolver", () => ({
+  resolveTenantFromHostname: jest.fn(),
+}));
 
 jest.mock("../../../common/services/auth.api", () => ({
   login: jest.fn(),
@@ -30,6 +32,7 @@ jest.mock("react-hot-toast", () => ({
 }));
 
 const mockedLogin = login as jest.MockedFunction<typeof login>;
+const mockedResolveTenant = jest.mocked(resolveTenantFromHostname);
 const mockedVerifyLoginOtp = verifyLoginOtp as jest.MockedFunction<
   typeof verifyLoginOtp
 >;
@@ -68,12 +71,72 @@ function renderLoginScreen() {
 beforeEach(() => {
   jest.clearAllMocks();
   clearStoredRefreshToken();
+  localStorage.removeItem("truroot_login_cms");
+  mockedResolveTenant.mockResolvedValue(null);
+});
+
+test("shows the platform design with working support and download destinations", async () => {
+  renderLoginScreen();
+  const contactSales = await screen.findByRole("link", {
+    name: "Contact sales",
+  });
+  expect(contactSales).toHaveAttribute(
+    "href",
+    "mailto:support@truerootrealty.com?subject=Gromoze%20sales%20enquiry",
+  );
+  expect(contactSales.closest("main")).toHaveClass("platform-login");
+  expect(
+    screen.getByRole("link", { name: "Forgot password?" }),
+  ).toHaveAttribute(
+    "href",
+    "mailto:support@truerootrealty.com?subject=Gromoze%20account%20access%20help",
+  );
+  expect(
+    screen.getByRole("link", { name: "Download Android app" }),
+  ).toHaveAttribute("href", "/download-app");
+  expect(screen.getByText("Never miss a follow-up")).toBeInTheDocument();
+});
+
+test("preserves tenant branding and the tenant layout after host resolution", async () => {
+  mockedResolveTenant.mockResolvedValueOnce({
+    id: "tenant-cedar",
+    name: "Cedar Realty",
+    slug: "cedar",
+    status: "ACTIVE",
+    logoUrl: "/cedar-logo.png",
+    loginCms: {
+      cardTitle: "Cedar team sign in",
+      supportEmail: "help@cedar.example",
+    },
+  });
+  const { container } = renderLoginScreen();
+  expect(
+    await screen.findByRole("heading", { name: "Cedar team sign in" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", { name: "Welcome to Cedar Realty" }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("img", { name: "Brand Logo" })).toHaveAttribute(
+    "src",
+    "/cedar-logo.png",
+  );
+  expect(
+    screen.getByRole("link", { name: "help@cedar.example" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("link", { name: "Contact sales" }),
+  ).not.toBeInTheDocument();
+  expect(container.querySelector(".platform-login")).toBeNull();
 });
 
 test("renders the login screen content", () => {
   renderLoginScreen();
 
-  expect(screen.getByRole("img", { name: "Gromoze — Real Estate Sales. Simplified." })).toBeInTheDocument();
+  expect(
+    screen.getByRole("img", {
+      name: "Gromoze — Real Estate Sales. Simplified.",
+    }),
+  ).toBeInTheDocument();
   expect(
     screen.getByRole("heading", { name: /Welcome to/i }),
   ).toBeInTheDocument();
@@ -132,7 +195,6 @@ test("toggles password visibility", () => {
     screen.getByRole("button", { name: "Hide password" }),
   ).toBeInTheDocument();
 });
-
 
 test("submits valid credentials and hydrates auth state", async () => {
   localStorage.setItem("truroot_refresh_token", "previous-persistent-token");
@@ -373,7 +435,9 @@ test("shows OTP verification after password login requires two-factor auth", asy
     });
     expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
     expect(localStorage.getItem("truroot_refresh_token")).toBeNull();
-    expect(sessionStorage.getItem("truroot_refresh_token")).toBe("refresh-token");
+    expect(sessionStorage.getItem("truroot_refresh_token")).toBe(
+      "refresh-token",
+    );
   });
 });
 
@@ -393,7 +457,10 @@ test("clears the password and mutation cache after a rejected login", async () =
   await waitFor(() => {
     expect(mockedToast.error).toHaveBeenCalledWith("Invalid credentials");
     expect(screen.getByLabelText("Password")).toHaveValue("");
-    expect(screen.getByLabelText("Password")).toHaveAttribute("type", "password");
+    expect(screen.getByLabelText("Password")).toHaveAttribute(
+      "type",
+      "password",
+    );
     expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
   });
   expect(screen.getByLabelText("Email or mobile number")).toHaveValue(
@@ -510,4 +577,3 @@ test("shows account deactivated toast when account lockout error is returned", a
     );
   });
 });
-

@@ -22,22 +22,24 @@ export function SupportBox({
 
   return (
     <div
-      className={
+      className={cn(
+        "auth-support",
         compact
           ? "mt-5 border-t border-border pt-4"
-          : "rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-none 2xl:px-5 2xl:py-4"
-      }
+          : "rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-none 2xl:px-5 2xl:py-4",
+      )}
     >
       <div
-        className={
+        className={cn(
+          "auth-support-layout",
           compact
             ? "space-y-3"
-            : "grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center"
-        }
+            : "grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center",
+        )}
       >
         <div className={compact ? "min-w-0" : "flex items-center gap-4"}>
           {!compact ? (
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 2xl:h-12 2xl:w-12">
+            <span className="auth-support-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 2xl:h-12 2xl:w-12">
               <Headphones
                 aria-hidden="true"
                 className="h-5 w-5 2xl:h-6 2xl:w-6 shrink-0"
@@ -67,7 +69,7 @@ export function SupportBox({
         </div>
         <div
           className={cn(
-            "space-y-2 text-xs text-secondary",
+            "auth-support-contacts space-y-2 text-xs text-secondary",
             compact ? "font-medium" : "font-extrabold 2xl:text-sm",
           )}
         >
