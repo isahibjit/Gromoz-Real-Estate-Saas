@@ -1,3 +1,4 @@
+import { displayText } from "./displayReference";
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -8,7 +9,7 @@ function formatMeters(value: unknown) {
     : null;
 }
 
-export function getApiErrorMessage(error: unknown, fallback: string) {
+function rawApiErrorMessage(error: unknown, fallback: string) {
   if (isRecord(error)) {
     const response = error.response;
     if (isRecord(response)) {
@@ -53,4 +54,8 @@ export function getApiErrorMessage(error: unknown, fallback: string) {
   }
 
   return fallback;
+}
+
+export function getApiErrorMessage(error: unknown, fallback: string) {
+  return displayText(rawApiErrorMessage(error, fallback));
 }

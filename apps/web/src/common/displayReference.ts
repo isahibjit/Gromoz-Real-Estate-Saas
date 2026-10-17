@@ -1,22 +1,30 @@
 // Internal identifiers remain in API requests and links, never in presentation copy.
-const uuidSource = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+const uuidSource =
+  "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const uuid = new RegExp(`\\b${uuidSource}\\b`, "i");
 const compactUuid = /^[0-9a-f]{32}$/i;
+const exactUuid = new RegExp(`^${uuidSource}$`, "i");
 
-export function displayReference(value: string | null | undefined, fallback: string) {
-  return value?.trim() && !uuid.test(value) && !compactUuid.test(value)
+export function displayReference(
+  value: string | null | undefined,
+  fallback: string,
+) {
+  return value?.trim() && !uuid.test(value) && !compactUuid.test(value.trim())
     ? value
     : fallback;
 }
 
 export function displayText(value: string) {
-  return value.replace(new RegExp(`\\b${uuidSource}\\b`, "gi"), "internal reference");
+  return value.replace(
+    new RegExp(`\\b${uuidSource}\\b`, "gi"),
+    "internal reference",
+  );
 }
 
 /** Produce a display-only copy; preserve the original API data for application logic. */
 export function presentRecordDetails(value: unknown): unknown {
   if (typeof value === "string") {
-    return new RegExp(`^${uuidSource}$`, "i").test(value.trim()) || compactUuid.test(value.trim())
+    return exactUuid.test(value.trim()) || compactUuid.test(value.trim())
       ? undefined
       : displayText(value);
   }

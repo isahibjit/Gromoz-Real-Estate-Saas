@@ -46,6 +46,9 @@ function ActionBadge({ action }: { action: AuditLogRecord["action"] }) {
 }
 
 function ValueDisplay({ value }: { value: string }) {
+  if (!displayReference(value, "")) {
+    return <span>Reference updated</span>;
+  }
   if (value.startsWith("#") && (value.length === 4 || value.length === 7)) {
     return (
       <div className="flex items-center gap-2">

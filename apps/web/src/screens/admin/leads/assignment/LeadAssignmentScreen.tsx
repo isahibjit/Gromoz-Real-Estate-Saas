@@ -1815,7 +1815,7 @@ function RealTimeDistributionActivityCard() {
               </span>
               <div className="min-w-0">
                 <p className="text-xs font-extrabold text-secondary">
-                  Lead ID #{displayReference(activity.leadId, "Lead")}
+                  {displayReference(activity.leadId, "Lead")}
                 </p>
                 <p
                   className={cn(

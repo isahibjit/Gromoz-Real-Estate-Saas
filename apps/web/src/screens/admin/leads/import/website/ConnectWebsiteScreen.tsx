@@ -1,3 +1,4 @@
+import { displayReference } from "../../../../../common/displayReference";
 import {
   ArrowLeft,
   Building2,
@@ -1147,13 +1148,13 @@ export function ConnectWebsiteScreen() {
                                 {log.websiteUrl
                                   ? `Website: ${log.websiteUrl}`
                                   : log.displayId
-                                  ? `CRM lead: ${log.displayId}`
+                                  ? `CRM lead: ${displayReference(log.displayId, "Lead")}`
                                   : "Website webhook event"}
                               </p>
                             </div>
                             {log.displayId ? (
                               <span className="text-xs font-extrabold text-primary">
-                                {log.displayId}
+                                {displayReference(log.displayId, "Lead")}
                               </span>
                             ) : null}
                           </div>

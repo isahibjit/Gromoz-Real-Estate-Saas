@@ -1,3 +1,4 @@
+import { displayReference } from "../../../../common/displayReference";
 import {
   Building2,
   CalendarCheck,
@@ -1154,7 +1155,7 @@ export function CreateSiteVisitModal({
     if (availableLeads.length) {
       return availableLeads.map((lead) => ({
         value: lead.id,
-        label: [lead.name, lead.phone, lead.displayId]
+        label: [lead.name, lead.phone, displayReference(lead.displayId, "")]
           .filter(Boolean)
           .join(" - "),
       }));
@@ -2423,7 +2424,7 @@ export function SiteVisitsWorkspace({
       }>("/lead-masters/status");
       return (data.data ?? [])
         .filter((item) => item.isActive !== false)
-        .map((item) => item.name ?? item.label ?? item.code ?? item.id);
+        .map((item) => item.name ?? item.label ?? item.code ?? displayReference(item.id, "Unnamed status"));
     },
   });
 

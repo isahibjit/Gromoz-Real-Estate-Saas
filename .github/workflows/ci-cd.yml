@@ -96,6 +96,8 @@ jobs:
           src/components/notifications/HeaderNotificationBell.test.tsx
           src/common/tenantRequestScope.test.ts
           src/common/displayReference.test.ts
+          src/common/apiError.test.ts
+          src/common/components/DataTableCells.test.tsx
           src/screens/admin/settings/MobileAppScreen.test.tsx
           src/screens/admin/dashboard/DashboardHeader.platform.test.tsx
       - name: Build production web application

@@ -1,4 +1,5 @@
 import { CheckCircle2, XCircle } from "lucide-react";
+import { displayReference } from "../../../../../../../common/displayReference";
 import { AuditLogChange } from "../../auditLogData";
 
 interface AuditChangesSummaryTableProps {
@@ -14,6 +15,9 @@ function FormattedValue({
 }) {
   if (value === null || value === undefined || value === "") {
     return <span className="text-secondary font-medium">—</span>;
+  }
+  if (typeof value === "string" && !displayReference(value, "")) {
+    return <span className="text-secondary font-medium">Reference updated</span>;
   }
 
   if (valueType === "color" && typeof value === "string") {

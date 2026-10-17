@@ -1,3 +1,4 @@
+import { displayReference } from "../../common/displayReference";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -404,7 +405,7 @@ export function FieldExecutiveDashboardScreen() {
       }>("/lead-masters/status");
       return (data.data ?? [])
         .filter((item) => item.isActive !== false)
-        .map((item) => item.name ?? item.label ?? item.code ?? item.id);
+        .map((item) => item.name ?? item.label ?? item.code ?? displayReference(item.id, "Unnamed status"));
     },
   });
 

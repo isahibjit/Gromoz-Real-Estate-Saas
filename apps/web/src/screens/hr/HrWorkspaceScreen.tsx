@@ -1,3 +1,4 @@
+import { presentRecordDetails } from "../../common/displayReference";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getUserRoleLabel } from "../../common/roleLabels";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -2375,7 +2376,7 @@ export function HrWorkspaceScreen() {
                                 window.open(payslip.fileUrl, "_blank");
                               } else {
                                 const printable = JSON.stringify(
-                                  payslip.snapshot,
+                                  presentRecordDetails(payslip.snapshot),
                                   null,
                                   2,
                                 );

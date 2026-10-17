@@ -1,3 +1,4 @@
+import { displayReference } from "../../../../../../../common/displayReference";
 interface AuditAdditionalInformationProps {
   remarks?: string;
   reference?: string;
@@ -25,7 +26,7 @@ export function AuditAdditionalInformation({
           <span className="text-sm font-bold text-secondary">Reference</span>
           <span className="text-sm font-semibold text-secondary flex gap-2">
             <span className="text-muted-foreground font-normal">:</span>
-            {reference || "—"}
+            {displayReference(reference, "—")}
           </span>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { presentRecordDetails } from "../../common/displayReference";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -92,7 +93,7 @@ function filterDetailEntries(details?: Record<string, any> | null) {
     "senderId",
   ]);
 
-  return Object.entries(details).filter(([key, value]) => {
+  return Object.entries(presentRecordDetails(details) as Record<string, unknown>).filter(([key, value]) => {
     if (hiddenKeys.has(key)) return false;
     if (typeof value === "string" && uuidPattern.test(value.trim())) {
       return false;
