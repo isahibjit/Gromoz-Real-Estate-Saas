@@ -238,7 +238,7 @@ export function DashboardHeader({
                   size="sm"
                   fullWidth
                   onClick={handleLogout}
-                  className="flex items-center justify-start gap-2.5 text-rose-600 hover:bg-rose-50 hover:text-rose-700 font-semibold text-xs mt-1 rounded-sm border-t border-slate-100 pt-2"
+                  className="flex items-center justify-start gap-2.5 text-rose-600 hover:bg-rose-50 hover:text-rose-700 font-semibold text-xs mt-1 rounded-sm border-t border-slate-100 pt-2 w-full"
                 >
                   <LogOut className="h-4 w-4 text-rose-600" /> Sign Out
                 </Button>
