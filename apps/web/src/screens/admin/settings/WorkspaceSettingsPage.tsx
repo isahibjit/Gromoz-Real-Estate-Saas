@@ -15,6 +15,8 @@ import {
   Edit3,
   ExternalLink,
   Sparkles,
+  Phone,
+  Mail,
 } from "lucide-react";
 import {
   Badge,
@@ -31,7 +33,9 @@ import { api } from "../../../common/api";
 import {
   LoginPageCmsModal,
   LoginPageCmsData,
+  defaultLoginPageCms,
 } from "./LoginPageCmsModal";
+import { LoginPagePreview } from "./LoginPagePreview";
 import { SidebarLogoCustomizerModal } from "../../../components/ui/SidebarLogoCustomizerModal";
 import { IntegrationsSettingsPanel } from "./IntegrationsSettingsPanel";
 
@@ -236,6 +240,15 @@ export function WorkspaceSettingsPage() {
     geoFenceAttendance: true,
     forceLogoutOnInactivity: false,
   });
+
+  const previewCms: LoginPageCmsData = {
+    ...defaultLoginPageCms,
+    heroHeadlineHighlight: form.companyName || defaultLoginPageCms.heroHeadlineHighlight,
+    supportPhone: form.primaryPhone || defaultLoginPageCms.supportPhone,
+    supportEmail: form.primaryEmail || defaultLoginPageCms.supportEmail,
+    ...loginCms,
+    heroLogoUrl: loginCms?.heroLogoUrl || form.logoUrl,
+  };
 
   const fetchSettings = async () => {
     setIsLoading(true);
@@ -1069,7 +1082,7 @@ export function WorkspaceSettingsPage() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="primary"
                   onClick={() => setIsLoginCmsModalOpen(true)}
@@ -1091,83 +1104,52 @@ export function WorkspaceSettingsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
               {/* Left Overview */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-bold text-muted-foreground">
+              <div className="min-w-0 space-y-4">
+                <h3 className="text-xs font-bold text-muted-foreground">
                   Current configuration
-                </h4>
+                </h3>
 
-                <div className="space-y-3">
-                  <div className="p-3.5 rounded-lg border border-border bg-muted/20 space-y-1">
+                <div className="divide-y divide-border">
+                  <div className="space-y-2 pb-5">
                     <span className="text-[11px] font-semibold text-muted-foreground">Hero headline</span>
                     <p className="text-sm font-extrabold text-foreground">
-                      {loginCms?.heroHeadlinePrefix || "Welcome to"}{" "}
-                      <span className="text-primary">{loginCms?.heroHeadlineHighlight || form.companyName || "Trueroot Realty CRM"}</span>
+                      {previewCms.heroHeadlinePrefix}{" "}
+                      <span className="text-primary">{previewCms.heroHeadlineHighlight}</span>
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {loginCms?.heroTagline || "Streamline your leads, follow-ups, site visits and sales - all in one place."}
+                      {previewCms.heroTagline}
                     </p>
                   </div>
 
-                  <div className="p-3.5 rounded-lg border border-border bg-muted/20 space-y-1">
+                  <div className="space-y-2 py-5">
                     <span className="text-[11px] font-semibold text-muted-foreground">Support center & contact</span>
-                    <div className="flex items-center gap-4 text-xs font-bold text-foreground pt-1">
-                      <span>📞 {loginCms?.supportPhone || form.primaryPhone || "+91 98765 43210"}</span>
-                      <span>✉️ {loginCms?.supportEmail || form.primaryEmail || "support@truerootrealty.com"}</span>
+                    <div className="space-y-2 text-xs font-semibold text-foreground">
+                      <p className="flex items-center gap-2 break-all"><Phone aria-hidden="true" className="size-3.5 shrink-0 text-primary" />{previewCms.supportPhone}</p>
+                      <p className="flex items-center gap-2 break-all"><Mail aria-hidden="true" className="size-3.5 shrink-0 text-primary" />{previewCms.supportEmail}</p>
                     </div>
                   </div>
 
-                  <div className="p-3.5 rounded-lg border border-border bg-muted/20 space-y-1">
+                  <div className="space-y-2 pt-5">
                     <span className="text-[11px] font-semibold text-muted-foreground">Security trust badge</span>
-                    <p className="text-xs font-bold text-foreground">
-                      🛡️ {loginCms?.trustBadgeTitle || "Secure. Reliable. Always with You."}
+                    <p className="flex items-start gap-2 text-xs font-bold text-foreground">
+                      <Shield aria-hidden="true" className="size-3.5 shrink-0 text-primary" />{previewCms.trustBadgeTitle}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      {loginCms?.trustBadgeDescription || "Your data is protected with enterprise grade security."}
+                      {previewCms.trustBadgeDescription}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Right Live Preview Box */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-bold text-muted-foreground">
-                  Live snapshot preview
-                </h4>
-                <div className="rounded-xl border border-border bg-slate-950 p-4 text-white overflow-hidden relative shadow-lg">
-                  <div className="flex items-center justify-between pb-3 border-b border-white/10">
-                    <span className="text-xs font-bold text-amber-400">
-                      {form.companyName || "Brand preview"}
-                    </span>
-                    <span className="text-[10px] bg-primary/20 text-blue-300 font-bold px-2 py-0.5 rounded">
-                      Live modal
-                    </span>
-                  </div>
-
-                  <div className="py-4 space-y-2">
-                    <h5 className="text-base font-extrabold text-white leading-tight">
-                      {loginCms?.heroHeadlinePrefix || "Welcome to"}{" "}
-                      <span className="text-amber-400">
-                        {loginCms?.heroHeadlineHighlight || form.companyName || "Trueroot Realty CRM"}
-                      </span>
-                    </h5>
-                    <p className="text-[11px] text-slate-300 line-clamp-2">
-                      {loginCms?.heroTagline || "Streamline your leads, follow-ups, site visits and sales - all in one place."}
-                    </p>
-                  </div>
-
-                  <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
-                    <span>Need help? {loginCms?.supportPhone || form.primaryPhone || "+91 98765 43210"}</span>
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      onClick={() => setIsLoginCmsModalOpen(true)}
-                      className="text-[11px] h-7 px-2.5 font-bold"
-                    >
-                      Edit in CMS Modal
-                    </Button>
-                  </div>
+              <div className="min-w-0 space-y-3 xl:col-span-2">
+                <LoginPagePreview data={previewCms} />
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs leading-5 text-muted-foreground">Layout preview. Use the editor to change and publish your login page.</p>
+                  <Button size="sm" variant="outline" onClick={() => setIsLoginCmsModalOpen(true)}>
+                    <Edit3 aria-hidden="true" className="mr-2 size-3.5" />Edit login page
+                  </Button>
                 </div>
               </div>
             </div>
@@ -1336,16 +1318,16 @@ export function WorkspaceSettingsPage() {
       )}
 
       {/* Login Page Visual CMS Modal */}
-      <LoginPageCmsModal
+      {isLoginCmsModalOpen ? <LoginPageCmsModal
         isOpen={isLoginCmsModalOpen}
         onClose={() => setIsLoginCmsModalOpen(false)}
         initialData={loginCms || undefined}
         onSave={handleSaveLoginCms}
-        orgName={form.companyName || "Trueroot Realty CRM"}
+        orgName={form.companyName || defaultLoginPageCms.heroHeadlineHighlight}
         orgLogo={form.logoUrl || ""}
         orgPhone={form.primaryPhone || "+91 98765 43210"}
         orgEmail={form.primaryEmail || "support@truerootrealty.com"}
-      />
+      /> : null}
 
       {/* Sidebar Brand Logo & Live Sidebar Customizer Modal */}
       <SidebarLogoCustomizerModal

@@ -1,13 +1,9 @@
 import React, { useState } from "react";
 import {
-  Eye,
   Headphones,
-  Phone,
   RotateCcw,
   Save,
   Sparkles,
-  Smartphone,
-  CheckCircle2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -21,8 +17,7 @@ import {
   DialogTitle,
   Input,
 } from "ui";
-import onboardBuildings from "../../../assets/onboard-buildings.png";
-import { BrandLogo } from "../../../components/ui/BrandLogo";
+import { LoginPagePreview } from "./LoginPagePreview";
 
 export interface LoginPageCmsData {
   heroHeadlinePrefix: string;
@@ -145,7 +140,6 @@ export function LoginPageCmsModal({
   };
 
   const effectiveLogo = data.heroLogoUrl || orgLogo;
-  const effectiveBg = data.heroBgImageUrl || onboardBuildings;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -161,16 +155,16 @@ export function LoginPageCmsModal({
                 Login Page Visual CMS Customizer
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                Customize your organization's login portal headlines, support contact details, feature highlights, and trust badges.
+                Customize your organization&apos;s login portal headlines, support contact details, feature highlights, and trust badges.
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         {/* Modal Body: Split Editor & Live Mockup */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 min-h-0 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 min-h-0 overflow-y-auto lg:overflow-hidden">
           {/* Left Panel: Form Controls */}
-          <div className="lg:col-span-6 flex flex-col h-full border-r border-border overflow-y-auto p-5 space-y-4 bg-background">
+          <div className="lg:col-span-6 flex flex-col lg:h-full border-r border-border lg:overflow-y-auto p-5 space-y-4 bg-background">
             {/* Navigation Tabs */}
             <div className="flex items-center gap-1 bg-muted p-1 rounded-lg shrink-0">
               <button
@@ -233,8 +227,9 @@ export function LoginPageCmsModal({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-foreground">Company Name Highlight</label>
+                  <label htmlFor="login-cms-headline-highlight" className="text-xs font-semibold text-foreground">Company Name Highlight</label>
                   <Input
+                    id="login-cms-headline-highlight"
                     value={data.heroHeadlineHighlight}
                     onChange={(e) => handleFieldChange("heroHeadlineHighlight", e.target.value)}
                     placeholder="e.g. Skyline Realty Group"
@@ -402,10 +397,11 @@ export function LoginPageCmsModal({
 
                 <div className="p-3 bg-muted/40 border border-border rounded-lg space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-foreground">Show Mobile App Download Button</label>
+                    <label htmlFor="login-cms-show-download" className="text-xs font-semibold text-foreground">Show Mobile App Download Button</label>
                     <Checkbox
+                      id="login-cms-show-download"
                       checked={data.showDownloadApp}
-                      onCheckedChange={(checked) => handleFieldChange("showDownloadApp", Boolean(checked))}
+                      onChange={(event) => handleFieldChange("showDownloadApp", event.currentTarget.checked)}
                     />
                   </div>
                   {data.showDownloadApp && (
@@ -448,106 +444,12 @@ export function LoginPageCmsModal({
             )}
           </div>
 
-          {/* Right Panel: Live Visual Mockup Preview */}
-          <div className="lg:col-span-6 flex flex-col bg-slate-900 p-4 sm:p-5 overflow-y-auto">
-            <div className="flex items-center justify-between mb-2.5 text-white">
-              <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                <Eye className="h-3.5 w-3.5 text-primary shrink-0" /> Live snapshot preview
-              </span>
-              <span className="text-[10px] text-emerald-400 font-medium bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-800/40">
-                Real-time updates
-              </span>
-            </div>
-
-            {/* Scaled Mockup Frame */}
-            <div className="relative flex-1 min-h-[420px] rounded-lg overflow-hidden border border-slate-700 shadow-xl bg-slate-950 text-slate-800">
-              <img
-                src={effectiveBg}
-                alt="Background preview"
-                className="absolute inset-0 w-full h-full object-cover opacity-80"
-              />
-              <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/80 to-white/95" />
-
-              <div className="relative z-10 p-4 grid grid-cols-1 md:grid-cols-2 gap-3.5 h-full items-center">
-                {/* Mockup Left Banner */}
-                <div className="space-y-2.5">
-                  {effectiveLogo ? (
-                    <img src={effectiveLogo} alt="Logo" className="h-7 max-w-[130px] object-contain" />
-                  ) : (
-                    <BrandLogo className="h-auto w-32" />
-                  )}
-                  <div>
-                    <h3 className="text-xs font-bold leading-tight text-slate-900">
-                      {data.heroHeadlinePrefix}{" "}
-                      <span className="text-primary block">{data.heroHeadlineHighlight}</span>
-                    </h3>
-                    <p className="text-[10px] text-slate-600 mt-1 line-clamp-2 leading-relaxed font-medium">
-                      {data.heroTagline}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-1">
-                    {data.features.map((feat, idx) => (
-                      <div
-                        key={idx}
-                        className="bg-white/90 border border-slate-200 rounded px-1.5 py-0.5 text-[8.5px] font-semibold text-slate-800 text-center truncate shadow-2xs"
-                      >
-                        {feat.title}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="bg-slate-900 text-white rounded p-2 text-[8.5px] space-y-0.5 shadow-xs">
-                    <p className="font-bold text-amber-300">{data.trustBadgeTitle}</p>
-                    <p className="text-slate-300 text-[8px] leading-tight line-clamp-2">
-                      {data.trustBadgeDescription}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Mockup Right Login Card */}
-                <div className="bg-white rounded-lg p-3 shadow-lg border border-slate-200 space-y-2">
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">{data.cardTitle}</h4>
-                    <p className="text-[9px] text-slate-500 font-medium">{data.cardSubtitle}</p>
-                  </div>
-
-                  <div className="space-y-1.5 pointer-events-none opacity-85">
-                    <div className="h-6 bg-slate-100 rounded border border-slate-200 px-2 flex items-center text-[9px] text-slate-400">
-                      Enter email or mobile
-                    </div>
-                    <div className="h-6 bg-slate-100 rounded border border-slate-200 px-2 flex items-center text-[9px] text-slate-400">
-                      ••••••••
-                    </div>
-                    <div className="h-6 bg-primary text-white rounded font-semibold text-[9px] flex items-center justify-center">
-                      Login
-                    </div>
-                  </div>
-
-                  {data.showDownloadApp && (
-                    <div className="h-5 border border-slate-200 rounded flex items-center justify-center text-[8.5px] font-medium text-slate-700 bg-slate-50">
-                      <Smartphone className="h-2.5 w-2.5 mr-1 text-slate-500 shrink-0" />
-                      {data.downloadAppLabel}
-                    </div>
-                  )}
-
-                  {/* Mockup Support Box */}
-                  <div className="rounded border border-slate-200 bg-slate-50 p-1.5 text-[8px] flex items-center justify-between gap-1">
-                    <div>
-                      <p className="font-bold text-slate-900">{data.supportTitle}</p>
-                      <p className="text-[7.5px] text-slate-500">{data.supportSubtitle}</p>
-                    </div>
-                    <div className="text-right font-semibold text-slate-800 text-[7.5px]">
-                      <p className="flex items-center justify-end gap-1 text-primary font-bold">
-                        <Phone className="h-2.5 w-2.5 shrink-0" /> {data.supportPhone}
-                      </p>
-                      <p className="text-slate-500 truncate max-w-[90px]">{data.supportEmail}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <aside className="lg:col-span-6 min-w-0 overflow-y-auto bg-background p-4 sm:p-5">
+            <LoginPagePreview data={{ ...data, heroLogoUrl: effectiveLogo }} />
+            <p className="mt-3 text-xs leading-5 text-muted-foreground">
+              Updates as you edit. Sign-in controls are disabled in this preview.
+            </p>
+          </aside>
         </div>
 
         {/* Footer Actions */}

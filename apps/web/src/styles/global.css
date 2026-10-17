@@ -8,6 +8,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Match preview layout to its panel width rather than the browser width. */
+.login-page-preview { container: login-page-preview / inline-size; }
+.login-page-preview-layout { display: grid; grid-template-columns: minmax(0, 1fr); }
+@container login-page-preview (min-width: 40rem) {
+  .login-page-preview-layout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 /* Account for the sidebar and browser zoom before adding dashboard columns. */
 .admin-dashboard { container: admin-dashboard / inline-size; }
 .dashboard-execution-grid,
