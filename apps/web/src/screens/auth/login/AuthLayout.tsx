@@ -10,8 +10,8 @@ import { AuthBrandPanel } from "./AuthBrandPanel";
 import { useLoginPageCms } from "./useLoginPageCms";
 
 export const defaultAuthSupport = {
-  phone: "+91 98765 43210",
-  email: "support@truerootrealty.com",
+  phone: "+91 98700 66177",
+  email: "support@gromoze.com",
 };
 
 interface AuthLayoutProps extends PropsWithChildren {

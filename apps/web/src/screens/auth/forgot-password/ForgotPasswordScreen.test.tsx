@@ -62,7 +62,7 @@ test("renders the forgot password auth card", () => {
   );
   expect(screen.getByText("Need help?")).toBeInTheDocument();
   expect(
-    screen.getByRole("link", { name: "+91 98765 43210" }),
+    screen.getByRole("link", { name: "+91 98700 66177" }),
   ).toBeInTheDocument();
 });
 

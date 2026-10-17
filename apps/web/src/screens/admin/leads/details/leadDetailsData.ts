@@ -23,7 +23,7 @@ export const leadDetailsData: LeadDetailsData = {
       "https://api.dicebear.com/7.x/notionists/svg?seed=Rahul%20Sharma",
     tag: "HOT LEAD",
     status: "Active",
-    phone: "+91 98765 43210",
+    phone: "+91 98700 66177",
     email: "rahul.sharma@gmail.com",
     location: "Andheri East, Mumbai, Maharashtra",
     source: "MagicBricks",
@@ -41,7 +41,7 @@ export const leadDetailsData: LeadDetailsData = {
   },
   about: [
     { label: "Full Name", value: "Rahul Sharma" },
-    { label: "Mobile Number", value: "+91 98765 43210" },
+    { label: "Mobile Number", value: "+91 98700 66177" },
     { label: "Alternate Number", value: "+91 91234 56789" },
     { label: "Email Address", value: "rahul.sharma@gmail.com" },
     { label: "Occupation", value: "Business Owner" },
@@ -246,7 +246,7 @@ export const leadDetailsData: LeadDetailsData = {
     coordinator: {
       name: "Sneha Iyer",
       role: "Pre Sales Executive",
-      phone: "+91 98765 43210",
+      phone: "+91 98700 66177",
       email: "sneha.iyer@trueroot.in",
     },
     upcoming: {
@@ -256,7 +256,7 @@ export const leadDetailsData: LeadDetailsData = {
       location: "Andheri (E), Mumbai",
       status: "Upcoming",
       assignedExecutive: "Sneha Iyer",
-      executivePhone: "+91 98765 43210",
+      executivePhone: "+91 98700 66177",
       visitType: "Site Visit",
     },
     selectedVisit: {

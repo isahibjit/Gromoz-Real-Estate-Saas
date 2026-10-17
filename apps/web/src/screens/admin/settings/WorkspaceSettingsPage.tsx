@@ -938,7 +938,7 @@ export function WorkspaceSettingsPage() {
                   <Input
                     value={form.primaryPhone}
                     onChange={(e) => handleFieldChange("primaryPhone", e.target.value)}
-                    placeholder="+91 98765 43210"
+                    placeholder="+91 98700 66177"
                   />
                 </div>
 
@@ -1026,11 +1026,11 @@ export function WorkspaceSettingsPage() {
                 <div className="space-y-1 text-xs">
                   <p className="font-bold text-foreground flex items-center gap-1.5">
                     <span className="text-primary">📞</span>
-                    {loginCms?.supportPhone || form.primaryPhone || "+91 98765 43210"}
+                    {loginCms?.supportPhone || form.primaryPhone || "+91 98700 66177"}
                   </p>
                   <p className="font-semibold text-muted-foreground flex items-center gap-1.5 text-[11px]">
                     <span className="text-primary">✉️</span>
-                    {loginCms?.supportEmail || form.primaryEmail || "support@truerootrealty.com"}
+                    {loginCms?.supportEmail || form.primaryEmail || "support@gromoze.com"}
                   </p>
                 </div>
               </div>
@@ -1325,8 +1325,8 @@ export function WorkspaceSettingsPage() {
         onSave={handleSaveLoginCms}
         orgName={form.companyName || defaultLoginPageCms.heroHeadlineHighlight}
         orgLogo={form.logoUrl || ""}
-        orgPhone={form.primaryPhone || "+91 98765 43210"}
-        orgEmail={form.primaryEmail || "support@truerootrealty.com"}
+        orgPhone={form.primaryPhone || "+91 98700 66177"}
+        orgEmail={form.primaryEmail || "support@gromoze.com"}
       /> : null}
 
       {/* Sidebar Brand Logo & Live Sidebar Customizer Modal */}

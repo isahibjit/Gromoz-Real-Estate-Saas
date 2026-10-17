@@ -472,7 +472,7 @@ export function SiteVisitDetailsScreen() {
                   className="h-10 rounded-md border-slate-200 text-xs font-extrabold text-blue-700 shadow-none"
                   asChild
                 >
-                  <a href={`mailto:${leadEmail || "support@truerootrealty.com"}`}>
+                  <a href={`mailto:${leadEmail || "support@gromoze.com"}`}>
                     <Mail className="size-4" />
                     Email
                   </a>

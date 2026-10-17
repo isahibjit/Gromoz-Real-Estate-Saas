@@ -3,8 +3,8 @@ import { ArrowLeft, Mail, Phone, ShieldCheck } from "lucide-react";
 
 import trurootLogo from "../../assets/truroot-logo.png";
 
-const SUPPORT_EMAIL = "support@truerootrealty.com";
-const SUPPORT_PHONE = "+91 98765 43210";
+const SUPPORT_EMAIL = "support@gromoze.com";
+const SUPPORT_PHONE = "+91 98700 66177";
 const EFFECTIVE_DATE = "11 August 2026";
 
 interface LegalSection {

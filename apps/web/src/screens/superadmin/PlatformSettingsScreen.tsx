@@ -19,7 +19,7 @@ export function PlatformSettingsScreen() {
   const [form, setForm] = useState({
     platformName: "Truroot Realty CRM Platform",
     supportEmail: "support@truerootcrm.com",
-    supportPhone: "+91 98765 43210",
+    supportPhone: "+91 98700 66177",
     defaultCurrency: "INR (₹)",
     razorpayKeyId: "rzp_live_••••••••••••••••",
     razorpaySecret: "••••••••••••••••••••••••",

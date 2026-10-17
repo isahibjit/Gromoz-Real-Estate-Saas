@@ -59,7 +59,7 @@ const MOCK_WHATSAPP_LOGS = [
     id: "l1",
     leadName: "Rahul Sharma",
     initials: "RS",
-    mobile: "+91 98765 43210",
+    mobile: "+91 98700 66177",
     messageType: "Template",
     title: "Project Brochure",
     subtext: "Brochure_3BHK_Primus",

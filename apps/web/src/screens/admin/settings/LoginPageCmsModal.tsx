@@ -64,8 +64,8 @@ export const defaultLoginPageCms: LoginPageCmsData = {
   showDownloadApp: true,
   supportTitle: "Need help?",
   supportSubtitle: "Contact our support team",
-  supportPhone: "+91 98765 43210",
-  supportEmail: "support@truerootrealty.com",
+  supportPhone: "+91 98700 66177",
+  supportEmail: "support@gromoze.com",
   termsUrl: "/terms",
   privacyUrl: "/privacy-policy",
 };
@@ -88,8 +88,8 @@ export function LoginPageCmsModal({
   onSave,
   orgName = "Gromoze",
   orgLogo = "",
-  orgPhone = "+91 98765 43210",
-  orgEmail = "support@truerootrealty.com",
+  orgPhone = "+91 98700 66177",
+  orgEmail = "support@gromoze.com",
 }: LoginPageCmsModalProps) {
   const [data, setData] = useState<LoginPageCmsData>(() => ({
     ...defaultLoginPageCms,
@@ -345,7 +345,7 @@ export function LoginPageCmsModal({
                   <Input
                     value={data.supportPhone}
                     onChange={(e) => handleFieldChange("supportPhone", e.target.value)}
-                    placeholder="e.g. +91 98765 43210"
+                    placeholder="e.g. +91 98700 66177"
                     className="text-xs"
                   />
                 </div>
@@ -355,7 +355,7 @@ export function LoginPageCmsModal({
                   <Input
                     value={data.supportEmail}
                     onChange={(e) => handleFieldChange("supportEmail", e.target.value)}
-                    placeholder="e.g. support@truerootrealty.com"
+                    placeholder="e.g. support@gromoze.com"
                     className="text-xs"
                   />
                 </div>

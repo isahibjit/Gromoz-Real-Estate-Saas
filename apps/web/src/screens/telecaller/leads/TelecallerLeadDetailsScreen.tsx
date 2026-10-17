@@ -49,7 +49,7 @@ const MOCK_LEAD_DATA = {
   name: "Rahul Sharma",
   avatarSeed: "rahul",
   status: "Hot Lead",
-  phone: "+91 98765 43210",
+  phone: "+91 98700 66177",
   email: "rahul.sharma12@gmail.com",
   location: "Gurgaon, Haryana",
   leadSource: "MagicBricks",

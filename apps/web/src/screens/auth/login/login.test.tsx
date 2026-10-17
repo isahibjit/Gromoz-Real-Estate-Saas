@@ -82,14 +82,14 @@ test("shows the platform design with working support and download destinations",
   });
   expect(contactSales).toHaveAttribute(
     "href",
-    "mailto:support@truerootrealty.com?subject=Gromoze%20sales%20enquiry",
+    "mailto:support@gromoze.com?subject=Gromoze%20sales%20enquiry",
   );
   expect(contactSales.closest("main")).toHaveClass("platform-login");
   expect(
     screen.getByRole("link", { name: "Forgot password?" }),
   ).toHaveAttribute(
     "href",
-    "mailto:support@truerootrealty.com?subject=Gromoze%20account%20access%20help",
+    "mailto:support@gromoze.com?subject=Gromoze%20account%20access%20help",
   );
   expect(
     screen.getByRole("link", { name: "Download Android app" }),
@@ -158,12 +158,12 @@ test("renders the login screen content", () => {
     screen.getByText("Secure. Reliable. Always with You."),
   ).toBeInTheDocument();
   expect(screen.getByText("Need help?")).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "+91 98765 43210" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "+91 98700 66177" })).toHaveAttribute(
     "href",
     "tel:+919876543210",
   );
   expect(
-    screen.getByRole("link", { name: "support@truerootrealty.com" }),
+    screen.getByRole("link", { name: "support@gromoze.com" }),
   ).toBeInTheDocument();
   expect(
     screen.getByRole("link", { name: "Terms of Use" }),

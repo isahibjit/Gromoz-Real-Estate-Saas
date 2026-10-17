@@ -62,7 +62,7 @@ const mockImportedLeads: ImportedLead[] = [
     id: "1",
     status: "Success",
     fullName: "Rahul Sharma",
-    mobile: "+91 98765 43210",
+    mobile: "+91 98700 66177",
     email: "rahul.sharma@email.com",
     propertyType: "2 BHK Apartment",
     source: "MagicBricks",

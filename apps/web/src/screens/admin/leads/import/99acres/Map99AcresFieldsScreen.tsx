@@ -75,7 +75,7 @@ const initialMappings: MappingRow[] = [
     sourceField: "Mobile Number",
     required: true,
     type: "Text",
-    previewData: "+91 98765 43210",
+    previewData: "+91 98700 66177",
     mappedField: "Mobile Number",
   },
   {

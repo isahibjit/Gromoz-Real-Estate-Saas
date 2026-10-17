@@ -92,7 +92,7 @@ export const followUpLeads: FollowUpLead[] = [
     initials: "RS",
     property: "2 BHK | Andheri, Mumbai",
     source: "MagicBricks",
-    mobile: "+91 98765 43210",
+    mobile: "+91 98700 66177",
     dateGroup: "Today",
     time: "10:30 AM",
     type: "Call",

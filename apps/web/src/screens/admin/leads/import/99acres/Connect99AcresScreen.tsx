@@ -497,7 +497,7 @@ function ConnectionHelpCard() {
       </div>
       <div className="mt-3 flex items-center gap-2 text-xs font-bold text-secondary">
         <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-        support@truerootrealty.com
+        support@gromoze.com
       </div>
     </Card>
   );

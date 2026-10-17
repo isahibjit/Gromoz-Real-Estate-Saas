@@ -12,8 +12,8 @@ interface SupportBoxProps {
 export function SupportBox({
   title = "Need help?",
   subtitle = "Contact our support team",
-  phone = "+91 98765 43210",
-  email = "support@truerootrealty.com",
+  phone = "+91 98700 66177",
+  email = "support@gromoze.com",
   compact = false,
 }: SupportBoxProps) {
   const phoneHref = `tel:${phone.replace(/[^\d+]/g, "")}`;

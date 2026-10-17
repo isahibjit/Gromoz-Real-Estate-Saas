@@ -149,7 +149,7 @@ export const recoverableLeads: RecoverableLead[] = [
     id: "TR001245",
     name: "Rahul Sharma",
     initials: "RS",
-    mobile: "+91 98765 43210",
+    mobile: "+91 98700 66177",
     source: "MagicBricks",
     sourceTone: "bg-red-100 text-red-600",
     inactiveFor: "45 Days",

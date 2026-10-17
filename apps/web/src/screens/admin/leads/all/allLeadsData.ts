@@ -74,7 +74,7 @@ export const leadRows: LeadRow[] = [
     id: "TR001245",
     name: "Rahul Sharma",
     avatarSeed: "Rahul Sharma",
-    mobile: "+91 98765 43210",
+    mobile: "+91 98700 66177",
     source: "MagicBricks",
     budget: "₹1.25 Cr",
     propertyType: "2BHK Apartment",

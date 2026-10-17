@@ -52,7 +52,7 @@ const sampleLeads: SampleLead[] = [
     id: "1",
     initials: "RS",
     fullName: "Rahul Sharma",
-    mobile: "+91 98765 43210",
+    mobile: "+91 98700 66177",
     email: "rahul.sharma@email.com",
     propertyType: "2 BHK Apartment",
     budget: "1 - 1.5 Cr",
@@ -604,7 +604,7 @@ function ConnectionHelpCard() {
         </div>
         <div className="flex items-center gap-2">
           <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-          support@truerootrealty.com
+          support@gromoze.com
         </div>
       </div>
     </Card>

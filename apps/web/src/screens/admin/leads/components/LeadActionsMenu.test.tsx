@@ -20,7 +20,7 @@ function renderMenu() {
           lead={{
             id: "lead-1",
             name: "Rahul Sharma",
-            mobile: "+91 98765 43210",
+            mobile: "+91 98700 66177",
             requirement: "2 BHK, Andheri",
           }}
         />

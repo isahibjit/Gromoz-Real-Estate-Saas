@@ -41,7 +41,7 @@ const crmTargetFields = [
 
 const initialHousingMappings = [
   { key: "Name", label: "name", mappedTo: "name", required: true, sample: "Rajesh Kumar" },
-  { key: "Phone", label: "phone", mappedTo: "phone", required: true, sample: "+91 98765 43210" },
+  { key: "Phone", label: "phone", mappedTo: "phone", required: true, sample: "+91 98700 66177" },
   { key: "Email", label: "email", mappedTo: "email", required: false, sample: "rajesh.kumar@example.com" },
   { key: "ProjectName", label: "project_name", mappedTo: "projectName", required: false, sample: "Truroot Heights" },
   { key: "Locality", label: "locality", mappedTo: "locality", required: false, sample: "Mira Road" },
