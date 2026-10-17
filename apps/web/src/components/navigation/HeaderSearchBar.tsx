@@ -322,7 +322,7 @@ export function HeaderSearchBar({ navCategories = [], scope = 'tenant' }: Header
           }}
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Search leads, projects, site visits, bookings, reports..."
+          placeholder={scope === 'platform' ? 'Search platform pages…' : 'Search leads, projects, site visits, bookings, reports...'}
           className={`h-10 w-full rounded-lg bg-white pl-10 pr-20 text-xs font-medium text-slate-800 placeholder:text-slate-400 transition-colors ${
             isOpen
               ? 'border border-primary shadow-xs'
@@ -540,7 +540,7 @@ export function HeaderSearchBar({ navCategories = [], scope = 'tenant' }: Header
           <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-2 flex items-center justify-between text-[11px] text-slate-400">
             <span className="flex items-center gap-1.5">
               <Search className="h-3 w-3 text-slate-400 flex-shrink-0" />
-              Search workspace pages and records
+              {scope === 'platform' ? 'Search platform management pages' : 'Search workspace pages and records'}
             </span>
             <span className="text-[10px] text-slate-400 font-mono">↑↓ Navigate • ↵ Select</span>
           </div>

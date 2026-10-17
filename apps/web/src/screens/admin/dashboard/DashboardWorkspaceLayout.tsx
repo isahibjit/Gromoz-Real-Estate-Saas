@@ -37,7 +37,7 @@ function DashboardWorkspaceLayoutContent({ children }: { children?: ReactNode })
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 font-sans w-full">
+    <div className="fixed inset-0 flex overflow-hidden bg-slate-50 font-sans w-full">
       <DashboardSidebar
         managed
         collapsed={collapsed}

@@ -246,7 +246,7 @@ export function PlatformAuditLogsScreen() {
     },
   ];
   return (
-    <WorkspacePage>
+    <WorkspacePage className="min-w-0">
       <PageHeader
         title="Platform Audit Logs"
         subtitle="Security and administrative activity across your platform and tenant workspaces."
@@ -267,17 +267,17 @@ export function PlatformAuditLogsScreen() {
           </Button>
         }
       />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {metrics.map((metric) => (
           <Card
             key={metric.label}
-            className="flex items-start gap-4 rounded-xl p-5"
+            className="flex flex-col items-start gap-3 rounded-xl p-4 sm:flex-row sm:gap-4 sm:p-5"
           >
             <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <metric.icon className="size-5" />
             </span>
             <div>
-              <p className="text-sm font-medium text-secondary">
+              <p className="text-xs font-medium text-secondary sm:text-sm">
                 {metric.label}
               </p>
               <p className="my-1 text-3xl font-bold tabular-nums text-secondary">
@@ -386,7 +386,7 @@ export function PlatformAuditLogsScreen() {
             : "Use Refresh logs to try again."}
         </div>
       )}
-      <Card className="overflow-hidden rounded-xl">
+      <Card className="min-w-0 overflow-hidden rounded-xl">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40">
