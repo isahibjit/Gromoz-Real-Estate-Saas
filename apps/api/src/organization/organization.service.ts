@@ -12,7 +12,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { promisify } from 'util';
 import { PrismaService } from '../persistence/prisma/prisma.service';
-import { BillingService } from '../billing/billing.service';
+import { BillingService, DEFAULT_TRIAL_DAYS } from '../billing/billing.service';
 import { Role, OrganizationStatus } from '@prisma/client';
 
 import { IsNumber, IsOptional, IsString } from 'class-validator';
@@ -822,7 +822,18 @@ export class OrganizationService {
     }
     const updated = await this.prisma.organization.update({
       where: { id: orgId },
-      data: { status },
+      data: {
+        status,
+        // Status edits must not silently renew an existing trial.
+        ...(status === 'TRIAL' && !org.trialEndsAt
+          ? {
+              trialEndsAt: new Date(
+                (org.status === 'TRIAL' ? org.createdAt.getTime() : Date.now()) +
+                  DEFAULT_TRIAL_DAYS * 24 * 60 * 60 * 1000,
+              ),
+            }
+          : {}),
+      },
     });
     return {
       success: true,

@@ -77,6 +77,9 @@ jobs:
           src/common/tenant/tenant.guard.spec.ts
           src/common/tenant/tenant-access.service.spec.ts
           src/crm/portal-accounts.controller.spec.ts
+          src/crm/email-connectors.service.spec.ts
+          src/billing/trial-reminder.worker.spec.ts
+          src/organization/organization.service.trial.spec.ts
           src/uploads/uploads.service.spec.ts
           src/app.controller.spec.ts
       - name: Web sign-in, OTP, recovery and tenant branding regression tests

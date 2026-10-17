@@ -89,7 +89,52 @@ protected off-server storage for recovery from loss of the instance. Restore a
 database dump with `pg_restore` into a separate database first, and inspect it
 before replacing live data. Upload archives restore under `/var/lib/gromoze`.
 
-Third-party integrations require their production credentials: SMS/OTP, email,
+## Platform email and trial payment reminders
+
+The production sender is configured in `/etc/gromoze/api.env`, never in Git or
+GitHub Actions. SMTP configuration uses `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`,
+`SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` and `SMTP_FROM_NAME`. Gmail uses an app
+password, TLS on port 465, and the authenticated Gmail address as the sender.
+Restart `gromoze-api` after changing configuration. Never print the environment file.
+
+Existing CRM email and HR notification flows reuse the default connector when
+one exists, otherwise the environment sender. Platform billing always uses the
+environment sender so a workspace connector cannot take over billing messages.
+Delivery logs record SMTP acceptance or failure, not proof of inbox delivery.
+
+After deployment, send a delivery test and a clearly marked reminder preview to
+the sender's own mailbox (two emails), and check their saved delivery logs:
+
+```sh
+cd /srv/gromoze/app
+sudo -u gromoze node --env-file=/etc/gromoze/api.env deploy/production/verify-email.cjs
+```
+
+Set `BILLING_REMINDERS_ENABLED=true` only after configuring SMTP.
+`BILLING_REMINDER_INTERVAL_MS` defaults to one hour; the worker also scans at API
+startup. One payment reminder is sent per active workspace owner and trial end
+date once that date has passed, with no advance notices or automatic charges.
+Paid, active, suspended and cancelled workspaces are excluded. `SETUP_PENDING`
+and `PAST_DUE` workspaces qualify only when a trial deadline is recorded; an old
+unpaid signup is not automatically treated as a free trial.
+
+The existing organization status service records a 14-day deadline when an
+administrator first grants `TRIAL`; status edits preserve that deadline. Legacy
+`TRIAL` rows without a deadline use creation date plus 14 days. Explicit deadlines
+are honored. This does not change login/access policies or grant trials to new
+signups automatically. The newer `/platform/tenants/provision` wizard API is not
+implemented by this backend; it must be integrated separately before that wizard
+can create trial records here.
+
+The worker pages through organizations, rechecks payment/status before sending,
+uses Redis recipient locks and successful `EmailLog` records to suppress repeat
+reminders across restarts, and retries failures on later scans. SMTP and database
+writes cannot be atomic: a crash or log-write failure after SMTP acceptance can
+lead to a retry. Check sent mail before manually retrying an ambiguous delivery.
+The reminder asks owners to reply for payment assistance; it does not fabricate a
+checkout URL or invoice. Razorpay credentials remain necessary for online payment.
+
+Third-party integrations require their production credentials: SMS/OTP,
 WhatsApp, Meta, Razorpay, Google Maps and S3/APK storage. These are not provisioned
 by installing the application. Image/document uploads use persistent local storage
 when S3 is absent; mobile APK publication requires S3 configuration.

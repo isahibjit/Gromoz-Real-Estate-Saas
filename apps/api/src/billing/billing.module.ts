@@ -6,11 +6,19 @@ import { TenantModule } from '../common/tenant/tenant.module';
 import { RazorpayService } from './razorpay.service';
 import { BillingService } from './billing.service';
 import { BillingController } from './billing.controller';
+import { CrmModule } from '../crm/crm.module';
+import { TrialReminderWorker } from './trial-reminder.worker';
 
 @Module({
-  imports: [ConfigModule, PersistenceModule, AuthModule, TenantModule],
+  imports: [
+    ConfigModule,
+    PersistenceModule,
+    AuthModule,
+    TenantModule,
+    CrmModule,
+  ],
   controllers: [BillingController],
-  providers: [RazorpayService, BillingService],
+  providers: [RazorpayService, BillingService, TrialReminderWorker],
   exports: [RazorpayService, BillingService],
 })
 export class BillingModule {}

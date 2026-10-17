@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
@@ -52,7 +53,7 @@ export class EmailConnectorsService {
   ) {}
 
   private db() {
-    return this.prisma as any;
+    return this.prisma;
   }
 
   private createTransporter(config: {
@@ -66,6 +67,10 @@ export class EmailConnectorsService {
       host: config.host,
       port: config.port,
       secure: config.secure,
+      requireTLS: !config.secure,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 30000,
       auth: {
         user: config.user,
         pass: config.pass,
@@ -91,10 +96,24 @@ export class EmailConnectorsService {
   }
 
   async getDefaultSender() {
-    return this.db().emailConnector.findFirst({
+    const connector = await this.db().emailConnector.findFirst({
       where: { isDefault: true, isActive: true },
-      select: { id: true, username: true, fromEmail: true, notificationEmail: true },
+      select: {
+        id: true,
+        username: true,
+        fromEmail: true,
+        notificationEmail: true,
+      },
     });
+    if (connector) return connector;
+    const username = this.config.get<string>('SMTP_USER')?.trim();
+    if (!username || !this.config.get<string>('SMTP_PASS')) return null;
+    return {
+      id: null,
+      username,
+      fromEmail: this.config.get<string>('SMTP_FROM')?.trim() || username,
+      notificationEmail: null,
+    };
   }
 
   async createConnector(data: CreateEmailConnectorDto, actorUserId?: string) {
@@ -104,7 +123,9 @@ export class EmailConnectorsService {
     const fromEmail = data.fromEmail.trim();
 
     if (!host || !username || !password || !fromEmail) {
-      throw new BadRequestException('Host, username, password, and from email are required');
+      throw new BadRequestException(
+        'Host, username, password, and from email are required',
+      );
     }
 
     if (data.isDefault) {
@@ -135,11 +156,7 @@ export class EmailConnectorsService {
     return connector;
   }
 
-  async updateConnector(
-    id: string,
-    data: UpdateEmailConnectorDto,
-    actorUserId?: string,
-  ) {
+  async updateConnector(id: string, data: UpdateEmailConnectorDto) {
     await this.getConnector(id);
 
     if (data.isDefault) {
@@ -161,9 +178,10 @@ export class EmailConnectorsService {
         password: data.password ? data.password.trim() : undefined,
         fromName: data.fromName?.trim(),
         fromEmail: data.fromEmail?.trim(),
-        notificationEmail: data.notificationEmail !== undefined
-          ? (data.notificationEmail?.trim() || null)
-          : undefined,
+        notificationEmail:
+          data.notificationEmail !== undefined
+            ? data.notificationEmail?.trim() || null
+            : undefined,
         isDefault: data.isDefault,
         isActive: data.isActive,
       },
@@ -202,17 +220,26 @@ export class EmailConnectorsService {
       await transporter.verify();
       const testEmail = testRecipientEmail?.trim() || connector.fromEmail;
       if (testEmail) {
-        await transporter.sendMail({
-          from: `"${connector.fromName || 'Truroot Realty'}" <${connector.fromEmail}>`,
-          to: testEmail,
-          subject: 'Truroot CRM SMTP Connection Test',
-          text: `Success! Your SMTP Connector (${connector.name}) is fully operational.`,
-          html: `<div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+        await this.dispatch(
+          {
+            to: testEmail,
+            subject: 'Truroot CRM SMTP Connection Test',
+            text: `Success! Your SMTP Connector (${connector.name}) is fully operational.`,
+            html: `<div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
             <h2 style="color: #2563eb;">SMTP Connection Test Verified</h2>
             <p>Your email connector <strong>${connector.name}</strong> (${connector.username}) successfully connected to <code>${connector.host}:${connector.port}</code>.</p>
             <p style="color: #64748b; font-size: 12px;">Dispatched from Truroot Realty CRM System.</p>
           </div>`,
-        });
+            entityType: 'EmailConnectionTest',
+            entityId: id,
+          },
+          transporter,
+          {
+            name: connector.fromName || 'Truroot Realty',
+            address: connector.fromEmail,
+          },
+          id,
+        );
       }
 
       await this.db().emailConnector.update({
@@ -223,11 +250,18 @@ export class EmailConnectorsService {
         },
       });
 
-      return { success: true, message: `SMTP connection verified. Test email dispatched to ${testEmail}` };
+      return {
+        success: true,
+        message: `SMTP connection verified. Test email dispatched to ${testEmail}`,
+      };
     } catch (error: any) {
       let errorMessage = error?.message || 'SMTP Connection failed';
-      if (errorMessage.includes('535') || errorMessage.includes('BadCredentials')) {
-        errorMessage = 'Invalid Login: Google requires a 16-character Gmail App Password (myaccount.google.com/apppasswords).';
+      if (
+        errorMessage.includes('535') ||
+        errorMessage.includes('BadCredentials')
+      ) {
+        errorMessage =
+          'Invalid Login: Google requires a 16-character Gmail App Password (myaccount.google.com/apppasswords).';
       }
 
       await this.db().emailConnector.update({
@@ -243,69 +277,83 @@ export class EmailConnectorsService {
   }
 
   async sendEmail(options: SendEmailOptions) {
-    let connector = options.connectorId
+    const connector = options.connectorId
       ? await this.getConnector(options.connectorId)
       : await this.db().emailConnector.findFirst({
           where: { isDefault: true, isActive: true },
         });
 
-    let transporter: nodemailer.Transporter;
-    let fromAddress: string;
-
     if (connector && connector.isActive) {
-      transporter = this.createTransporter({
+      const transporter = this.createTransporter({
         host: connector.host,
         port: connector.port,
         secure: connector.secure,
         user: connector.username,
         pass: connector.password,
       });
-      fromAddress = `"${connector.fromName || 'Truroot Realty'}" <${connector.fromEmail}>`;
-    } else {
-      const host = this.config.get<string>('SMTP_HOST') || 'smtp.gmail.com';
-      const port = Number(this.config.get<number>('SMTP_PORT') || 465);
-      const secure = this.config.get<boolean>('SMTP_SECURE') ?? true;
-      const user = this.config.get<string>('SMTP_USER') || 'crmbigboss184@gmail.com';
-      const pass = this.config.get<string>('SMTP_PASS') || 'Bigboss185@CRM***';
-      const from = this.config.get<string>('SMTP_FROM') || 'crmbigboss184@gmail.com';
-
-      transporter = this.createTransporter({
-        host,
-        port,
-        secure,
-        user,
-        pass,
-      });
-      fromAddress = `"Truroot Realty" <${from}>`;
+      return this.dispatch(
+        options,
+        transporter,
+        {
+          name: connector.fromName || 'Truroot Realty',
+          address: connector.fromEmail,
+        },
+        connector.id,
+      );
     }
+    if (options.connectorId) {
+      throw new BadRequestException('Email connector is inactive');
+    }
+    return this.sendPlatformEmail(options);
+  }
 
+  // Platform billing must never use a workspace's default connector.
+  async sendPlatformEmail(options: Omit<SendEmailOptions, 'connectorId'>) {
+    const user = this.config.get<string>('SMTP_USER')?.trim();
+    const pass = this.config.get<string>('SMTP_PASS');
+    if (!user || !pass) {
+      throw new ServiceUnavailableException('Platform email is not configured');
+    }
+    const secure = this.config.get<boolean | string>('SMTP_SECURE') ?? true;
+    const transporter = this.createTransporter({
+      host: this.config.get<string>('SMTP_HOST') || 'smtp.gmail.com',
+      port: Number(this.config.get<number>('SMTP_PORT') || 465),
+      secure: secure === true || secure === 'true',
+      user,
+      pass,
+    });
+    return this.dispatch(options, transporter, {
+      name: this.config.get<string>('SMTP_FROM_NAME') || 'Gromoze',
+      address: this.config.get<string>('SMTP_FROM')?.trim() || user,
+    });
+  }
+
+  private async dispatch(
+    options: SendEmailOptions,
+    transporter: nodemailer.Transporter,
+    from: { name: string; address: string },
+    connectorId?: string,
+  ) {
+    let messageId: string;
     try {
       const mailInfo = await transporter.sendMail({
-        from: fromAddress,
+        from,
         to: options.to,
         subject: options.subject,
         text: options.text,
         html: options.html,
         attachments: options.attachments,
       });
-
+      if (!mailInfo.accepted?.length || mailInfo.rejected?.length) {
+        throw new Error('SMTP did not accept all recipients');
+      }
+      messageId = mailInfo.messageId;
+    } catch (error: unknown) {
+      const errorMsg =
+        error instanceof Error ? error.message : 'Mail dispatch failed';
       await this.db().emailLog.create({
         data: {
-          connectorId: connector?.id ?? null,
-          recipient: options.to,
-          subject: options.subject,
-          status: 'Sent',
-          entityType: options.entityType,
-          entityId: options.entityId,
-        },
-      });
-
-      return { success: true, messageId: mailInfo.messageId };
-    } catch (error: any) {
-      const errorMsg = error?.message || 'Mail dispatch failed';
-      await this.db().emailLog.create({
-        data: {
-          connectorId: connector?.id ?? null,
+          connectorId: connectorId ?? null,
           recipient: options.to,
           subject: options.subject,
           status: 'Failed',
@@ -317,6 +365,18 @@ export class EmailConnectorsService {
 
       throw new BadRequestException(`Email dispatch failed: ${errorMsg}`);
     }
+    // A database failure after SMTP acceptance must not be recorded as a failed send.
+    await this.db().emailLog.create({
+      data: {
+        connectorId: connectorId ?? null,
+        recipient: options.to,
+        subject: options.subject,
+        status: 'Sent',
+        entityType: options.entityType,
+        entityId: options.entityId,
+      },
+    });
+    return { success: true, messageId };
   }
 
   async listEmailLogs() {

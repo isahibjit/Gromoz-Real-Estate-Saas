@@ -49,13 +49,8 @@ export class EmailConnectorsController {
   updateConnector(
     @Param('id') id: string,
     @Body() body: UpdateEmailConnectorDto,
-    @Req() req: any,
   ) {
-    return this.emailConnectorsService.updateConnector(
-      id,
-      body,
-      userFrom(req).sub,
-    );
+    return this.emailConnectorsService.updateConnector(id, body);
   }
 
   @Post(':id/test')
@@ -89,7 +84,14 @@ export class EmailConnectorsController {
   }
 
   @Post('send')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'HR', 'SALES_MANAGER', 'SALES_AGENT', 'TELECALLER')
+  @Roles(
+    'SUPER_ADMIN',
+    'ADMIN',
+    'HR',
+    'SALES_MANAGER',
+    'SALES_AGENT',
+    'TELECALLER',
+  )
   sendEmail(@Body() body: SendEmailOptions) {
     return this.emailConnectorsService.sendEmail(body);
   }

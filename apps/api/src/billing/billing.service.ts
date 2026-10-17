@@ -7,6 +7,8 @@ import {
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { RazorpayService } from './razorpay.service';
 
+export const DEFAULT_TRIAL_DAYS = 14;
+
 export class SetupCheckoutDto {
   initialSeats!: number;
 }

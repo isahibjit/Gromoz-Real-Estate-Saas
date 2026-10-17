@@ -30,6 +30,15 @@ export interface EnvironmentVariables {
   SMS_ROUTE?: string;
   SMS_SENDER?: string;
   LOGIN_NOTIFICATION_EMAIL?: string;
+  SMTP_HOST: string;
+  SMTP_PORT: number;
+  SMTP_SECURE: boolean;
+  SMTP_USER?: string;
+  SMTP_PASS?: string;
+  SMTP_FROM?: string;
+  SMTP_FROM_NAME: string;
+  BILLING_REMINDERS_ENABLED: boolean;
+  BILLING_REMINDER_INTERVAL_MS: number;
   MOBILE_APP_UPLOAD_TMP_DIR?: string;
   RAZORPAY_KEY_ID?: string;
   RAZORPAY_KEY_SECRET?: string;
@@ -76,6 +85,18 @@ export const validationSchemaForEnv = Joi.object<EnvironmentVariables, true>({
   SMS_ROUTE: Joi.string().allow('').optional(),
   SMS_SENDER: Joi.string().allow('').optional(),
   LOGIN_NOTIFICATION_EMAIL: Joi.string().email().allow('').optional(),
+  SMTP_HOST: Joi.string().hostname().default('smtp.gmail.com'),
+  SMTP_PORT: Joi.number().integer().min(1).max(65535).default(465),
+  SMTP_SECURE: Joi.boolean().default(true),
+  SMTP_USER: Joi.string().allow('').optional(),
+  SMTP_PASS: Joi.string().allow('').optional(),
+  SMTP_FROM: Joi.string().email().allow('').optional(),
+  SMTP_FROM_NAME: Joi.string().default('Gromoze'),
+  BILLING_REMINDERS_ENABLED: Joi.boolean().default(false),
+  BILLING_REMINDER_INTERVAL_MS: Joi.number()
+    .integer()
+    .min(60000)
+    .default(3600000),
   MOBILE_APP_UPLOAD_TMP_DIR: Joi.string().allow('').optional(),
   RAZORPAY_KEY_ID: Joi.string().allow('').optional(),
   RAZORPAY_KEY_SECRET: Joi.string().allow('').optional(),
