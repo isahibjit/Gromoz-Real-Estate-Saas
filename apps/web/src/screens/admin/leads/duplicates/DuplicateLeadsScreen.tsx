@@ -1,3 +1,4 @@
+import { displayReference } from "../../../../common/displayReference";
 import { useMemo, useState, type ReactNode, type ChangeEvent } from "react";
 import {
   CalendarDays,
@@ -157,7 +158,7 @@ function LeadInfo({ lead }: { lead: DuplicateGroup["existing"] }) {
         <p className="truncate text-sm font-extrabold text-secondary">
           {lead.name}
         </p>
-        <p className="text-xs font-extrabold text-blue-700">{lead.id}</p>
+        <p className="text-xs font-extrabold text-blue-700">{displayReference(lead.id, "Lead")}</p>
         <p className="truncate text-xs font-semibold text-secondary">
           {lead.mobile}
         </p>
@@ -268,7 +269,7 @@ function DuplicateTable({
                     </span>
                     <div>
                       <p className="text-xs font-extrabold text-secondary">
-                        Group ID: #{group.id}
+                        Group ID: #{displayReference(group.id, "Duplicate group")}
                       </p>
                       <p className="mt-3 text-xs font-semibold text-muted-foreground">
                         Detected on: {group.detectedOn}

@@ -295,7 +295,7 @@ export function LeadActionsMenu({
               {lead.name}
             </span>
             <span className="mt-0.5 block truncate text-[11px] font-semibold text-muted-foreground">
-              {lead.mobile ?? lead.id}
+              {lead.mobile ?? "Phone unavailable"}
             </span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />

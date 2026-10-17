@@ -1,3 +1,4 @@
+import { displayReference } from "../../../common/displayReference";
 import { useEffect, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import {
@@ -858,7 +859,7 @@ export function UnitDetailsScreen() {
                           {lead.name}
                         </Link>
                         <p className="text-xs font-semibold text-muted-foreground">
-                          {lead.id}
+                          {displayReference(lead.id, "Lead")}
                         </p>
                       </TableCell>
                       <TableCell>{lead.stage}</TableCell>
@@ -898,7 +899,7 @@ export function UnitDetailsScreen() {
                     <TableRow key={visit.id}>
                       <TableCell>
                         <p className="font-extrabold text-secondary">
-                          {visit.id}
+                          {displayReference(visit.id, "Site visit")}
                         </p>
                         <Badge className="mt-1 border-0 bg-blue-50 text-blue-700">
                           {visit.status}

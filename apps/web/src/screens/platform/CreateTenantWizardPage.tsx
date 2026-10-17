@@ -1,3 +1,4 @@
+import { displayReference } from "../../common/displayReference";
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -455,7 +456,7 @@ function Step2IndustryProfile() {
               searchable={true}
               options={industryOptions}
             />
-            <p className="text-[11px] text-slate-400 font-medium">Selected ID: <strong className="font-mono text-slate-700">{formState.industryId}</strong></p>
+            <p className="text-[11px] text-slate-400 font-medium">Selected ID: <strong className="font-mono text-slate-700">{displayReference(formState.industryId, "Industry")}</strong></p>
           </div>
 
           <div className="sm:col-span-5 rounded-sm border border-purple-100 bg-[#F4F0FF] p-5 text-xs space-y-2">
@@ -1093,7 +1094,7 @@ function Step6ReviewConfirm({
             </div>
             <div>
               <span className="text-slate-400 text-[11px] block mb-0.5">Industry Code</span>
-              <span className="font-mono font-bold text-slate-800">{selectedIndustry.code || selectedIndustry.id}</span>
+              <span className="font-mono font-bold text-slate-800">{selectedIndustry.code || "Industry"}</span>
             </div>
             <div>
               <span className="text-slate-400 text-[11px] block mb-0.5">Business Size</span>
@@ -1593,7 +1594,7 @@ function CreateTenantWizardInner() {
                   <div>
                     <p className="font-extrabold text-primary">Industry</p>
                     <p className="text-[11px] text-slate-700 font-bold">
-                      {PLATFORM_INDUSTRIES.find((i) => i.id === formState.industryId || i.code === formState.industryId)?.label || formState.industryId || 'Pharma & Healthcare'}
+                      {PLATFORM_INDUSTRIES.find((i) => i.id === formState.industryId || i.code === formState.industryId)?.label || displayReference(formState.industryId, 'Industry')}
                     </p>
                   </div>
                 </div>

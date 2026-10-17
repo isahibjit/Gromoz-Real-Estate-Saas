@@ -1,3 +1,4 @@
+import { displayReference } from "../../../common/displayReference";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -2246,7 +2247,7 @@ export function ProjectDetailsScreen() {
                             {lead.name}
                           </Link>
                           <p className="text-xs font-semibold text-muted-foreground">
-                            {lead.id}
+                            {displayReference(lead.id, "Lead")}
                           </p>
                         </TableCell>
                         <TableCell>{lead.stage}</TableCell>

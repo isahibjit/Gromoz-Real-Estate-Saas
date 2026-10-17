@@ -1,3 +1,4 @@
+import { displayReference } from "../../../../common/displayReference";
 import { useState, type ReactNode } from "react";
 import {
   ArrowRight,
@@ -239,7 +240,7 @@ function SearchableLeadPicker() {
                       {lead.name}
                     </span>
                     <span className="block truncate text-xs font-semibold text-muted-foreground">
-                      {lead.id} | {lead.mobile} | {lead.project}
+                      {displayReference(lead.id, "Lead")} | {lead.mobile} | {lead.project}
                     </span>
                   </span>
                   <span className="flex shrink-0 items-center gap-2">

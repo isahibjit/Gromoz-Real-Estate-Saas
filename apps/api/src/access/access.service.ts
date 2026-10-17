@@ -368,7 +368,11 @@ export class AccessService implements OnModuleInit {
 
   async listModules() {
     await this.ensureDefaultTemplates();
-    return { data: ACCESS_MODULES };
+    return {
+      data: ACCESS_MODULES.filter(
+        (module) => module.key !== 'mobile_app' && module.key !== 'page.mobile_app',
+      ),
+    };
   }
 
   async listTemplates() {

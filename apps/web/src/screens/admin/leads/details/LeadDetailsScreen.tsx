@@ -1,3 +1,4 @@
+import { displayReference } from "../../../../common/displayReference";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bath,
@@ -1126,7 +1127,7 @@ function LeadProfileSummary({
             </div>
             <div className="mt-2 flex items-center gap-3">
               <span className="text-sm font-extrabold text-blue-700">
-                {profile.id}
+                {displayReference(profile.id, "Lead")}
               </span>
               <Badge className="border-0 bg-blue-50 px-2 py-1 text-xs font-extrabold text-blue-700">
                 {profile.status}

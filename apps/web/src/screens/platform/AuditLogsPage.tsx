@@ -1,3 +1,4 @@
+import { displayReference, presentRecordDetails } from "../../common/displayReference";
 import React, { useEffect, useState } from 'react';
 import {
   FileText,
@@ -259,14 +260,14 @@ export function AuditLogsPage() {
                       </span>
                     </td>
                     <td className="py-3 px-4 font-semibold text-[11px] text-slate-600">
-                      {log.scope} {log.tenantId ? `(${log.tenantId.substring(0, 8)}...)` : ''}
+                      {log.scope}
                     </td>
                     <td className="py-3 px-4">{getOutcomeBadge(log.outcome)}</td>
                     <td className="py-3 px-4 font-mono text-[11px] text-slate-600">
-                      {log.actorType} · {log.actorUserId ? log.actorUserId.substring(0, 8) + '...' : 'system'}
+                      {log.actorType} · {log.actorUserId ? 'User' : 'System'}
                     </td>
                     <td className="py-3 px-4 font-mono text-[11px] text-slate-600">
-                      {log.entityType ? `${log.entityType} (${log.entityId?.substring(0, 8)}...)` : '—'}
+                      {log.entityType || '—'}
                     </td>
                     <td className="py-3 px-4 text-right">
                       <Button
@@ -324,11 +325,11 @@ export function AuditLogsPage() {
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px]">Correlation ID</span>
-                  <span className="font-mono text-slate-600">{selectedDetail.correlationId || '—'}</span>
+                  <span className="font-mono text-slate-600">{displayReference(selectedDetail.correlationId, 'Not displayed')}</span>
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px]">Request ID</span>
-                  <span className="font-mono text-slate-600">{selectedDetail.requestId || '—'}</span>
+                  <span className="font-mono text-slate-600">{displayReference(selectedDetail.requestId, 'Not displayed')}</span>
                 </div>
               </div>
 
@@ -340,9 +341,9 @@ export function AuditLogsPage() {
                 <pre className="p-3 rounded-sm bg-slate-900 text-slate-100 font-mono text-[11px] overflow-x-auto max-h-60">
                   {JSON.stringify(
                     {
-                      metadata: selectedDetail.metadata,
-                      beforeJson: selectedDetail.beforeJson,
-                      afterJson: selectedDetail.afterJson,
+                      metadata: presentRecordDetails(selectedDetail.metadata),
+                      beforeJson: presentRecordDetails(selectedDetail.beforeJson),
+                      afterJson: presentRecordDetails(selectedDetail.afterJson),
                     },
                     null,
                     2,

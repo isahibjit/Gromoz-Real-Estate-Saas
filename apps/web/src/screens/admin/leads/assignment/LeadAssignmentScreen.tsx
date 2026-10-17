@@ -1,3 +1,4 @@
+import { displayReference } from "../../../../common/displayReference";
 import {
   ArrowRight,
   Bot,
@@ -1359,7 +1360,7 @@ function SearchableLeadPicker({
               />
               <span className="truncate">{lead.name}</span>
               <span className="text-muted-foreground">•</span>
-              <span className="truncate text-muted-foreground">{lead.id}</span>
+              <span className="truncate text-muted-foreground">{displayReference(lead.id, "Lead")}</span>
               <button
                 type="button"
                 aria-label={`Remove ${lead.name}`}
@@ -1814,7 +1815,7 @@ function RealTimeDistributionActivityCard() {
               </span>
               <div className="min-w-0">
                 <p className="text-xs font-extrabold text-secondary">
-                  Lead ID #{activity.leadId}
+                  Lead ID #{displayReference(activity.leadId, "Lead")}
                 </p>
                 <p
                   className={cn(

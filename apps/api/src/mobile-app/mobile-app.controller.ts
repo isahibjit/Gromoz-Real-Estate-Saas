@@ -12,7 +12,7 @@ import { MobileAppAdminGuard } from './mobile-app-admin.guard';
 
 @Controller('mobile-app')
 @UseGuards(AuthGuard, RolesGuard, MobileAppAdminGuard, PermissionGuard)
-@Roles('ADMIN', 'SUPER_ADMIN')
+@Roles('SUPER_ADMIN')
 @RequirePermission('mobile_app')
 export class MobileAppController {
   constructor(private readonly releases: MobileAppService) {}

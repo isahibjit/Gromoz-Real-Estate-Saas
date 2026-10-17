@@ -62,7 +62,7 @@ const CORE_ACCESS_MODULES: AccessModuleDefinition[] = [
     label: 'Mobile app releases',
     group: 'Settings',
     description:
-      'Upload and publish Android APK releases. Administrators only.',
+      'Upload and publish Android APK releases. Platform super administrators only.',
     actions: manage,
   },
   {
@@ -266,7 +266,7 @@ export const PAGE_VISIBILITY_MODULES: AccessModuleDefinition[] = [
     key: 'page.mobile_app',
     label: 'Mobile app',
     group: 'Page visibility: Settings',
-    description: 'Android app publishing settings. Administrators only.',
+    description: 'Android app publishing settings. Platform super administrators only.',
     actions: readOnly,
     kind: 'page',
     parentModuleKey: 'mobile_app',

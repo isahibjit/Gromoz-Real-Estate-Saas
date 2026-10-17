@@ -1,3 +1,4 @@
+import { displayReference } from "../../../common/displayReference";
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -338,7 +339,7 @@ export function TelecallerLeadTransferRequestScreen() {
                             {/* Request ID */}
                             <TableCell className="px-4 py-4 whitespace-nowrap">
                               <p className="text-xs font-extrabold text-secondary">
-                                {row.id}
+                                {displayReference(row.id, "Transfer request")}
                               </p>
                             </TableCell>
 

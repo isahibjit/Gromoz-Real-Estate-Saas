@@ -380,7 +380,7 @@ function AdminRoute({ children }: PropsWithChildren) {
   }
 
   const inaccessibleFallback = buildInaccessibleRouteFallback(user, location.pathname);
-  if (["/settings/mobile-app", "/settings/notifications"].includes(location.pathname) && !["ADMIN", "SUPER_ADMIN"].includes(user?.role ?? "")) return inaccessibleFallback;
+  if (location.pathname === "/settings/notifications" && !["ADMIN", "SUPER_ADMIN"].includes(user?.role ?? "")) return inaccessibleFallback;
   const moduleKey = moduleKeyForPath(location.pathname);
   const pageKey = pageKeyForPath(location.pathname);
   if (
@@ -588,7 +588,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<RootRedirect />} />
       <Route path="/download-app" element={<DownloadAppScreen />} />
-      <Route path="/settings/mobile-app" element={<AdminRoute><MobileAppScreen /></AdminRoute>} />
+      <Route path="/settings/mobile-app" element={<SuperAdminRoute><Navigate to="/superadmin/mobile-app" replace /></SuperAdminRoute>} />
+      <Route path="/superadmin/mobile-app" element={<SuperAdminRoute><MobileAppScreen /></SuperAdminRoute>} />
       <Route path={PRIVACY_POLICY_PATH} element={<PrivacyPolicyPage />} />
       <Route path={TERMS_OF_USE_PATH} element={<TermsOfUsePage />} />
       <Route path="/p/:projectId" element={<PublicProjectGalleryScreen />} />

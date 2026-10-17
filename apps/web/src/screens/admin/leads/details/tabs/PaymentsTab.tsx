@@ -1,3 +1,4 @@
+import { displayReference } from "../../../../../common/displayReference";
 import {
   ArrowDownToLine,
   Banknote,
@@ -147,7 +148,7 @@ function PaymentsList({ payments }: { payments: PaymentItem[] }) {
                 >
                   <td className="px-4 py-4">
                     <p className="font-extrabold text-secondary">
-                      {payment.receiptId || payment.id}
+                      {displayReference(payment.receiptId, "Receipt not issued")}
                     </p>
                     {!payment.receiptId && (
                       <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">

@@ -1,3 +1,4 @@
+import { displayReference } from "../../../../common/displayReference";
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import {
@@ -962,7 +963,7 @@ export function AutoAssignmentMasterScreen() {
                       <p className="mt-1 break-words text-sm font-extrabold text-secondary">
                         {event.leadName?.trim() || (event.leadDisplayId ? "Unnamed lead" : "Lead unavailable")}
                       </p>
-                      {event.leadDisplayId ? <p className="mt-1 text-xs font-medium text-muted-foreground">{event.leadDisplayId}</p> : null}
+                      {event.leadDisplayId ? <p className="mt-1 text-xs font-medium text-muted-foreground">{displayReference(event.leadDisplayId, "Lead")}</p> : null}
                       <p className="mt-1 text-xs font-medium text-muted-foreground">
                         {event.routeSnapshot?.userIds.length
                           ? `Pass ${event.currentCycle ?? 1} of ${event.routeSnapshot.rotationCount} · User ${event.currentStep + 1} of ${event.routeSnapshot.userIds.length}`

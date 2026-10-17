@@ -89,13 +89,17 @@ export function MobileAppScreen() {
   const [review, setReview] = useState<MobileAppRelease | null>(null);
   const [unpublishing, setUnpublishing] = useState(false);
   const user = useAppSelector(state => state.auth.user);
-  const canUpload = canAccess(user, "mobile_app", "create");
-  const canPublish = canAccess(user, "mobile_app", "update");
+  const canManage = user?.role === "SUPER_ADMIN";
+  const canUpload = canManage && canAccess(user, "mobile_app", "create");
+  const canPublish = canManage && canAccess(user, "mobile_app", "update");
   const cache = useQueryClient();
-  const history = useQuery({ queryKey: [...releaseHistoryKey, page], queryFn: async ({ signal }) => (await api.get<ReleaseHistory>("/mobile-app/releases", { params: { page, limit: 10 }, signal })).data });
+  const history = useQuery({ queryKey: [...releaseHistoryKey, page], queryFn: async ({ signal }) => (await api.get<ReleaseHistory>("/mobile-app/releases", { params: { page, limit: 10 }, signal })).data, enabled: canManage });
   const refresh = () => Promise.all([cache.invalidateQueries({ queryKey: releaseHistoryKey }), cache.invalidateQueries({ queryKey: mobileAppQueryKey })]);
   const changePublication = useMutation({
-    mutationFn: (id: string | null) => id ? api.post(`/mobile-app/releases/${id}/publish`) : api.post("/mobile-app/unpublish"),
+    mutationFn: (id: string | null) => {
+      if (!canManage) throw new Error("Only platform super administrators can manage app releases");
+      return id ? api.post(`/mobile-app/releases/${id}/publish`) : api.post("/mobile-app/unpublish");
+    },
     onSuccess: async (_response, id) => { setReview(null); setUnpublishing(false); toast.success(id ? "Release published" : "Public downloads disabled"); await refresh(); },
   });
   const current = history.data?.currentRelease;
@@ -107,6 +111,7 @@ export function MobileAppScreen() {
     { header: "State", cell: row => <Badge variant={row.state === "published" ? "success" : "neutral"}>{row.state === "published" ? "Published" : row.state === "previous" ? "Previously published" : "Draft"}</Badge> },
     { header: "Action", cell: row => <Button variant="outline" size="sm" onClick={() => { changePublication.reset(); setReview(row); }} aria-label={`Review version ${row.versionName}, build ${row.buildNumber}`}>Review</Button> },
   ];
+  if (!canManage) return <p role="alert">App release management is available to platform super administrators only.</p>;
   return <section className="space-y-5 text-foreground">
     <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-2xl font-extrabold text-secondary">Mobile app</h1><p className="mt-1 text-sm text-muted-foreground">Upload, review and publish your Android app. Only one release is available to download at a time.</p></div><div className="flex flex-wrap gap-3"><Button asChild variant="outline"><Link to="/download-app" target="_blank" rel="noreferrer"><ExternalLink className="size-4" aria-hidden="true" />Download page</Link></Button><Button disabled={!canUpload} onClick={() => setUploadOpen(true)}><FileUp className="size-4" aria-hidden="true" />Upload APK</Button></div></header>
     <Card className="p-5 sm:p-6">

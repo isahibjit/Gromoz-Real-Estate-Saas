@@ -1,3 +1,4 @@
+import { presentRecordDetails } from "../../../../../common/displayReference";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -208,7 +209,7 @@ export function TestMagicBricksConnectionScreen() {
                               className="h-9 rounded-md border-slate-200 px-3 text-xs font-bold shadow-none"
                               onClick={async () => {
                                 await navigator.clipboard.writeText(
-                                  JSON.stringify(result.normalizedLead, null, 2),
+                                  JSON.stringify(presentRecordDetails(result.normalizedLead), null, 2),
                                 );
                                 toast.success("Normalized lead copied");
                               }}
@@ -218,7 +219,7 @@ export function TestMagicBricksConnectionScreen() {
                             </Button>
                           </div>
                           <pre className="mt-4 overflow-x-auto rounded-md bg-white p-4 text-xs font-semibold text-secondary">
-                            {JSON.stringify(result.normalizedLead, null, 2)}
+                            {JSON.stringify(presentRecordDetails(result.normalizedLead), null, 2)}
                           </pre>
                         </Card>
 

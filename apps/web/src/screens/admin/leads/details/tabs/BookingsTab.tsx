@@ -1,3 +1,4 @@
+import { displayReference } from "../../../../../common/displayReference";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -247,7 +248,7 @@ export function BookingsTab({
                 <TableRow key={booking.id} className="hover:bg-slate-50/60">
                   <TableCell className="px-4 py-3">
                     <p className="text-xs font-extrabold text-secondary">
-                      {booking.id.slice(0, 8).toUpperCase()}
+                      {displayReference(booking.id, "Booking")}
                     </p>
                     <p className="mt-1 text-[11px] font-semibold text-muted-foreground">
                       {booking.status === "Booked"

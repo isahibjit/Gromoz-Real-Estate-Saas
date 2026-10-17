@@ -133,7 +133,7 @@ export function TenantOverviewScreen() {
         <div>
           <h2 className="text-xl font-extrabold text-primary">Tenant Workspace Not Found</h2>
           <p className="text-xs text-slate-500 font-medium mt-1">
-            Could not locate tenant organization with identifier: <span className="font-mono font-bold text-slate-800">{tenantId}</span>
+            Could not locate the requested workspace.
           </p>
         </div>
         <Button
@@ -390,9 +390,9 @@ export function TenantOverviewScreen() {
               </p>
             </div>
             <div>
-              <span className="text-slate-400 font-medium block">Tenant UUID:</span>
-              <p className="font-mono text-[11px] text-slate-600 mt-0.5 truncate" title={tenant.id}>
-                {tenant.id}
+              <span className="text-slate-400 font-medium block">Workspace code:</span>
+              <p className="font-mono text-[11px] text-slate-600 mt-0.5 truncate" title={tenant.slug}>
+                {tenant.slug}
               </p>
             </div>
           </div>

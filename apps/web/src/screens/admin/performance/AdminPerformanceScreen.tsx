@@ -1,3 +1,4 @@
+import { displayReference } from "../../../common/displayReference";
 import { useMemo, useState } from "react";
 import { getUserRoleLabel } from "../../../common/roleLabels";
 import { useQuery } from "@tanstack/react-query";
@@ -671,7 +672,7 @@ export function AdminPerformanceScreen() {
                                 {activity.leadName}
                               </p>
                               <p className="text-muted-foreground">
-                                {activity.leadDisplayId ?? activity.leadId}
+                                {displayReference(activity.leadDisplayId, "Lead")}
                               </p>
                             </>
                           ) : (

@@ -1,3 +1,4 @@
+import { displayReference } from "../../../../common/displayReference";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -244,7 +245,7 @@ function LeadCard({
             <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-semibold text-slate-400">
               <span className="truncate">{lead.mobile}</span>
               <span aria-hidden="true">·</span>
-              <span className="shrink-0">{lead.displayId}</span>
+              <span className="shrink-0">{displayReference(lead.displayId, "Lead")}</span>
             </div>
           </div>
           <Button

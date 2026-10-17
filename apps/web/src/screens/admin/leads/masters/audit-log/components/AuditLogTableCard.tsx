@@ -1,3 +1,4 @@
+import { displayReference } from "../../../../../../common/displayReference";
 import {
   ChevronLeft,
   ChevronRight,
@@ -125,7 +126,7 @@ export function AuditLogTableCard({
                 onClick={() => onRowClick?.(row)}
               >
                 <td className="px-5 py-3 font-semibold text-secondary">
-                  {row.id}
+                  {displayReference(row.id, "Event")}
                 </td>
                 <td className="px-5 py-3 font-medium text-secondary">
                   {row.dateTime}

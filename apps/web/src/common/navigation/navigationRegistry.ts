@@ -434,14 +434,6 @@ export const navigationRegistry: NavigationItem[] = [
         roleScopes: ["ADMIN", "SUPER_ADMIN"],
       },
       {
-        id: "settings.mobile-app",
-        label: "Mobile app",
-        to: "/settings/mobile-app",
-        moduleKey: "mobile_app",
-        pageKey: "page.mobile_app",
-        roleScopes: ["ADMIN", "SUPER_ADMIN"],
-      },
-      {
         id: "settings.email",
         label: "Email Connectors",
         to: "/settings/email",
@@ -654,6 +646,14 @@ export const platformSuperAdminNavigation: NavigationItem[] = [
     icon: ShieldCheck,
     to: "/superadmin/settings",
     matchPaths: ["/superadmin/settings"],
+    roleScopes: ["SUPER_ADMIN"],
+  },
+  {
+    id: "platform.mobile-app",
+    label: "Mobile app releases",
+    icon: Settings,
+    to: "/superadmin/mobile-app",
+    matchPaths: ["/superadmin/mobile-app"],
     roleScopes: ["SUPER_ADMIN"],
   },
 ];

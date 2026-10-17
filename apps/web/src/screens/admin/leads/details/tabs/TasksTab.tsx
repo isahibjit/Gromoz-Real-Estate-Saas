@@ -1,3 +1,4 @@
+import { displayReference } from "../../../../../common/displayReference";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -516,7 +517,7 @@ function TaskList({
                     className="bg-white transition-colors hover:bg-slate-50"
                   >
                     <td className="px-4 py-4 font-extrabold text-secondary">
-                      {task.id.slice(0, 8).toUpperCase()}
+                      {displayReference(task.id, "Task")}
                     </td>
                     <td className="px-4 py-4">
                       <p className="font-extrabold text-secondary">

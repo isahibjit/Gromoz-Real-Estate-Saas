@@ -300,6 +300,11 @@ const superAdminNavCategories: NavCategory[] = [
         icon: Settings,
         to: "/superadmin/settings",
       },
+      {
+        label: "Mobile app releases",
+        icon: Smartphone,
+        to: "/superadmin/mobile-app",
+      },
     ],
   },
 ];

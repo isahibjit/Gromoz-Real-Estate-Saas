@@ -1,3 +1,4 @@
+import { displayReference } from "../../../../common/displayReference";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import {
   Badge,
@@ -104,7 +105,7 @@ export function UnassignedLeadsTable({
                   />
                 </TableCell>
                 <TableCell className="whitespace-nowrap px-4 py-3 text-xs font-extrabold text-secondary">
-                  {lead.id}
+                  {displayReference(lead.id, "Lead")}
                 </TableCell>
                 <TableCell className="whitespace-nowrap px-4 py-3 text-xs font-bold">
                   {lead.customerName}

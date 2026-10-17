@@ -1,3 +1,4 @@
+import { presentRecordDetails } from "../../../../../common/displayReference";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -184,14 +185,14 @@ export function TestHousingConnectionScreen() {
                     </div>
                     <p className="font-medium text-[11px]">{lastResult.message || lastResult.error}</p>
                     {lastResult.leadId && (
-                      <p className="mt-2 text-xs font-extrabold">Created Lead ID: {lastResult.leadId}</p>
+                      <p className="mt-2 text-xs font-extrabold">Lead created successfully</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-xs font-extrabold text-secondary">Server Response JSON:</label>
                     <pre className="font-mono text-xs font-bold rounded-xl border border-slate-200 p-4 bg-slate-50 text-slate-800 overflow-x-auto">
-                      {JSON.stringify(lastResult, null, 2)}
+                      {JSON.stringify(presentRecordDetails(lastResult), null, 2)}
                     </pre>
                   </div>
                 </div>

@@ -1,3 +1,4 @@
+import { displayReference } from "../../../common/displayReference";
 import {
   ArrowLeft,
   Briefcase,
@@ -216,7 +217,7 @@ export function TelecallerLeadDetailsScreen() {
                           Lead ID
                         </span>
                         <span className="font-extrabold text-secondary">
-                          {data.id}
+                          {displayReference(data.id, "Lead")}
                         </span>
                       </div>
                       <div className="flex justify-between items-center text-xs">

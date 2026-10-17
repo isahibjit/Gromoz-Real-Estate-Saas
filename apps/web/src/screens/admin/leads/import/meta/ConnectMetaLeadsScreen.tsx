@@ -1,3 +1,4 @@
+import { displayReference } from "../../../../../common/displayReference";
 import {
   ArrowLeft,
   Building2,
@@ -1642,7 +1643,7 @@ export function ConnectMetaLeadsScreen() {
                                   {log.leadgenId
                                     ? `Leadgen ID: ${log.leadgenId}`
                                     : log.displayId
-                                    ? `CRM lead: ${log.displayId}`
+                                    ? `CRM lead: ${displayReference(log.displayId, "Lead")}`
                                     : log.pageId
                                     ? `Page ID: ${log.pageId}`
                                     : "No lead ID supplied"}
@@ -1655,7 +1656,7 @@ export function ConnectMetaLeadsScreen() {
                               </div>
                               {log.displayId ? (
                                 <span className="text-xs font-extrabold text-primary">
-                                  {log.displayId}
+                                  {displayReference(log.displayId, "Lead")}
                                 </span>
                               ) : null}
                             </div>

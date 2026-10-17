@@ -1,3 +1,4 @@
+import { displayReference } from "../../../../common/displayReference";
 import { type ReactNode, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -342,7 +343,7 @@ export function LeadPreviewDialog({
                         {fallbackText(lead.name, "Unnamed lead")}
                       </p>
                       <p className="mt-1 text-xs font-bold text-muted-foreground">
-                        {fallbackText(lead.displayId, lead.id)}
+                        {displayReference(lead.displayId, "Lead")}
                       </p>
                     </div>
                     <div className="grid min-w-0 gap-2">

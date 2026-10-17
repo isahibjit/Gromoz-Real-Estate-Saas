@@ -1,3 +1,4 @@
+import { displayReference } from "../../common/displayReference";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -86,7 +87,7 @@ export function FieldExecutiveLeadsScreen() {
                     {lead.name}
                   </Link>
                   <p className="text-xs font-semibold text-muted-foreground">
-                    {lead.displayId} · {lead.mobileCountryCode} {lead.mobile}
+                    {displayReference(lead.displayId, "Lead")} · {lead.mobileCountryCode} {lead.mobile}
                   </p>
                 </TableCell>
                 <TableCell className="font-semibold">
@@ -164,7 +165,7 @@ export function FieldExecutiveLeadDetailsScreen() {
             {data.name}
           </h1>
           <p className="mt-1 text-sm font-semibold text-muted-foreground">
-            {data.displayId} · {data.mobileCountryCode} {data.mobile}
+            {displayReference(data.displayId, "Lead")} · {data.mobileCountryCode} {data.mobile}
           </p>
         </div>
         <Button type="button" asChild>
@@ -218,7 +219,7 @@ export function FieldExecutiveLeadDetailsScreen() {
             {data.siteVisits?.map((visit: any) => (
               <div key={visit.id} className="rounded-md bg-slate-50 p-3">
                 <p className="font-bold text-secondary">
-                  {visit.displayId ?? "Site Visit"} ·{" "}
+                  {displayReference(visit.displayId, "Site visit")} ·{" "}
                   {toDate(visit.scheduledAt)}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -295,7 +296,7 @@ function CreateFollowUpDialog({
             <SelectContent>
               {leads.map((lead) => (
                 <SelectItem key={lead.id} value={lead.id}>
-                  {lead.name} · {lead.displayId}
+                  {lead.name} · {displayReference(lead.displayId, "Lead")}
                 </SelectItem>
               ))}
             </SelectContent>

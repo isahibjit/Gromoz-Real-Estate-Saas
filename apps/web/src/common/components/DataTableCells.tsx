@@ -1,3 +1,4 @@
+import { displayReference } from "../displayReference";
 import { Link } from "react-router-dom";
 import { Avatar, AvatarImage, AvatarFallback, Badge } from "ui";
 import { HrEmployeeIdentityCell } from "../../screens/hr/components/HrEmployeeIdentityCell";
@@ -43,10 +44,10 @@ export function LeadCell({
         </Link>
         <div className="mt-0.5 flex items-center gap-1 text-[12px] font-semibold text-muted-foreground">
           <span className="truncate">{phone || "-"}</span>
-          {!hideLeadCode && (
+          {!hideLeadCode && displayReference(displayId, "") && (
             <>
               <span className="size-1 shrink-0 rounded-full bg-slate-300" />
-              <span className="truncate uppercase">#{displayId || id.slice(0, 8)}</span>
+              <span className="truncate uppercase">#{displayReference(displayId, "")}</span>
             </>
           )}
         </div>
@@ -123,7 +124,7 @@ export function ExecutiveCell({
     <div className="flex min-w-0 items-center">
       <HrEmployeeIdentityCell
         fullName={name || "Assigned Staff"}
-        email={email || `ID: ${id?.slice(0, 8) ?? "N/A"}`}
+        email={email}
         image={image}
         disabled
       />

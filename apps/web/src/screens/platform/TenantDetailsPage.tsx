@@ -1,3 +1,4 @@
+import { displayReference } from "../../common/displayReference";
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -629,7 +630,7 @@ export function TenantDetailsPage() {
                   Last Invoice
                 </span>
                 <span className="font-mono font-bold text-slate-800">
-                  {tenant.billingDetails?.lastInvoiceId || (tenant.subscriptionStatus === 'Trialing' ? '—' : `INV-${tenant.slug.toUpperCase()}-001`)}
+                  {displayReference(tenant.billingDetails?.lastInvoiceId, "No invoice issued")}
                 </span>
               </div>
               <div className="flex items-center justify-between">

@@ -1,3 +1,4 @@
+import { displayReference } from "../../common/displayReference";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -732,7 +733,7 @@ export function EmployeeTasksScreen() {
                           <>
                             <span className="block">{task.leadName}</span>
                             <span className="text-muted-foreground">
-                              {task.leadDisplayId} · {task.leadRequirement || task.leadLocation || "Lead"}
+                              {displayReference(task.leadDisplayId, "Lead")} · {task.leadRequirement || task.leadLocation || "Lead"}
                             </span>
                           </>
                         ) : (

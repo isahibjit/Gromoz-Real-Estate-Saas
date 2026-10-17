@@ -38,6 +38,7 @@ import {
 } from "ui";
 import { PageHeader, WorkspacePage } from "../../components/layout/PageHeader";
 import { api } from "../../common/api";
+import { displayReference, displayText, presentRecordDetails } from "../../common/displayReference";
 
 interface AuditLog {
   id: string;
@@ -55,6 +56,15 @@ interface AuditLog {
     role: string;
   } | null;
   organization: { id: string; name: string; slug: string } | null;
+}
+function resourceLabel(log: AuditLog) {
+  if (log.targetType === "USER" && log.targetId === log.user?.id) {
+    return log.user.fullName || log.user.email;
+  }
+  if (log.targetType === "ORGANIZATION" && log.targetId === log.organization?.id) {
+    return log.organization.name;
+  }
+  return displayReference(log.targetId, log.targetType?.toLowerCase().replaceAll("_", " ") || "Not recorded");
 }
 const isSecurityEvent = (action: string) =>
   /LOGIN_FAILED|LOGIN_BLOCKED|LOCK|PERMISSION|ROLE|SECURITY|PASSWORD|TWO_FACTOR|LOGOUT/i.test(
@@ -183,7 +193,7 @@ export function PlatformAuditLogsScreen() {
             log.user?.email,
             log.organization?.name || "Global platform",
             log.targetType,
-            log.targetId,
+            resourceLabel(log),
             log.ip,
           ].some((value) => value?.toLowerCase().includes(term))) &&
         (tenant === "all" || (log.organization?.id ?? "global") === tenant) &&
@@ -509,13 +519,8 @@ export function PlatformAuditLogsScreen() {
                     <p className="text-xs text-secondary">
                       {log.targetType || "—"}
                     </p>
-                    <p
-                      className="mt-1 font-mono text-xs text-muted-foreground"
-                      title={log.targetId || undefined}
-                    >
-                      {log.targetId
-                        ? `${log.targetId.slice(0, 8)}…`
-                        : "No resource ID"}
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {resourceLabel(log)}
                     </p>
                   </TableCell>
                   <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
@@ -525,7 +530,7 @@ export function PlatformAuditLogsScreen() {
                     <Button
                       variant="outline"
                       size="sm"
-                      aria-label={`View event ${log.id}`}
+                      aria-label={`View event ${offset + index + 1}`}
                       onClick={() => setSelected(log)}
                     >
                       View
@@ -605,7 +610,6 @@ export function PlatformAuditLogsScreen() {
               </Badge>
               <dl className="grid gap-4 text-sm sm:grid-cols-2">
                 {[
-                  ["Event ID", selected.id],
                   ["Timestamp", dateLabel(selected.createdAt)],
                   ["Operator", selected.user?.email || "System"],
                   [
@@ -613,20 +617,20 @@ export function PlatformAuditLogsScreen() {
                     selected.organization?.name || "Global platform",
                   ],
                   ["Resource type", selected.targetType || "Not recorded"],
-                  ["Resource ID", selected.targetId || "Not recorded"],
+                  ["Resource", resourceLabel(selected)],
                   ["IP address", selected.ip || "Not recorded"],
                   ["User agent", selected.userAgent || "Not recorded"],
                 ].map(([label, value]) => (
                   <div key={label}>
                     <dt className="text-xs text-muted-foreground">{label}</dt>
-                    <dd className="mt-1 break-words font-medium">{value}</dd>
+                    <dd className="mt-1 break-words font-medium">{displayText(value)}</dd>
                   </div>
                 ))}
               </dl>
               <div>
                 <h3 className="mb-2 text-sm font-semibold">Event metadata</h3>
                 <pre className="max-h-64 overflow-auto rounded-lg bg-muted p-4 text-xs">
-                  {JSON.stringify(selected.metadata ?? {}, null, 2)}
+                  {JSON.stringify(presentRecordDetails(selected.metadata ?? {}), null, 2)}
                 </pre>
               </div>
             </div>

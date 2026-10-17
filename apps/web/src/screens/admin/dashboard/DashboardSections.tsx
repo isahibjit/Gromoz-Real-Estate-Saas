@@ -1,3 +1,4 @@
+import { displayReference } from "../../../common/displayReference";
 import { useEffect, useMemo, useState } from "react";
 import { getUserRoleLabel } from "../../../common/roleLabels";
 import { Link } from "react-router-dom";
@@ -637,7 +638,7 @@ export function PendingFollowUpsPanel({
                   {row.isOverdue ? "Overdue" : "Due today"}
                 </Badge>
               </div>
-              <p className="mt-1 break-words text-xs text-muted-foreground">{row.leadDisplayId}</p>
+              <p className="mt-1 break-words text-xs text-muted-foreground">{displayReference(row.leadDisplayId, "Lead")}</p>
               <p className="mt-2 line-clamp-2 break-words text-sm text-foreground" title={row.nextAction}>{row.nextAction}</p>
               <div className="mt-2 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                 <Avatar className="size-6 shrink-0" style={{ width: 24, height: 24, minWidth: 24, minHeight: 24, maxWidth: 24, maxHeight: 24 }}>

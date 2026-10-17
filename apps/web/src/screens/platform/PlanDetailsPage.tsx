@@ -51,7 +51,7 @@ export function PlanDetailsPage() {
         <div>
           <h2 className="text-xl font-extrabold text-primary">Plan Not Found</h2>
           <p className="text-xs text-slate-500 font-medium mt-1">
-            {error || `The requested commercial plan '${planId}' does not exist or has been removed.`}
+            {error || "The requested commercial plan does not exist or has been removed."}
           </p>
         </div>
         <Button

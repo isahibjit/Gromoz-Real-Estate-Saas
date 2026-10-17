@@ -1,3 +1,4 @@
+import { displayReference } from "../../../common/displayReference";
 import {
   BriefcaseBusiness,
   CalendarCheck,
@@ -2614,14 +2615,14 @@ export function BookingsScreen() {
             type="button"
             className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
             onClick={() =>
-              navigate(`/leads/${row.leadDisplayId ?? row.leadId}`)
+              navigate(`/leads/${row.leadDisplayId}`)
             }
           >
             <p className="text-sm font-extrabold text-secondary">
               {row.leadName ?? "Unnamed lead"}
             </p>
             <p className="mt-1 text-xs font-semibold text-muted-foreground">
-              {row.leadDisplayId ?? row.leadId}
+              {displayReference(row.leadDisplayId, "Lead")}
             </p>
           </button>
         ),
@@ -2716,7 +2717,7 @@ export function BookingsScreen() {
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() =>
-                  navigate(`/leads/${row.leadDisplayId ?? row.leadId}`)
+                  navigate(`/leads/${row.leadDisplayId}`)
                 }
                 className="font-bold text-secondary"
               >
