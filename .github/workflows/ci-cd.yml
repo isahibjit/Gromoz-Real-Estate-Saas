@@ -1,146 +1,138 @@
-name: CI/CD Pipeline
+name: Build, test and deploy Gromoze
 
 on:
   push:
-    branches:
-      - main
-      - develop
+    branches: [main, develop]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never cancel a deployment while its migrations or restart are in progress.
+concurrency:
+  group: gromoze-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   ci:
+    name: Build and regression checks
     runs-on: ubuntu-latest
-
+    timeout-minutes: 20
     services:
       postgres:
-        image: postgres:15-alpine
+        image: postgres:18-alpine
         env:
-          POSTGRES_USER: trurootrealty
-          POSTGRES_PASSWORD: IAMPOSSIBLE1A!
-          POSTGRES_DB: trurootrealty
-        ports:
-          - 5432:5432
+          POSTGRES_USER: gromoze_ci
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: gromoze_ci
+        ports: [5432:5432]
         options: >-
-          --health-cmd "pg_isready -U trurootrealty -d trurootrealty"
+          --health-cmd "pg_isready -U gromoze_ci -d gromoze_ci"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
-
       redis:
         image: redis:7-alpine
-        ports:
-          - 6379:6379
-
+        ports: [6379:6379]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     env:
       NODE_ENV: test
-      DATABASE_URL: postgresql://trurootrealty:IAMPOSSIBLE1A!@127.0.0.1:5432/trurootrealty
-      REDIS_URL: redis://127.0.0.1:6379
-
+      DATABASE_URL: postgresql://gromoze_ci:ci-only-password@127.0.0.1:5432/gromoze_ci?schema=public
+      JWT_ACCESS_SECRET: ci-only-access-secret-at-least-32-characters
+      JWT_REFRESH_SECRET: ci-only-refresh-secret-at-least-32-characters
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      REDIS_KEY_PREFIX: 'gromoze-ci:'
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Check out tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          node-version: 22
+          persist-credentials: false
+      - name: Set up production Node version
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24.22.0
           cache: npm
-
-      - name: Install Dependencies
-        run: npm ci --include=optional
-
-      - name: Generate Prisma Client
-        run: npx prisma generate --schema=apps/api/prisma/schema.prisma
-
-      - name: Build Project
-        run: npm run build
-
-      - name: Run Migrations
-        run: npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
-
-      - name: Run Tests
-        run: npm test || true
+      - name: Install locked dependencies
+        run: npm ci --include=dev --no-audit --no-fund
+      - name: Build shared contracts
+        run: npm run build --workspace=@truroot/shared
+      - name: Generate database client and apply migrations to CI database
+        run: |
+          npx prisma generate --schema=apps/api/prisma/schema.prisma
+          npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
+      - name: Compile API without incremental artifacts
+        run: |
+          npx tsc -p apps/api/tsconfig.build.json --incremental false
+          test -f apps/api/dist/src/main.js
+      - name: API authentication, tenancy, portal and upload regression tests
+        run: >-
+          npm run test:ci --workspace=api --
+          src/auth/auth.controller.spec.ts
+          src/common/tenant/tenant.guard.spec.ts
+          src/common/tenant/tenant-access.service.spec.ts
+          src/crm/portal-accounts.controller.spec.ts
+          src/uploads/uploads.service.spec.ts
+          src/app.controller.spec.ts
+      - name: Web sign-in, OTP, recovery and tenant branding regression tests
+        run: >-
+          npm run test:ci --workspace=web -- --runInBand
+          src/screens/auth/login/login.test.tsx
+          src/screens/auth/login-otp/LoginOtpScreen.test.tsx
+          src/screens/auth/forgot-password/ForgotPasswordScreen.test.tsx
+          src/screens/auth/reset-password/ResetPasswordScreen.test.tsx
+          src/screens/admin/settings/LoginPagePreview.test.tsx
+      - name: Build production web application
+        run: npm run build --workspace=web
+        env:
+          NODE_ENV: production
+          VITE_API_URL: /api
 
   deploy:
+    name: Deploy crm.gromoze.com
     needs: ci
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-
+    timeout-minutes: 25
+    environment:
+      name: production
+      url: https://crm.gromoze.com
     steps:
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script_stop: true
-          debug: true
-          command_timeout: 30m
-          script: |
-            set -e
-            export NODE_OPTIONS="--max-old-space-size=4096 --use-system-ca"
-            export SMS_PROVIDER_ALLOW_INSECURE_TLS="true"
-
-            REPO_DIR="$HOME/apps/Trueroot-Realty-Real-Estate-CRM"
-            API_DIR="$REPO_DIR/apps/api"
-            WEB_DIR="$REPO_DIR/apps/web"
-
-            echo "Pull latest code"
-            cd "$REPO_DIR"
-
-            git fetch origin
-            git reset --hard origin/main
-
-            echo "Install dependencies"
-            npm install --include=optional
-
-            echo "Generate Prisma Client"
-            npx prisma generate --schema=apps/api/prisma/schema.prisma
-
-            echo "Run production migrations"
-            DATABASE_URL="postgresql://trurootrealty:IAMPOSSIBLE1A!@127.0.0.1:5440/trurootrealty?schema=public" \
-            npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
-
-            echo "Frontend environment"
-            if [ -z "${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}" ]; then
-              echo "Missing GitHub secret: VITE_GOOGLE_MAPS_API_KEY"
+      - name: Deploy the validated commit using the restricted SSH key
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_SSH_USER }}
+          DEPLOY_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.PRODUCTION_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          for value in DEPLOY_HOST DEPLOY_USER DEPLOY_KEY DEPLOY_KNOWN_HOSTS; do
+            if [ -z "${!value}" ]; then
+              echo "Missing production environment secret: $value" >&2
               exit 1
             fi
-            cat << 'EOF' | sed 's/^[ \t]*//' > "$WEB_DIR/.env"
-            VITE_API_URL=/api
-            VITE_GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
-            EOF
-
-            echo "Build project"
-            npm run build
-
-            echo "Verify API build"
-            test -f "$API_DIR/dist/src/main.js"
-
-            echo "Restart API"
-
-            pm2 delete truroot-api || true
-
-            cd "$API_DIR"
-
-            pm2 start dist/src/main.js \
-              --name truroot-api \
-              --update-env \
-              --cwd "$API_DIR"
-
-            pm2 save
-
-            echo "Deploy frontend"
-
-            sudo mkdir -p /var/www/truroot
-
-            sudo rm -rf /var/www/truroot/*
-
-            sudo cp -r "$WEB_DIR/dist/"* /var/www/truroot/
-
-            echo "Reload nginx"
-
-            sudo nginx -t
-            sudo systemctl reload nginx
-
-            echo "Deployment completed"
+          done
+          ssh_dir="$RUNNER_TEMP/gromoze-ssh"
+          install -d -m 700 "$ssh_dir"
+          trap 'rm -f "$ssh_dir/key" "$ssh_dir/known_hosts"' EXIT
+          umask 077
+          printf '%s\n' "$DEPLOY_KEY" > "$ssh_dir/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          ssh -i "$ssh_dir/key" \
+            -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$ssh_dir/known_hosts" \
+            -o ConnectTimeout=20 \
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
+            "$DEPLOY_USER@$DEPLOY_HOST" "deploy $GITHUB_SHA"
+      - name: Verify public API and web application
+        run: |
+          curl --fail --silent --show-error --retry 3 --max-time 30 https://crm.gromoze.com/api/health/ready
+          curl --fail --silent --show-error --retry 3 --max-time 30 --output /dev/null https://crm.gromoze.com/login
+          echo "Deployed commit $GITHUB_SHA to https://crm.gromoze.com" >> "$GITHUB_STEP_SUMMARY"

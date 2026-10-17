@@ -35,6 +35,32 @@ readiness. It preserves environment files and uploads. Deployment is in place an
 can briefly interrupt requests; it is not a zero-downtime release system. Before
 reverting an application commit, check whether new database migrations are backward compatible.
 
+## GitHub Actions
+
+`.github/workflows/ci-cd.yml` builds and runs named authentication, tenancy, portal,
+upload and branding regression suites on pushes and pull requests. These focused
+suites are not a claim of whole-product test coverage. Failures block deployment;
+test errors are never ignored. A successful `main` push deploys automatically,
+and the Actions tab also provides **Run workflow** on `main`.
+
+The `production` GitHub environment permits deployments from `main` and contains:
+
+- `PRODUCTION_SSH_HOST`: server IP.
+- `PRODUCTION_SSH_USER`: `ubuntu`.
+- `PRODUCTION_SSH_KEY`: a dedicated Actions private key, not the administrator PEM.
+- `PRODUCTION_SSH_KNOWN_HOSTS`: the verified server host key in known_hosts format.
+
+The corresponding public key in `/home/ubuntu/.ssh/authorized_keys` is restricted
+to `/usr/local/sbin/gromoze-deploy-trigger`, installed from `deploy-trigger.sh`.
+It cannot open an interactive shell or forward ports. The trigger accepts only
+`deploy <40-character commit SHA>`. The deployment script verifies that commit
+belongs to `origin/main`, requires a fast-forward, uses a deployment lock, and
+builds the exact CI-tested revision. Application secrets remain on the server.
+
+To rotate this key, install the new restricted public key, replace the encrypted
+GitHub environment secret, test a deployment, then remove the old public key.
+Do not remove the administrator's existing SSH key.
+
 ## First administrator
 
 Use the bootstrap helper only on a new empty user database:
