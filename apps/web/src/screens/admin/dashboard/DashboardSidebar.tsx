@@ -153,12 +153,12 @@ const defaultNavCategories: NavCategory[] = [
         to: "/site-visits",
         badge: "18 Today",
       },
-      {
-        label: "Live GPS Tracking",
-        icon: Radio,
-        to: "/site-visits/tracking",
-        badge: "Live",
-      },
+      // {
+      //   label: "Live GPS Tracking",
+      //   icon: Radio,
+      //   to: "/site-visits/tracking",
+      //   badge: "Live",
+      // },
     ],
   },
   {
