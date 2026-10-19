@@ -1212,7 +1212,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                                 email: event.target.value,
                               })
                             }
-                            placeholder="name@truroot.in"
+                            placeholder="name@example.com"
                             className={inputClassName}
                             disabled={isSubmitting}
                             required

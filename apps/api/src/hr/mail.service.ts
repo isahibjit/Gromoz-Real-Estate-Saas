@@ -23,7 +23,7 @@ export class MailService {
     const mailOptions = {
       to,
       subject: `Payslip for ${month} ${year} - ${name}`,
-      text: `Hello ${name},\n\nPlease find attached your payslip for the month of ${month} ${year}.\n\nNet Salary: ${netSalary}\n\nBest regards,\nHR Department\nTruroot Realty`,
+      text: `Hello ${name},\n\nPlease find attached your payslip for the month of ${month} ${year}.\n\nNet Salary: ${netSalary}\n\nBest regards,\nHR Department`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; rounded-radius: 8px;">
           <h2 style="color: #780037;">Payslip Issued</h2>
@@ -35,7 +35,7 @@ export class MailService {
           </div>
           <p>Please find the detailed PDF copy attached to this email.</p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-          <p style="font-size: 12px; color: #a0aec0;">This is an automated email from the Truroot Realty CRM Payroll system.</p>
+          <p style="font-size: 12px; color: #a0aec0;">This is an automated email from your CRM payroll system.</p>
         </div>
       `,
       attachments: [
@@ -63,7 +63,7 @@ export class MailService {
     html: string;
     fromName?: string | null;
   }): Promise<void> {
-    const fromName = options.fromName?.trim() || 'Truroot Realty HR';
+    const fromName = options.fromName?.trim() || 'HR team';
     const textFallback = options.html
       .replace(/<style[\s\S]*?<\/style>/gi, ' ')
       .replace(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -76,7 +76,7 @@ export class MailService {
       subject: options.subject,
       text:
         textFallback ||
-        'This is a test email sent from the Truroot Realty CRM template manager.',
+        'This is a test email sent from the CRM template manager.',
       html: options.html,
     };
 
@@ -149,7 +149,7 @@ export class MailService {
       text: [
         'CRM login alert',
         '',
-        'A user has successfully signed in to Truroot Realty CRM.',
+        'A user has successfully signed in to the CRM.',
         '',
         `Name        ${options.name}`,
         `Email       ${options.email}`,
@@ -161,7 +161,7 @@ export class MailService {
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; color: #202124; background-color: #ffffff;">
           <div style="text-align: center; margin-bottom: 24px;">
             <h2 style="margin: 0 0 12px 0; font-size: 22px; font-weight: 700; color: #202124; line-height: 1.3;">CRM login alert</h2>
-            <p style="margin: 0; font-size: 14px; color: #3c4043; line-height: 1.5;">A user has successfully signed in to Truroot Realty CRM.</p>
+            <p style="margin: 0; font-size: 14px; color: #3c4043; line-height: 1.5;">A user has successfully signed in to the CRM.</p>
           </div>
           <table style="margin: 0 auto; border-collapse: collapse; font-size: 14px; color: #202124; text-align: left;">
             <tr>
@@ -254,7 +254,7 @@ export class MailService {
         `Location      ${options.location}`,
         `Time          ${lockedAt}`,
         '',
-        'An administrator can review and reactivate this user account from the HR / Employee directory in Truroot Realty CRM.',
+        'An administrator can review and reactivate this user account from the HR / Employee directory in the CRM.',
       ].join('\n'),
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px 20px; color: #1e293b; background-color: #ffffff; border: 1px solid #fee2e2; border-radius: 12px;">
@@ -298,7 +298,7 @@ export class MailService {
             </tr>
           </table>
           <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; font-size: 13px; color: #475569; line-height: 1.5;">
-            <strong>Next Steps:</strong> You can review, verify, and reactivate this user account anytime from the <strong>HR / Employee Management</strong> screen in your Truroot CRM dashboard.
+            <strong>Next Steps:</strong> You can review, verify, and reactivate this user account anytime from the <strong>HR / Employee Management</strong> screen in your CRM dashboard.
           </div>
         </div>
       `,

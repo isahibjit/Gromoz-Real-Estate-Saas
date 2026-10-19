@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { api } from "../../../common/api";
+import { currentOrganizationId } from "../../../common/tenantRequestScope";
 import { RichEmailEditor } from "./RichEmailEditor";
 import {
   Badge,
@@ -30,18 +31,18 @@ type MailTemplateDefinition = {
   variables: Array<{ token: string; sample: string }>;
 };
 
-const STORAGE_KEY = "truroot_hr_mail_templates_v1";
+const STORAGE_KEY = "gromoze_hr_mail_templates_v1";
 
 const defaultTemplates: MailTemplateDefinition[] = [
   {
     key: "employee-welcome",
     label: "Employee Welcome",
-    description: "Used when a new employee account is created.",
-    subject: "Welcome to TrueRoot Realty, {{fullName}}",
-    fromName: "TrueRoot HR",
+    description: "Draft an employee welcome email.",
+    subject: "Welcome, {{fullName}}",
+    fromName: "HR team",
     enabled: true,
     htmlBody:
-      "<p>Hello {{fullName}},</p><p>Your employee account has been created successfully. You can now log in using your registered email or mobile number and temporary password.</p><p>Regards,<br/>TrueRoot HR Team</p>",
+      "<p>Hello {{fullName}},</p><p>Your employee account has been created successfully. You can now log in using your registered email or mobile number and temporary password.</p><p>Regards,<br/>HR team</p>",
     variables: [
       { token: "fullName", sample: "Khushvinder Kaur" },
       { token: "employeeCode", sample: "EMP-8833975F" },
@@ -51,9 +52,9 @@ const defaultTemplates: MailTemplateDefinition[] = [
   {
     key: "password-reset",
     label: "Password Reset",
-    description: "Sent when an employee password is changed or reset.",
-    subject: "Your TrueRoot account password has been updated",
-    fromName: "TrueRoot Security",
+    description: "Draft a password change notification.",
+    subject: "Your account password has been updated",
+    fromName: "Security team",
     enabled: true,
     htmlBody:
       "<p>Hello {{fullName}},</p><p>This is a confirmation that your account password was updated successfully.</p><p>If you did not request this change, please contact the administrator immediately.</p>",
@@ -65,9 +66,9 @@ const defaultTemplates: MailTemplateDefinition[] = [
   {
     key: "payslip-issued",
     label: "Payslip Issued",
-    description: "Sent when a finalized payslip is generated and shared.",
+    description: "Draft a payslip notification.",
     subject: "Payslip for {{month}} {{year}} is ready",
-    fromName: "TrueRoot Payroll",
+    fromName: "Payroll team",
     enabled: true,
     htmlBody:
       "<p>Hello {{fullName}},</p><p>Your payslip for {{month}} {{year}} has been generated.</p><p>Net pay: {{netPay}}</p><p>Please review the attached document for full details.</p>",
@@ -104,7 +105,7 @@ function buildPreviewHtml({
               ${
                 logoUrl
                   ? `<img src="${logoUrl}" alt="Brand logo" style="max-width:220px;max-height:56px;object-fit:contain;" />`
-                  : `<div style="color:#ffffff;font-size:28px;font-weight:800;letter-spacing:0.04em;">TRUEROOT</div>`
+                  : `<div style="color:#ffffff;font-size:28px;font-weight:800;letter-spacing:0.04em;">Gromoze</div>`
               }
             </div>
             <div style="font-size:15px;line-height:1.7;color:#334155;">
@@ -129,6 +130,14 @@ function dataURLtoFile(dataUrl: string, fileName: string) {
 }
 
 export function MailTemplateManager() {
+  const organizationId = currentOrganizationId();
+  if (!organizationId) {
+    return <p className="text-sm text-muted-foreground">Select a workspace to manage email templates.</p>;
+  }
+  return <TenantMailTemplateManager key={organizationId} storageKey={`${STORAGE_KEY}:${organizationId}`} />;
+}
+
+function TenantMailTemplateManager({ storageKey }: { storageKey: string }) {
   const [templates, setTemplates] = useState<MailTemplateDefinition[]>(
     defaultTemplates,
   );
@@ -144,7 +153,7 @@ export function MailTemplateManager() {
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
+    const stored = window.localStorage.getItem(storageKey);
     if (!stored) return;
     try {
       const parsed = JSON.parse(stored) as {
@@ -159,9 +168,9 @@ export function MailTemplateManager() {
       if (parsed.bannerColor) setBannerColor(parsed.bannerColor);
       if (parsed.logoUrl) setLogoUrl(parsed.logoUrl);
     } catch {
-      window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(storageKey);
     }
-  }, []);
+  }, [storageKey]);
 
   const selectedTemplate = useMemo(
     () => templates.find((template) => template.key === selectedKey) ?? null,
@@ -200,7 +209,7 @@ export function MailTemplateManager() {
   ) => {
     setTemplates(nextTemplates);
     window.localStorage.setItem(
-      STORAGE_KEY,
+      storageKey,
       JSON.stringify({
         templates: nextTemplates,
         bannerColor: nextBannerColor,
@@ -223,7 +232,7 @@ export function MailTemplateManager() {
         : template,
     );
     persistTemplates(nextTemplates);
-    toast.success("Email template saved.");
+    toast.success("Email template saved in this browser.");
   };
 
   const handleReset = () => {
@@ -613,16 +622,14 @@ export function MailTemplateManager() {
           </p>
           <div className="mt-3 space-y-3 text-xs font-semibold leading-5 text-muted-foreground">
             <p>
-              Shared branding applies to every template in this manager, so HR
-              communication stays visually consistent.
+              Template drafts and branding are saved in this browser for the selected workspace. They are not applied to automatic emails.
             </p>
             <p>
               Variable chips show the supported placeholders for the selected
               template.
             </p>
             <p>
-              Test send is simulated here for admin review until the central mail
-              API is wired in this workspace.
+              Test send uses the workspace email sender and sends a real email to the address you provide.
             </p>
           </div>
         </Card>

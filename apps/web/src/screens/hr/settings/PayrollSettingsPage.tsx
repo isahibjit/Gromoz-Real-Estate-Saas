@@ -20,6 +20,8 @@ import { api } from "../../../common/api";
 import { useAppSelector } from "../../../store";
 import { PayrollSettingsModal } from "../payroll/PayrollSettingsModal";
 import { MailTemplateManager } from "./MailTemplateManager";
+import { Link } from "react-router-dom";
+import { canAccess } from "../../../common/access/access";
 import { ClockTimePicker } from "../../admin/leads/assignment/ClockTimePicker";
 import {
   Coins,
@@ -29,21 +31,13 @@ import {
   CalendarRange,
   Scale,
   Award,
-  RefreshCw,
   Info,
-  Key,
-  FileText,
   Lock,
   Eye,
   EyeOff,
-  UserCheck,
-  X,
-  Shield,
   ShieldAlert,
   Activity,
-  User,
   Clock,
-  Laptop,
   PanelLeftClose,
   PanelLeftOpen,
   Loader2,
@@ -1057,7 +1051,7 @@ const IncentiveSettingsModal: React.FC<IncentiveSettingsModalProps> = ({
                     <div className="space-y-1 text-xs font-medium leading-relaxed text-blue-900">
                       <p>
                         Project Details remains the source of truth for each
-                        project's brokerage and incentive percentages.
+                        project&apos;s brokerage and incentive percentages.
                       </p>
                       <p>
                         These defaults are used only as fallback percentages
@@ -1203,76 +1197,6 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   );
 };
 
-// 3. AuditLogsModal
-interface AuditLogsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-const mockLogs = [
-  { time: "Just now", action: "SETTINGS_UPDATED", actor: "Admin User", ip: "192.168.1.48", status: "Success" },
-  { time: "10 mins ago", action: "PAYROLL_RUN_INITIATED", actor: "Admin User", ip: "192.168.1.48", status: "Success" },
-  { time: "2 hours ago", action: "LEAVE_APPROVED", actor: "HR Manager", ip: "192.168.1.12", status: "Success" },
-  { time: "Yesterday", action: "EMPLOYEE_CREATED", actor: "HR Manager", ip: "192.168.1.12", status: "Success" },
-  { time: "Yesterday", action: "LOGIN_SUCCESS", actor: "Sales Lead", ip: "103.58.20.14", status: "Success" },
-];
-
-const AuditLogsModal: React.FC<AuditLogsModalProps> = ({
-  isOpen,
-  onClose,
-}) => {
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl rounded-md p-6 bg-white">
-        <DialogHeader>
-          <div className="flex items-center gap-2 mb-2">
-            <FileText className="size-5 text-slate-500" />
-            <DialogTitle>Audit Logs</DialogTitle>
-          </div>
-          <DialogDescription>
-            System security log. Monitors all configuration modifications and access events.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="my-4 overflow-x-auto rounded-md border border-slate-100">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100 font-extrabold text-secondary">
-                <th className="p-3">Timestamp</th>
-                <th className="p-3">Event Action</th>
-                <th className="p-3">User</th>
-                <th className="p-3">IP Address</th>
-                <th className="p-3">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50 font-medium text-slate-700">
-              {mockLogs.map((log, idx) => (
-                <tr key={idx} className="hover:bg-slate-50/50">
-                  <td className="p-3 whitespace-nowrap text-slate-500">{log.time}</td>
-                  <td className="p-3 font-bold text-slate-800">{log.action}</td>
-                  <td className="p-3">{log.actor}</td>
-                  <td className="p-3 text-slate-500 font-mono">{log.ip}</td>
-                  <td className="p-3">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-700 border border-green-100">
-                      {log.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex justify-end pt-2">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Close
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
 // Main PayrollSettingsPage component (serves as the settings wrapper screen)
 export const PayrollSettingsPage: React.FC = () => {
   const user = useAppSelector((state) => state.auth.user);
@@ -1291,12 +1215,9 @@ export const PayrollSettingsPage: React.FC = () => {
   const [isIncentiveModalOpen, setIsIncentiveModalOpen] = useState(false);
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
-  const [isAuditLogsModalOpen, setIsAuditLogsModalOpen] = useState(false);
 
   // Security settings states
-  const [sessionTimeout, setSessionTimeout] = useState<number>(24);
   const [maxFailedAttempts, setMaxFailedAttempts] = useState<number>(3);
-  const [auditEnabled, setAuditEnabled] = useState<boolean>(true);
   const twoFactorSettingsQuery = useQuery({
     queryKey: ["auth", "two-factor-settings"],
     queryFn: async () => {
@@ -1364,24 +1285,6 @@ export const PayrollSettingsPage: React.FC = () => {
     updateSecuritySettingsMutation.mutate(val);
   };
 
-  // Load security settings from local storage
-  useEffect(() => {
-    const savedTimeout = localStorage.getItem("security_session_timeout");
-    if (savedTimeout) {
-      setSessionTimeout(Number(savedTimeout));
-    }
-    const savedAudit = localStorage.getItem("security_audit_enabled");
-    if (savedAudit) {
-      setAuditEnabled(savedAudit === "true");
-    }
-  }, []);
-
-  const handleTimeoutCommit = (val: number) => {
-    setSessionTimeout(val);
-    localStorage.setItem("security_session_timeout", String(val));
-    toast.success(`Session timeout updated to ${val} hours`);
-  };
-
   const handleTwoFactorRoleToggle = (role: UserRole, enabled: boolean) => {
     const currentSettings =
       twoFactorSettingsQuery.data ??
@@ -1399,12 +1302,6 @@ export const PayrollSettingsPage: React.FC = () => {
         enabled: settingByRole.get(roleKey) ?? false,
       })),
     );
-  };
-
-  const handleAuditToggle = (val: boolean) => {
-    setAuditEnabled(val);
-    localStorage.setItem("security_audit_enabled", String(val));
-    toast.success(`System audit logging ${val ? "enabled" : "disabled"}`);
   };
 
   const tabs = [
@@ -1581,39 +1478,18 @@ export const PayrollSettingsPage: React.FC = () => {
             )}
 
             {activeTab === "whatsapp" && (
-              <div className="space-y-8 animate-in fade-in duration-200">
-                <h2 className="text-2xl font-headline font-bold text-green-700">WhatsApp API Integration</h2>
-                <div className="bg-green-50/50 p-6 rounded-lg border border-green-100 flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white shrink-0">
-                    <RefreshCw className="size-5 animate-spin" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-green-900">API Status: Connected</p>
-                    <p className="text-xs text-green-700/60 font-medium font-mono">Using WhatsApp Business API v18.0</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4">
-                  {[
-                    { label: "Template Synchronization", desc: "Auto-sync WhatsApp templates from Meta portal", action: "Sync Now" },
-                    { label: "Webhook Endpoint", desc: "https://api.trurootrealty.com/api/v1/whatsapp/webhook", action: "Copy" },
-                    { label: "Message Rate Limit", desc: "Currently set to 100 messages/minute", action: "Configure" },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center justify-between p-6 rounded-lg bg-slate-50 border border-slate-100">
-                      <div>
-                        <p className="font-bold text-sm text-slate-800">{item.label}</p>
-                        <p className="text-xs text-slate-500 font-medium mt-1">{item.desc}</p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => toast.success(`${item.label} action triggered.`)}
-                      >
-                        {item.action}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+              <div className="space-y-4">
+                <h2 className="text-2xl font-headline font-bold text-secondary">WhatsApp settings</h2>
+                {(["ADMIN", "SUPER_ADMIN"].includes(user?.role ?? "") &&
+                  canAccess(user, "notifications") &&
+                  canAccess(user, "page.notification_settings")) ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">View your workspace provider configuration and delivery activity in notification settings.</p>
+                    <Button asChild><Link to="/settings/notifications">Open notification settings</Link></Button>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Contact your workspace administrator to manage WhatsApp notification settings.</p>
+                )}
               </div>
             )}
 
@@ -1629,28 +1505,6 @@ export const PayrollSettingsPage: React.FC = () => {
                 <div className="space-y-6">
                   {isAdmin && (
                     <>
-                      {/* Session Timeout */}
-                      <div className="p-6 rounded-lg bg-indigo-50/10 border border-indigo-100/50 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="font-bold text-sm text-indigo-900">Session Timeout</h4>
-                            <p className="text-xs text-slate-500 mt-1">Adjust how long users stay logged in (1 to 72 hours). Applies to new logins.</p>
-                          </div>
-                          <span className="text-sm font-black text-indigo-700 bg-indigo-50 px-3 py-1 rounded-md">{sessionTimeout} HOURS</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="1"
-                          max="72"
-                          step="1"
-                          value={sessionTimeout}
-                          onChange={(e) => setSessionTimeout(Number(e.target.value))}
-                          onMouseUp={() => handleTimeoutCommit(sessionTimeout)}
-                          onTouchEnd={() => handleTimeoutCommit(sessionTimeout)}
-                          className="w-full accent-primary cursor-pointer"
-                        />
-                      </div>
-
                       {/* Failed Login Lockout Threshold */}
                       <div className="p-6 rounded-lg bg-amber-50/20 border border-amber-200/60 space-y-4">
                         <div className="flex items-center justify-between">
@@ -1744,26 +1598,6 @@ export const PayrollSettingsPage: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Toggles */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="p-6 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between">
-                          <div>
-                            <span className="text-sm font-bold text-slate-700 block">Audit Logging</span>
-                            <span
-                              className="text-xs font-bold text-primary cursor-pointer hover:underline"
-                              onClick={() => setIsAuditLogsModalOpen(true)}
-                            >
-                              View System Logs
-                            </span>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={auditEnabled}
-                            onChange={(e) => handleAuditToggle(e.target.checked)}
-                            className="w-4 h-4 text-primary border-slate-300 rounded focus:ring-primary cursor-pointer"
-                          />
-                        </div>
-                      </div>
                     </>
                   )}
 
@@ -1803,10 +1637,6 @@ export const PayrollSettingsPage: React.FC = () => {
       <ChangePasswordModal
         isOpen={isChangePasswordModalOpen}
         onClose={() => setIsChangePasswordModalOpen(false)}
-      />
-      <AuditLogsModal
-        isOpen={isAuditLogsModalOpen}
-        onClose={() => setIsAuditLogsModalOpen(false)}
       />
     </div>
   );

@@ -1,19 +1,31 @@
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { ServiceUnavailableException } from '@nestjs/common';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
 import * as nodemailer from 'nodemailer';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { EmailConnectorsService } from './email-connectors.service';
+import { TenantContextService } from '../common/tenant/tenant-context.service';
+import { TenantGuard } from '../common/tenant/tenant.guard';
+import { EmailConnectorsController } from './email-connectors.controller';
+import { MailController } from '../hr/hr.controllers';
 
 jest.mock('nodemailer', () => ({ createTransport: jest.fn() }));
 
 describe('Email delivery', () => {
   const prisma = {
-    emailConnector: { findFirst: jest.fn(), findUnique: jest.fn() },
-    emailLog: { create: jest.fn() },
+    emailConnector: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    emailLog: { create: jest.fn(), findMany: jest.fn() },
+    $transaction: jest.fn(),
   };
   const sendMail = jest.fn();
   const settings: Record<string, string | boolean | number> = {};
+  const tenant = { getTenantId: jest.fn(), getRequiredTenantId: jest.fn() };
   let service: EmailConnectorsService;
   const options = {
     to: 'owner@example.test',
@@ -23,6 +35,9 @@ describe('Email delivery', () => {
 
   beforeEach(async () => {
     jest.resetAllMocks();
+    prisma.$transaction.mockImplementation((fn) => fn(prisma));
+    tenant.getTenantId.mockReturnValue(undefined);
+    tenant.getRequiredTenantId.mockReturnValue('tenant-a');
     Object.keys(settings).forEach((key) => delete settings[key]);
     Object.assign(settings, {
       SMTP_USER: 'platform@example.test',
@@ -41,6 +56,7 @@ describe('Email delivery', () => {
       providers: [
         EmailConnectorsService,
         { provide: PrismaService, useValue: prisma },
+        { provide: TenantContextService, useValue: tenant },
         {
           provide: ConfigService,
           useValue: { get: (key: string) => settings[key] },
@@ -74,7 +90,8 @@ describe('Email delivery', () => {
   });
 
   it('keeps explicit workspace connectors for existing mail flows', async () => {
-    prisma.emailConnector.findUnique.mockResolvedValue({
+    tenant.getTenantId.mockReturnValue('tenant-a');
+    prisma.emailConnector.findFirst.mockResolvedValue({
       id: 'workspace',
       isActive: true,
       host: 'smtp.example.test',
@@ -85,6 +102,9 @@ describe('Email delivery', () => {
       fromEmail: 'workspace@example.test',
     });
     await service.sendEmail({ ...options, connectorId: 'workspace' });
+    expect(prisma.emailConnector.findFirst).toHaveBeenCalledWith({
+      where: { id: 'workspace', organizationId: 'tenant-a' },
+    });
     expect(nodemailer.createTransport).toHaveBeenCalledWith(
       expect.objectContaining({
         host: 'smtp.example.test',
@@ -168,7 +188,8 @@ describe('Email delivery', () => {
   });
 
   it('rejects an inactive explicitly selected connector', async () => {
-    prisma.emailConnector.findUnique.mockResolvedValue({
+    tenant.getTenantId.mockReturnValue('tenant-a');
+    prisma.emailConnector.findFirst.mockResolvedValue({
       id: 'workspace',
       isActive: false,
     });
@@ -176,5 +197,92 @@ describe('Email delivery', () => {
       service.sendEmail({ ...options, connectorId: 'workspace' }),
     ).rejects.toThrow('inactive');
     expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it("does not return connector passwords or other tenants' logs", async () => {
+    await service.listConnectors();
+    await service.listEmailLogs();
+    expect(prisma.emailConnector.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { organizationId: 'tenant-a' },
+        select: expect.not.objectContaining({ password: expect.anything() }),
+      }),
+    );
+    expect(prisma.emailLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { organizationId: 'tenant-a' },
+      }),
+    );
+  });
+
+  it('cannot use another workspace connector', async () => {
+    tenant.getTenantId.mockReturnValue('tenant-a');
+    prisma.emailConnector.findFirst.mockResolvedValue(null);
+    await expect(
+      service.sendEmail({ ...options, connectorId: 'tenant-b-connector' }),
+    ).rejects.toThrow('Email connector not found');
+    expect(prisma.emailConnector.findFirst).toHaveBeenCalledWith({
+      where: { id: 'tenant-b-connector', organizationId: 'tenant-a' },
+    });
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it('guards both connector and template email routes with tenant resolution', () => {
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, EmailConnectorsController),
+    ).toContain(TenantGuard);
+    expect(Reflect.getMetadata(GUARDS_METADATA, MailController)).toContain(
+      TenantGuard,
+    );
+  });
+
+  it('cannot update or delete a connector belonging to another workspace', async () => {
+    prisma.emailConnector.findFirst.mockResolvedValue(null);
+    await expect(
+      service.updateConnector('tenant-b-connector', { name: 'Changed' }),
+    ).rejects.toThrow('Email connector not found');
+    await expect(service.deleteConnector('tenant-b-connector')).rejects.toThrow(
+      'Email connector not found',
+    );
+    expect(prisma.emailConnector.findFirst).toHaveBeenCalledWith({
+      where: { id: 'tenant-b-connector', organizationId: 'tenant-a' },
+    });
+  });
+
+  it('creates and resets default connectors only in the active workspace without returning passwords', async () => {
+    prisma.emailConnector.create.mockResolvedValue({ id: 'new' });
+    await service.createConnector({
+      name: 'Workspace',
+      host: 'smtp.example.test',
+      username: 'tenant@example.test',
+      password: 'secret',
+      fromEmail: 'tenant@example.test',
+      isDefault: true,
+    });
+    expect(prisma.emailConnector.updateMany).toHaveBeenCalledWith({
+      where: { organizationId: 'tenant-a', isDefault: true },
+      data: { isDefault: false },
+    });
+    expect(prisma.emailConnector.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ organizationId: 'tenant-a' }),
+        select: expect.not.objectContaining({ password: expect.anything() }),
+      }),
+    );
+  });
+
+  it('records platform-fallback mail under the active tenant without using a global connector', async () => {
+    tenant.getTenantId.mockReturnValue('tenant-a');
+    prisma.emailConnector.findFirst.mockResolvedValue(null);
+    await service.sendEmail(options);
+    expect(prisma.emailConnector.findFirst).toHaveBeenCalledWith({
+      where: { organizationId: 'tenant-a', isDefault: true, isActive: true },
+    });
+    expect(prisma.emailLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        organizationId: 'tenant-a',
+        connectorId: null,
+      }),
+    });
   });
 });

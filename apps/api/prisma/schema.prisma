@@ -92,6 +92,8 @@ model Organization {
   notifications           Notification[]
   whatsappConfig          OrganizationWhatsAppConfig?
   whatsappDispatches      WhatsAppDispatch[]
+  emailConnectors         EmailConnector[]
+  emailLogs               EmailLog[]
 
   createdAt               DateTime                @default(now())
   updatedAt               DateTime                @updatedAt
@@ -1529,6 +1531,8 @@ model PayrollSetting {
 
 model EmailConnector {
   id             String     @id @default(uuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name           String
   provider       String     @default("smtp")
   host           String     @default("smtp.gmail.com")
@@ -1547,10 +1551,14 @@ model EmailConnector {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
   logs           EmailLog[]
+
+  @@index([organizationId, isDefault, isActive])
 }
 
 model EmailLog {
   id          String          @id @default(uuid())
+  organizationId String?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   connectorId String?
   connector   EmailConnector? @relation(fields: [connectorId], references: [id], onDelete: SetNull)
   recipient   String
@@ -1560,6 +1568,8 @@ model EmailLog {
   entityType  String?
   entityId    String?
   sentAt      DateTime        @default(now())
+
+  @@index([organizationId, sentAt])
 }
 
 model HousingIntegration {

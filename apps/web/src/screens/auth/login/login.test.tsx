@@ -130,6 +130,28 @@ test("preserves tenant branding and the tenant layout after host resolution", as
   expect(container.querySelector(".platform-login")).toBeNull();
 });
 
+test("does not apply another workspace's legacy cached login settings", async () => {
+  localStorage.setItem("truroot_login_cms", JSON.stringify({
+    cardTitle: "Other workspace sign in",
+    supportEmail: "other@example.invalid",
+    heroLogoUrl: "/other-workspace-logo.png",
+  }));
+  mockedResolveTenant.mockResolvedValueOnce({
+    id: "tenant-cedar",
+    name: "Cedar Realty",
+    slug: "cedar",
+    status: "ACTIVE",
+    logoUrl: null,
+    loginCms: null,
+  });
+
+  const { container } = renderLoginScreen();
+  expect(await screen.findByRole("heading", { name: "Welcome to Cedar Realty" })).toBeInTheDocument();
+  expect(screen.queryByText("Other workspace sign in")).not.toBeInTheDocument();
+  expect(screen.queryByText("other@example.invalid")).not.toBeInTheDocument();
+  expect(container.querySelector('img[src="/other-workspace-logo.png"]')).toBeNull();
+});
+
 test("renders the login screen content", () => {
   renderLoginScreen();
 

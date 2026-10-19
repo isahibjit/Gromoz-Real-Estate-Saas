@@ -30,6 +30,7 @@ import {
   cn,
 } from "ui";
 import { api } from "../../../common/api";
+import { currentOrganizationId } from "../../../common/tenantRequestScope";
 
 type EmailConnectorItem = {
   id: string;
@@ -86,10 +87,10 @@ const PROVIDER_PRESETS = [
 
 export function EmailSettingsScreen() {
   const queryClient = useQueryClient();
+  const organizationId = currentOrganizationId();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingConnector, setEditingConnector] =
     useState<EmailConnectorItem | null>(null);
-  const [testRecipient, setTestRecipient] = useState("");
   const [testingId, setTestingId] = useState<string | null>(null);
   const [deletingConnector, setDeletingConnector] =
     useState<EmailConnectorItem | null>(null);
@@ -101,16 +102,16 @@ export function EmailSettingsScreen() {
     host: "smtp.gmail.com",
     port: 465,
     secure: true,
-    username: "crmbigboss184@gmail.com",
-    password: "Bigboss185@CRM***",
-    fromName: "Truroot Realty",
-    fromEmail: "crmbigboss184@gmail.com",
+    username: "",
+    password: "",
+    fromName: "",
+    fromEmail: "",
     notificationEmail: "",
     isDefault: true,
   });
 
   const connectorsQuery = useQuery<EmailConnectorItem[]>({
-    queryKey: ["email-connectors"],
+    queryKey: ["email-connectors", organizationId],
     queryFn: async () => {
       const response = await api.get("/email-connectors");
       return response.data;
@@ -118,7 +119,7 @@ export function EmailSettingsScreen() {
   });
 
   const logsQuery = useQuery<EmailLogItem[]>({
-    queryKey: ["email-connector-logs"],
+    queryKey: ["email-connector-logs", organizationId],
     queryFn: async () => {
       const response = await api.get("/email-connectors/logs");
       return response.data;
@@ -213,7 +214,7 @@ export function EmailSettingsScreen() {
       secure: connector.secure,
       username: connector.username,
       password: "",
-      fromName: connector.fromName || "Truroot Realty",
+      fromName: connector.fromName || "",
       fromEmail: connector.fromEmail,
       notificationEmail: connector.notificationEmail || "",
       isDefault: connector.isDefault,
@@ -229,10 +230,10 @@ export function EmailSettingsScreen() {
       host: "smtp.gmail.com",
       port: 465,
       secure: true,
-      username: "crmbigboss184@gmail.com",
-      password: "Bigboss185@CRM***",
-      fromName: "Truroot Realty",
-      fromEmail: "crmbigboss184@gmail.com",
+      username: "",
+      password: "",
+      fromName: "",
+      fromEmail: "",
       notificationEmail: "",
       isDefault: true,
     });
@@ -389,7 +390,7 @@ export function EmailSettingsScreen() {
                       setTestingId(connector.id);
                       testConnectionMutation.mutate({
                         id: connector.id,
-                        email: testRecipient || connector.fromEmail,
+                        email: connector.fromEmail,
                       });
                     }}
                     disabled={testingId === connector.id}
@@ -453,11 +454,7 @@ export function EmailSettingsScreen() {
               No Email Accounts Linked Yet
             </h3>
             <p className="mt-1 max-w-md text-xs font-semibold text-muted-foreground leading-5">
-              Link your SMTP email credentials (e.g. Gmail
-              <code className="mx-1 rounded bg-slate-100 px-1 py-0.5 text-secondary">
-                crmbigboss184@gmail.com
-              </code>
-              ) to send lead follow-ups and project brochures.
+              Link your workspace SMTP account to send lead follow-ups and project brochures.
             </p>
             <Button
               type="button"
@@ -554,11 +551,7 @@ export function EmailSettingsScreen() {
                 : "Link Email Account (SMTP)"}
             </DialogTitle>
             <DialogDescription className="text-xs font-semibold text-muted-foreground">
-              Configure SMTP credentials (such as Gmail
-              <code className="mx-1 rounded bg-slate-100 px-1 py-0.5 text-secondary">
-                crmbigboss184@gmail.com
-              </code>
-              ) to enable automated email dispatch.
+              Configure your workspace SMTP account to enable email dispatch.
             </DialogDescription>
           </DialogHeader>
 
@@ -612,7 +605,7 @@ export function EmailSettingsScreen() {
                 </label>
                 <Input
                   required
-                  placeholder="e.g. Truroot Realty"
+                  placeholder="e.g. Your company"
                   value={formState.fromName}
                   onChange={(e) =>
                     setFormState({ ...formState, fromName: e.target.value })
@@ -628,7 +621,7 @@ export function EmailSettingsScreen() {
                 <Input
                   required
                   type="email"
-                  placeholder="crmbigboss184@gmail.com"
+                  placeholder="name@example.com"
                   value={formState.username}
                   onChange={(e) =>
                     setFormState({
@@ -682,7 +675,7 @@ export function EmailSettingsScreen() {
                 </label>
                 <Input
                   type="email"
-                  placeholder="e.g. rajeshmourya184@gmail.com"
+                  placeholder="notifications@example.com"
                   value={formState.notificationEmail}
                   onChange={(e) =>
                     setFormState({ ...formState, notificationEmail: e.target.value })
@@ -704,7 +697,7 @@ export function EmailSettingsScreen() {
                   placeholder={
                     editingConnector
                       ? "•••••••• (Leave blank to keep current)"
-                      : "Bigboss185@CRM***"
+                      : "Enter your SMTP password"
                   }
                   value={formState.password}
                   onChange={(e) =>
@@ -738,7 +731,7 @@ export function EmailSettingsScreen() {
                     <li>
                       Ensure 2-Step Verification is ON for{" "}
                       <code className="bg-amber-100 px-1 py-0.5 rounded font-bold text-amber-950">
-                        {formState.username || "crmbigboss184@gmail.com"}
+                        {formState.username || "your Google account"}
                       </code>
                     </li>
                     <li>

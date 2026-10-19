@@ -380,7 +380,6 @@ export function WorkspaceSettingsPage() {
       ...newBranding,
     };
     localStorage.setItem(`visiblo_workspace_branding_${activeOrgId}`, JSON.stringify(brandingPayload));
-    localStorage.setItem("truroot_workspace_branding", JSON.stringify(brandingPayload));
     window.dispatchEvent(new Event("workspace_branding_updated"));
     window.dispatchEvent(new Event("storage"));
 
@@ -424,7 +423,6 @@ export function WorkspaceSettingsPage() {
         sidebarHeaderBg: form.sidebarHeaderBg,
       };
       localStorage.setItem(`visiblo_workspace_branding_${activeOrgId}`, JSON.stringify(brandingPayload));
-      localStorage.setItem("truroot_workspace_branding", JSON.stringify(brandingPayload));
       window.dispatchEvent(new Event("workspace_branding_updated"));
       window.dispatchEvent(new Event("storage"));
 
@@ -445,8 +443,6 @@ export function WorkspaceSettingsPage() {
       });
 
       setLoginCms(updatedCms);
-      localStorage.setItem("truroot_login_cms", JSON.stringify(updatedCms));
-      window.dispatchEvent(new Event("storage"));
       fetchSettings();
     } catch (err: unknown) {
       throw new Error(getApiErrorMessage(err, "Failed to save login page settings"));
@@ -1012,7 +1008,7 @@ export function WorkspaceSettingsPage() {
                 </span>
                 <p className="text-xs font-bold text-foreground line-clamp-1">
                   {loginCms?.heroHeadlinePrefix || "Welcome to"}{" "}
-                  <span className="text-primary">{loginCms?.heroHeadlineHighlight || form.companyName || "Trueroot Realty CRM"}</span>
+                  <span className="text-primary">{loginCms?.heroHeadlineHighlight || form.companyName || "Gromoze"}</span>
                 </p>
                 <p className="text-[11px] text-muted-foreground line-clamp-2">
                   {loginCms?.heroTagline || "Streamline your leads, follow-ups, site visits and sales - all in one place."}

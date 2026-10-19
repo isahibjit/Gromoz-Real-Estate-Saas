@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { PayrollSettingsModal } from "./PayrollSettingsModal";
-import trurootLogo from "../../../assets/truroot-logo.png";
+import { BrandLogo } from "../../../components/ui/BrandLogo";
 
 import {
   TrendingUp,
@@ -239,13 +239,9 @@ function PayslipPdfPreview({
         <div className="border-b-4 border-primary bg-white px-6 py-5">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <img
-                src={trurootLogo}
-                alt="Truroot Realty"
-                className="h-auto w-44 object-contain"
-              />
+              <BrandLogo className="h-auto w-44 object-contain" />
               <p className="mt-3 text-[12px] font-semibold text-slate-500">
-                Truroot Realty CRM payroll preview
+                Gromoze payroll preview
               </p>
             </div>
             <div className="md:text-right">

@@ -67,11 +67,11 @@ export class HrDocumentsService {
   } as const;
 
   getWatermarkMarkup(): string {
-    return 'TRUROOT';
+    return 'GROMOZE';
   }
 
   getLogoMarkup(): string {
-    return 'TRUROOT REALTY';
+    return 'GROMOZE';
   }
 
   async generateAttendanceReportPdf(
@@ -190,7 +190,7 @@ export class HrDocumentsService {
         doc.opacity(0.025);
         doc.fontSize(68).font('Helvetica-Bold').fillColor(B.secondary);
         doc.rotate(-28, { origin: [doc.page.width / 2, doc.page.height / 2] });
-        doc.text('TRUROOT REALTY', doc.page.width / 2 - 250, doc.page.height / 2, {
+        doc.text('GROMOZE', doc.page.width / 2 - 250, doc.page.height / 2, {
           align: 'center',
           width: 500,
         });
@@ -204,24 +204,24 @@ export class HrDocumentsService {
               .font('Helvetica-Bold')
               .fontSize(12)
               .fillColor(B.primary)
-              .text('TRUROOT', contentX, 18);
+              .text('GROMOZE', contentX, 18);
             doc
               .font('Helvetica-Bold')
               .fontSize(7)
               .fillColor(B.secondary)
-              .text('REALTY CRM', contentX, 33);
+              .text('CRM', contentX, 33);
           }
         } else {
           doc
             .font('Helvetica-Bold')
             .fontSize(12)
             .fillColor(B.primary)
-            .text('TRUROOT', contentX, 18);
+            .text('GROMOZE', contentX, 18);
           doc
             .font('Helvetica-Bold')
             .fontSize(7)
             .fillColor(B.secondary)
-            .text('REALTY CRM', contentX, 33);
+            .text('CRM', contentX, 33);
         }
 
         doc.font('Helvetica-Bold').fontSize(15).fillColor(B.secondary);
@@ -349,7 +349,7 @@ export class HrDocumentsService {
         'web',
         'src',
         'assets',
-        'truroot-logo.png',
+        'gromoze-logo.png',
       ),
       path.resolve(
         __dirname,
@@ -359,7 +359,7 @@ export class HrDocumentsService {
         'web',
         'src',
         'assets',
-        'truroot-logo.png',
+        'gromoze-logo.png',
       ),
       path.resolve(
         process.cwd(),
@@ -367,7 +367,7 @@ export class HrDocumentsService {
         'web',
         'src',
         'assets',
-        'truroot-logo.png',
+        'gromoze-logo.png',
       ),
     ];
     for (const logoPath of possiblePaths) {
@@ -476,7 +476,7 @@ export class HrDocumentsService {
         doc.fillColor(B.secondary);
         doc.rotate(-30, { origin: [doc.page.width / 2, doc.page.height / 2] });
         doc.text(
-          'TRUROOT REALTY',
+          'GROMOZE',
           doc.page.width / 2 - 250,
           doc.page.height / 2,
           { align: 'center' },
@@ -494,24 +494,24 @@ export class HrDocumentsService {
               .fillColor(B.primary)
               .fontSize(16)
               .font('Helvetica-Bold')
-              .text('TRUROOT', 40, 40);
+              .text('GROMOZE', 40, 40);
             doc
               .fillColor(B.secondary)
               .fontSize(9)
               .font('Helvetica-Bold')
-              .text('REALTY', 40, 58);
+              .text('CRM', 40, 58);
           }
         } else {
           doc
             .fillColor(B.primary)
             .fontSize(16)
             .font('Helvetica-Bold')
-            .text('TRUROOT', 40, 40);
+            .text('GROMOZE', 40, 40);
           doc
             .fillColor(B.secondary)
             .fontSize(9)
             .font('Helvetica-Bold')
-            .text('REALTY', 40, 58);
+            .text('CRM', 40, 58);
         }
 
         // Right side: PAYSLIP title and period
@@ -745,7 +745,7 @@ export class HrDocumentsService {
           .fontSize(8)
           .font('Helvetica')
           .text(
-            'This is a system-generated payslip from Truroot Realty CRM and does not require a physical signature.',
+            'This is a system-generated payslip from Gromoze and does not require a physical signature.',
             40,
             footerY,
             { align: 'center', width: doc.page.width - 80 },

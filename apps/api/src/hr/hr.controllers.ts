@@ -333,7 +333,7 @@ export class PayslipsController {
 }
 
 @Controller('mail')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 @RequirePermission('hr_settings')
 export class MailController {
   constructor(private readonly hr: HrService) {}

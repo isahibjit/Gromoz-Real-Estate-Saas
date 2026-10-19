@@ -14,6 +14,7 @@ import { AuthGuard } from '../auth/guards/auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { PermissionGuard } from '../access/permission.guard';
+import { TenantGuard } from '../common/tenant/tenant.guard';
 import {
   EmailConnectorsService,
   type CreateEmailConnectorDto,
@@ -24,7 +25,7 @@ import {
 const userFrom = (req: any) => req.user ?? {};
 
 @Controller('email-connectors')
-@UseGuards(AuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, PermissionGuard)
 export class EmailConnectorsController {
   constructor(
     private readonly emailConnectorsService: EmailConnectorsService,
@@ -32,20 +33,21 @@ export class EmailConnectorsController {
 
   @Get()
   @Roles('SUPER_ADMIN', 'ADMIN', 'HR', 'SALES_MANAGER')
+  @RequirePermission('hr_settings', 'view')
   listConnectors() {
     return this.emailConnectorsService.listConnectors();
   }
 
   @Post()
   @Roles('SUPER_ADMIN', 'ADMIN')
-  @RequirePermission('settings', 'update')
+  @RequirePermission('hr_settings', 'update')
   createConnector(@Body() body: CreateEmailConnectorDto, @Req() req: any) {
     return this.emailConnectorsService.createConnector(body, userFrom(req).sub);
   }
 
   @Patch(':id')
   @Roles('SUPER_ADMIN', 'ADMIN')
-  @RequirePermission('settings', 'update')
+  @RequirePermission('hr_settings', 'update')
   updateConnector(
     @Param('id') id: string,
     @Body() body: UpdateEmailConnectorDto,
@@ -55,7 +57,7 @@ export class EmailConnectorsController {
 
   @Post(':id/test')
   @Roles('SUPER_ADMIN', 'ADMIN')
-  @RequirePermission('settings', 'update')
+  @RequirePermission('hr_settings', 'update')
   testConnection(
     @Param('id') id: string,
     @Body() body: { recipientEmail?: string },
@@ -65,20 +67,21 @@ export class EmailConnectorsController {
 
   @Post(':id/set-default')
   @Roles('SUPER_ADMIN', 'ADMIN')
-  @RequirePermission('settings', 'update')
+  @RequirePermission('hr_settings', 'update')
   setDefaultConnector(@Param('id') id: string) {
     return this.emailConnectorsService.setDefaultConnector(id);
   }
 
   @Delete(':id')
   @Roles('SUPER_ADMIN', 'ADMIN')
-  @RequirePermission('settings', 'delete')
+  @RequirePermission('hr_settings', 'update')
   deleteConnector(@Param('id') id: string) {
     return this.emailConnectorsService.deleteConnector(id);
   }
 
   @Get('logs')
   @Roles('SUPER_ADMIN', 'ADMIN', 'HR', 'SALES_MANAGER')
+  @RequirePermission('hr_settings', 'view')
   listLogs() {
     return this.emailConnectorsService.listEmailLogs();
   }

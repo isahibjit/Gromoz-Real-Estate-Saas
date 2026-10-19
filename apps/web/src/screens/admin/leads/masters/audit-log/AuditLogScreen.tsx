@@ -10,24 +10,11 @@ import {
   WorkspacePage,
 } from "../../../../../components/layout/PageHeader";
 import { InfoNote } from "../../../../../components/ui/InfoNote";
-import { AuditLogFiltersCard } from "./components/AuditLogFiltersCard";
-import { AuditLogTableCard } from "./components/AuditLogTableCard";
-import { auditLogRecords, AuditLogRecord } from "./auditLogData";
-import { ViewAuditLogDetailsModal } from "./components/ViewAuditLogDetailsModal";
 
 export function AuditLogScreen() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
-
-  const [selectedAuditRecord, setSelectedAuditRecord] =
-    useState<AuditLogRecord | null>(null);
-  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
-
-  const handleRowClick = (record: AuditLogRecord) => {
-    setSelectedAuditRecord(record);
-    setIsAuditModalOpen(true);
-  };
 
   return (
     <>
@@ -62,20 +49,7 @@ export function AuditLogScreen() {
           }
         />
 
-        <AuditLogFiltersCard />
-
-        <AuditLogTableCard
-          data={auditLogRecords}
-          onRowClick={handleRowClick}
-        />
-
-        <InfoNote>Audit logs are retained for 180 days.</InfoNote>
-
-        <ViewAuditLogDetailsModal
-          open={isAuditModalOpen}
-          onOpenChange={setIsAuditModalOpen}
-          record={selectedAuditRecord}
-        />
+        <InfoNote>Lead master audit history is not available in this workspace yet.</InfoNote>
       </WorkspacePage>
     </>
   );

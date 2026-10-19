@@ -451,7 +451,7 @@ export class OrganizationService {
       },
       loginCms: customSettings.loginCms || {
         heroHeadlinePrefix: 'Welcome to',
-        heroHeadlineHighlight: org.name || 'Trueroot Realty CRM',
+        heroHeadlineHighlight: org.name || 'Gromoze',
         heroTagline:
           'Streamline your leads, follow-ups, site visits and sales - all in one place.',
         heroLogoUrl: org.logoUrl || '',

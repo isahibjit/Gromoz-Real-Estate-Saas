@@ -8,6 +8,26 @@ import {
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { PrismaService } from '../persistence/prisma/prisma.service';
+import { TenantContextService } from '../common/tenant/tenant-context.service';
+
+const publicConnectorFields = {
+  id: true,
+  name: true,
+  provider: true,
+  host: true,
+  port: true,
+  secure: true,
+  username: true,
+  fromName: true,
+  fromEmail: true,
+  notificationEmail: true,
+  isDefault: true,
+  isActive: true,
+  lastTestedAt: true,
+  lastTestStatus: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
 
 export type CreateEmailConnectorDto = {
   name: string;
@@ -50,6 +70,7 @@ export class EmailConnectorsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly tenants: TenantContextService,
   ) {}
 
   private db() {
@@ -80,31 +101,36 @@ export class EmailConnectorsService {
 
   async listConnectors() {
     return this.db().emailConnector.findMany({
+      where: { organizationId: this.tenants.getRequiredTenantId() },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
-      include: {
+      select: {
+        ...publicConnectorFields,
         _count: { select: { logs: true } },
       },
     });
   }
 
   async getConnector(id: string) {
-    const connector = await this.db().emailConnector.findUnique({
-      where: { id },
+    const connector = await this.db().emailConnector.findFirst({
+      where: { id, organizationId: this.tenants.getRequiredTenantId() },
     });
     if (!connector) throw new NotFoundException('Email connector not found');
     return connector;
   }
 
   async getDefaultSender() {
-    const connector = await this.db().emailConnector.findFirst({
-      where: { isDefault: true, isActive: true },
-      select: {
-        id: true,
-        username: true,
-        fromEmail: true,
-        notificationEmail: true,
-      },
-    });
+    const organizationId = this.tenants.getTenantId();
+    const connector =
+      organizationId &&
+      (await this.db().emailConnector.findFirst({
+        where: { organizationId, isDefault: true, isActive: true },
+        select: {
+          id: true,
+          username: true,
+          fromEmail: true,
+          notificationEmail: true,
+        },
+      }));
     if (connector) return connector;
     const username = this.config.get<string>('SMTP_USER')?.trim();
     if (!username || !this.config.get<string>('SMTP_PASS')) return null;
@@ -117,6 +143,7 @@ export class EmailConnectorsService {
   }
 
   async createConnector(data: CreateEmailConnectorDto, actorUserId?: string) {
+    const organizationId = this.tenants.getRequiredTenantId();
     const host = data.host.trim();
     const username = data.username.trim();
     const password = data.password.trim();
@@ -128,74 +155,85 @@ export class EmailConnectorsService {
       );
     }
 
-    if (data.isDefault) {
-      await this.db().emailConnector.updateMany({
-        where: { isDefault: true },
-        data: { isDefault: false },
+    return this.db().$transaction(async (tx) => {
+      if (data.isDefault) {
+        await tx.emailConnector.updateMany({
+          where: { organizationId, isDefault: true },
+          data: { isDefault: false },
+        });
+      }
+
+      return tx.emailConnector.create({
+        data: {
+          organizationId,
+          name: data.name.trim(),
+          provider: data.provider?.trim() || 'smtp',
+          host,
+          port: Number(data.port || 465),
+          secure: data.secure ?? true,
+          username,
+          password,
+          fromName: data.fromName?.trim() || '',
+          fromEmail,
+          notificationEmail: data.notificationEmail?.trim() || null,
+          isDefault: data.isDefault ?? false,
+          isActive: true,
+          createdById: actorUserId,
+        },
+        select: publicConnectorFields,
       });
-    }
-
-    const connector = await this.db().emailConnector.create({
-      data: {
-        name: data.name.trim(),
-        provider: data.provider?.trim() || 'smtp',
-        host,
-        port: Number(data.port || 465),
-        secure: data.secure ?? true,
-        username,
-        password,
-        fromName: data.fromName?.trim() || 'Truroot Realty',
-        fromEmail,
-        notificationEmail: data.notificationEmail?.trim() || null,
-        isDefault: data.isDefault ?? false,
-        isActive: true,
-        createdById: actorUserId,
-      },
     });
-
-    return connector;
   }
 
   async updateConnector(id: string, data: UpdateEmailConnectorDto) {
+    const organizationId = this.tenants.getRequiredTenantId();
     await this.getConnector(id);
 
-    if (data.isDefault) {
-      await this.db().emailConnector.updateMany({
-        where: { id: { not: id }, isDefault: true },
-        data: { isDefault: false },
-      });
-    }
+    return this.db().$transaction(async (tx) => {
+      if (data.isDefault) {
+        await tx.emailConnector.updateMany({
+          where: { organizationId, id: { not: id }, isDefault: true },
+          data: { isDefault: false },
+        });
+      }
 
-    return this.db().emailConnector.update({
-      where: { id },
-      data: {
-        name: data.name?.trim(),
-        provider: data.provider?.trim(),
-        host: data.host?.trim(),
-        port: data.port !== undefined ? Number(data.port) : undefined,
-        secure: data.secure,
-        username: data.username?.trim(),
-        password: data.password ? data.password.trim() : undefined,
-        fromName: data.fromName?.trim(),
-        fromEmail: data.fromEmail?.trim(),
-        notificationEmail:
-          data.notificationEmail !== undefined
-            ? data.notificationEmail?.trim() || null
-            : undefined,
-        isDefault: data.isDefault,
-        isActive: data.isActive,
-      },
+      return tx.emailConnector.update({
+        where: { id },
+        data: {
+          name: data.name?.trim(),
+          provider: data.provider?.trim(),
+          host: data.host?.trim(),
+          port: data.port !== undefined ? Number(data.port) : undefined,
+          secure: data.secure,
+          username: data.username?.trim(),
+          password: data.password ? data.password.trim() : undefined,
+          fromName: data.fromName?.trim(),
+          fromEmail: data.fromEmail?.trim(),
+          notificationEmail:
+            data.notificationEmail !== undefined
+              ? data.notificationEmail?.trim() || null
+              : undefined,
+          isDefault: data.isDefault,
+          isActive: data.isActive,
+        },
+        select: publicConnectorFields,
+      });
     });
   }
 
   async setDefaultConnector(id: string) {
+    const organizationId = this.tenants.getRequiredTenantId();
     await this.getConnector(id);
-    await this.db().emailConnector.updateMany({
-      data: { isDefault: false },
-    });
-    return this.db().emailConnector.update({
-      where: { id },
-      data: { isDefault: true, isActive: true },
+    return this.db().$transaction(async (tx) => {
+      await tx.emailConnector.updateMany({
+        where: { organizationId },
+        data: { isDefault: false },
+      });
+      return tx.emailConnector.update({
+        where: { id },
+        data: { isDefault: true, isActive: true },
+        select: publicConnectorFields,
+      });
     });
   }
 
@@ -203,6 +241,7 @@ export class EmailConnectorsService {
     await this.getConnector(id);
     return this.db().emailConnector.delete({
       where: { id },
+      select: publicConnectorFields,
     });
   }
 
@@ -223,22 +262,23 @@ export class EmailConnectorsService {
         await this.dispatch(
           {
             to: testEmail,
-            subject: 'Truroot CRM SMTP Connection Test',
+            subject: 'SMTP connection test',
             text: `Success! Your SMTP Connector (${connector.name}) is fully operational.`,
             html: `<div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
             <h2 style="color: #2563eb;">SMTP Connection Test Verified</h2>
             <p>Your email connector <strong>${connector.name}</strong> (${connector.username}) successfully connected to <code>${connector.host}:${connector.port}</code>.</p>
-            <p style="color: #64748b; font-size: 12px;">Dispatched from Truroot Realty CRM System.</p>
+            <p style="color: #64748b; font-size: 12px;">Sent from your CRM workspace.</p>
           </div>`,
             entityType: 'EmailConnectionTest',
             entityId: id,
           },
           transporter,
           {
-            name: connector.fromName || 'Truroot Realty',
+            name: connector.fromName || '',
             address: connector.fromEmail,
           },
           id,
+          connector.organizationId,
         );
       }
 
@@ -277,11 +317,13 @@ export class EmailConnectorsService {
   }
 
   async sendEmail(options: SendEmailOptions) {
+    const organizationId = this.tenants.getTenantId();
     const connector = options.connectorId
       ? await this.getConnector(options.connectorId)
-      : await this.db().emailConnector.findFirst({
-          where: { isDefault: true, isActive: true },
-        });
+      : organizationId &&
+        (await this.db().emailConnector.findFirst({
+          where: { organizationId, isDefault: true, isActive: true },
+        }));
 
     if (connector && connector.isActive) {
       const transporter = this.createTransporter({
@@ -295,20 +337,28 @@ export class EmailConnectorsService {
         options,
         transporter,
         {
-          name: connector.fromName || 'Truroot Realty',
+          name: connector.fromName || '',
           address: connector.fromEmail,
         },
         connector.id,
+        organizationId,
       );
     }
     if (options.connectorId) {
       throw new BadRequestException('Email connector is inactive');
     }
-    return this.sendPlatformEmail(options);
+    return this.sendWithPlatformTransport(options, organizationId);
   }
 
   // Platform billing must never use a workspace's default connector.
   async sendPlatformEmail(options: Omit<SendEmailOptions, 'connectorId'>) {
+    return this.sendWithPlatformTransport(options);
+  }
+
+  private async sendWithPlatformTransport(
+    options: Omit<SendEmailOptions, 'connectorId'>,
+    organizationId?: string,
+  ) {
     const user = this.config.get<string>('SMTP_USER')?.trim();
     const pass = this.config.get<string>('SMTP_PASS');
     if (!user || !pass) {
@@ -322,10 +372,16 @@ export class EmailConnectorsService {
       user,
       pass,
     });
-    return this.dispatch(options, transporter, {
-      name: this.config.get<string>('SMTP_FROM_NAME') || 'Gromoze',
-      address: this.config.get<string>('SMTP_FROM')?.trim() || user,
-    });
+    return this.dispatch(
+      options,
+      transporter,
+      {
+        name: this.config.get<string>('SMTP_FROM_NAME') || 'Gromoze',
+        address: this.config.get<string>('SMTP_FROM')?.trim() || user,
+      },
+      undefined,
+      organizationId,
+    );
   }
 
   private async dispatch(
@@ -333,6 +389,7 @@ export class EmailConnectorsService {
     transporter: nodemailer.Transporter,
     from: { name: string; address: string },
     connectorId?: string,
+    organizationId?: string | null,
   ) {
     let messageId: string;
     try {
@@ -354,6 +411,7 @@ export class EmailConnectorsService {
       await this.db().emailLog.create({
         data: {
           connectorId: connectorId ?? null,
+          organizationId: organizationId ?? null,
           recipient: options.to,
           subject: options.subject,
           status: 'Failed',
@@ -369,6 +427,7 @@ export class EmailConnectorsService {
     await this.db().emailLog.create({
       data: {
         connectorId: connectorId ?? null,
+        organizationId: organizationId ?? null,
         recipient: options.to,
         subject: options.subject,
         status: 'Sent',
@@ -381,6 +440,7 @@ export class EmailConnectorsService {
 
   async listEmailLogs() {
     return this.db().emailLog.findMany({
+      where: { organizationId: this.tenants.getRequiredTenantId() },
       take: 100,
       orderBy: { sentAt: 'desc' },
       include: {

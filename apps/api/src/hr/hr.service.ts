@@ -2093,7 +2093,7 @@ export class HrService {
       const employeeName = employee.fullName || employee.email || 'employee';
       return {
         title: `ATTENDANCE REPORT FOR THE MONTH of ${monthName} ${year}`,
-        companyName: 'Truroot Realty CRM',
+        companyName: 'Gromoze',
         employee: {
           name: employeeName,
           phone: employee.employeeProfile?.phone ?? '-',
@@ -3334,7 +3334,7 @@ export class HrService {
     const fromName =
       typeof body.fromName === 'string'
         ? body.fromName.trim()
-        : 'Truroot Realty HR';
+        : 'HR team';
 
     if (!toEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) {
       throw new BadRequestException('A valid test email address is required');
@@ -4198,7 +4198,7 @@ export class HrService {
 
   private payslipSnapshot(record: any) {
     return {
-      company: 'Truroot Realty CRM',
+      company: 'Gromoze',
       generatedAt: new Date().toISOString(),
       employee: {
         id: record.employeeId,
@@ -4418,7 +4418,7 @@ export class HrService {
           <div class="sheet">
             <div class="header">
               <div class="header-left">
-                <div class="label">Truroot Realty</div>
+                <div class="label">Gromoze</div>
                 <h1>Payslip</h1>
                 <div class="sub">${monthLabel(record.month, record.year)}</div>
               </div>
