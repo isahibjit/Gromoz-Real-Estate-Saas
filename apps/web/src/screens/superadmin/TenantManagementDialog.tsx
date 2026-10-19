@@ -239,13 +239,16 @@ export function TenantManagementDialog({
                   onChange={(event) => setPassword(event.target.value)}
                 />
               </div>
-              <Checkbox
-                id="tenant-password-notify"
-                checked={notify}
-                disabled={busy}
-                onChange={(event) => setNotify(event.currentTarget.checked)}
-                label="Email the updated credentials to the administrator"
-              />
+              <div>
+                <Checkbox
+                  id="tenant-password-notify"
+                  checked={notify}
+                  disabled={busy}
+                  onChange={(event) => setNotify(event.currentTarget.checked)}
+                  label="Email the updated credentials to the administrator"
+                  className="flex w-full items-start"
+                />
+              </div>
               <Button type="submit" disabled={busy}>
                 {busy ? "Updating…" : "Update administrator password"}
               </Button>

@@ -266,6 +266,12 @@ export const navigationRegistry: NavigationItem[] = [
         moduleKey: "leads",
         pageKey: "page.import_leads",
       },
+      {
+        id: "leads.audit",
+        label: "Audit Logs",
+        to: "/leads/audit-log",
+        moduleKey: "leads",
+      },
     ],
   }),
   preSales({
@@ -659,8 +665,8 @@ export const platformSuperAdminNavigation: NavigationItem[] = [
   },
 ];
 
-export function getNavigationForUser(user: AuthUser) {
-  if (isPlatformView(user?.role)) {
+export function getNavigationForUser(user: AuthUser, pathname?: string) {
+  if (isPlatformView(user?.role, pathname)) {
     return platformSuperAdminNavigation;
   }
 

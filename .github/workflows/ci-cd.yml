@@ -109,6 +109,9 @@ jobs:
           src/common/components/DataTableCells.test.tsx
           src/screens/admin/settings/MobileAppScreen.test.tsx
           src/screens/admin/dashboard/DashboardHeader.platform.test.tsx
+          src/screens/admin/dashboard/DashboardSidebar.test.tsx
+          src/common/navigation/navigationRegistry.test.ts
+          src/common/access/access.test.ts
       - name: Build production web application
         run: npm run build --workspace=web
         env:

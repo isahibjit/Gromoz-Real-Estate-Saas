@@ -1,42 +1,19 @@
 import {
-  Award,
   Building2,
-  CalendarCheck,
   ChevronLeft,
   ChevronRight,
-  Clock,
-  Compass,
   CreditCard,
-  Database,
-  DollarSign,
-  Filter,
-  Layers,
   LayoutDashboard,
   LogOut,
-  MapPin,
   Menu,
-  Plug,
-  PlusCircle,
-  Radio,
-  RotateCcw,
   Settings,
   Shield,
   ShieldAlert,
-  ShieldCheck,
-  SlidersHorizontal,
   Smartphone,
-  Sparkles,
-  Target,
-  Trash2,
-  TrendingUp,
   User,
-  UserCheck,
-  UserPlus,
-  Users,
   X,
-  Zap,
 } from "lucide-react";
-import React, {
+import {
   memo,
   useCallback,
   useEffect,
@@ -45,7 +22,7 @@ import React, {
   useState,
   type ReactNode,
 } from "react";
-import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { Button, cn } from "ui";
 import { BrandLogo } from "../../../components/ui/BrandLogo";
 import { useLogoutMutation } from "../../../common/mutations/useAuthMutations";
@@ -54,220 +31,7 @@ import { recordRecentSearch } from "../../../components/navigation/HeaderSearchB
 import { useAppSelector } from "../../../store";
 import { useDashboardLayoutContext } from "./DashboardLayoutContext";
 import { isPlatformView } from "../../../common/tenantRequestScope";
-
-export interface NavItem {
-  label: string;
-  icon: React.ElementType;
-  to: string;
-  badge?: string;
-  permission?: string;
-}
-
-export interface NavCategory {
-  title: string;
-  items: NavItem[];
-}
-
-const defaultNavCategories: NavCategory[] = [
-  {
-    title: "Main",
-    items: [
-      {
-        label: "Dashboard",
-        icon: LayoutDashboard,
-        to: "/admin/dashboard",
-      },
-    ],
-  },
-  {
-    title: "Sales & Pipeline",
-    items: [
-      {
-        label: "All Leads Pipeline",
-        icon: UserPlus,
-        to: "/leads/all",
-        badge: "1,250 Leads",
-      },
-      {
-        label: "Lead Pipeline",
-        icon: TrendingUp,
-        to: "/leads/pipeline",
-        badge: "₹18.4 Cr",
-      },
-      {
-        label: "Follow-Up Leads",
-        icon: RotateCcw,
-        to: "/leads/follow-up",
-        badge: "Today",
-      },
-      {
-        label: "Inactive Leads",
-        icon: UserCheck,
-        to: "/leads/inactive",
-      },
-      {
-        label: "Deleted Leads",
-        icon: Trash2,
-        to: "/leads/deleted",
-      },
-    ],
-  },
-  {
-    title: "Masters",
-    items: [
-      {
-        label: "Lead Masters",
-        icon: Database,
-        to: "/leads/masters",
-        badge: "Masters",
-      },
-      {
-        label: "Auto-Assignment Master",
-        icon: Target,
-        to: "/leads/assignment/masters",
-      },
-      {
-        label: "Project Masters",
-        icon: Layers,
-        to: "/projects/masters",
-      },
-    ],
-  },
-  {
-    title: "Projects & Inventory",
-    items: [
-      {
-        label: "Projects & Inventory",
-        icon: Building2,
-        to: "/projects",
-        badge: "24 Active",
-      },
-    ],
-  },
-  {
-    title: "Site Visits & Field Force",
-    items: [
-      {
-        label: "Site Visits Manager",
-        icon: MapPin,
-        to: "/site-visits",
-        badge: "18 Today",
-      },
-      // {
-      //   label: "Live GPS Tracking",
-      //   icon: Radio,
-      //   to: "/site-visits/tracking",
-      //   badge: "Live",
-      // },
-    ],
-  },
-  {
-    title: "Bookings & Revenue",
-    items: [
-      {
-        label: "Bookings & Deals",
-        icon: CreditCard,
-        to: "/bookings",
-        badge: "₹14.2 Cr",
-      },
-      {
-        label: "Brokerage & Payouts",
-        icon: DollarSign,
-        to: "/bookings/brokerage-report",
-      },
-      {
-        label: "My Commissions",
-        icon: Award,
-        to: "/commissions",
-      },
-    ],
-  },
-  {
-    title: "Lead Sources & Automation",
-    items: [
-      {
-        label: "Portal Integrations",
-        icon: Plug,
-        to: "/leads/import",
-        badge: "Connectors",
-      },
-      {
-        label: "Import CSV Leads",
-        icon: PlusCircle,
-        to: "/leads/import?method=excel-csv",
-      },
-      {
-        label: "Conversion Funnel",
-        icon: Filter,
-        to: "/leads/conversion-analytics",
-        badge: "Funnel",
-      },
-    ],
-  },
-  {
-    title: "HR & Team Management",
-    items: [
-      {
-        label: "Employee Workspace",
-        icon: Users,
-        to: "/admin/employees",
-      },
-      {
-        label: "Employee Tasks",
-        icon: CalendarCheck,
-        to: "/admin/tasks",
-      },
-      {
-        label: "Attendance & Shifts",
-        icon: Clock,
-        to: "/admin/attendance",
-      },
-    ],
-  },
-  {
-    title: "Reports & Performance",
-    items: [
-      {
-        label: "Lead Performance",
-        icon: Zap,
-        to: "/admin/performance/leads",
-        badge: "ROI",
-      },
-      {
-        label: "Audit Logs",
-        icon: ShieldAlert,
-        to: "/leads/audit-log",
-      },
-    ],
-  },
-  {
-    title: "Workspace & Settings",
-    items: [
-      {
-        label: "Workspace Settings",
-        icon: Settings,
-        to: "/admin/settings",
-        badge: "Admin",
-      },
-      {
-        label: "Login Page CMS",
-        icon: Sparkles,
-        to: "/admin/settings?tab=login-cms",
-        badge: "CMS",
-      },
-      {
-        label: "Access Control",
-        icon: ShieldCheck,
-        to: "/admin/access-control",
-      },
-      {
-        label: "Mobile App Download",
-        icon: Smartphone,
-        to: "/download-app",
-      },
-    ],
-  },
-];
+import { buildSidebarCategories, type NavCategory } from "./sidebarNavigation";
 
 const superAdminNavCategories: NavCategory[] = [
   {
@@ -342,8 +106,6 @@ function DashboardSidebarComponent({
   items,
   activeItem,
   activeChild,
-  activeItemId,
-  activeChildId,
   footerContent,
   onCollapse,
   onMobileClose,
@@ -365,13 +127,8 @@ function DashboardSidebarComponent({
       setLayoutSidebar((current) => (current === sidebarConfig ? {} : current));
   }, [activeChild, activeItem, footerContent, items, managed, setLayoutSidebar]);
 
-  if (layout && !managed) {
-    return null;
-  }
-
   const user = useAppSelector((state) => state.auth.user);
   const location = useLocation();
-  const navigate = useNavigate();
   const logoutMutation = useLogoutMutation();
 
   const [isHovered, setIsHovered] = useState(false);
@@ -456,11 +213,17 @@ function DashboardSidebarComponent({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  if (layout && !managed) {
+    return null;
+  }
+
   const handleLogout = () => {
     logoutMutation.mutate();
   };
 
-  const categories = isSuperAdminOnly ? superAdminNavCategories : defaultNavCategories;
+  const categories = isSuperAdminOnly
+    ? superAdminNavCategories
+    : buildSidebarCategories(user, location.pathname);
 
   const showBigLogo = mobileOpen || !collapsed || isHovered;
   const hasCustomLogo = Boolean(branding.logoUrl && branding.logoUrl.trim() !== "");
@@ -839,9 +602,8 @@ function DashboardSidebarComponent({
                   <Button
                     variant="ghost"
                     size="sm"
-                    fullWidth
                     onClick={handleLogout}
-                    className="flex items-center justify-start gap-2.5 text-rose-600 hover:bg-rose-50 hover:text-rose-700 font-semibold text-xs mt-1 rounded-sm border-t border-slate-100 pt-2"
+                    className="flex w-full items-center justify-start gap-2.5 text-rose-600 hover:bg-rose-50 hover:text-rose-700 font-semibold text-xs mt-1 rounded-sm border-t border-slate-100 pt-2"
                   >
                     <LogOut className="h-4 w-4 text-rose-600" /> Sign Out
                   </Button>

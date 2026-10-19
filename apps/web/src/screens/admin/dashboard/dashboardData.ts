@@ -31,7 +31,7 @@ export interface SidebarItem {
   to?: string;
   moduleKey?: string;
   pageKey?: string;
-  requiredAction?: "view" | "create" | "update" | "delete";
+  requiredAction?: "view" | "create" | "update" | "delete" | "punchIn" | "punchOut";
   matchPaths?: string[];
   roleScopes?: string[];
   expandable?: boolean;
@@ -46,7 +46,7 @@ export interface SidebarChildItem {
   to?: string;
   moduleKey?: string;
   pageKey?: string;
-  requiredAction?: "view" | "create" | "update" | "delete";
+  requiredAction?: "view" | "create" | "update" | "delete" | "punchIn" | "punchOut";
   matchPaths?: string[];
   roleScopes?: string[];
   badge?: string;
