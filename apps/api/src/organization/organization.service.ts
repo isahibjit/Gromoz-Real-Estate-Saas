@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import * as dns from 'dns';
@@ -162,11 +163,13 @@ export class UpdateWorkspaceSettingsDto {
   @IsOptional() @IsBoolean() showLogoInSidebar?: boolean;
   @IsOptional() @IsBoolean() showLogoInLogin?: boolean;
   @IsOptional() @IsInt() sidebarLogoHeight?: number;
-  @IsOptional() @IsEnum({ contain: 'contain', cover: 'cover' })
+  @IsOptional()
+  @IsEnum({ contain: 'contain', cover: 'cover' })
   sidebarLogoObjectFit?: 'contain' | 'cover';
   @IsOptional() @IsString() sidebarLogoBg?: string;
   @IsOptional() @IsInt() sidebarLogoRadius?: number;
-  @IsOptional() @IsEnum({ left: 'left', center: 'center', right: 'right' })
+  @IsOptional()
+  @IsEnum({ left: 'left', center: 'center', right: 'right' })
   sidebarLogoAlign?: 'left' | 'center' | 'right';
   @IsOptional() @IsString() sidebarHeaderBg?: string;
   @IsOptional() @IsString() subdomain?: string;
@@ -399,8 +402,10 @@ export class OrganizationService {
           customSettings.sidebarBranding?.sidebarLogoObjectFit ?? 'contain',
         sidebarLogoBg:
           customSettings.sidebarBranding?.sidebarLogoBg ?? 'transparent',
-        sidebarLogoRadius: customSettings.sidebarBranding?.sidebarLogoRadius ?? 6,
-        sidebarLogoAlign: customSettings.sidebarBranding?.sidebarLogoAlign ?? 'left',
+        sidebarLogoRadius:
+          customSettings.sidebarBranding?.sidebarLogoRadius ?? 6,
+        sidebarLogoAlign:
+          customSettings.sidebarBranding?.sidebarLogoAlign ?? 'left',
         sidebarHeaderBg:
           customSettings.sidebarBranding?.sidebarHeaderBg ?? 'transparent',
         subdomain: org.slug,
@@ -1322,6 +1327,60 @@ export class OrganizationService {
       fs.mkdirSync(dir, { recursive: true });
     }
     return path.join(dir, 'commercial_plans.json');
+  }
+
+  async getPublicCommercialPlans() {
+    const filePath = this.getPlansFilePath();
+    if (!fs.existsSync(filePath)) return [];
+
+    let plans: unknown;
+    try {
+      plans = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    } catch {
+      throw new ServiceUnavailableException(
+        'Pricing is temporarily unavailable',
+      );
+    }
+    if (!Array.isArray(plans)) {
+      throw new ServiceUnavailableException(
+        'Pricing is temporarily unavailable',
+      );
+    }
+
+    return plans.flatMap((value: unknown) => {
+      if (!value || typeof value !== 'object') return [];
+      const plan = value as Record<string, unknown>;
+      if (plan.status !== 'Active' || typeof plan.name !== 'string') return [];
+      if (!plan.pricing || typeof plan.pricing !== 'object') return [];
+      const pricing = plan.pricing as Record<string, unknown>;
+      if (
+        typeof pricing.model !== 'string' ||
+        typeof pricing.currency !== 'string'
+      )
+        return [];
+      const price = (value: unknown) =>
+        typeof value === 'number' && Number.isFinite(value) && value >= 0
+          ? value
+          : null;
+      return [
+        {
+          name: plan.name,
+          description:
+            typeof plan.description === 'string' ? plan.description : '',
+          model: pricing.model,
+          currency: pricing.currency,
+          monthlyPricePerSeat:
+            pricing.allowMonthlyBilling === true
+              ? price(pricing.monthlyPricePerSeat)
+              : null,
+          annualPricePerSeat:
+            pricing.allowAnnualBilling === true
+              ? price(pricing.annualPricePerSeat)
+              : null,
+          setupFee: price(pricing.setupFee),
+        },
+      ];
+    });
   }
 
   async getCommercialPlans(): Promise<any[]> {

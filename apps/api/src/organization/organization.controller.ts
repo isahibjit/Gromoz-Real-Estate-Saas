@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { TenantGuard } from '../common/tenant/tenant.guard';
-import { CurrentTenant, TenantId } from '../common/tenant/tenant.decorator';
+import { TenantId } from '../common/tenant/tenant.decorator';
 import { PermissionGuard } from '../access/permission.guard';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import {
@@ -106,6 +106,11 @@ export class OrganizationController {
   @UseGuards(AuthGuard)
   async getCommercialPlans() {
     return this.orgService.getCommercialPlans();
+  }
+
+  @Get('public-plans')
+  async getPublicCommercialPlans() {
+    return this.orgService.getPublicCommercialPlans();
   }
 
   @Post('platform-plans')
