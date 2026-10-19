@@ -69,7 +69,15 @@ export class BillingController {
     @Body() payload: any,
     @Req() req: any,
   ) {
-    const rawBody = typeof req.rawBody === 'string' ? req.rawBody : JSON.stringify(payload);
-    return this.billingService.processWebhook(rawBody, signature || '', payload);
+    const rawBody = Buffer.isBuffer(req.rawBody)
+      ? req.rawBody.toString('utf8')
+      : typeof req.rawBody === 'string'
+      ? req.rawBody
+      : JSON.stringify(payload);
+    return this.billingService.processWebhook(
+      rawBody,
+      signature || '',
+      payload,
+    );
   }
 }

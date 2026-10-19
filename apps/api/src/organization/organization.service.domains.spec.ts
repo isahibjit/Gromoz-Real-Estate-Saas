@@ -8,6 +8,7 @@ import {
 import { OrganizationService } from './organization.service';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { BillingService } from '../billing/billing.service';
+import { EmailConnectorsService } from '../crm/email-connectors.service';
 
 describe('Workspace subdomain boundaries', () => {
   const prisma = {
@@ -22,6 +23,7 @@ describe('Workspace subdomain boundaries', () => {
         OrganizationService,
         { provide: PrismaService, useValue: prisma },
         { provide: BillingService, useValue: {} },
+        { provide: EmailConnectorsService, useValue: {} },
       ],
     }).compile();
     service = module.get(OrganizationService);
@@ -101,21 +103,79 @@ describe('Workspace subdomain boundaries', () => {
 
   it('creates the requested trial and owner atomically without requesting payment first', async () => {
     const transaction = {
-      user: { create: jest.fn().mockResolvedValue({ id: 'owner', email: 'owner@example.test', fullName: 'Owner' }) },
-      organization: { create: jest.fn().mockImplementation(async ({ data }: { data: { slug: string } }) => ({ id: 'tenant-a', ...data })) },
-      organizationMember: { create: jest.fn().mockResolvedValue({ id: 'membership' }) },
+      user: {
+        create: jest
+          .fn()
+          .mockResolvedValue({
+            id: 'owner',
+            email: 'owner@example.test',
+            fullName: 'Owner',
+          }),
+      },
+      organization: {
+        create: jest
+          .fn()
+          .mockImplementation(async ({ data }: { data: { slug: string } }) => ({
+            id: 'tenant-a',
+            ...data,
+          })),
+      },
+      organizationMember: {
+        create: jest.fn().mockResolvedValue({ id: 'membership' }),
+      },
     };
-    prisma.user.findUnique.mockResolvedValueOnce({ role: 'SUPER_ADMIN', isActive: true }).mockResolvedValueOnce(null);
-    const database = { ...prisma, $transaction: jest.fn(async (callback: (tx: typeof transaction) => Promise<unknown>) => callback(transaction)) };
+    prisma.user.findUnique
+      .mockResolvedValueOnce({ role: 'SUPER_ADMIN', isActive: true })
+      .mockResolvedValueOnce(null);
+    const database = {
+      ...prisma,
+      $transaction: jest.fn(
+        async (callback: (tx: typeof transaction) => Promise<unknown>) =>
+          callback(transaction),
+      ),
+    };
     const billing = { createSetupCheckout: jest.fn() };
-    const module = await Test.createTestingModule({ providers: [OrganizationService,
-      { provide: PrismaService, useValue: database }, { provide: BillingService, useValue: billing },
-    ] }).compile();
+    const module = await Test.createTestingModule({
+      providers: [
+        OrganizationService,
+        { provide: PrismaService, useValue: database },
+        { provide: BillingService, useValue: billing },
+        {
+          provide: EmailConnectorsService,
+          useValue: {
+            sendPlatformEmail: jest.fn().mockResolvedValue({ success: true }),
+          },
+        },
+      ],
+    }).compile();
     const before = Date.now();
-    const result = await module.get(OrganizationService).provisionOrganization({ isTrial: true, organizationName: 'Prestige', subdomain: 'prestige', email: 'owner@example.test', password: 'UniqueTestPassword123' }, 'platform');
-    expect(result.organization).toMatchObject({ status: 'TRIAL', workspaceUrl: 'https://prestige.gromoze.com' });
-    expect(result.organization.trialEndsAt?.getTime()).toBeGreaterThanOrEqual(before + 14 * 86400000);
-    expect(transaction.organizationMember.create).toHaveBeenCalledWith({ data: expect.objectContaining({ userId: 'owner', organizationId: 'tenant-a', isOwner: true, role: 'ADMIN' }) });
+    const result = await module
+      .get(OrganizationService)
+      .provisionOrganization(
+        {
+          isTrial: true,
+          organizationName: 'Prestige',
+          subdomain: 'prestige',
+          email: 'owner@example.test',
+          password: 'UniqueTestPassword123',
+        },
+        'platform',
+      );
+    expect(result.organization).toMatchObject({
+      status: 'TRIAL',
+      workspaceUrl: 'https://prestige.gromoze.com',
+    });
+    expect(result.organization.trialEndsAt?.getTime()).toBeGreaterThanOrEqual(
+      before + 14 * 86400000,
+    );
+    expect(transaction.organizationMember.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: 'owner',
+        organizationId: 'tenant-a',
+        isOwner: true,
+        role: 'ADMIN',
+      }),
+    });
     expect(billing.createSetupCheckout).not.toHaveBeenCalled();
     expect(result.checkoutOrder).toBeNull();
   });

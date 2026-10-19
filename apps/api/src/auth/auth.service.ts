@@ -194,9 +194,8 @@ export class AuthService {
     }
 
     if (user.role !== 'SUPER_ADMIN' && user.organizationMemberships?.length) {
-      const hasActiveOrg = user.organizationMemberships.some(
-        (m) =>
-          workspaceIsAccessible(m.organization),
+      const hasActiveOrg = user.organizationMemberships.some((m) =>
+        workspaceIsAccessible(m.organization),
       );
 
       if (!hasActiveOrg) {
@@ -225,7 +224,7 @@ export class AuthService {
       isPasswordValid = decryptPassword(user.passwordHash) === password;
     } else if (user.passwordHash?.startsWith('$argon2')) {
       isPasswordValid = await argon2.verify(user.passwordHash, password);
-      if (isPasswordValid) {
+      if (isPasswordValid && user.role !== 'SUPER_ADMIN') {
         await this.prisma.user
           .update({
             where: { id: user.id },
@@ -601,9 +600,8 @@ export class AuthService {
     });
 
     if (user.role !== 'SUPER_ADMIN' && user.organizationMemberships?.length) {
-      const hasActiveOrg = user.organizationMemberships.some(
-        (m) =>
-          workspaceIsAccessible(m.organization),
+      const hasActiveOrg = user.organizationMemberships.some((m) =>
+        workspaceIsAccessible(m.organization),
       );
 
       if (!hasActiveOrg) {
@@ -659,7 +657,7 @@ export class AuthService {
                 name: true,
                 status: true,
                 setupFeePaid: true,
-                    trialEndsAt: true,
+                trialEndsAt: true,
               },
             },
           },
@@ -708,7 +706,7 @@ export class AuthService {
                   name: true,
                   status: true,
                   setupFeePaid: true,
-                    trialEndsAt: true,
+                  trialEndsAt: true,
                 },
               },
             },
@@ -731,7 +729,7 @@ export class AuthService {
                 name: true,
                 status: true,
                 setupFeePaid: true,
-                    trialEndsAt: true,
+                trialEndsAt: true,
               },
             },
           },

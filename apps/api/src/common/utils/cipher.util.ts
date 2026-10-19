@@ -1,4 +1,9 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from 'crypto';
 
 const ALGORITHM = 'aes-256-cbc';
 const CIPHER_PREFIX = 'enc:';
@@ -60,4 +65,11 @@ export function decryptPassword(encryptedText: string): string {
  */
 export function isEncryptedPassword(text: string): boolean {
   return typeof text === 'string' && text.startsWith(CIPHER_PREFIX);
+}
+
+/** Hashes and failed decryptions cannot be presented as a usable password. */
+export function passwordForDisplay(stored: string | null | undefined): string {
+  if (!stored || /^\$(?:argon2|2[aby]\$|scrypt)/.test(stored)) return '';
+  const value = decryptPassword(stored);
+  return isEncryptedPassword(value) ? '' : value;
 }

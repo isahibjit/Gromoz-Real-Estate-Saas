@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { OrganizationService } from './organization.service';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { BillingService } from '../billing/billing.service';
+import { EmailConnectorsService } from '../crm/email-connectors.service';
 
 describe('Organization trial dates', () => {
   const prisma = { organization: { findUnique: jest.fn(), update: jest.fn() } };
@@ -26,6 +27,7 @@ describe('Organization trial dates', () => {
         OrganizationService,
         { provide: PrismaService, useValue: prisma },
         { provide: BillingService, useValue: {} },
+        { provide: EmailConnectorsService, useValue: {} },
       ],
     }).compile();
     service = module.get(OrganizationService);

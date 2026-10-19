@@ -13,8 +13,10 @@ import {
 import toast from "react-hot-toast";
 import {
   ACTIVE_ORGANIZATION_KEY,
+  ACTIVE_ORGANIZATION_SLUG_KEY,
   assertCurrentOrganization,
   currentOrganizationId,
+  currentOrganizationSlug,
 } from "./tenantRequestScope";
 
 interface RetryableRequestConfig extends InternalAxiosRequestConfig {
@@ -58,8 +60,15 @@ api.interceptors.request.use((config) => {
   const activeOrgId = scopedConfig._organizationId;
   if (activeOrgId) {
     config.headers["x-organization-id"] = activeOrgId;
+    config.headers.delete("x-tenant-slug");
   } else {
     config.headers.delete("x-organization-id");
+    const activeOrgSlug = currentOrganizationSlug();
+    if (activeOrgSlug) {
+      config.headers["x-tenant-slug"] = activeOrgSlug;
+    } else {
+      config.headers.delete("x-tenant-slug");
+    }
   }
 
   return config;
@@ -145,7 +154,8 @@ api.interceptors.response.use(
 // In this tab, the existing workspace-entry/exit handlers already hard-navigate.
 window.addEventListener("storage", (event) => {
   if (
-    (event.key === ACTIVE_ORGANIZATION_KEY &&
+    ((event.key === ACTIVE_ORGANIZATION_KEY ||
+      event.key === ACTIVE_ORGANIZATION_SLUG_KEY) &&
       event.oldValue !== event.newValue) ||
     event.key === null
   ) {

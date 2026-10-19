@@ -30,12 +30,19 @@ import {
 import { toast } from "react-hot-toast";
 import { Button, Card, Badge } from "ui";
 import { api } from "../../common/api";
+import { TenantManagementDialog } from "./TenantManagementDialog";
 
 interface TenantDetails {
   id: string;
   name: string;
   slug: string;
-  status: "ACTIVE" | "TRIAL" | "SETUP_PENDING" | "PAST_DUE" | "SUSPENDED" | "CANCELLED";
+  status:
+    | "ACTIVE"
+    | "TRIAL"
+    | "SETUP_PENDING"
+    | "PAST_DUE"
+    | "SUSPENDED"
+    | "CANCELLED";
   planTier: "STARTER" | "GROWTH" | "ENTERPRISE" | string;
   setupFeePaid: boolean;
   allocatedSeats: number;
@@ -71,15 +78,19 @@ export function TenantOverviewScreen() {
   const [tenant, setTenant] = useState<TenantDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [managementOpen, setManagementOpen] = useState(false);
 
-  const fetchTenant = async () => {
+  const fetchTenant = async (showLoading = true) => {
     if (!tenantId) return;
-    setLoading(true);
+    if (showLoading) setLoading(true);
     try {
       const res = await api.get(`/organizations/tenant-details/${tenantId}`);
       setTenant(res.data);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to load tenant workspace details");
+      toast.error(
+        err?.response?.data?.message ||
+          "Failed to load tenant workspace details",
+      );
     } finally {
       setLoading(false);
     }
@@ -108,7 +119,9 @@ export function TenantOverviewScreen() {
       toast.success(`Tenant status updated to ${newStatus}`);
       await fetchTenant();
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to update tenant status");
+      toast.error(
+        err?.response?.data?.message || "Failed to update tenant status",
+      );
     } finally {
       setUpdatingStatus(false);
     }
@@ -118,8 +131,12 @@ export function TenantOverviewScreen() {
     return (
       <div className="min-h-[500px] flex flex-col items-center justify-center p-12 text-center font-sans">
         <div className="inline-block animate-spin h-8 w-8 border-3 border-primary border-t-transparent rounded-full mb-3" />
-        <h3 className="text-sm font-bold text-primary">Loading Workspace Overview...</h3>
-        <p className="text-xs text-slate-400 mt-1">Retrieving tenant organization profile, subscription, and capacity</p>
+        <h3 className="text-sm font-bold text-primary">
+          Loading Workspace Overview...
+        </h3>
+        <p className="text-xs text-slate-400 mt-1">
+          Retrieving tenant organization profile, subscription, and capacity
+        </p>
       </div>
     );
   }
@@ -131,7 +148,9 @@ export function TenantOverviewScreen() {
           <AlertCircle className="h-7 w-7" />
         </div>
         <div>
-          <h2 className="text-xl font-extrabold text-primary">Tenant Workspace Not Found</h2>
+          <h2 className="text-xl font-extrabold text-primary">
+            Tenant Workspace Not Found
+          </h2>
           <p className="text-xs text-slate-500 font-medium mt-1">
             Could not locate the requested workspace.
           </p>
@@ -147,25 +166,44 @@ export function TenantOverviewScreen() {
     );
   }
 
-  const activeMembers = (tenant.memberships || []).filter((m) => m.isActive).length;
+  const activeMembers = (tenant.memberships || []).filter(
+    (m) => m.isActive,
+  ).length;
   const unitPrice =
     tenant.pricePerSeatMonth ||
-    (tenant.planTier === "ENTERPRISE" ? 1499 : tenant.planTier === "GROWTH" ? 899 : 499);
+    (tenant.planTier === "ENTERPRISE"
+      ? 1499
+      : tenant.planTier === "GROWTH"
+      ? 899
+      : 499);
   const totalMrr = (tenant.allocatedSeats || 1) * unitPrice;
   const leadsCount = tenant._count?.leads || 0;
   const projectsCount = tenant._count?.projects || 0;
 
   return (
     <div className="space-y-6 pb-16 font-sans text-slate-800">
+      {managementOpen && (
+        <TenantManagementDialog
+          tenant={tenant}
+          onClose={() => setManagementOpen(false)}
+          onSaved={() => void fetchTenant(false)}
+        />
+      )}
       {/* 1. Breadcrumbs & Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div>
           <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-            <Link to="/superadmin/dashboard" className="hover:text-primary transition">
+            <Link
+              to="/superadmin/dashboard"
+              className="hover:text-primary transition"
+            >
               Super Admin
             </Link>
             <ChevronRight className="h-3 w-3 text-slate-400" />
-            <Link to="/superadmin/tenants" className="hover:text-primary transition">
+            <Link
+              to="/superadmin/tenants"
+              className="hover:text-primary transition"
+            >
               Tenant Organizations
             </Link>
             <ChevronRight className="h-3 w-3 text-slate-400" />
@@ -178,7 +216,9 @@ export function TenantOverviewScreen() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-extrabold text-primary tracking-tight">{tenant.name}</h1>
+                <h1 className="text-2xl font-extrabold text-primary tracking-tight">
+                  {tenant.name}
+                </h1>
                 <span
                   className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${
                     tenant.status === "ACTIVE"
@@ -195,15 +235,26 @@ export function TenantOverviewScreen() {
               </div>
               <p className="text-xs text-slate-500 font-medium flex items-center gap-2 mt-0.5">
                 <Globe className="h-3.5 w-3.5 text-slate-400" />
-                <span>{tenant.customDomain || `${tenant.slug}.gromoze.com`}</span>
+                <span>
+                  {tenant.customDomain || `${tenant.slug}.gromoze.com`}
+                </span>
                 <span className="text-slate-300">•</span>
-                <span className="font-mono text-slate-400">Slug: {tenant.slug}</span>
+                <span className="font-mono text-slate-400">
+                  Slug: {tenant.slug}
+                </span>
               </p>
             </div>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setManagementOpen(true)}
+          >
+            Manage tenant
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -252,11 +303,15 @@ export function TenantOverviewScreen() {
             <ShieldCheck className="h-5 w-5" />
           </div>
           <div>
-            <span className="text-[11px] text-slate-500 font-semibold block">Workspace Status</span>
+            <span className="text-[11px] text-slate-500 font-semibold block">
+              Workspace Status
+            </span>
             <span className="text-base font-extrabold text-emerald-700 block leading-tight">
               {tenant.status}
             </span>
-            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">Live Tenant</span>
+            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+              Live Tenant
+            </span>
           </div>
         </div>
 
@@ -265,11 +320,15 @@ export function TenantOverviewScreen() {
             <CreditCard className="h-5 w-5" />
           </div>
           <div>
-            <span className="text-[11px] text-slate-500 font-semibold block">Commercial Tier</span>
+            <span className="text-[11px] text-slate-500 font-semibold block">
+              Commercial Tier
+            </span>
             <span className="text-base font-extrabold text-indigo-700 block leading-tight">
               {tenant.planTier}
             </span>
-            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">₹{unitPrice}/seat/mo</span>
+            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+              ₹{unitPrice}/seat/mo
+            </span>
           </div>
         </div>
 
@@ -278,11 +337,15 @@ export function TenantOverviewScreen() {
             <TrendingUp className="h-5 w-5" />
           </div>
           <div>
-            <span className="text-[11px] text-slate-500 font-semibold block">Monthly MRR</span>
+            <span className="text-[11px] text-slate-500 font-semibold block">
+              Monthly MRR
+            </span>
             <span className="text-base font-extrabold text-purple-700 block leading-tight">
               ₹{totalMrr.toLocaleString("en-IN")}
             </span>
-            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">₹{(totalMrr * 12).toLocaleString("en-IN")}/yr</span>
+            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+              ₹{(totalMrr * 12).toLocaleString("en-IN")}/yr
+            </span>
           </div>
         </div>
 
@@ -291,11 +354,15 @@ export function TenantOverviewScreen() {
             <Users className="h-5 w-5" />
           </div>
           <div>
-            <span className="text-[11px] text-slate-500 font-semibold block">Active Users</span>
+            <span className="text-[11px] text-slate-500 font-semibold block">
+              Active Users
+            </span>
             <span className="text-base font-extrabold text-primary block leading-tight">
               {activeMembers}
             </span>
-            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">of {tenant.allocatedSeats} licensed</span>
+            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+              of {tenant.allocatedSeats} licensed
+            </span>
           </div>
         </div>
 
@@ -304,11 +371,15 @@ export function TenantOverviewScreen() {
             <Layers className="h-5 w-5" />
           </div>
           <div>
-            <span className="text-[11px] text-slate-500 font-semibold block">Leads Pipeline</span>
+            <span className="text-[11px] text-slate-500 font-semibold block">
+              Leads Pipeline
+            </span>
             <span className="text-base font-extrabold text-primary block leading-tight">
               {leadsCount}
             </span>
-            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">Customer Inquiries</span>
+            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+              Customer Inquiries
+            </span>
           </div>
         </div>
 
@@ -317,11 +388,15 @@ export function TenantOverviewScreen() {
             <Building2 className="h-5 w-5" />
           </div>
           <div>
-            <span className="text-[11px] text-slate-500 font-semibold block">Real Estate Projects</span>
+            <span className="text-[11px] text-slate-500 font-semibold block">
+              Real Estate Projects
+            </span>
             <span className="text-base font-extrabold text-primary block leading-tight">
               {projectsCount}
             </span>
-            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">Active Inventories</span>
+            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+              Active Inventories
+            </span>
           </div>
         </div>
       </div>
@@ -332,8 +407,12 @@ export function TenantOverviewScreen() {
         <div className="rounded-sm border border-slate-200 bg-white shadow-xs p-6 space-y-4">
           <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-primary">Workspace & Identity Profile</h3>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">Core organizational metadata and routing configuration</p>
+              <h3 className="text-sm font-bold text-primary">
+                Workspace & Identity Profile
+              </h3>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Core organizational metadata and routing configuration
+              </p>
             </div>
             <span className="flex h-8 w-8 items-center justify-center rounded-sm bg-slate-100 text-slate-600">
               <Building2 className="h-4 w-4" />
@@ -342,11 +421,15 @@ export function TenantOverviewScreen() {
 
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div>
-              <span className="text-slate-400 font-medium block">Legal Entity Name:</span>
+              <span className="text-slate-400 font-medium block">
+                Legal Entity Name:
+              </span>
               <p className="font-bold text-slate-800 mt-0.5">{tenant.name}</p>
             </div>
             <div>
-              <span className="text-slate-400 font-medium block">Tenant Slug:</span>
+              <span className="text-slate-400 font-medium block">
+                Tenant Slug:
+              </span>
               <p className="font-mono font-bold text-slate-800 mt-0.5 flex items-center gap-1.5">
                 {tenant.slug}
                 <button
@@ -362,25 +445,33 @@ export function TenantOverviewScreen() {
               </p>
             </div>
             <div>
-              <span className="text-slate-400 font-medium block">Subdomain URL:</span>
+              <span className="text-slate-400 font-medium block">
+                Subdomain URL:
+              </span>
               <p className="font-mono font-semibold text-blue-600 mt-0.5">
                 https://{tenant.slug}.gromoze.com
               </p>
             </div>
             <div>
-              <span className="text-slate-400 font-medium block">Custom Domain:</span>
+              <span className="text-slate-400 font-medium block">
+                Custom Domain:
+              </span>
               <p className="font-semibold text-slate-700 mt-0.5">
                 {tenant.customDomain ? (
                   <span className="text-emerald-700 font-bold flex items-center gap-1">
                     <Check className="h-3 w-3" /> {tenant.customDomain}
                   </span>
                 ) : (
-                  <span className="text-slate-400 font-medium">Not configured</span>
+                  <span className="text-slate-400 font-medium">
+                    Not configured
+                  </span>
                 )}
               </p>
             </div>
             <div>
-              <span className="text-slate-400 font-medium block">Onboarded On:</span>
+              <span className="text-slate-400 font-medium block">
+                Onboarded On:
+              </span>
               <p className="font-bold text-slate-800 mt-0.5">
                 {new Date(tenant.createdAt).toLocaleDateString("en-IN", {
                   day: "2-digit",
@@ -390,8 +481,13 @@ export function TenantOverviewScreen() {
               </p>
             </div>
             <div>
-              <span className="text-slate-400 font-medium block">Workspace code:</span>
-              <p className="font-mono text-[11px] text-slate-600 mt-0.5 truncate" title={tenant.slug}>
+              <span className="text-slate-400 font-medium block">
+                Workspace code:
+              </span>
+              <p
+                className="font-mono text-[11px] text-slate-600 mt-0.5 truncate"
+                title={tenant.slug}
+              >
                 {tenant.slug}
               </p>
             </div>
@@ -402,8 +498,12 @@ export function TenantOverviewScreen() {
         <div className="rounded-sm border border-slate-200 bg-white shadow-xs p-6 space-y-4">
           <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-primary">Commercial Plan & Capacity</h3>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">Subscription tier, licensing quotas, and commercial terms</p>
+              <h3 className="text-sm font-bold text-primary">
+                Commercial Plan & Capacity
+              </h3>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Subscription tier, licensing quotas, and commercial terms
+              </p>
             </div>
             <span className="flex h-8 w-8 items-center justify-center rounded-sm bg-indigo-50 text-indigo-700">
               <CreditCard className="h-4 w-4" />
@@ -412,33 +512,49 @@ export function TenantOverviewScreen() {
 
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div>
-              <span className="text-slate-400 font-medium block">Subscribed Tier:</span>
-              <p className="font-bold text-primary mt-0.5 text-sm">{tenant.planTier} Plan</p>
+              <span className="text-slate-400 font-medium block">
+                Subscribed Tier:
+              </span>
+              <p className="font-bold text-primary mt-0.5 text-sm">
+                {tenant.planTier} Plan
+              </p>
             </div>
             <div>
-              <span className="text-slate-400 font-medium block">Licensed Seat Capacity:</span>
+              <span className="text-slate-400 font-medium block">
+                Licensed Seat Capacity:
+              </span>
               <p className="font-bold text-slate-800 mt-0.5">
                 {activeMembers} / {tenant.allocatedSeats} Seats Utilized
               </p>
             </div>
             <div>
-              <span className="text-slate-400 font-medium block">Price Per Seat / Mo:</span>
-              <p className="font-extrabold text-emerald-700 mt-0.5 text-sm">₹{unitPrice}</p>
+              <span className="text-slate-400 font-medium block">
+                Price Per Seat / Mo:
+              </span>
+              <p className="font-extrabold text-emerald-700 mt-0.5 text-sm">
+                ₹{unitPrice}
+              </p>
             </div>
             <div>
-              <span className="text-slate-400 font-medium block">Setup & Onboarding Fee:</span>
+              <span className="text-slate-400 font-medium block">
+                Setup & Onboarding Fee:
+              </span>
               <p className="font-bold text-slate-700 mt-0.5">
                 {tenant.setupFeePaid ? (
                   <span className="text-emerald-700 font-semibold flex items-center gap-1">
                     <Check className="h-3 w-3" /> Paid & Settled
                   </span>
                 ) : (
-                  <span className="text-amber-600 font-semibold">Waived / Pending</span>
+                  <span className="text-amber-600 font-semibold">
+                    Waived / Pending
+                  </span>
                 )}
               </p>
             </div>
             <div className="col-span-2 pt-2 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-slate-500 font-medium">Estimated Annual Subscription Value:</span>
+              <span className="text-slate-500 font-medium">
+                Estimated Annual Subscription Value:
+              </span>
               <span className="font-extrabold text-base text-primary">
                 ₹{(totalMrr * 12).toLocaleString("en-IN")} / Year
               </span>
@@ -451,7 +567,9 @@ export function TenantOverviewScreen() {
       <div className="rounded-sm border border-slate-200 bg-white shadow-xs overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-bold text-primary">Tenant Team Members & Administrators</h3>
+            <h3 className="text-sm font-bold text-primary">
+              Tenant Team Members & Administrators
+            </h3>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
               Users provisioned inside this customer organization
             </p>
@@ -478,13 +596,17 @@ export function TenantOverviewScreen() {
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-500">
                     <User className="mx-auto h-6 w-6 text-slate-400 mb-1" />
-                    <p className="text-xs font-semibold">No active team members registered yet.</p>
+                    <p className="text-xs font-semibold">
+                      No active team members registered yet.
+                    </p>
                   </td>
                 </tr>
               ) : (
                 (tenant.memberships || []).map((m, idx) => (
                   <tr key={m.id} className="hover:bg-slate-50/80 transition">
-                    <td className="py-3 px-4 text-slate-400 font-semibold">{idx + 1}</td>
+                    <td className="py-3 px-4 text-slate-400 font-semibold">
+                      {idx + 1}
+                    </td>
                     <td className="py-3 px-4 font-bold text-primary">
                       <div className="flex items-center gap-2">
                         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-slate-700 font-bold text-xs">
@@ -498,7 +620,9 @@ export function TenantOverviewScreen() {
                         )}
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-slate-600 font-mono">{m.user.email}</td>
+                    <td className="py-3 px-4 text-slate-600 font-mono">
+                      {m.user.email}
+                    </td>
                     <td className="py-3 px-4">
                       <span className="inline-flex rounded-sm bg-slate-100 px-2 py-0.5 font-bold text-slate-700 border border-slate-200 text-[11px]">
                         {m.role}

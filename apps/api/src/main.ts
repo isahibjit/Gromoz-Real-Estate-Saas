@@ -19,7 +19,14 @@ async function bootstrap() {
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
   app.use(cookieParser());
-  app.use(express.json({ limit: '10mb' }));
+  app.use(
+    express.json({
+      limit: '10mb',
+      verify: (request, _response, buffer) => {
+        Object.assign(request, { rawBody: buffer });
+      },
+    }),
+  );
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
   app.use(
     express.text({
@@ -55,16 +62,24 @@ async function bootstrap() {
       'X-Organization-Slug',
       'x-tenant-id',
       'X-Tenant-Id',
+      'x-tenant-slug',
+      'X-Tenant-Slug',
       'Cache-Control',
       'Pragma',
       'Origin',
     ],
-    exposedHeaders: ['Content-Disposition', 'x-organization-id', 'X-Organization-Id'],
+    exposedHeaders: [
+      'Content-Disposition',
+      'x-organization-id',
+      'X-Organization-Id',
+    ],
   });
 
   const config = new DocumentBuilder()
     .setTitle('Trueroot Realty CRM API')
-    .setDescription('Production API documentation and interactive endpoint testing for Trueroot Realty CRM')
+    .setDescription(
+      'Production API documentation and interactive endpoint testing for Trueroot Realty CRM',
+    )
     .setVersion('1.0')
     .addServer('/api', 'Production API Proxy (/api)')
     .addServer('/', 'Direct Root Server')
@@ -74,7 +89,8 @@ async function bootstrap() {
         scheme: 'bearer',
         bearerFormat: 'JWT',
         name: 'Authorization',
-        description: 'Enter your JWT access token (e.g., Bearer <your_jwt_token>)',
+        description:
+          'Enter your JWT access token (e.g., Bearer <your_jwt_token>)',
         in: 'header',
       },
       'bearer',

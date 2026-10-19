@@ -79,8 +79,13 @@ jobs:
           src/crm/portal-accounts.controller.spec.ts
           src/crm/email-connectors.service.spec.ts
           src/billing/trial-reminder.worker.spec.ts
+          src/billing/razorpay.service.spec.ts
+          src/common/utils/cipher.util.spec.ts
           src/organization/organization.service.trial.spec.ts
           src/organization/organization.service.domains.spec.ts
+          src/organization/organization.service.tenant-isolation.spec.ts
+          src/organization/organization.service.platform-management.spec.ts
+          src/organization/tenant-admin-email.spec.ts
           src/uploads/uploads.service.spec.ts
           src/mobile-app/mobile-app-admin.guard.spec.ts
           src/access/access.constants.spec.ts
@@ -95,8 +100,10 @@ jobs:
           src/screens/auth/reset-password/ResetPasswordScreen.test.tsx
           src/screens/admin/settings/LoginPagePreview.test.tsx
           src/screens/superadmin/PlatformAuditLogsScreen.test.tsx
+          src/screens/superadmin/TenantManagementDialog.test.tsx
           src/components/notifications/HeaderNotificationBell.test.tsx
           src/common/tenantRequestScope.test.ts
+          src/common/tenantResolver.test.ts
           src/common/displayReference.test.ts
           src/common/apiError.test.ts
           src/common/components/DataTableCells.test.tsx

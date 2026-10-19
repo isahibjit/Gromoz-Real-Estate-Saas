@@ -1,4 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 
@@ -50,12 +54,13 @@ export class RazorpayService {
   private readonly isConfigured: boolean;
 
   constructor(private readonly config: ConfigService) {
-    this.keyId = this.config.get<string>('RAZORPAY_KEY_ID') || 'rzp_test_mock_key';
-    this.keySecret = this.config.get<string>('RAZORPAY_KEY_SECRET') || 'rzp_test_mock_secret';
-    this.webhookSecret = this.config.get<string>('RAZORPAY_WEBHOOK_SECRET') || 'rzp_webhook_secret';
+    this.keyId = this.config.get<string>('RAZORPAY_KEY_ID') || '';
+    this.keySecret = this.config.get<string>('RAZORPAY_KEY_SECRET') || '';
+    this.webhookSecret =
+      this.config.get<string>('RAZORPAY_WEBHOOK_SECRET') || '';
     this.isConfigured = Boolean(
       this.config.get<string>('RAZORPAY_KEY_ID') &&
-      this.config.get<string>('RAZORPAY_KEY_SECRET'),
+        this.config.get<string>('RAZORPAY_KEY_SECRET'),
     );
   }
 
@@ -64,28 +69,22 @@ export class RazorpayService {
   }
 
   private getAuthHeader(): string {
-    return `Basic ${Buffer.from(`${this.keyId}:${this.keySecret}`).toString('base64')}`;
+    return `Basic ${Buffer.from(`${this.keyId}:${this.keySecret}`).toString(
+      'base64',
+    )}`;
   }
 
   async createOrder(params: CreateOrderParams): Promise<RazorpayOrderResponse> {
     const amountInPaise = Math.round(params.amount * 100);
 
     if (!this.isConfigured) {
-      this.logger.warn('Razorpay keys not configured. Returning simulated test order.');
-      return {
-        id: `order_mock_${Date.now()}`,
-        entity: 'order',
-        amount: amountInPaise,
-        amount_paid: 0,
-        amount_due: amountInPaise,
-        currency: params.currency || 'INR',
-        receipt: params.receipt,
-        status: 'created',
-        created_at: Math.floor(Date.now() / 1000),
-      };
+      throw new ServiceUnavailableException(
+        'Platform Razorpay credentials are not configured',
+      );
     }
 
     const response = await fetch('https://api.razorpay.com/v1/orders', {
+      signal: AbortSignal.timeout(15000),
       method: 'POST',
       headers: {
         Authorization: this.getAuthHeader(),
@@ -108,20 +107,19 @@ export class RazorpayService {
     return (await response.json()) as RazorpayOrderResponse;
   }
 
-  async createPaymentLink(params: CreatePaymentLinkParams): Promise<RazorpayPaymentLinkResponse> {
+  async createPaymentLink(
+    params: CreatePaymentLinkParams,
+  ): Promise<RazorpayPaymentLinkResponse> {
     const amountInPaise = Math.round(params.amount * 100);
 
     if (!this.isConfigured) {
-      this.logger.warn('Razorpay keys not configured. Returning simulated payment link.');
-      return {
-        id: `plink_mock_${Date.now()}`,
-        short_url: `https://rzp.io/i/mock_${Date.now()}`,
-        status: 'created',
-        amount: amountInPaise,
-      };
+      throw new ServiceUnavailableException(
+        'Platform Razorpay credentials are not configured',
+      );
     }
 
     const response = await fetch('https://api.razorpay.com/v1/payment_links', {
+      signal: AbortSignal.timeout(15000),
       method: 'POST',
       headers: {
         Authorization: this.getAuthHeader(),
@@ -143,7 +141,9 @@ export class RazorpayService {
         },
         reminder_enable: true,
         notes: params.notes,
-        callback_url: params.callbackUrl || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`,
+        callback_url:
+          params.callbackUrl ||
+          `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`,
         callback_method: 'get',
       }),
     });
@@ -162,9 +162,7 @@ export class RazorpayService {
     paymentId: string;
     signature: string;
   }): boolean {
-    if (!this.isConfigured) {
-      return true;
-    }
+    if (!this.isConfigured) return false;
 
     const generatedSignature = crypto
       .createHmac('sha256', this.keySecret)
@@ -175,9 +173,7 @@ export class RazorpayService {
   }
 
   verifyWebhookSignature(rawBody: string, signature: string): boolean {
-    if (!this.isConfigured) {
-      return true;
-    }
+    if (!this.isConfigured || !this.webhookSecret) return false;
 
     const expectedSignature = crypto
       .createHmac('sha256', this.webhookSecret)

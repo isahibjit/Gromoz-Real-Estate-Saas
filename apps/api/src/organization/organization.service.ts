@@ -5,7 +5,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import * as argon2 from 'argon2';
 import * as crypto from 'crypto';
 import * as dns from 'dns';
 import * as fs from 'fs';
@@ -13,12 +12,35 @@ import * as path from 'path';
 import { promisify } from 'util';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { BillingService, DEFAULT_TRIAL_DAYS } from '../billing/billing.service';
-import { Role, OrganizationStatus } from '@prisma/client';
+import { Role, OrganizationStatus, Prisma } from '@prisma/client';
 
-import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
-import { isPlatformHost, normalizeTenantHost, TenantSlugSchema, tenantSlugFromHost, tenantWorkspaceUrl, PLATFORM_HOST } from '@truroot/shared';
-import { encryptPassword, decryptPassword } from '../common/utils/cipher.util';
-import * as nodemailer from 'nodemailer';
+import {
+  IsBoolean,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsEmail,
+  IsEnum,
+  IsInt,
+  Min,
+  Max,
+  MinLength,
+  MaxLength,
+} from 'class-validator';
+import {
+  isPlatformHost,
+  normalizeTenantHost,
+  TenantSlugSchema,
+  tenantSlugFromHost,
+  tenantWorkspaceUrl,
+  PLATFORM_HOST,
+} from '@truroot/shared';
+import {
+  encryptPassword,
+  passwordForDisplay,
+} from '../common/utils/cipher.util';
+import { EmailConnectorsService } from '../crm/email-connectors.service';
+import { buildTenantAdminEmail } from './tenant-admin-email';
 
 const resolveCnameAsync = promisify(dns.resolveCname);
 
@@ -100,6 +122,27 @@ export class InviteMemberDto {
   fullName?: string;
 }
 
+export class UpdateTenantDto {
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(160) name?: string;
+  @IsOptional()
+  @IsEnum({ STARTER: 'STARTER', GROWTH: 'GROWTH', ENTERPRISE: 'ENTERPRISE' })
+  planTier?: 'STARTER' | 'GROWTH' | 'ENTERPRISE';
+  @IsOptional() @IsInt() @Min(1) @Max(100000) allocatedSeats?: number;
+  @IsOptional() @IsEnum(OrganizationStatus) status?: OrganizationStatus;
+  @IsOptional() @IsString() @MaxLength(253) customDomain?: string;
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(160)
+  adminFullName?: string;
+  @IsOptional() @IsEmail() @MaxLength(254) adminEmail?: string;
+}
+
+export class ResetTenantAdminPasswordDto {
+  @IsOptional() @IsString() @MinLength(8) @MaxLength(128) newPassword?: string;
+  @IsOptional() @IsBoolean() notifyEmail?: boolean;
+}
+
 export class UpdateWorkspaceSettingsDto {
   companyName?: string;
   industry?: string;
@@ -132,11 +175,11 @@ export class OrganizationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly billingService: BillingService,
+    private readonly email: EmailConnectorsService,
   ) {}
 
   async provisionOrganization(dto: ProvisionOrgDto, actorId: string) {
-    const actor = await this.prisma.user.findUnique({ where: { id: actorId }, select: { role: true, isActive: true } });
-    if (actor?.role !== 'SUPER_ADMIN' || !actor.isActive) throw new ForbiddenException('Platform SuperAdmin access required');
+    await this.requirePlatformAdmin(actorId);
     return this.registerOrganization(dto, dto.isTrial === true);
   }
 
@@ -146,7 +189,10 @@ export class OrganizationService {
     const rawAdminFullName = (dto.fullName || dto.adminFullName || '').trim();
     const rawAdminEmail = (dto.email || dto.adminEmail || '').trim();
     const rawAdminPassword = dto.password || dto.adminPassword || '';
-    const initialSeats = Math.max(1, Number(dto.seats || dto.initialSeats) || 1);
+    const initialSeats = Math.max(
+      1,
+      Number(dto.seats || dto.initialSeats) || 1,
+    );
 
     if (!rawOrgName) {
       throw new BadRequestException('Organization name is required');
@@ -157,8 +203,10 @@ export class OrganizationService {
     if (!rawAdminEmail) {
       throw new BadRequestException('Admin email is required');
     }
-    if (!rawAdminPassword || rawAdminPassword.length < 6) {
-      throw new BadRequestException('Admin password must be at least 6 characters long');
+    if (!rawAdminPassword || rawAdminPassword.length < 8) {
+      throw new BadRequestException(
+        'Admin password must be at least 8 characters long',
+      );
     }
 
     const slugResult = TenantSlugSchema.safeParse(rawSlug);
@@ -171,7 +219,9 @@ export class OrganizationService {
     });
 
     if (existingOrg) {
-      throw new ConflictException('An organization with this slug already exists. Please choose another.');
+      throw new ConflictException(
+        'An organization with this slug already exists. Please choose another.',
+      );
     }
 
     const existingUser = await this.prisma.user.findUnique({
@@ -179,14 +229,20 @@ export class OrganizationService {
     });
 
     if (existingUser) {
-      throw new ConflictException('An account with this email address already exists. Please log in.');
+      throw new ConflictException(
+        'An account with this email address already exists. Please log in.',
+      );
     }
 
     // Customer tenant accounts store reversible AES encrypted passwords so admins can manage/view them
     const passwordHash = encryptPassword(rawAdminPassword);
-    const planTier = (['STARTER', 'GROWTH', 'ENTERPRISE'].includes((dto.planTier || '').toUpperCase())
-      ? dto.planTier!.toUpperCase()
-      : 'STARTER') as any;
+    const planTier = (
+      ['STARTER', 'GROWTH', 'ENTERPRISE'].includes(
+        (dto.planTier || '').toUpperCase(),
+      )
+        ? dto.planTier!.toUpperCase()
+        : 'STARTER'
+    ) as any;
 
     const result = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
@@ -204,7 +260,9 @@ export class OrganizationService {
           name: rawOrgName,
           slug: cleanSlug,
           status: trial ? 'TRIAL' : 'SETUP_PENDING',
-          trialEndsAt: trial ? new Date(Date.now() + DEFAULT_TRIAL_DAYS * 86400000) : null,
+          trialEndsAt: trial
+            ? new Date(Date.now() + DEFAULT_TRIAL_DAYS * 86400000)
+            : null,
           planTier,
           industry: dto.industry || 'Real Estate',
           city: dto.city || null,
@@ -235,11 +293,19 @@ export class OrganizationService {
 
     // Provisioning must not fail after the account transaction has committed
     // merely because an external checkout provider is unavailable.
-    const checkoutOrder = trial ? null : await this.billingService.createSetupCheckout(
-      result.organization.id, { initialSeats },
-    ).catch(() => null);
+    let checkoutError: string | null = null;
+    const checkoutOrder = trial
+      ? null
+      : await this.billingService
+          .createSetupCheckout(result.organization.id, { initialSeats })
+          .catch(() => {
+            checkoutError =
+              'Setup payment link is unavailable. Check the platform Razorpay configuration and retry from the tenant overview.';
+            return null;
+          });
 
-    const paymentLinkUrl = checkoutOrder?.paymentLinkUrl || checkoutOrder?.shortUrl || null;
+    const paymentLinkUrl =
+      checkoutOrder?.paymentLinkUrl || checkoutOrder?.shortUrl || null;
 
     // Dispatch automated Welcome Kit Email to tenant administrator
     let welcomeEmailSent = false;
@@ -256,12 +322,18 @@ export class OrganizationService {
         seats: initialSeats,
         paymentLinkUrl,
       });
-    } catch (err: any) {
-      console.error(`[OrganizationService] Welcome email failed for ${rawAdminEmail}:`, err?.message || err);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(
+        `[OrganizationService] Welcome email failed for ${rawAdminEmail}:`,
+        message,
+      );
     }
 
     return {
-      message: trial ? 'Organization created with a 14-day trial.' : 'Organization created successfully. Setup payment is pending.',
+      message: trial
+        ? 'Organization created with a 14-day trial.'
+        : 'Organization created successfully. Setup payment is pending.',
       organization: {
         id: result.organization.id,
         name: result.organization.name,
@@ -276,6 +348,7 @@ export class OrganizationService {
         fullName: result.user.fullName,
       },
       checkoutOrder,
+      checkoutError: checkoutError || checkoutOrder?.checkoutError || null,
       welcomeEmailSent,
     };
   }
@@ -361,36 +434,41 @@ export class OrganizationService {
         forceLogoutOnInactivity: false,
       },
       loginCms: customSettings.loginCms || {
-        heroHeadlinePrefix: "Welcome to",
-        heroHeadlineHighlight: org.name || "Trueroot Realty CRM",
-        heroTagline: "Streamline your leads, follow-ups, site visits and sales - all in one place.",
-        heroLogoUrl: org.logoUrl || "",
-        heroBgImageUrl: "",
+        heroHeadlinePrefix: 'Welcome to',
+        heroHeadlineHighlight: org.name || 'Trueroot Realty CRM',
+        heroTagline:
+          'Streamline your leads, follow-ups, site visits and sales - all in one place.',
+        heroLogoUrl: org.logoUrl || '',
+        heroBgImageUrl: '',
         features: [
-          { title: "Manage Leads" },
-          { title: "Track Activities" },
-          { title: "Close More Deals" },
-          { title: "Boost Productivity" },
+          { title: 'Manage Leads' },
+          { title: 'Track Activities' },
+          { title: 'Close More Deals' },
+          { title: 'Boost Productivity' },
         ],
-        trustBadgeTitle: "Secure. Reliable. Always with You.",
-        trustBadgeDescription: "Your data is protected with enterprise grade security.",
-        cardTitle: "Login to Your Account",
-        cardSubtitle: "Welcome back! Please login to continue.",
-        passwordHint: "",
-        downloadAppLabel: "Download Android app",
-        downloadAppUrl: "/download-app",
+        trustBadgeTitle: 'Secure. Reliable. Always with You.',
+        trustBadgeDescription:
+          'Your data is protected with enterprise grade security.',
+        cardTitle: 'Login to Your Account',
+        cardSubtitle: 'Welcome back! Please login to continue.',
+        passwordHint: '',
+        downloadAppLabel: 'Download Android app',
+        downloadAppUrl: '/download-app',
         showDownloadApp: true,
-        supportTitle: "Need help?",
-        supportSubtitle: "Contact our support team",
-        supportPhone: org.primaryPhone || "+91 98700 66177",
-        supportEmail: org.primaryEmail || "support@gromoze.com",
-        termsUrl: "/terms",
-        privacyUrl: "/privacy-policy",
+        supportTitle: 'Need help?',
+        supportSubtitle: 'Contact our support team',
+        supportPhone: org.primaryPhone || '+91 98700 66177',
+        supportEmail: org.primaryEmail || 'support@gromoze.com',
+        termsUrl: '/terms',
+        privacyUrl: '/privacy-policy',
       },
     };
   }
 
-  async updateWorkspaceSettings(orgId: string, dto: UpdateWorkspaceSettingsDto) {
+  async updateWorkspaceSettings(
+    orgId: string,
+    dto: UpdateWorkspaceSettingsDto,
+  ) {
     const org = await this.prisma.organization.findUnique({
       where: { id: orgId },
     });
@@ -403,13 +481,16 @@ export class OrganizationService {
     let newSlug = org.slug;
     if (dto.subdomain && dto.subdomain !== org.slug) {
       const parsedSlug = TenantSlugSchema.safeParse(dto.subdomain);
-      if (!parsedSlug.success) throw new BadRequestException(parsedSlug.error.issues[0].message);
+      if (!parsedSlug.success)
+        throw new BadRequestException(parsedSlug.error.issues[0].message);
       const cleanSubdomain = parsedSlug.data;
       const conflict = await this.prisma.organization.findUnique({
         where: { slug: cleanSubdomain },
       });
       if (conflict && conflict.id !== orgId) {
-        throw new ConflictException('This subdomain is already taken by another organization.');
+        throw new ConflictException(
+          'This subdomain is already taken by another organization.',
+        );
       }
       newSlug = cleanSubdomain;
     }
@@ -418,13 +499,17 @@ export class OrganizationService {
     let newCustomDomain = org.customDomain;
     let customDomainVerified = org.customDomainVerified;
     if (dto.customDomain !== undefined) {
-      const cleanDomain = dto.customDomain ? dto.customDomain.toLowerCase().trim() : null;
+      const cleanDomain = dto.customDomain
+        ? dto.customDomain.toLowerCase().trim()
+        : null;
       if (cleanDomain && cleanDomain !== org.customDomain) {
         const domainConflict = await this.prisma.organization.findUnique({
           where: { customDomain: cleanDomain },
         });
         if (domainConflict && domainConflict.id !== orgId) {
-          throw new ConflictException('This custom domain is already linked to another workspace.');
+          throw new ConflictException(
+            'This custom domain is already linked to another workspace.',
+          );
         }
         newCustomDomain = cleanDomain;
         customDomainVerified = false; // reset verification on domain change
@@ -456,7 +541,8 @@ export class OrganizationService {
         primaryEmail: dto.primaryEmail ?? org.primaryEmail,
         primaryPhone: dto.primaryPhone ?? org.primaryPhone,
         brandingPrimaryColor: dto.primaryColor ?? org.brandingPrimaryColor,
-        brandingSecondaryColor: dto.secondaryColor ?? org.brandingSecondaryColor,
+        brandingSecondaryColor:
+          dto.secondaryColor ?? org.brandingSecondaryColor,
         logoUrl: dto.logoUrl ?? org.logoUrl,
         collapsedLogoUrl: dto.collapsedLogoUrl ?? org.collapsedLogoUrl,
         showLogoInSidebar: dto.showLogoInSidebar ?? org.showLogoInSidebar,
@@ -499,8 +585,7 @@ export class OrganizationService {
       // Check CNAME record
       const records = await resolveCnameAsync(domain);
       isVerified = records.some(
-        (r) =>
-          normalizeTenantHost(r) === PLATFORM_HOST,
+        (r) => normalizeTenantHost(r) === PLATFORM_HOST,
       );
     } catch {
       isVerified = false;
@@ -539,9 +624,15 @@ export class OrganizationService {
 
     // 1. Check custom domain
     const select = {
-      id: true, name: true, slug: true, logoUrl: true,
-      brandingPrimaryColor: true, brandingSecondaryColor: true, status: true,
-      showLogoInLogin: true, workspaceSettingsJson: true,
+      id: true,
+      name: true,
+      slug: true,
+      logoUrl: true,
+      brandingPrimaryColor: true,
+      brandingSecondaryColor: true,
+      status: true,
+      showLogoInLogin: true,
+      workspaceSettingsJson: true,
     } as const;
     let org = await this.prisma.organization.findFirst({
       where: { customDomain: cleanHost, customDomainVerified: true },
@@ -664,26 +755,47 @@ export class OrganizationService {
     };
   }
 
-  async inviteMember(orgId: string, currentUserId: string, dto: InviteMemberDto) {
+  async inviteMember(
+    orgId: string,
+    currentUserId: string,
+    dto: InviteMemberDto,
+  ) {
     const actor = await this.prisma.user.findUnique({
       where: { id: currentUserId },
       select: { role: true, isActive: true },
     });
-    if (!actor?.isActive) throw new ForbiddenException('Active administrator required');
+    if (!actor?.isActive)
+      throw new ForbiddenException('Active administrator required');
     if (actor.role !== 'SUPER_ADMIN') {
       const membership = await this.prisma.organizationMember.findUnique({
-        where: { organizationId_userId: { organizationId: orgId, userId: currentUserId } },
+        where: {
+          organizationId_userId: {
+            organizationId: orgId,
+            userId: currentUserId,
+          },
+        },
         select: { isActive: true, isOwner: true, role: true },
       });
-      if (!membership?.isActive || (!membership.isOwner && membership.role !== 'ADMIN')) {
-        throw new ForbiddenException('Only workspace administrators can invite members');
+      if (
+        !membership?.isActive ||
+        (!membership.isOwner && membership.role !== 'ADMIN')
+      ) {
+        throw new ForbiddenException(
+          'Only workspace administrators can invite members',
+        );
       }
     }
-    if (typeof dto.email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dto.email.trim())) {
+    if (
+      typeof dto.email !== 'string' ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dto.email.trim())
+    ) {
       throw new BadRequestException('A valid email address is required');
     }
     const targetRole = dto.role ?? 'SALES_AGENT';
-    if (!Object.values(Role).includes(targetRole) || targetRole === 'SUPER_ADMIN') {
+    if (
+      !Object.values(Role).includes(targetRole) ||
+      targetRole === 'SUPER_ADMIN'
+    ) {
       throw new BadRequestException('Invalid workspace role');
     }
     const org = await this.prisma.organization.findUnique({
@@ -715,23 +827,28 @@ export class OrganizationService {
     });
 
     if (user) {
-      const existingMembership = await this.prisma.organizationMember.findUnique({
-        where: {
-          organizationId_userId: {
-            organizationId: orgId,
-            userId: user.id,
+      const existingMembership =
+        await this.prisma.organizationMember.findUnique({
+          where: {
+            organizationId_userId: {
+              organizationId: orgId,
+              userId: user.id,
+            },
           },
-        },
-      });
+        });
 
       if (existingMembership) {
-        throw new ConflictException('This user is already a member of this organization.');
+        throw new ConflictException(
+          'This user is already a member of this organization.',
+        );
       }
 
       // A tenant must not acquire access to a global account's HR profile just
       // by knowing its email. Re-enable only with verified acceptance and
       // membership-owned HR/permission records.
-      throw new ConflictException('Existing accounts cannot be added directly. Verified invitation acceptance is required.');
+      throw new ConflictException(
+        'Existing accounts cannot be added directly. Verified invitation acceptance is required.',
+      );
     }
 
     const token = crypto.randomBytes(32).toString('hex');
@@ -835,7 +952,9 @@ export class OrganizationService {
         ...(status === 'TRIAL' && !org.trialEndsAt
           ? {
               trialEndsAt: new Date(
-                (org.status === 'TRIAL' ? org.createdAt.getTime() : Date.now()) +
+                (org.status === 'TRIAL'
+                  ? org.createdAt.getTime()
+                  : Date.now()) +
                   DEFAULT_TRIAL_DAYS * 24 * 60 * 60 * 1000,
               ),
             }
@@ -849,26 +968,13 @@ export class OrganizationService {
     };
   }
 
-  private getSmtpTransporter() {
-    const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-    const port = Number(process.env.SMTP_PORT) || 465;
-    const secure = process.env.SMTP_SECURE === 'true' || port === 465;
-    const user = process.env.SMTP_USER || '';
-    const pass = process.env.SMTP_PASS || '';
-
-    if (!user || !pass) {
-      return null;
-    }
-
-    return nodemailer.createTransport({
-      host,
-      port,
-      secure,
-      auth: { user, pass },
-      tls: {
-        rejectUnauthorized: false,
-      },
+  private async requirePlatformAdmin(actorId: string) {
+    const actor = await this.prisma.user.findUnique({
+      where: { id: actorId },
+      select: { role: true, isActive: true },
     });
+    if (actor?.role !== 'SUPER_ADMIN' || !actor.isActive)
+      throw new ForbiddenException('Platform SuperAdmin access required');
   }
 
   async sendTenantWelcomeKit(params: {
@@ -883,96 +989,11 @@ export class OrganizationService {
     seats: number;
     paymentLinkUrl?: string | null;
   }): Promise<boolean> {
-    const transporter = this.getSmtpTransporter();
-    if (!transporter) {
-      console.warn('[OrganizationService] SMTP not configured. Welcome email skipped.');
-      return false;
-    }
-
-    const fromName = process.env.SMTP_FROM_NAME || 'Gromoze CRM';
-    const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@gromoze.com';
-    const loginUrl = `${params.workspaceUrl}/login`;
-    const subject = `Welcome to Gromoze CRM - Your Workspace "${params.organizationName}" is Ready!`;
-
-    const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 24px; }
-        .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-        .header { background: #0D1F3D; color: #ffffff; padding: 32px 28px; text-align: center; }
-        .header h1 { margin: 0 0 8px 0; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
-        .header p { margin: 0; font-size: 14px; opacity: 0.85; }
-        .content { padding: 32px 28px; line-height: 1.6; }
-        .greeting { font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 12px; }
-        .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0; }
-        .label { color: #64748b; font-weight: 500; }
-        .cred-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 18px; margin: 20px 0; }
-        .cred-title { font-size: 12px; font-weight: 700; color: #1d4ed8; text-transform: uppercase; margin-bottom: 10px; }
-        .btn { display: inline-block; background: #0D1F3D; color: #ffffff !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 14px; margin: 16px 0; text-align: center; }
-        .btn-pay { display: inline-block; background: #2563eb; color: #ffffff !important; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 13px; margin: 10px 0; }
-        .footer { background: #f1f5f9; padding: 20px 28px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1 style="color:#ffffff;">Gromoze CRM</h1>
-          <p style="color:#94a3b8;">Enterprise Workspace Provisioning Confirmation</p>
-        </div>
-        <div class="content">
-          <p class="greeting">Hello ${params.adminFullName || 'Administrator'},</p>
-          <p>Welcome to <strong>Gromoze Real Estate CRM</strong>! Your workspace for <strong>${params.organizationName}</strong> has been provisioned and is ready for use.</p>
-          
-          <div class="card">
-            <div style="margin-bottom: 8px;"><strong style="font-size: 14px; color: #0f172a;">Workspace Overview</strong></div>
-            <div style="font-size: 13px; margin-bottom: 6px;"><span class="label">Organization Name:</span> <strong>${params.organizationName}</strong></div>
-            <div style="font-size: 13px; margin-bottom: 6px;"><span class="label">Subdomain Slug:</span> <code>${params.subdomain}</code></div>
-            <div style="font-size: 13px; margin-bottom: 6px;"><span class="label">Plan Tier:</span> <strong>${params.planTier} (${params.seats} Seats)</strong></div>
-            <div style="font-size: 13px; margin-bottom: 6px;"><span class="label">Account Status:</span> <strong>${params.isTrial ? '14-Day Free Trial' : 'Active Workspace'}</strong></div>
-            <div style="font-size: 13px;"><span class="label">Workspace URL:</span> <a href="${loginUrl}" style="color: #2563eb; font-weight: 600;">${loginUrl}</a></div>
-          </div>
-
-          <div class="cred-box">
-            <div class="cred-title">Your Administrator Credentials</div>
-            <div style="font-size: 13px; margin-bottom: 6px;"><span style="color: #475569;">Admin Email:</span> <strong style="color: #0f172a;">${params.adminEmail}</strong></div>
-            ${params.adminPassword ? `<div style="font-size: 13px;"><span style="color: #475569;">Initial Password:</span> <strong style="color: #0f172a; font-family: monospace; background: #dbeafe; padding: 2px 6px; border-radius: 4px;">${params.adminPassword}</strong></div>` : ''}
-          </div>
-
-          <div style="text-align: center; margin: 24px 0;">
-            <a href="${loginUrl}" class="btn" target="_blank" style="color: #ffffff;">Access Your CRM Workspace &rarr;</a>
-          </div>
-
-          ${params.paymentLinkUrl ? `
-          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 20px 0;">
-            <div style="font-size: 12px; font-weight: 700; color: #15803d; text-transform: uppercase; margin-bottom: 6px;">Activation Payment Link</div>
-            <p style="margin: 0 0 10px 0; font-size: 13px; color: #166534;">You can complete or share your official Razorpay setup payment link:</p>
-            <a href="${params.paymentLinkUrl}" class="btn-pay" target="_blank" style="color: #ffffff;">Open Razorpay Payment Link</a>
-          </div>
-          ` : ''}
-
-          <p style="font-size: 13px; color: #64748b; margin-top: 24px;">
-            <strong>Security Notice:</strong> Please log in and customize your profile and settings. Keep these credentials confidential.
-          </p>
-        </div>
-        <div class="footer">
-          &copy; ${new Date().getFullYear()} Gromoze CRM SaaS Platform. All rights reserved.<br/>
-          Support: solverixtechnologies@gmail.com
-        </div>
-      </div>
-    </body>
-    </html>
-    `;
-
-    await transporter.sendMail({
-      from: `"${fromName}" <${fromAddress}>`,
+    await this.email.sendPlatformEmail({
       to: params.adminEmail,
-      subject,
-      html,
+      ...buildTenantAdminEmail({ ...params, kind: 'welcome' }),
+      entityType: 'TenantWelcomeKit',
     });
-
     return true;
   }
 
@@ -983,186 +1004,234 @@ export class OrganizationService {
     organizationName: string;
     workspaceUrl: string;
   }): Promise<boolean> {
-    const transporter = this.getSmtpTransporter();
-    if (!transporter) return false;
-
-    const fromName = process.env.SMTP_FROM_NAME || 'Gromoze CRM';
-    const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@gromoze.com';
-    const loginUrl = `${params.workspaceUrl}/login`;
-    const subject = `Credentials Updated: Gromoze CRM for ${params.organizationName}`;
-
-    const html = `
-    <!DOCTYPE html>
-    <html>
-    <head><meta charset="utf-8">
-    <style>
-      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 24px; }
-      .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; }
-      .header { background: #0D1F3D; color: #ffffff; padding: 28px; text-align: center; }
-      .content { padding: 28px; }
-      .cred-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 18px; margin: 20px 0; }
-      .btn { display: inline-block; background: #0D1F3D; color: #ffffff !important; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 14px; margin: 16px 0; }
-      .footer { background: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #64748b; }
-    </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h2 style="margin: 0; color: #ffffff;">Gromoze CRM</h2>
-          <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.85; color: #94a3b8;">Administrator Password Reset</p>
-        </div>
-        <div class="content">
-          <p>Hello <strong>${params.adminFullName}</strong>,</p>
-          <p>The platform administrator has updated your login credentials for <strong>${params.organizationName}</strong>.</p>
-          <div class="cred-box">
-            <div style="font-size: 13px; margin-bottom: 6px;">Login Email: <strong>${params.adminEmail}</strong></div>
-            <div style="font-size: 13px;">New Password: <strong style="font-family: monospace; background: #dbeafe; padding: 3px 8px; border-radius: 4px; color: #1e40af;">${params.newPassword}</strong></div>
-          </div>
-          <div style="text-align: center;">
-            <a href="${loginUrl}" class="btn" target="_blank" style="color: #ffffff;">Log In to Your Workspace &rarr;</a>
-          </div>
-          <p style="font-size: 12px; color: #64748b; margin-top: 20px;">
-            Workspace Address: <a href="${loginUrl}" style="color: #2563eb;">${loginUrl}</a>
-          </p>
-        </div>
-        <div class="footer">&copy; ${new Date().getFullYear()} Gromoze CRM. All rights reserved.</div>
-      </div>
-    </body>
-    </html>
-    `;
-
-    await transporter.sendMail({
-      from: `"${fromName}" <${fromAddress}>`,
+    await this.email.sendPlatformEmail({
       to: params.adminEmail,
-      subject,
-      html,
+      ...buildTenantAdminEmail({
+        ...params,
+        adminPassword: params.newPassword,
+        kind: 'reset',
+      }),
+      entityType: 'TenantAdminPasswordReset',
     });
     return true;
   }
 
-  async updateTenantDetails(
-    orgId: string,
-    dto: {
-      name?: string;
-      planTier?: string;
-      allocatedSeats?: number;
-      status?: OrganizationStatus;
-      customDomain?: string;
-    },
-  ) {
+  private async tenantAdministrator(orgId: string) {
     const org = await this.prisma.organization.findFirst({
       where: { OR: [{ id: orgId }, { slug: orgId }] },
     });
-    if (!org) {
-      throw new NotFoundException('Organization not found');
-    }
-
-    const data: any = {};
-    if (dto.name !== undefined && dto.name.trim()) {
-      data.name = dto.name.trim();
-    }
-    if (dto.planTier !== undefined) {
-      const tier = String(dto.planTier).toUpperCase();
-      if (['STARTER', 'GROWTH', 'ENTERPRISE'].includes(tier)) {
-        data.planTier = tier;
-      }
-    }
-    if (dto.allocatedSeats !== undefined) {
-      const seats = Number(dto.allocatedSeats);
-      if (seats >= 1) {
-        data.allocatedSeats = seats;
-      }
-    }
-    if (dto.status !== undefined) {
-      data.status = dto.status;
-      if (dto.status === 'TRIAL' && !org.trialEndsAt) {
-        data.trialEndsAt = new Date(Date.now() + DEFAULT_TRIAL_DAYS * 24 * 60 * 60 * 1000);
-      }
-    }
-    if (dto.customDomain !== undefined) {
-      data.customDomain = dto.customDomain ? dto.customDomain.trim().toLowerCase() : null;
-    }
-
-    const updated = await this.prisma.organization.update({
-      where: { id: org.id },
-      data,
+    if (!org) throw new NotFoundException('Tenant organization not found');
+    const membership = await this.prisma.organizationMember.findFirst({
+      where: {
+        organizationId: org.id,
+        isActive: true,
+        role: 'ADMIN',
+        user: { role: { not: 'SUPER_ADMIN' }, isActive: true },
+      },
+      orderBy: [{ isOwner: 'desc' }, { createdAt: 'asc' }],
+      select: {
+        user: {
+          select: { id: true, email: true, fullName: true, passwordHash: true },
+        },
+      },
     });
+    if (!membership)
+      throw new NotFoundException(
+        'No active administrator account found for this tenant workspace',
+      );
+    return { org, admin: membership.user };
+  }
 
+  async updateTenantDetails(
+    orgId: string,
+    dto: UpdateTenantDto,
+    actorId: string,
+  ) {
+    await this.requirePlatformAdmin(actorId);
+    const { org, admin } = await this.tenantAdministrator(orgId);
+    if (dto.name !== undefined && !dto.name.trim())
+      throw new BadRequestException('Workspace name is required');
+    if (dto.adminFullName !== undefined && !dto.adminFullName.trim())
+      throw new BadRequestException('Administrator name is required');
+    if (dto.allocatedSeats !== undefined) {
+      const members = await this.prisma.organizationMember.count({
+        where: { organizationId: org.id, isActive: true },
+      });
+      if (
+        !Number.isInteger(dto.allocatedSeats) ||
+        dto.allocatedSeats < Math.max(1, members)
+      )
+        throw new BadRequestException(
+          'Allocated seats cannot be lower than active workspace membership',
+        );
+    }
+    const data: Prisma.OrganizationUpdateInput = {
+      ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+      ...(dto.planTier !== undefined ? { planTier: dto.planTier } : {}),
+      ...(dto.allocatedSeats !== undefined
+        ? { allocatedSeats: dto.allocatedSeats }
+        : {}),
+      ...(dto.status !== undefined
+        ? {
+            status: dto.status,
+            ...(dto.status === 'TRIAL' && !org.trialEndsAt
+              ? {
+                  trialEndsAt: new Date(
+                    Date.now() + DEFAULT_TRIAL_DAYS * 86400000,
+                  ),
+                }
+              : {}),
+          }
+        : {}),
+    };
+    if (dto.customDomain !== undefined) {
+      const domain = dto.customDomain.trim().toLowerCase();
+      if (
+        domain &&
+        (!/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i.test(domain) ||
+          isPlatformHost(domain))
+      )
+        throw new BadRequestException('Enter a valid custom hostname');
+      data.customDomain = domain || null;
+      if (domain !== (org.customDomain || '')) {
+        data.customDomainVerified = false;
+        data.customDomainSslStatus = 'PENDING';
+      }
+    }
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        if (dto.adminEmail !== undefined || dto.adminFullName !== undefined)
+          await tx.user.update({
+            where: { id: admin.id },
+            data: {
+              ...(dto.adminEmail !== undefined
+                ? { email: dto.adminEmail.trim().toLowerCase() }
+                : {}),
+              ...(dto.adminFullName !== undefined
+                ? { fullName: dto.adminFullName.trim() }
+                : {}),
+            },
+          });
+        await tx.organization.update({ where: { id: org.id }, data });
+        await tx.auditLog.create({
+          data: {
+            actorUserId: actorId,
+            organizationId: org.id,
+            action: 'TENANT_PROFILE_UPDATED',
+            entityType: 'ORGANIZATION',
+            entityId: org.id,
+            metadata: { fields: Object.keys(dto) },
+          },
+        });
+      });
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      )
+        throw new ConflictException(
+          'This email or custom domain is already in use',
+        );
+      throw error;
+    }
     return {
       success: true,
       message: 'Tenant workspace profile updated successfully',
-      organization: updated,
     };
   }
 
   async resetTenantAdminPassword(
     orgId: string,
-    newPassword?: string,
-    notifyEmail = true,
+    newPassword: string | undefined,
+    notifyEmail: boolean,
+    actorId: string,
   ) {
-    const org = await this.prisma.organization.findFirst({
-      where: { OR: [{ id: orgId }, { slug: orgId }] },
-      include: {
-        memberships: {
-          where: { isOwner: true, isActive: true },
-          include: { user: true },
-        },
-      },
-    });
-
-    if (!org) {
-      throw new NotFoundException('Tenant organization not found');
-    }
-
-    let adminUser = org.memberships[0]?.user;
-    if (!adminUser) {
-      const anyAdmin = await this.prisma.organizationMember.findFirst({
-        where: { organizationId: org.id, role: 'ADMIN', isActive: true },
-        include: { user: true },
-      });
-      adminUser = anyAdmin?.user;
-    }
-
-    if (!adminUser) {
-      throw new NotFoundException('No active administrator account found for this tenant workspace');
-    }
-
+    await this.requirePlatformAdmin(actorId);
+    const { org, admin } = await this.tenantAdministrator(orgId);
+    if (
+      newPassword !== undefined &&
+      (newPassword.length < 8 ||
+        newPassword.length > 128 ||
+        /^(?:\$argon2|enc:)/.test(newPassword))
+    )
+      throw new BadRequestException(
+        'Enter a new password between 8 and 128 characters',
+      );
     const nextPassword =
-      newPassword && newPassword.trim().length >= 6
-        ? newPassword.trim()
-        : crypto.randomBytes(6).toString('hex') + '!9A';
-
-    // Tenant accounts use reversible AES encryptPassword, NOT argon2 hash
-    const passwordHash = encryptPassword(nextPassword);
-
-    await this.prisma.user.update({
-      where: { id: adminUser.id },
-      data: { passwordHash },
+      newPassword ?? crypto.randomBytes(18).toString('base64url');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: admin.id },
+        data: {
+          passwordHash: encryptPassword(nextPassword),
+          lastPasswordChange: new Date(),
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actorId,
+          organizationId: org.id,
+          action: 'TENANT_ADMIN_PASSWORD_RESET',
+          entityType: 'USER',
+          entityId: admin.id,
+        },
+      });
     });
-
     let emailSent = false;
-    if (notifyEmail && adminUser.email) {
+    if (notifyEmail) {
       try {
-        await this.sendPasswordResetEmail({
-          adminEmail: adminUser.email,
-          adminFullName: adminUser.fullName || 'Tenant Administrator',
+        emailSent = await this.sendPasswordResetEmail({
+          adminEmail: admin.email,
+          adminFullName: admin.fullName || 'Administrator',
           newPassword: nextPassword,
           organizationName: org.name,
           workspaceUrl: tenantWorkspaceUrl(org.slug),
         });
-        emailSent = true;
-      } catch (err: any) {
-        console.error('[OrganizationService] Failed to send password reset email:', err?.message || err);
+      } catch {
+        /* The password change succeeded; return delivery failure explicitly. */
       }
     }
-
     return {
       success: true,
       message: 'Tenant administrator password has been updated successfully',
-      adminEmail: adminUser.email,
+      adminEmail: admin.email,
       newPassword: nextPassword,
       emailSent,
     };
+  }
+
+  async resendTenantWelcomeKit(orgId: string, actorId: string) {
+    await this.requirePlatformAdmin(actorId);
+    const { org, admin } = await this.tenantAdministrator(orgId);
+    const password = passwordForDisplay(admin.passwordHash);
+    const emailSent = await this.sendTenantWelcomeKit({
+      adminEmail: admin.email,
+      adminFullName: admin.fullName || 'Administrator',
+      adminPassword: password || undefined,
+      organizationName: org.name,
+      subdomain: org.slug,
+      workspaceUrl: tenantWorkspaceUrl(org.slug),
+      isTrial: org.status === 'TRIAL',
+      planTier: org.planTier,
+      seats: org.allocatedSeats,
+    });
+    return {
+      emailSent,
+      adminEmail: admin.email,
+      credentialsIncluded: Boolean(password),
+    };
+  }
+
+  async retryTenantSetupCheckout(orgId: string, actorId: string) {
+    await this.requirePlatformAdmin(actorId);
+    const { org } = await this.tenantAdministrator(orgId);
+    if (org.setupFeePaid)
+      throw new BadRequestException(
+        'Workspace setup payment has already been completed',
+      );
+    return this.billingService.createSetupCheckout(org.id, {
+      initialSeats: org.allocatedSeats,
+    });
   }
 
   async getTenantDetails(orgId: string) {
@@ -1237,7 +1306,8 @@ export class OrganizationService {
         status: 'Active',
         badge: 'Emerging Brokerages',
         color: '#F43F5E',
-        description: 'Ideal for independent brokers and emerging realty agencies.',
+        description:
+          'Ideal for independent brokers and emerging realty agencies.',
         pricing: {
           model: 'Per User',
           monthlyPricePerSeat: 499,
@@ -1274,7 +1344,8 @@ export class OrganizationService {
         status: 'Active',
         badge: 'Most Popular',
         color: '#10B981',
-        description: 'Designed for scaling real estate sales teams and dynamic brokerages.',
+        description:
+          'Designed for scaling real estate sales teams and dynamic brokerages.',
         pricing: {
           model: 'Per User',
           monthlyPricePerSeat: 899,
@@ -1312,7 +1383,8 @@ export class OrganizationService {
         status: 'Active',
         badge: 'Enterprise Grade',
         color: '#2563EB',
-        description: 'For premier real estate developers, builders, and large enterprise brokerages.',
+        description:
+          'For premier real estate developers, builders, and large enterprise brokerages.',
         pricing: {
           model: 'Custom Contract',
           monthlyPricePerSeat: 1499,
@@ -1356,7 +1428,9 @@ export class OrganizationService {
 
   async createCommercialPlan(dto: any) {
     const plans = await this.getCommercialPlans();
-    const cleanCode = (dto.code || dto.name || 'CUSTOM').toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+    const cleanCode = (dto.code || dto.name || 'CUSTOM')
+      .toUpperCase()
+      .replace(/[^A-Z0-9_]/g, '_');
     const id = cleanCode.toLowerCase().replace(/_/g, '-');
 
     const newPlan = {
@@ -1366,7 +1440,9 @@ export class OrganizationService {
       status: dto.status || 'Active',
       badge: dto.badge || 'Custom Tier',
       color: dto.color || '#8B5CF6',
-      description: dto.description || 'Custom tailored subscription plan for real estate business.',
+      description:
+        dto.description ||
+        'Custom tailored subscription plan for real estate business.',
       pricing: {
         model: dto.pricing?.model || 'Per User',
         monthlyPricePerSeat: Number(dto.pricing?.monthlyPricePerSeat) || 999,
@@ -1383,12 +1459,15 @@ export class OrganizationService {
         leadLimit: Number(dto.limits?.leadLimit) || 10000,
         projectLimit: Number(dto.limits?.projectLimit) || 20,
       },
-      features: Array.isArray(dto.features) && dto.features.length > 0 ? dto.features : [
-        'Full Real Estate CRM & Pipelines',
-        'Lead Capture & Auto-Assignment',
-        'Site Visit GPS Check-ins',
-        'WhatsApp & Email Notifications',
-      ],
+      features:
+        Array.isArray(dto.features) && dto.features.length > 0
+          ? dto.features
+          : [
+              'Full Real Estate CRM & Pipelines',
+              'Lead Capture & Auto-Assignment',
+              'Site Visit GPS Check-ins',
+              'WhatsApp & Email Notifications',
+            ],
       commercialRules: {
         trialEnabled: dto.commercialRules?.trialEnabled ?? true,
         trialDurationDays: Number(dto.commercialRules?.trialDurationDays) || 14,
@@ -1404,7 +1483,9 @@ export class OrganizationService {
     const plans = await this.getCommercialPlans();
     const index = plans.findIndex((p) => p.id === planId || p.code === planId);
     if (index === -1) {
-      throw new NotFoundException(`Commercial plan with id '${planId}' not found.`);
+      throw new NotFoundException(
+        `Commercial plan with id '${planId}' not found.`,
+      );
     }
 
     const current = plans[index];
@@ -1433,7 +1514,9 @@ export class OrganizationService {
     const plans = await this.getCommercialPlans();
     const source = plans.find((p) => p.id === planId || p.code === planId);
     if (!source) {
-      throw new NotFoundException(`Commercial plan with id '${planId}' not found.`);
+      throw new NotFoundException(
+        `Commercial plan with id '${planId}' not found.`,
+      );
     }
 
     const duplicatedPlan = {
@@ -1454,12 +1537,17 @@ export class OrganizationService {
     const plans = await this.getCommercialPlans();
     const index = plans.findIndex((p) => p.id === planId || p.code === planId);
     if (index === -1) {
-      throw new NotFoundException(`Commercial plan with id '${planId}' not found.`);
+      throw new NotFoundException(
+        `Commercial plan with id '${planId}' not found.`,
+      );
     }
 
     plans[index].status = 'Archived';
     await this.saveCommercialPlans(plans);
-    return { success: true, message: `Plan '${plans[index].name}' has been archived.` };
+    return {
+      success: true,
+      message: `Plan '${plans[index].name}' has been archived.`,
+    };
   }
 
   async getPlatformAuditLogs() {

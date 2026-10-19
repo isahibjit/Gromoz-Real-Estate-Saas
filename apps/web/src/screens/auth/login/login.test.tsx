@@ -14,6 +14,7 @@ import { resolveTenantFromHostname } from "../../../common/tenantResolver";
 
 jest.mock("../../../common/tenantResolver", () => ({
   resolveTenantFromHostname: jest.fn(),
+  loginTenantQueryKey: () => ["login-tenant", window.location.host, window.location.search],
 }));
 
 jest.mock("../../../common/services/auth.api", () => ({
@@ -251,6 +252,38 @@ test("submits valid credentials and hydrates auth state", async () => {
   expect(sessionStorage.getItem("truroot_refresh_token")).toBe("refresh-token");
   expect(JSON.stringify(localStorage)).not.toContain("password123");
   expect(JSON.stringify(sessionStorage)).not.toContain("password123");
+});
+
+test("waits for workspace lookup before submitting a login", async () => {
+  let completeLookup!: (tenant: null) => void;
+  mockedResolveTenant.mockReturnValue(
+    new Promise((resolve) => {
+      completeLookup = resolve;
+    }),
+  );
+  mockedLogin.mockResolvedValueOnce({
+    accessToken: "access-token",
+    refreshToken: "refresh-token",
+    user: {
+      id: "platform-admin",
+      email: "admin@example.com",
+      role: "SUPER_ADMIN",
+      fullName: "Platform Admin",
+      permissions: [],
+    },
+  });
+  renderLoginScreen();
+  fireEvent.change(screen.getByLabelText("Email or mobile number"), {
+    target: { value: "admin@example.com" },
+  });
+  fireEvent.change(screen.getByLabelText("Password"), {
+    target: { value: "password123" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Login" }));
+  expect(mockedLogin).not.toHaveBeenCalled();
+
+  completeLookup(null);
+  await waitFor(() => expect(mockedLogin).toHaveBeenCalledTimes(1));
 });
 
 test("clears stale lead queries before hydrating the next login", async () => {

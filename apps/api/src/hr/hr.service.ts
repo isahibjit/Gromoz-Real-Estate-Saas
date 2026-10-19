@@ -8,9 +8,8 @@ import {
 import { Prisma } from '@prisma/client';
 import * as argon2 from 'argon2';
 import {
-  decryptPassword,
+  passwordForDisplay,
   encryptPassword,
-  isEncryptedPassword,
 } from '../common/utils/cipher.util';
 
 import { PrismaService } from '../persistence/prisma/prisma.service';
@@ -49,11 +48,7 @@ const PAID_LEAVE_TYPES = new Set([
   'Sick Leave',
   'Earned Leave',
 ]);
-const ATTENDANCE_PENALTY_STATUSES = new Set([
-  'Half Day',
-  'Absent',
-  'Present',
-]);
+const ATTENDANCE_PENALTY_STATUSES = new Set(['Half Day', 'Absent', 'Present']);
 const DEFAULT_WORKING_DAYS = [1, 2, 3, 4, 5, 6];
 const DEFAULT_INCENTIVE_POLICY = {
   minimumDealsToQualify: 3,
@@ -63,8 +58,9 @@ const DEFAULT_INCENTIVE_POLICY = {
 } as const;
 const PAYROLL_SETTING_FIELDS = new Set(
   (
-    Prisma.dmmf.datamodel.models.find((model) => model.name === 'PayrollSetting')
-      ?.fields ?? []
+    Prisma.dmmf.datamodel.models.find(
+      (model) => model.name === 'PayrollSetting',
+    )?.fields ?? []
   ).map((field) => field.name),
 );
 const PAYROLL_INCENTIVE_FIELDS = [
@@ -292,7 +288,9 @@ export class HrService {
       justificationAmount?: unknown;
     },
   ) {
-    const multiplier = asDecimal(settings.justificationMultiplier ?? 0).toString();
+    const multiplier = asDecimal(
+      settings.justificationMultiplier ?? 0,
+    ).toString();
     const mode = this.normalizeJustificationMode(settings.justificationMode);
     const amount = asDecimal(settings.justificationAmount ?? 0).toString();
     try {
@@ -330,8 +328,10 @@ export class HrService {
     if (!user?.isActive || !EMPLOYEE_ROLES.has(user.role)) return;
 
     const today = dayDate(new Date());
-    const { isWorkingDay, holiday, leave } =
-      await this.getAttendanceDayContext(userId, today);
+    const { isWorkingDay, holiday, leave } = await this.getAttendanceDayContext(
+      userId,
+      today,
+    );
 
     await this.prisma.attendanceRecord.upsert({
       where: {
@@ -441,7 +441,10 @@ export class HrService {
                 select: {
                   id: true,
                   name: true,
-                  leader: { where: this.tenants.employeeWhere(), select: { id: true, fullName: true } },
+                  leader: {
+                    where: this.tenants.employeeWhere(),
+                    select: { id: true, fullName: true },
+                  },
                 },
               },
               shift: true,
@@ -488,7 +491,10 @@ export class HrService {
             },
           },
           attendanceRecords: {
-            where: { attendanceDate: today, organizationId: this.tenants.organizationId },
+            where: {
+              attendanceDate: today,
+              organizationId: this.tenants.organizationId,
+            },
             select: { status: true, checkInAt: true },
           },
         },
@@ -536,7 +542,10 @@ export class HrService {
               select: {
                 id: true,
                 name: true,
-                leader: { where: this.tenants.employeeWhere(), select: { id: true, fullName: true } },
+                leader: {
+                  where: this.tenants.employeeWhere(),
+                  select: { id: true, fullName: true },
+                },
               },
             },
             shift: true,
@@ -687,9 +696,6 @@ export class HrService {
         isActive: true,
         twoFactorEnabled: body.twoFactorEnabled === true,
         avatarStorageKey: typeof body.image === 'string' ? body.image : null,
-        metadata: {
-          currentPassword: password,
-        },
         employeeProfile: {
           create: {
             employeeCode,
@@ -714,7 +720,10 @@ export class HrService {
               select: {
                 id: true,
                 name: true,
-                leader: { where: this.tenants.employeeWhere(), select: { id: true, fullName: true } },
+                leader: {
+                  where: this.tenants.employeeWhere(),
+                  select: { id: true, fullName: true },
+                },
               },
             },
             shift: true,
@@ -825,13 +834,16 @@ export class HrService {
     if (!current) throw new NotFoundException('Employee not found');
     const profile = current.employeeProfile;
     const nextPassword =
-      typeof sanitizedBody.password === 'string' && sanitizedBody.password.trim()
+      typeof sanitizedBody.password === 'string' &&
+      sanitizedBody.password.trim()
         ? sanitizedBody.password.trim()
         : null;
     if (nextPassword && nextPassword.length < 8)
       throw new BadRequestException('Password must be at least 8 characters');
     const requestedTeamId =
-      sanitizedBody.teamId !== undefined ? this.text(sanitizedBody.teamId) : undefined;
+      sanitizedBody.teamId !== undefined
+        ? this.text(sanitizedBody.teamId)
+        : undefined;
     const requestedShiftId =
       sanitizedBody.shiftId !== undefined
         ? await this.resolveShiftId(sanitizedBody.shiftId)
@@ -851,8 +863,8 @@ export class HrService {
       requestedLeaderOfTeamId !== undefined
         ? requestedLeaderOfTeamId
         : nextRole === 'TEAM_LEADER'
-          ? current.ledTeams[0]?.id ?? null
-          : null;
+        ? current.ledTeams[0]?.id ?? null
+        : null;
     this.assertTeamLeaderAssignment(nextRole, effectiveLeaderOfTeamId);
     if (requestedTeamId) {
       const team = await this.prisma.team.findUnique({
@@ -902,14 +914,21 @@ export class HrService {
           ? { email: sanitizedBody.email.trim().toLowerCase() }
           : {}),
         ...(sanitizedBody.role ? { role: nextRole } : {}),
-        ...(sanitizedBody.role ? {
-          organizationMemberships: {
-            update: {
-              where: { organizationId_userId: { organizationId: this.tenants.organizationId, userId: id } },
-              data: { role: nextRole },
-            },
-          },
-        } : {}),
+        ...(sanitizedBody.role
+          ? {
+              organizationMemberships: {
+                update: {
+                  where: {
+                    organizationId_userId: {
+                      organizationId: this.tenants.organizationId,
+                      userId: id,
+                    },
+                  },
+                  data: { role: nextRole },
+                },
+              },
+            }
+          : {}),
         ...(typeof sanitizedBody.isActive === 'boolean'
           ? { isActive: sanitizedBody.isActive }
           : {}),
@@ -923,10 +942,6 @@ export class HrService {
           ? {
               passwordHash: encryptPassword(nextPassword),
               lastPasswordChange: new Date(),
-              metadata: {
-                ...((current.metadata as Record<string, unknown>) ?? {}),
-                currentPassword: nextPassword,
-              },
             }
           : {}),
         employeeProfile: profile
@@ -952,17 +967,28 @@ export class HrService {
                   : {}),
                 ...(sanitizedBody.joiningDate
                   ? {
-                      joiningDate: ensureDate(sanitizedBody.joiningDate, 'Joining date'),
+                      joiningDate: ensureDate(
+                        sanitizedBody.joiningDate,
+                        'Joining date',
+                      ),
                     }
                   : {}),
                 ...(sanitizedBody.monthlyBasic !== undefined
                   ? { monthlyBasic: asDecimal(sanitizedBody.monthlyBasic) }
                   : {}),
                 ...(sanitizedBody.monthlyAllowances !== undefined
-                  ? { monthlyAllowances: asDecimal(sanitizedBody.monthlyAllowances) }
+                  ? {
+                      monthlyAllowances: asDecimal(
+                        sanitizedBody.monthlyAllowances,
+                      ),
+                    }
                   : {}),
                 ...(sanitizedBody.monthlyDeductions !== undefined
-                  ? { monthlyDeductions: asDecimal(sanitizedBody.monthlyDeductions) }
+                  ? {
+                      monthlyDeductions: asDecimal(
+                        sanitizedBody.monthlyDeductions,
+                      ),
+                    }
                   : {}),
                 ...(sanitizedBody.teamId !== undefined
                   ? { teamId: requestedTeamId }
@@ -995,10 +1021,18 @@ export class HrService {
                   ? { monthlyBasic: asDecimal(sanitizedBody.monthlyBasic) }
                   : {}),
                 ...(sanitizedBody.monthlyAllowances !== undefined
-                  ? { monthlyAllowances: asDecimal(sanitizedBody.monthlyAllowances) }
+                  ? {
+                      monthlyAllowances: asDecimal(
+                        sanitizedBody.monthlyAllowances,
+                      ),
+                    }
                   : {}),
                 ...(sanitizedBody.monthlyDeductions !== undefined
-                  ? { monthlyDeductions: asDecimal(sanitizedBody.monthlyDeductions) }
+                  ? {
+                      monthlyDeductions: asDecimal(
+                        sanitizedBody.monthlyDeductions,
+                      ),
+                    }
                   : {}),
                 ...(sanitizedBody.teamId !== undefined
                   ? { teamId: requestedTeamId }
@@ -1017,7 +1051,10 @@ export class HrService {
               select: {
                 id: true,
                 name: true,
-                leader: { where: this.tenants.employeeWhere(), select: { id: true, fullName: true } },
+                leader: {
+                  where: this.tenants.employeeWhere(),
+                  select: { id: true, fullName: true },
+                },
               },
             },
             shift: true,
@@ -1050,14 +1087,24 @@ export class HrService {
     if (isDeactivating) {
       await Promise.all([
         this.redisService
-          .set(`${REDIS_KEY_AUTH_DEACTIVATED_PREFIX}${id}`, '1', 7 * 24 * 60 * 60)
+          .set(
+            `${REDIS_KEY_AUTH_DEACTIVATED_PREFIX}${id}`,
+            '1',
+            7 * 24 * 60 * 60,
+          )
           .catch(() => undefined),
-        this.redisService.del(`auth:refresh-token:${id}`).catch(() => undefined),
-        this.redisService.del(`auth:previous-refresh-token:${id}`).catch(() => undefined),
-        this.prisma.mobileDeviceToken?.updateMany?.({
-          where: { userId: id },
-          data: { isActive: false },
-        })?.catch(() => undefined),
+        this.redisService
+          .del(`auth:refresh-token:${id}`)
+          .catch(() => undefined),
+        this.redisService
+          .del(`auth:previous-refresh-token:${id}`)
+          .catch(() => undefined),
+        this.prisma.mobileDeviceToken
+          ?.updateMany?.({
+            where: { userId: id },
+            data: { isActive: false },
+          })
+          ?.catch(() => undefined),
       ]);
       this.realtimeService.emitUserSessionExpired(
         id,
@@ -1068,7 +1115,9 @@ export class HrService {
         this.redisService
           .del(`${REDIS_KEY_AUTH_DEACTIVATED_PREFIX}${id}`)
           .catch(() => undefined),
-        this.redisService.del(`auth:failed-attempts:${id}`).catch(() => undefined),
+        this.redisService
+          .del(`auth:failed-attempts:${id}`)
+          .catch(() => undefined),
       ]);
     }
     if (
@@ -1086,7 +1135,10 @@ export class HrService {
       sanitizedBody.leaderOfTeamId !== undefined ||
       (current.ledTeams.length > 0 && nextRole !== 'TEAM_LEADER')
     ) {
-      await this.applyEmployeeTeamLeadership(id, requestedLeaderOfTeamId ?? null);
+      await this.applyEmployeeTeamLeadership(
+        id,
+        requestedLeaderOfTeamId ?? null,
+      );
     }
     if (sanitizedBody.managedTeamIds !== undefined) {
       await this.applyManagerTeamAssignments(id, sanitizedBody.managedTeamIds);
@@ -1196,14 +1248,21 @@ export class HrService {
     await this.prisma.user.delete({ where: { id } });
 
     // Invalidate sessions across devices and purge tokens
-    this.realtimeService.emitUserSessionExpired(id, 'Your account has been deleted.');
+    this.realtimeService.emitUserSessionExpired(
+      id,
+      'Your account has been deleted.',
+    );
     await Promise.all([
       this.redisService
         .set(`${REDIS_KEY_AUTH_DEACTIVATED_PREFIX}${id}`, '1', 7 * 24 * 60 * 60)
         .catch(() => undefined),
       this.redisService.del(`auth:refresh-token:${id}`).catch(() => undefined),
-      this.redisService.del(`auth:previous-refresh-token:${id}`).catch(() => undefined),
-      this.redisService.del(`auth:failed-attempts:${id}`).catch(() => undefined),
+      this.redisService
+        .del(`auth:previous-refresh-token:${id}`)
+        .catch(() => undefined),
+      this.redisService
+        .del(`auth:failed-attempts:${id}`)
+        .catch(() => undefined),
     ]);
 
     await this.audit(actor.sub, 'EMPLOYEE_DELETED', 'User', id, {
@@ -1353,9 +1412,7 @@ export class HrService {
       isLate &&
       lateSequenceInMonth !== null &&
       lateSequenceInMonth >= shift.lateThresholdCount;
-    const status = thresholdReached
-      ? shift.latePenaltyStatus
-      : 'Present';
+    const status = thresholdReached ? shift.latePenaltyStatus : 'Present';
     const derivedStatusReason = thresholdReached
       ? `Late punch ${lateSequenceInMonth}/${shift.lateThresholdCount}`
       : isLate
@@ -1392,8 +1449,12 @@ export class HrService {
         checkInImageUrl,
         checkInImageCapturedAt: now,
         checkInLocationAddress,
-        checkInLatitude: isNaN(Number(checkInLatitude)) ? undefined : checkInLatitude,
-        checkInLongitude: isNaN(Number(checkInLongitude)) ? undefined : checkInLongitude,
+        checkInLatitude: isNaN(Number(checkInLatitude))
+          ? undefined
+          : checkInLatitude,
+        checkInLongitude: isNaN(Number(checkInLongitude))
+          ? undefined
+          : checkInLongitude,
         source: 'PUNCH',
         shiftId: shift.id,
         isLate,
@@ -1410,8 +1471,12 @@ export class HrService {
         checkInImageUrl,
         checkInImageCapturedAt: now,
         checkInLocationAddress,
-        checkInLatitude: isNaN(Number(checkInLatitude)) ? undefined : checkInLatitude,
-        checkInLongitude: isNaN(Number(checkInLongitude)) ? undefined : checkInLongitude,
+        checkInLatitude: isNaN(Number(checkInLatitude))
+          ? undefined
+          : checkInLatitude,
+        checkInLongitude: isNaN(Number(checkInLongitude))
+          ? undefined
+          : checkInLongitude,
         source: 'PUNCH',
         shiftId: shift.id,
         isLate,
@@ -1441,13 +1506,19 @@ export class HrService {
       },
     });
 
-    await this.audit(actor.sub, 'ATTENDANCE_PUNCH_IN', 'AttendanceRecord', record.id, {
-      status,
-      isLate,
-      lateSequenceInMonth,
-      checkInImageUrl,
-      note: punchInNote,
-    });
+    await this.audit(
+      actor.sub,
+      'ATTENDANCE_PUNCH_IN',
+      'AttendanceRecord',
+      record.id,
+      {
+        status,
+        isLate,
+        lateSequenceInMonth,
+        checkInImageUrl,
+        note: punchInNote,
+      },
+    );
 
     return this.buildTodayAttendance(profile, record, dayContext);
   }
@@ -1717,52 +1788,52 @@ export class HrService {
     const [employees, records, settings, holidaysInRange, approvedLeaves] =
       await Promise.all([
         this.prisma.user.findMany({
-        where: employeeWhere,
-        orderBy: { fullName: 'asc' },
-        select: {
-          id: true,
-          fullName: true,
-          email: true,
-          role: true,
-          avatarStorageKey: true,
-          employeeProfile: {
-            select: {
-              employeeCode: true,
-              teamId: true,
-              team: { select: { id: true, name: true } },
-              shift: true,
+          where: employeeWhere,
+          orderBy: { fullName: 'asc' },
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            role: true,
+            avatarStorageKey: true,
+            employeeProfile: {
+              select: {
+                employeeCode: true,
+                teamId: true,
+                team: { select: { id: true, name: true } },
+                shift: true,
+              },
             },
           },
-        },
-      }),
-      this.prisma.attendanceRecord.findMany({
-        where: {
-          attendanceDate: { gte: start, lt: end },
-          ...(allowedEmployeeIds !== undefined
-            ? { employeeId: { in: allowedEmployeeIds } }
-            : {}),
-        },
-        include: {
-          shift: true,
-          employee: {
-            select: {
-              id: true,
-              fullName: true,
-              email: true,
-              role: true,
-              avatarStorageKey: true,
-              employeeProfile: {
-                select: {
-                  employeeCode: true,
-                  teamId: true,
-                  team: { select: { id: true, name: true } },
-                  shift: true,
+        }),
+        this.prisma.attendanceRecord.findMany({
+          where: {
+            attendanceDate: { gte: start, lt: end },
+            ...(allowedEmployeeIds !== undefined
+              ? { employeeId: { in: allowedEmployeeIds } }
+              : {}),
+          },
+          include: {
+            shift: true,
+            employee: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+                role: true,
+                avatarStorageKey: true,
+                employeeProfile: {
+                  select: {
+                    employeeCode: true,
+                    teamId: true,
+                    team: { select: { id: true, name: true } },
+                    shift: true,
+                  },
                 },
               },
             },
           },
-        },
-      }),
+        }),
         this.getPayrollSettings(),
         this.prisma.holiday.findMany({
           where: { holidayDate: { gte: start, lt: end } },
@@ -1770,10 +1841,14 @@ export class HrService {
         this.prisma.leaveRequest.findMany({
           where: {
             status: 'Approved',
-            employeeId: { in: (await this.prisma.user.findMany({
-              where: employeeWhere,
-              select: { id: true },
-            })).map((user) => user.id) },
+            employeeId: {
+              in: (
+                await this.prisma.user.findMany({
+                  where: employeeWhere,
+                  select: { id: true },
+                })
+              ).map((user) => user.id),
+            },
             startDate: { lte: endInclusive },
             endDate: { gte: start },
           },
@@ -1824,7 +1899,9 @@ export class HrService {
           const leave = leaveMap.get(`${employee.id}:${dateKey}`);
           const isHoliday = !isWorkingDay || !!holiday;
           const isPastWorkingDay =
-            attendanceDate.getTime() < today.getTime() && isWorkingDay && !holiday;
+            attendanceDate.getTime() < today.getTime() &&
+            isWorkingDay &&
+            !holiday;
           rows.push({
             id: `missing-${employee.id}-${dateKey}`,
             employeeId: employee.id,
@@ -1910,7 +1987,9 @@ export class HrService {
     const includeAllEmployees = isAdmin && requestedEmployeeId === 'all';
     const employeeId = isAdmin ? requestedEmployeeId : actor.sub;
     if (!employeeId) {
-      throw new BadRequestException('Select an employee to download the report');
+      throw new BadRequestException(
+        'Select an employee to download the report',
+      );
     }
 
     const start = new Date(Date.UTC(year, month - 1, 1));
@@ -2025,11 +2104,12 @@ export class HrService {
             employee.employeeProfile?.designation ??
             this.attendanceReportRoleLabel(employee.role),
           schedule: shift?.name
-            ? `${shift.name} (${this.formatMinutes(shift.startTimeMinutes)} - ${this.formatMinutes(shift.endTimeMinutes)})`
+            ? `${shift.name} (${this.formatMinutes(
+                shift.startTimeMinutes,
+              )} - ${this.formatMinutes(shift.endTimeMinutes)})`
             : '-',
-          scheduledWorkingHours: this.formatAttendanceReportDuration(
-            scheduledMinutes,
-          ),
+          scheduledWorkingHours:
+            this.formatAttendanceReportDuration(scheduledMinutes),
         },
         summary: this.buildAttendanceReportSummary(rows),
         days: rows.map((record: any) => this.mapAttendanceReportDay(record)),
@@ -2040,7 +2120,8 @@ export class HrService {
       reports,
     );
 
-    const employeeName = employees[0]?.fullName || employees[0]?.email || 'employee';
+    const employeeName =
+      employees[0]?.fullName || employees[0]?.email || 'employee';
     const safeName = employeeName
       .replace(/[^a-z0-9]+/gi, '-')
       .replace(/^-+|-+$/g, '')
@@ -2429,7 +2510,9 @@ export class HrService {
                 ...(minimumDealsToQualify !== undefined
                   ? { minimumDealsToQualify }
                   : {}),
-                ...(salesIncentivePct !== undefined ? { salesIncentivePct } : {}),
+                ...(salesIncentivePct !== undefined
+                  ? { salesIncentivePct }
+                  : {}),
                 ...(preSalesIncentivePct !== undefined
                   ? { preSalesIncentivePct }
                   : {}),
@@ -2575,13 +2658,12 @@ export class HrService {
             .plus(profile.monthlyAllowances)
             .div(summary.salaryDivisorDays || 1);
           const unpaidDeduction = daily.mul(summary.unpaidDays);
-          const payrollIncentive =
-            await this.bookingIncentiveTotalForPayroll(
-              tx,
-              employee.id,
-              year,
-              month,
-            );
+          const payrollIncentive = await this.bookingIncentiveTotalForPayroll(
+            tx,
+            employee.id,
+            year,
+            month,
+          );
           const grossPay = profile.monthlyBasic.plus(profile.monthlyAllowances);
           const netPay = grossPay
             .minus(profile.monthlyDeductions)
@@ -3094,7 +3176,9 @@ export class HrService {
     const dateFrom = query.dateFrom
       ? ensureDate(query.dateFrom, 'From date')
       : undefined;
-    const dateTo = query.dateTo ? ensureDate(query.dateTo, 'To date') : undefined;
+    const dateTo = query.dateTo
+      ? ensureDate(query.dateTo, 'To date')
+      : undefined;
 
     if (dateFrom && dateTo && dateTo < dateFrom) {
       throw new BadRequestException('To date cannot be before from date');
@@ -3246,10 +3330,11 @@ export class HrService {
     const toEmail =
       typeof body.toEmail === 'string' ? body.toEmail.trim().toLowerCase() : '';
     const subject = typeof body.subject === 'string' ? body.subject.trim() : '';
-    const html =
-      typeof body.htmlBody === 'string' ? body.htmlBody.trim() : '';
+    const html = typeof body.htmlBody === 'string' ? body.htmlBody.trim() : '';
     const fromName =
-      typeof body.fromName === 'string' ? body.fromName.trim() : 'Truroot Realty HR';
+      typeof body.fromName === 'string'
+        ? body.fromName.trim()
+        : 'Truroot Realty HR';
 
     if (!toEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) {
       throw new BadRequestException('A valid test email address is required');
@@ -3268,11 +3353,17 @@ export class HrService {
       fromName,
     });
 
-    await this.audit(actor.sub, 'MAIL_TEMPLATE_TEST_SENT', 'MailTemplate', toEmail, {
+    await this.audit(
+      actor.sub,
+      'MAIL_TEMPLATE_TEST_SENT',
+      'MailTemplate',
       toEmail,
-      subject,
-      fromName,
-    });
+      {
+        toEmail,
+        subject,
+        fromName,
+      },
+    );
 
     return { success: true, message: `Test email sent to ${toEmail}` };
   }
@@ -3292,28 +3383,34 @@ export class HrService {
       fixedDivisor: 30,
     };
 
-    const [holidayRecords, records, leaves, employeeProfile] = await Promise.all([
-      client.holiday.findMany({
-        where: { holidayDate: { gte: start, lt: end } },
-      }),
-      client.attendanceRecord.findMany({
-        where: { employeeId, attendanceDate: { gte: start, lt: end } },
-        select: { status: true, attendanceDate: true },
-      }),
-      client.leaveRequest.findMany({
-        where: {
-          employeeId,
-          status: 'Approved',
-          startDate: { lt: end },
-          endDate: { gte: start },
-        },
-        select: { leaveType: true, startDate: true, endDate: true, days: true },
-      }),
-      client.employeeProfile.findUnique({
-        where: { userId: employeeId },
-        select: { shift: { select: { workingDays: true } } },
-      }),
-    ]);
+    const [holidayRecords, records, leaves, employeeProfile] =
+      await Promise.all([
+        client.holiday.findMany({
+          where: { holidayDate: { gte: start, lt: end } },
+        }),
+        client.attendanceRecord.findMany({
+          where: { employeeId, attendanceDate: { gte: start, lt: end } },
+          select: { status: true, attendanceDate: true },
+        }),
+        client.leaveRequest.findMany({
+          where: {
+            employeeId,
+            status: 'Approved',
+            startDate: { lt: end },
+            endDate: { gte: start },
+          },
+          select: {
+            leaveType: true,
+            startDate: true,
+            endDate: true,
+            days: true,
+          },
+        }),
+        client.employeeProfile.findUnique({
+          where: { userId: employeeId },
+          select: { shift: { select: { workingDays: true } } },
+        }),
+      ]);
     const employeeWorkingDays = this.workingDaysForShift(
       employeeProfile?.shift,
       settings,
@@ -3547,7 +3644,9 @@ export class HrService {
         ? { lateThresholdCount: Math.round(lateThresholdCount) }
         : {}),
       ...(latePenaltyStatus !== undefined ? { latePenaltyStatus } : {}),
-      ...(typeof body.isActive === 'boolean' ? { isActive: body.isActive } : {}),
+      ...(typeof body.isActive === 'boolean'
+        ? { isActive: body.isActive }
+        : {}),
     };
   }
 
@@ -3597,14 +3696,19 @@ export class HrService {
     };
   }
 
-  private async getAttendanceDayContext(employeeId: string, attendanceDate: Date) {
+  private async getAttendanceDayContext(
+    employeeId: string,
+    attendanceDate: Date,
+  ) {
     const [settings, employeeProfile, holiday, leave] = await Promise.all([
       this.getPayrollSettings(),
       this.prisma.employeeProfile.findUnique({
         where: { userId: employeeId },
         select: { shift: { select: { workingDays: true } } },
       }),
-      this.prisma.holiday.findUnique({ where: { holidayDate: attendanceDate } }),
+      this.prisma.holiday.findUnique({
+        where: { holidayDate: attendanceDate },
+      }),
       this.prisma.leaveRequest.findFirst({
         where: {
           employeeId,
@@ -3792,7 +3896,9 @@ export class HrService {
       punchIn: this.formatAttendanceReportTime(record.checkInAt),
       punchOut: this.formatAttendanceReportTime(record.checkOutAt),
       hoursWorked: this.formatAttendanceReportDuration(hoursWorked),
-      lateHours: this.formatAttendanceReportDuration(Number(record.lateMinutes ?? 0)),
+      lateHours: this.formatAttendanceReportDuration(
+        Number(record.lateMinutes ?? 0),
+      ),
       earlyHours: this.formatAttendanceReportDuration(earlyHours),
       overtimeHours: this.formatAttendanceReportDuration(overtimeHours),
     };
@@ -3821,19 +3927,21 @@ export class HrService {
             lateThresholdCount: shift.lateThresholdCount,
             latePenaltyStatus: shift.latePenaltyStatus,
             isActive: shift.isActive,
-            scheduleLabel: `${this.formatMinutes(shift.startTimeMinutes)} - ${this.formatMinutes(shift.endTimeMinutes)}`,
+            scheduleLabel: `${this.formatMinutes(
+              shift.startTimeMinutes,
+            )} - ${this.formatMinutes(shift.endTimeMinutes)}`,
           }
         : null,
       record: record ? this.mapAttendanceRecord(record) : null,
-      status: record?.status ?? (dayContext.leave
-        ? 'On Leave'
-        : dayContext.holiday || !dayContext.isWorkingDay
-        ? 'Holiday'
-        : 'Not Checked In'),
-      canPunchIn:
-        !blockedReason && !record?.checkInAt,
-      canPunchOut:
-        !blockedReason && !!record?.checkInAt && !record?.checkOutAt,
+      status:
+        record?.status ??
+        (dayContext.leave
+          ? 'On Leave'
+          : dayContext.holiday || !dayContext.isWorkingDay
+          ? 'Holiday'
+          : 'Not Checked In'),
+      canPunchIn: !blockedReason && !record?.checkInAt,
+      canPunchOut: !blockedReason && !!record?.checkInAt && !record?.checkOutAt,
       blockedReason,
       checkInAt: record?.checkInAt ?? null,
       checkOutAt: record?.checkOutAt ?? null,
@@ -3862,7 +3970,10 @@ export class HrService {
               select: {
                 id: true,
                 name: true,
-                leader: { where: this.tenants.employeeWhere(), select: { id: true, fullName: true } },
+                leader: {
+                  where: this.tenants.employeeWhere(),
+                  select: { id: true, fullName: true },
+                },
               },
             },
             shift: true,
@@ -3925,17 +4036,9 @@ export class HrService {
       lastLoginAt: user.lastLoginAt ?? null,
       employeeCode: profile?.employeeCode ?? null,
       password:
-        typeof user.passwordHash === 'string' && user.passwordHash
-          ? isEncryptedPassword(user.passwordHash)
-            ? decryptPassword(user.passwordHash)
-            : typeof user.metadata?.currentPassword === 'string' &&
-              user.metadata.currentPassword
-            ? user.metadata.currentPassword
-            : user.passwordHash
-          : typeof user.metadata?.currentPassword === 'string' &&
-            user.metadata.currentPassword
-          ? user.metadata.currentPassword
-          : 'ChangeMe@123',
+        user.role === 'SUPER_ADMIN'
+          ? ''
+          : passwordForDisplay(user.passwordHash),
       designation: profile?.designation ?? null,
       joiningDate: profile?.joiningDate ?? null,
       employmentStatus:
@@ -3944,7 +4047,9 @@ export class HrService {
       address: profile?.address ?? null,
       monthlyBasic: profile?.monthlyBasic ?? null,
       justificationMultiplier:
-        profile?.justificationMultiplier ?? user.justificationMultiplier ?? null,
+        profile?.justificationMultiplier ??
+        user.justificationMultiplier ??
+        null,
       justificationMode: profile?.justificationMode ?? 'MULTIPLIER',
       justificationAmount: profile?.justificationAmount ?? null,
       monthlyAllowances: profile?.monthlyAllowances ?? null,
@@ -4150,7 +4255,8 @@ export class HrService {
     }
 
     const team =
-      record.employee.employeeProfile?.teamId || record.employee.ledTeams?.[0]?.id
+      record.employee.employeeProfile?.teamId ||
+      record.employee.ledTeams?.[0]?.id
         ? await this.prisma.team.findFirst({
             where: {
               OR: [
@@ -4488,7 +4594,9 @@ export class HrService {
       );
   }
 
-  private async resolveVisibleEmployeeIds(actor: Actor): Promise<string[] | null> {
+  private async resolveVisibleEmployeeIds(
+    actor: Actor,
+  ): Promise<string[] | null> {
     if (ADMIN_ROLES.has(actor.role)) return null;
 
     const visibleIds = new Set<string>([actor.sub]);
@@ -4603,12 +4711,18 @@ export class HrService {
             email: true,
             avatarStorageKey: true,
             ledTeams: {
-              where: { isActive: true, organizationId: this.tenants.organizationId },
+              where: {
+                isActive: true,
+                organizationId: this.tenants.organizationId,
+              },
               select: {
                 id: true,
                 name: true,
                 code: true,
-                members: { where: { user: this.tenants.employeeWhere() }, select: { userId: true } },
+                members: {
+                  where: { user: this.tenants.employeeWhere() },
+                  select: { userId: true },
+                },
               },
             },
           },
@@ -4632,14 +4746,14 @@ export class HrService {
     }));
     return {
       teamLeaderCount: hierarchy.length,
-      teamCount: hierarchy.reduce((sum, leader) => sum + leader.teams.length, 0),
+      teamCount: hierarchy.reduce(
+        (sum, leader) => sum + leader.teams.length,
+        0,
+      ),
       memberCount: hierarchy.reduce(
         (sum, leader) =>
           sum +
-          leader.teams.reduce(
-            (teamSum, team) => teamSum + team.memberCount,
-            0,
-          ),
+          leader.teams.reduce((teamSum, team) => teamSum + team.memberCount, 0),
         0,
       ),
       teamLeaders: hierarchy,
@@ -4665,7 +4779,10 @@ export class HrService {
             id: true,
             fullName: true,
             ledTeams: {
-              where: { isActive: true, organizationId: this.tenants.organizationId },
+              where: {
+                isActive: true,
+                organizationId: this.tenants.organizationId,
+              },
               select: { id: true, name: true, code: true, leaderId: true },
             },
           },
@@ -4702,16 +4819,15 @@ export class HrService {
       ],
     };
   }
-  private async assertTeamCanAcceptLeader(
-    teamId: string,
-    employeeId?: string,
-  ) {
+  private async assertTeamCanAcceptLeader(teamId: string, employeeId?: string) {
     const team = await this.prisma.team.findUnique({
       where: { id: teamId },
       select: { id: true, isActive: true, leaderId: true },
     });
     if (!team || !team.isActive) {
-      throw new BadRequestException('Selected team does not exist or is inactive');
+      throw new BadRequestException(
+        'Selected team does not exist or is inactive',
+      );
     }
     if (team.leaderId && team.leaderId !== employeeId) {
       throw new ConflictException('This team already has another leader');
@@ -4763,7 +4879,10 @@ export class HrService {
     await this.prisma.$transaction(async (tx) => {
       if (!leaderOfTeamId) {
         await tx.team.updateMany({
-          where: { organizationId: this.tenants.organizationId, leaderId: employeeId },
+          where: {
+            organizationId: this.tenants.organizationId,
+            leaderId: employeeId,
+          },
           data: { leaderId: null },
         });
         return;
@@ -4785,14 +4904,20 @@ export class HrService {
         select: { id: true, isActive: true, leaderId: true },
       });
       if (!activeTeam || !activeTeam.isActive) {
-        throw new BadRequestException('Selected team does not exist or is inactive');
+        throw new BadRequestException(
+          'Selected team does not exist or is inactive',
+        );
       }
       if (activeTeam.leaderId && activeTeam.leaderId !== employeeId) {
         throw new ConflictException('This team already has another leader');
       }
 
       await tx.team.updateMany({
-        where: { organizationId: this.tenants.organizationId, leaderId: employeeId, id: { not: leaderOfTeamId } },
+        where: {
+          organizationId: this.tenants.organizationId,
+          leaderId: employeeId,
+          id: { not: leaderOfTeamId },
+        },
         data: { leaderId: null },
       });
       await tx.team.update({
@@ -4845,7 +4970,10 @@ export class HrService {
           user: {
             select: {
               ledTeams: {
-                where: { isActive: true, organizationId: this.tenants.organizationId },
+                where: {
+                  isActive: true,
+                  organizationId: this.tenants.organizationId,
+                },
                 select: { id: true },
               },
             },
@@ -4865,7 +4993,10 @@ export class HrService {
 
       const selectedTeams = teamIds.length
         ? await tx.team.findMany({
-            where: { id: { in: teamIds }, organizationId: this.tenants.organizationId },
+            where: {
+              id: { in: teamIds },
+              organizationId: this.tenants.organizationId,
+            },
             select: {
               id: true,
               name: true,
@@ -4966,4 +5097,3 @@ export class HrService {
     });
   }
 }
-

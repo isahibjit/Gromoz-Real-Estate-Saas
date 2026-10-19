@@ -20,6 +20,8 @@ import {
   RegisterOrgDto,
   ProvisionOrgDto,
   UpdateWorkspaceSettingsDto,
+  UpdateTenantDto,
+  ResetTenantAdminPasswordDto,
 } from './organization.service';
 
 @Controller('organizations')
@@ -33,7 +35,10 @@ export class OrganizationController {
 
   @Post('provision')
   @UseGuards(AuthGuard)
-  async provisionOrganization(@Body() dto: ProvisionOrgDto, @Req() req: { user: { sub: string } }) {
+  async provisionOrganization(
+    @Body() dto: ProvisionOrgDto,
+    @Req() req: { user: { sub: string } },
+  ) {
     return this.orgService.provisionOrganization(dto, req.user.sub);
   }
 
@@ -171,7 +176,7 @@ export class OrganizationController {
   @UseGuards(AuthGuard)
   async updateTenantStatus(
     @Req() req: any,
-    @Body('id') id: string,
+    @Param('id') id: string,
     @Body('status') status: any,
   ) {
     if (req.user.role !== 'SUPER_ADMIN') {
@@ -183,28 +188,49 @@ export class OrganizationController {
   @Patch('tenants/:id')
   @UseGuards(AuthGuard)
   async updateTenantDetails(
-    @Req() req: any,
+    @Req() req: { user: { sub: string; role: string } },
     @Param('id') id: string,
-    @Body() dto: any,
+    @Body() dto: UpdateTenantDto,
   ) {
     if (req.user.role !== 'SUPER_ADMIN') {
       throw new ForbiddenException('Platform SuperAdmin access required');
     }
-    return this.orgService.updateTenantDetails(id, dto);
+    return this.orgService.updateTenantDetails(id, dto, req.user.sub);
   }
 
   @Post('tenants/:id/reset-admin-password')
   @UseGuards(AuthGuard)
   async resetTenantAdminPassword(
-    @Req() req: any,
+    @Req() req: { user: { sub: string; role: string } },
     @Param('id') id: string,
-    @Body('newPassword') newPassword?: string,
-    @Body('notifyEmail') notifyEmail?: boolean,
+    @Body() dto: ResetTenantAdminPasswordDto,
   ) {
     if (req.user.role !== 'SUPER_ADMIN') {
       throw new ForbiddenException('Platform SuperAdmin access required');
     }
-    return this.orgService.resetTenantAdminPassword(id, newPassword, notifyEmail);
+    return this.orgService.resetTenantAdminPassword(
+      id,
+      dto.newPassword,
+      dto.notifyEmail !== false,
+      req.user.sub,
+    );
+  }
+
+  @Post('tenants/:id/welcome-email')
+  @UseGuards(AuthGuard)
+  resendWelcome(
+    @Param('id') id: string,
+    @Req() req: { user: { sub: string } },
+  ) {
+    return this.orgService.resendTenantWelcomeKit(id, req.user.sub);
+  }
+
+  @Post('tenants/:id/setup-checkout')
+  @UseGuards(AuthGuard)
+  retryCheckout(
+    @Param('id') id: string,
+    @Req() req: { user: { sub: string } },
+  ) {
+    return this.orgService.retryTenantSetupCheckout(id, req.user.sub);
   }
 }
-

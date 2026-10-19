@@ -79,7 +79,8 @@ const DEFAULT_PLANS = [
     leads: "500,000",
     color: "#2563EB",
     badge: "Enterprise Grade",
-    description: "White-labeling, custom domain, SLA & dedicated account manager.",
+    description:
+      "White-labeling, custom domain, SLA & dedicated account manager.",
   },
 ];
 
@@ -131,7 +132,9 @@ export function ProvisionTenantModal({
                 annualPrice: p.pricing?.annualPricePerSeat || 399,
                 seatsIncluded: p.limits?.defaultSeatLimit || 5,
                 storage: `${p.limits?.storageGb || 10} GB`,
-                leads: Number(p.limits?.leadLimit || 5000).toLocaleString("en-IN"),
+                leads: Number(p.limits?.leadLimit || 5000).toLocaleString(
+                  "en-IN",
+                ),
                 color: p.color || "#0D1F3D",
                 badge: p.badge || "",
                 description: p.description || "Commercial SaaS Subscription",
@@ -160,23 +163,31 @@ export function ProvisionTenantModal({
     setForm((prev) => ({
       ...prev,
       companyName: val,
-      slug: prev.slug === "" || prev.slug === generatedSlug.slice(0, -1) ? generatedSlug : prev.slug,
+      slug:
+        prev.slug === "" || prev.slug === generatedSlug.slice(0, -1)
+          ? generatedSlug
+          : prev.slug,
     }));
   };
 
   const generateRandomPassword = () => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*";
-    let pwd = "";
-    for (let i = 0; i < 12; i++) {
-      pwd += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
+    const chars =
+      "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*";
+    const random = crypto.getRandomValues(new Uint32Array(12));
+    const pwd = Array.from(random, (value) => chars[value % chars.length]).join("");
     setForm((prev) => ({ ...prev, adminPassword: pwd }));
     setShowPassword(true);
     toast.success("Generated secure temporary password");
   };
 
-  const selectedPlan = availablePlans.find((p) => p.id === form.planTier) || availablePlans[0] || DEFAULT_PLANS[0];
-  const unitPrice = form.billingCycle === "annual" ? selectedPlan.annualPrice : selectedPlan.price;
+  const selectedPlan =
+    availablePlans.find((p) => p.id === form.planTier) ||
+    availablePlans[0] ||
+    DEFAULT_PLANS[0];
+  const unitPrice =
+    form.billingCycle === "annual"
+      ? selectedPlan.annualPrice
+      : selectedPlan.price;
   const estimatedMonthly = unitPrice * form.seats;
 
   const validateStep1 = () => {
@@ -208,8 +219,8 @@ export function ProvisionTenantModal({
       toast.error("A valid admin email is required.");
       return false;
     }
-    if (!form.adminPassword || form.adminPassword.length < 6) {
-      toast.error("Password must be at least 6 characters long.");
+    if (!form.adminPassword || form.adminPassword.length < 8) {
+      toast.error("Password must be at least 8 characters long.");
       return false;
     }
     return true;
@@ -226,6 +237,7 @@ export function ProvisionTenantModal({
     status: string;
     workspaceUrl: string;
     welcomeEmailSent?: boolean;
+    checkoutError?: string | null;
     isTrial?: boolean;
   } | null>(null);
 
@@ -250,7 +262,8 @@ export function ProvisionTenantModal({
       });
 
       const checkoutData = res.data?.checkoutOrder;
-      const linkUrl = checkoutData?.paymentLinkUrl || checkoutData?.shortUrl || "";
+      const linkUrl =
+        checkoutData?.paymentLinkUrl || checkoutData?.shortUrl || "";
 
       setCreatedTenantResult({
         companyName: form.companyName.trim(),
@@ -260,17 +273,26 @@ export function ProvisionTenantModal({
         paymentLinkUrl: linkUrl,
         totalAmount: checkoutData?.amount || 0,
         seats: checkoutData?.seatsCount || Number(form.seats) || 5,
-        status: res.data?.organization?.status || (form.isTrial ? "TRIAL" : "SETUP_PENDING"),
-        workspaceUrl: res.data?.organization?.workspaceUrl || `https://${form.slug.trim().toLowerCase()}.gromoze.com`,
+        status:
+          res.data?.organization?.status ||
+          (form.isTrial ? "TRIAL" : "SETUP_PENDING"),
+        workspaceUrl:
+          res.data?.organization?.workspaceUrl ||
+          `https://${form.slug.trim().toLowerCase()}.gromoze.com`,
         welcomeEmailSent: res.data?.welcomeEmailSent,
+        checkoutError: res.data?.checkoutError,
         isTrial: form.isTrial,
       });
 
-      toast.success(`Tenant organization "${form.companyName}" successfully provisioned!`);
+      toast.success(
+        `Tenant organization "${form.companyName}" successfully provisioned!`,
+      );
       onTenantCreated();
       setStep(4);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to provision tenant workspace.");
+      toast.error(
+        err?.response?.data?.message || "Failed to provision tenant workspace.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -297,7 +319,8 @@ export function ProvisionTenantModal({
                 Provision Customer Tenant Workspace
               </h2>
               <p className="text-xs !text-slate-200 font-medium mt-0.5">
-                Onboard a new real estate company with customized commercial subscription and admin setup.
+                Onboard a new real estate company with customized commercial
+                subscription and admin setup.
               </p>
             </div>
           </div>
@@ -389,7 +412,9 @@ export function ProvisionTenantModal({
             >
               <span
                 className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
-                  step === 3 ? "bg-tertiary !text-white" : "bg-slate-700 !text-slate-200"
+                  step === 3
+                    ? "bg-tertiary !text-white"
+                    : "bg-slate-700 !text-slate-200"
                 }`}
               >
                 3
@@ -411,14 +436,19 @@ export function ProvisionTenantModal({
           {step === 1 && (
             <div className="space-y-4 animate-fadeIn">
               <div className="border-b border-slate-100 pb-3">
-                <h4 className="text-sm font-bold text-primary">Organization & Workspace Profile</h4>
+                <h4 className="text-sm font-bold text-primary">
+                  Organization & Workspace Profile
+                </h4>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Set the legal company name and choose their unique SaaS workspace URL.
+                  Set the legal company name and choose their unique SaaS
+                  workspace URL.
                 </p>
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-700">Company / Organization Legal Name *</label>
+                <label className="text-xs font-bold text-slate-700">
+                  Company / Organization Legal Name *
+                </label>
                 <input
                   type="text"
                   required
@@ -430,7 +460,9 @@ export function ProvisionTenantModal({
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-700">Workspace Subdomain Slug *</label>
+                <label className="text-xs font-bold text-slate-700">
+                  Workspace Subdomain Slug *
+                </label>
                 <div className="mt-1 flex items-center rounded-lg border border-slate-200 bg-slate-50 px-3.5 transition-all focus-within:border-primary focus-within:bg-white focus-within:ring-2 focus-within:ring-primary/10">
                   <Globe className="h-4 w-4 text-slate-400 mr-2 shrink-0" />
                   <input
@@ -441,13 +473,21 @@ export function ProvisionTenantModal({
                     onChange={(e) =>
                       setForm({
                         ...form,
-                        slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""),
+                        slug: e.target.value
+                          .toLowerCase()
+                          .replace(/[^a-z0-9-]/g, ""),
                       })
                     }
-                    style={{ outline: "none", border: "none", boxShadow: "none" }}
+                    style={{
+                      outline: "none",
+                      border: "none",
+                      boxShadow: "none",
+                    }}
                     className="h-11 flex-1 bg-transparent border-none outline-none ring-0 shadow-none text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-0 focus:border-none focus:shadow-none focus:bg-transparent focus-visible:outline-none focus-visible:ring-0 focus-visible:border-none focus-visible:shadow-none invalid:outline-none invalid:shadow-none px-0"
                   />
-                  <span className="text-xs font-semibold text-slate-400 shrink-0 pl-1">.gromoze.com</span>
+                  <span className="text-xs font-semibold text-slate-400 shrink-0 pl-1">
+                    .gromoze.com
+                  </span>
                 </div>
                 <p className="text-[11px] text-slate-400 font-medium mt-1">
                   Tenant workspace will be accessible at:{" "}
@@ -459,35 +499,55 @@ export function ProvisionTenantModal({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 <div>
-                  <label className="text-xs font-bold text-slate-700">Primary Real Estate Segment</label>
+                  <label className="text-xs font-bold text-slate-700">
+                    Primary Real Estate Segment
+                  </label>
                   <select
                     value={form.industry}
-                    onChange={(e) => setForm({ ...form, industry: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, industry: e.target.value })
+                    }
                     className="mt-1 h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
                   >
-                    <option value="Real Estate & Property Development">Real Estate & Property Development</option>
-                    <option value="Brokerage Agency & Channel Partner">Brokerage Agency & Channel Partner</option>
-                    <option value="Commercial Leasing & High-Rise Towers">Commercial Leasing & High-Rise Towers</option>
-                    <option value="Plotting & Land Development">Plotting & Land Development</option>
-                    <option value="Luxury Villas & Farmhouses">Luxury Villas & Farmhouses</option>
+                    <option value="Real Estate & Property Development">
+                      Real Estate & Property Development
+                    </option>
+                    <option value="Brokerage Agency & Channel Partner">
+                      Brokerage Agency & Channel Partner
+                    </option>
+                    <option value="Commercial Leasing & High-Rise Towers">
+                      Commercial Leasing & High-Rise Towers
+                    </option>
+                    <option value="Plotting & Land Development">
+                      Plotting & Land Development
+                    </option>
+                    <option value="Luxury Villas & Farmhouses">
+                      Luxury Villas & Farmhouses
+                    </option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-700">Headquarters City / State</label>
+                  <label className="text-xs font-bold text-slate-700">
+                    Headquarters City / State
+                  </label>
                   <div className="grid grid-cols-2 gap-2 mt-1">
                     <input
                       type="text"
                       placeholder="City (e.g. Mumbai)"
                       value={form.city}
-                      onChange={(e) => setForm({ ...form, city: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, city: e.target.value })
+                      }
                       className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
                     />
                     <input
                       type="text"
                       placeholder="State (e.g. Maharashtra)"
                       value={form.state}
-                      onChange={(e) => setForm({ ...form, state: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, state: e.target.value })
+                      }
                       className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
                     />
                   </div>
@@ -501,7 +561,9 @@ export function ProvisionTenantModal({
             <div className="space-y-4 animate-fadeIn">
               <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
                 <div>
-                  <h4 className="text-sm font-bold text-primary">Commercial Plan & Licensed Capacity</h4>
+                  <h4 className="text-sm font-bold text-primary">
+                    Commercial Plan & Licensed Capacity
+                  </h4>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
                     Select commercial tier and assign initial seat licenses.
                   </p>
@@ -511,7 +573,9 @@ export function ProvisionTenantModal({
                 <div className="flex items-center bg-slate-100 p-0.5 rounded-sm border border-slate-200">
                   <button
                     type="button"
-                    onClick={() => setForm({ ...form, billingCycle: "monthly" })}
+                    onClick={() =>
+                      setForm({ ...form, billingCycle: "monthly" })
+                    }
                     className={`px-3 py-1 rounded-sm text-xs font-bold transition ${
                       form.billingCycle === "monthly"
                         ? "bg-white text-primary shadow-xs"
@@ -541,85 +605,107 @@ export function ProvisionTenantModal({
               {availablePlans.length === 0 ? (
                 <div className="rounded-sm border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
                   <CreditCard className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-                  <p className="text-xs font-bold text-primary">No commercial plans configured</p>
+                  <p className="text-xs font-bold text-primary">
+                    No commercial plans configured
+                  </p>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Please create or activate commercial subscription tiers in Platform Settings &gt; Pricing &amp; Plans.
+                    Please create or activate commercial subscription tiers in
+                    Platform Settings &gt; Pricing &amp; Plans.
                   </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {availablePlans.map((plan) => {
                     const isSelected = form.planTier === plan.id;
-                  const price = form.billingCycle === "annual" ? plan.annualPrice : plan.price;
+                    const price =
+                      form.billingCycle === "annual"
+                        ? plan.annualPrice
+                        : plan.price;
 
-                  return (
-                    <div
-                      key={plan.id}
-                      onClick={() =>
-                        setForm((prev) => ({
-                          ...prev,
-                          planTier: plan.id,
-                          seats: Math.max(prev.seats, plan.seatsIncluded),
-                        }))
-                      }
-                      className={`rounded-sm border p-4 cursor-pointer transition-all relative flex flex-col justify-between ${
-                        isSelected
-                          ? "border-primary bg-slate-50/70 ring-1 ring-primary shadow-sm"
-                          : "border-slate-200 bg-white hover:border-slate-300"
-                      }`}
-                    >
-                      {isSelected && (
-                        <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white">
-                          <Check className="h-3 w-3" />
-                        </div>
-                      )}
-
-                      <div>
-                        <span
-                          className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded text-white inline-block"
-                          style={{ backgroundColor: plan.color }}
-                        >
-                          {plan.name}
-                        </span>
-
-                        <div className="mt-3">
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-xl font-extrabold text-primary">₹{price}</span>
-                            <span className="text-[11px] text-slate-500 font-medium">/ user / mo</span>
+                    return (
+                      <div
+                        key={plan.id}
+                        onClick={() =>
+                          setForm((prev) => ({
+                            ...prev,
+                            planTier: plan.id,
+                            seats: Math.max(prev.seats, plan.seatsIncluded),
+                          }))
+                        }
+                        className={`rounded-sm border p-4 cursor-pointer transition-all relative flex flex-col justify-between ${
+                          isSelected
+                            ? "border-primary bg-slate-50/70 ring-1 ring-primary shadow-sm"
+                            : "border-slate-200 bg-white hover:border-slate-300"
+                        }`}
+                      >
+                        {isSelected && (
+                          <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white">
+                            <Check className="h-3 w-3" />
                           </div>
-                          <p className="text-[11px] text-slate-500 font-medium mt-1">
-                            {plan.description}
-                          </p>
-                        </div>
-                      </div>
+                        )}
 
-                      <div className="mt-3 pt-3 border-t border-slate-200/60 text-[11px] text-slate-600 font-medium space-y-1">
-                        <div className="flex justify-between">
-                          <span>Capacity:</span>
-                          <strong className="text-slate-800">{plan.leads} leads</strong>
+                        <div>
+                          <span
+                            className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded text-white inline-block"
+                            style={{ backgroundColor: plan.color }}
+                          >
+                            {plan.name}
+                          </span>
+
+                          <div className="mt-3">
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-xl font-extrabold text-primary">
+                                ₹{price}
+                              </span>
+                              <span className="text-[11px] text-slate-500 font-medium">
+                                / user / mo
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 font-medium mt-1">
+                              {plan.description}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex justify-between">
-                          <span>Storage:</span>
-                          <strong className="text-slate-800">{plan.storage}</strong>
+
+                        <div className="mt-3 pt-3 border-t border-slate-200/60 text-[11px] text-slate-600 font-medium space-y-1">
+                          <div className="flex justify-between">
+                            <span>Capacity:</span>
+                            <strong className="text-slate-800">
+                              {plan.leads} leads
+                            </strong>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Storage:</span>
+                            <strong className="text-slate-800">
+                              {plan.storage}
+                            </strong>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
               )}
 
               {/* Seat Allocation & Activation Mode */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 <div className="rounded-sm border border-slate-200 bg-slate-50/50 p-4">
-                  <label className="text-xs font-bold text-slate-700">Allocated Seat Licenses</label>
+                  <label className="text-xs font-bold text-slate-700">
+                    Allocated Seat Licenses
+                  </label>
                   <p className="text-[11px] text-slate-500 font-medium mb-3">
-                    Total number of agents, telecallers, and managers who can access this CRM.
+                    Total number of agents, telecallers, and managers who can
+                    access this CRM.
                   </p>
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
-                      onClick={() => setForm((prev) => ({ ...prev, seats: Math.max(1, prev.seats - 5) }))}
+                      onClick={() =>
+                        setForm((prev) => ({
+                          ...prev,
+                          seats: Math.max(1, prev.seats - 5),
+                        }))
+                      }
                       className="h-10 w-10 flex items-center justify-center rounded-sm border border-slate-200 bg-white font-bold text-slate-700 hover:bg-slate-100 transition"
                     >
                       -
@@ -628,12 +714,19 @@ export function ProvisionTenantModal({
                       type="number"
                       min={1}
                       value={form.seats}
-                      onChange={(e) => setForm({ ...form, seats: Math.max(1, Number(e.target.value)) })}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          seats: Math.max(1, Number(e.target.value)),
+                        })
+                      }
                       className="h-10 flex-1 rounded-sm border border-slate-200 bg-white px-3 text-center text-sm font-bold text-slate-800 focus:border-primary focus:outline-none"
                     />
                     <button
                       type="button"
-                      onClick={() => setForm((prev) => ({ ...prev, seats: prev.seats + 5 }))}
+                      onClick={() =>
+                        setForm((prev) => ({ ...prev, seats: prev.seats + 5 }))
+                      }
                       className="h-10 w-10 flex items-center justify-center rounded-sm border border-slate-200 bg-white font-bold text-slate-700 hover:bg-slate-100 transition"
                     >
                       +
@@ -643,7 +736,9 @@ export function ProvisionTenantModal({
 
                 <div className="rounded-sm border border-slate-200 bg-slate-50/50 p-4 flex flex-col justify-between">
                   <div>
-                    <label className="text-xs font-bold text-slate-700">Initial Activation State</label>
+                    <label className="text-xs font-bold text-slate-700">
+                      Initial Activation State
+                    </label>
                     <p className="text-[11px] text-slate-500 font-medium mb-2">
                       Start as evaluating trial or mark as live paying customer.
                     </p>
@@ -678,16 +773,21 @@ export function ProvisionTenantModal({
               {/* Cost Summary Box */}
               <div className="rounded-sm bg-primary text-white p-3.5 flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-bold text-white">Commercial Tier: {selectedPlan.name}</p>
+                  <p className="text-xs font-bold text-white">
+                    Commercial Tier: {selectedPlan.name}
+                  </p>
                   <p className="text-[11px] text-slate-300 font-medium">
-                    {form.seats} seats @ ₹{unitPrice}/seat/mo ({form.billingCycle})
+                    {form.seats} seats @ ₹{unitPrice}/seat/mo (
+                    {form.billingCycle})
                   </p>
                 </div>
                 <div className="text-right">
                   <span className="text-lg font-extrabold text-white">
                     ₹{estimatedMonthly.toLocaleString("en-IN")}
                   </span>
-                  <span className="text-[10px] text-slate-300 font-medium block">/ month</span>
+                  <span className="text-[10px] text-slate-300 font-medium block">
+                    / month
+                  </span>
                 </div>
               </div>
             </div>
@@ -697,14 +797,19 @@ export function ProvisionTenantModal({
           {step === 3 && (
             <div className="space-y-4 animate-fadeIn">
               <div className="border-b border-slate-100 pb-3">
-                <h4 className="text-sm font-bold text-primary">Primary Tenant Administrator Account</h4>
+                <h4 className="text-sm font-bold text-primary">
+                  Primary Tenant Administrator Account
+                </h4>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Set the credentials for the organization's owner/director to log in and manage their CRM.
+                  Set the credentials for the organization's owner/director to
+                  log in and manage their CRM.
                 </p>
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-700">Administrator Full Name *</label>
+                <label className="text-xs font-bold text-slate-700">
+                  Administrator Full Name *
+                </label>
                 <div className="mt-1 flex items-center rounded-lg border border-slate-200 bg-white px-3.5 transition-all focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
                   <User className="h-4 w-4 text-slate-400 mr-2 shrink-0" />
                   <input
@@ -712,15 +817,23 @@ export function ProvisionTenantModal({
                     required
                     placeholder="e.g. Vikramaditya Singhania"
                     value={form.adminFullName}
-                    onChange={(e) => setForm({ ...form, adminFullName: e.target.value })}
-                    style={{ outline: "none", border: "none", boxShadow: "none" }}
+                    onChange={(e) =>
+                      setForm({ ...form, adminFullName: e.target.value })
+                    }
+                    style={{
+                      outline: "none",
+                      border: "none",
+                      boxShadow: "none",
+                    }}
                     className="h-11 flex-1 bg-transparent border-none outline-none ring-0 shadow-none text-xs font-semibold text-slate-800 focus:outline-none focus:ring-0 focus:border-none focus:shadow-none focus:bg-transparent focus-visible:outline-none focus-visible:ring-0 focus-visible:border-none focus-visible:shadow-none invalid:outline-none invalid:shadow-none px-0"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-700">Administrator Email Address *</label>
+                <label className="text-xs font-bold text-slate-700">
+                  Administrator Email Address *
+                </label>
                 <div className="mt-1 flex items-center rounded-lg border border-slate-200 bg-white px-3.5 transition-all focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
                   <Mail className="h-4 w-4 text-slate-400 mr-2 shrink-0" />
                   <input
@@ -728,19 +841,28 @@ export function ProvisionTenantModal({
                     required
                     placeholder="admin@prestigeheights.com"
                     value={form.adminEmail}
-                    onChange={(e) => setForm({ ...form, adminEmail: e.target.value })}
-                    style={{ outline: "none", border: "none", boxShadow: "none" }}
+                    onChange={(e) =>
+                      setForm({ ...form, adminEmail: e.target.value })
+                    }
+                    style={{
+                      outline: "none",
+                      border: "none",
+                      boxShadow: "none",
+                    }}
                     className="h-11 flex-1 bg-transparent border-none outline-none ring-0 shadow-none text-xs font-semibold text-slate-800 focus:outline-none focus:ring-0 focus:border-none focus:shadow-none focus:bg-transparent focus-visible:outline-none focus-visible:ring-0 focus-visible:border-none focus-visible:shadow-none invalid:outline-none invalid:shadow-none px-0"
                   />
                 </div>
                 <p className="text-[11px] text-slate-400 font-medium mt-1">
-                  Login instructions and tenant credentials will be tied to this primary address.
+                  Login instructions and tenant credentials will be tied to this
+                  primary address.
                 </p>
               </div>
 
               <div>
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700">Temporary Initial Password *</label>
+                  <label className="text-xs font-bold text-slate-700">
+                    Temporary Initial Password *
+                  </label>
                   <button
                     type="button"
                     onClick={generateRandomPassword}
@@ -756,8 +878,14 @@ export function ProvisionTenantModal({
                     required
                     placeholder="••••••••••••"
                     value={form.adminPassword}
-                    onChange={(e) => setForm({ ...form, adminPassword: e.target.value })}
-                    style={{ outline: "none", border: "none", boxShadow: "none" }}
+                    onChange={(e) =>
+                      setForm({ ...form, adminPassword: e.target.value })
+                    }
+                    style={{
+                      outline: "none",
+                      border: "none",
+                      boxShadow: "none",
+                    }}
                     className="h-11 flex-1 bg-transparent border-none outline-none ring-0 shadow-none text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-0 focus:border-none focus:shadow-none focus:bg-transparent focus-visible:outline-none focus-visible:ring-0 focus-visible:border-none focus-visible:shadow-none invalid:outline-none invalid:shadow-none px-0"
                   />
                   <button
@@ -765,7 +893,11 @@ export function ProvisionTenantModal({
                     onClick={() => setShowPassword(!showPassword)}
                     className="text-slate-400 hover:text-slate-700 p-1"
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -773,26 +905,43 @@ export function ProvisionTenantModal({
               {/* Confirmation Overview Box */}
               <div className="rounded-sm border border-slate-200 bg-slate-50 p-4 space-y-2 text-xs">
                 <p className="font-bold text-primary flex items-center gap-1.5">
-                  <ShieldCheck className="h-4 w-4 text-emerald-600" /> Provisioning Summary:
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" />{" "}
+                  Provisioning Summary:
                 </p>
                 <div className="grid grid-cols-2 gap-2 text-slate-600 pt-1">
                   <div>
-                    <span className="text-slate-400 block text-[11px]">Organization:</span>
-                    <strong className="text-slate-800">{form.companyName || "N/A"}</strong>
+                    <span className="text-slate-400 block text-[11px]">
+                      Organization:
+                    </span>
+                    <strong className="text-slate-800">
+                      {form.companyName || "N/A"}
+                    </strong>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-[11px]">URL:</span>
-                    <strong className="text-slate-800">{form.slug || "slug"}.gromoze.com</strong>
+                    <span className="text-slate-400 block text-[11px]">
+                      URL:
+                    </span>
+                    <strong className="text-slate-800">
+                      {form.slug || "slug"}.gromoze.com
+                    </strong>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-[11px]">Commercial Plan:</span>
+                    <span className="text-slate-400 block text-[11px]">
+                      Commercial Plan:
+                    </span>
                     <strong className="text-slate-800">
                       {selectedPlan.name} ({form.seats} seats)
                     </strong>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-[11px]">Status:</span>
-                    <strong className={form.isTrial ? "text-blue-600" : "text-emerald-600"}>
+                    <span className="text-slate-400 block text-[11px]">
+                      Status:
+                    </span>
+                    <strong
+                      className={
+                        form.isTrial ? "text-blue-600" : "text-emerald-600"
+                      }
+                    >
                       {form.isTrial ? "14-Day Trial" : "Payment pending"}
                     </strong>
                   </div>
@@ -810,29 +959,48 @@ export function ProvisionTenantModal({
                   Workspace Provisioned Successfully!
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Tenant <strong className="text-slate-800">{createdTenantResult.companyName}</strong> has been created. {createdTenantResult.status === "TRIAL" ? "Your 14-day trial is ready." : "Activation payment is pending."}
+                  Tenant{" "}
+                  <strong className="text-slate-800">
+                    {createdTenantResult.companyName}
+                  </strong>{" "}
+                  has been created.{" "}
+                  {createdTenantResult.status === "TRIAL"
+                    ? "Your 14-day trial is ready."
+                    : "Activation payment is pending."}
                 </p>
               </div>
 
               {/* Status & Details */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500 font-medium">Workspace Status:</span>
-                  <span className={`font-semibold px-2.5 py-0.5 rounded-full ${
-                    createdTenantResult.status === "TRIAL"
-                      ? "bg-emerald-100 text-emerald-800"
-                      : "bg-amber-100 text-amber-800"
-                  }`}>
-                    {createdTenantResult.status === "TRIAL" ? "14-Day Free Trial" : createdTenantResult.status}
+                  <span className="text-slate-500 font-medium">
+                    Workspace Status:
+                  </span>
+                  <span
+                    className={`font-semibold px-2.5 py-0.5 rounded-full ${
+                      createdTenantResult.status === "TRIAL"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-amber-100 text-amber-800"
+                    }`}
+                  >
+                    {createdTenantResult.status === "TRIAL"
+                      ? "14-Day Free Trial"
+                      : createdTenantResult.status}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500 font-medium">Admin Email:</span>
-                  <span className="font-semibold text-slate-800 font-mono">{createdTenantResult.adminEmail}</span>
+                  <span className="text-slate-500 font-medium">
+                    Admin Email:
+                  </span>
+                  <span className="font-semibold text-slate-800 font-mono">
+                    {createdTenantResult.adminEmail}
+                  </span>
                 </div>
                 {createdTenantResult.adminPassword && (
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Initial Password:</span>
+                    <span className="text-slate-500 font-medium">
+                      Initial Password:
+                    </span>
                     <div className="flex items-center gap-1.5">
                       <span className="font-mono font-bold bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-800">
                         {createdTenantResult.adminPassword}
@@ -843,7 +1011,9 @@ export function ProvisionTenantModal({
                         size="sm"
                         className="h-6 w-6 p-0 text-slate-500 hover:text-slate-800"
                         onClick={() => {
-                          navigator.clipboard.writeText(createdTenantResult.adminPassword || "");
+                          navigator.clipboard.writeText(
+                            createdTenantResult.adminPassword || "",
+                          );
                           toast.success("Password copied!");
                         }}
                       >
@@ -853,12 +1023,21 @@ export function ProvisionTenantModal({
                   </div>
                 )}
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500 font-medium">Allocated Seats:</span>
-                  <span className="font-semibold text-slate-800">{createdTenantResult.seats} Seats</span>
+                  <span className="text-slate-500 font-medium">
+                    Allocated Seats:
+                  </span>
+                  <span className="font-semibold text-slate-800">
+                    {createdTenantResult.seats} Seats
+                  </span>
                 </div>
                 <div className="text-xs">
                   <span className="text-slate-500">Workspace Login URL: </span>
-                  <a className="text-primary font-bold underline" href={`${createdTenantResult.workspaceUrl}/login`} target="_blank" rel="noreferrer">
+                  <a
+                    className="text-primary font-bold underline"
+                    href={`${createdTenantResult.workspaceUrl}/login`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     {createdTenantResult.workspaceUrl}/login
                   </a>
                 </div>
@@ -869,28 +1048,35 @@ export function ProvisionTenantModal({
                 <div className="flex items-center gap-2 text-emerald-800 font-medium">
                   <Mail className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>
-                    {createdTenantResult.welcomeEmailSent !== false
+                    {createdTenantResult.welcomeEmailSent === true
                       ? `Welcome kit email with credentials dispatched to ${createdTenantResult.adminEmail}`
                       : `Credentials ready for administrator (${createdTenantResult.adminEmail})`}
                   </span>
                 </div>
                 <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                  {createdTenantResult.welcomeEmailSent !== false ? "Email Sent" : "Ready"}
+                  {createdTenantResult.welcomeEmailSent === true
+                    ? "Email accepted"
+                    : "Email not sent"}
                 </span>
               </div>
 
               {/* Payment Link OR Trial Information */}
-              {createdTenantResult.status === "TRIAL" || createdTenantResult.isTrial ? (
+              {createdTenantResult.status === "TRIAL" ||
+              createdTenantResult.isTrial ? (
                 <div className="space-y-3 bg-emerald-50/70 border border-emerald-200 rounded-xl p-4">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                       14-Day Free Trial Active:
                     </label>
-                    <span className="text-[11px] text-emerald-700 font-semibold">No Payment Required</span>
+                    <span className="text-[11px] text-emerald-700 font-semibold">
+                      No Payment Required
+                    </span>
                   </div>
                   <p className="text-xs text-emerald-800 leading-relaxed">
-                    This customer workspace is fully activated in 14-day trial mode. The tenant administrator can sign in immediately at their subdomain portal using the credentials above.
+                    This customer workspace is fully activated in 14-day trial
+                    mode. The tenant administrator can sign in immediately at
+                    their subdomain portal using the credentials above.
                   </p>
                   <div className="flex items-center gap-2 pt-1">
                     <Button
@@ -899,7 +1085,16 @@ export function ProvisionTenantModal({
                       size="sm"
                       className="flex items-center gap-1.5 text-xs bg-white text-slate-700 hover:bg-slate-50 border-slate-300"
                       onClick={() => {
-                        const credentialsText = `Gromoze CRM Workspace Credentials:\n\nCompany: ${createdTenantResult.companyName}\nLogin URL: ${createdTenantResult.workspaceUrl}/login\nEmail: ${createdTenantResult.adminEmail}\nPassword: ${createdTenantResult.adminPassword || "Set during creation"}\nPlan: 14-Day Free Trial`;
+                        const credentialsText = `Gromoze CRM Workspace Credentials:\n\nCompany: ${
+                          createdTenantResult.companyName
+                        }\nLogin URL: ${
+                          createdTenantResult.workspaceUrl
+                        }/login\nEmail: ${
+                          createdTenantResult.adminEmail
+                        }\nPassword: ${
+                          createdTenantResult.adminPassword ||
+                          "Set during creation"
+                        }\nPlan: 14-Day Free Trial`;
                         navigator.clipboard.writeText(credentialsText);
                         toast.success("Full workspace credentials copied!");
                       }}
@@ -909,7 +1104,15 @@ export function ProvisionTenantModal({
                     </Button>
                     <a
                       href={`https://wa.me/?text=${encodeURIComponent(
-                        `Hello! Welcome to Gromoze CRM. Here are your official workspace access details:\n\nWorkspace: ${createdTenantResult.companyName}\nPortal: ${createdTenantResult.workspaceUrl}/login\nAdmin Email: ${createdTenantResult.adminEmail}\nTemporary Password: ${createdTenantResult.adminPassword || ""}\n\nPlease log in and get started!`
+                        `Hello! Welcome to Gromoze CRM. Here are your official workspace access details:\n\nWorkspace: ${
+                          createdTenantResult.companyName
+                        }\nPortal: ${
+                          createdTenantResult.workspaceUrl
+                        }/login\nAdmin Email: ${
+                          createdTenantResult.adminEmail
+                        }\nTemporary Password: ${
+                          createdTenantResult.adminPassword || ""
+                        }\n\nPlease log in and get started!`,
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -927,7 +1130,9 @@ export function ProvisionTenantModal({
                       <CreditCard className="w-4 h-4 text-blue-600" />
                       Shareable Razorpay Payment Link:
                     </label>
-                    <span className="text-[11px] text-blue-700 font-medium">Activation Payment</span>
+                    <span className="text-[11px] text-blue-700 font-medium">
+                      Activation Payment
+                    </span>
                   </div>
 
                   {createdTenantResult.paymentLinkUrl ? (
@@ -944,7 +1149,9 @@ export function ProvisionTenantModal({
                           size="sm"
                           className="flex items-center gap-1.5 whitespace-nowrap bg-blue-600 hover:bg-blue-700"
                           onClick={() => {
-                            navigator.clipboard.writeText(createdTenantResult.paymentLinkUrl);
+                            navigator.clipboard.writeText(
+                              createdTenantResult.paymentLinkUrl,
+                            );
                             toast.success("Payment link copied to clipboard!");
                           }}
                         >
@@ -956,7 +1163,7 @@ export function ProvisionTenantModal({
                       <div className="flex items-center gap-2 pt-1">
                         <a
                           href={`https://wa.me/?text=${encodeURIComponent(
-                            `Hello! Here is your official setup & activation payment link for ${createdTenantResult.companyName} CRM: ${createdTenantResult.paymentLinkUrl}`
+                            `Hello! Here is your official setup & activation payment link for ${createdTenantResult.companyName} CRM: ${createdTenantResult.paymentLinkUrl}`,
                           )}`}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -978,7 +1185,8 @@ export function ProvisionTenantModal({
                   ) : (
                     <div className="p-3 bg-white border border-slate-200 rounded-lg text-xs space-y-2">
                       <p className="text-slate-600 font-medium">
-                        Payment link generation is pending or simulated. You can collect payment or generate an updated invoice link anytime from the Billing dashboard.
+                        {createdTenantResult.checkoutError ||
+                          "A payment link is not available. Open Manage tenant → Onboarding to generate a new link after configuring Razorpay."}
                       </p>
                       <Button
                         type="button"
@@ -986,12 +1194,22 @@ export function ProvisionTenantModal({
                         size="sm"
                         className="text-xs"
                         onClick={() => {
-                          const credentialsText = `Gromoze CRM Workspace Credentials:\n\nCompany: ${createdTenantResult.companyName}\nLogin URL: ${createdTenantResult.workspaceUrl}/login\nEmail: ${createdTenantResult.adminEmail}\nPassword: ${createdTenantResult.adminPassword || "Set during creation"}`;
+                          const credentialsText = `Gromoze CRM Workspace Credentials:\n\nCompany: ${
+                            createdTenantResult.companyName
+                          }\nLogin URL: ${
+                            createdTenantResult.workspaceUrl
+                          }/login\nEmail: ${
+                            createdTenantResult.adminEmail
+                          }\nPassword: ${
+                            createdTenantResult.adminPassword ||
+                            "Set during creation"
+                          }`;
                           navigator.clipboard.writeText(credentialsText);
                           toast.success("Credentials copied!");
                         }}
                       >
-                        <Copy className="w-3.5 h-3.5 mr-1" /> Copy Workspace Credentials
+                        <Copy className="w-3.5 h-3.5 mr-1" /> Copy Workspace
+                        Credentials
                       </Button>
                     </div>
                   )}
@@ -1064,7 +1282,9 @@ export function ProvisionTenantModal({
                   className="font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs gap-2"
                 >
                   <Sparkles className="h-4 w-4" />
-                  {isSubmitting ? "Provisioning Tenant..." : "Complete & Provision Workspace"}
+                  {isSubmitting
+                    ? "Provisioning Tenant..."
+                    : "Complete & Provision Workspace"}
                 </Button>
               )}
             </>

@@ -173,7 +173,11 @@ type AccessTemplate = {
 
 const adminReportingRoles = new Set(["ADMIN", "SUPER_ADMIN"]);
 const teamLeaderReportingRoles = new Set(["MANAGER", "SALES_MANAGER"]);
-const staffReportingRoles = new Set(["TEAM_LEADER", "MANAGER", "SALES_MANAGER"]);
+const staffReportingRoles = new Set([
+  "TEAM_LEADER",
+  "MANAGER",
+  "SALES_MANAGER",
+]);
 
 const roleForHierarchy = (role?: string) =>
   role === "FIELD_EXECUTIVE" ? "SALES_AGENT" : role ?? "";
@@ -374,13 +378,7 @@ function ModalSection({
   );
 }
 
-function OverviewItem({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function OverviewItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
       <p className="text-[11px] font-bold text-muted-foreground">{label}</p>
@@ -441,7 +439,9 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
         justificationMode: employee.justificationMode ?? "MULTIPLIER",
         justificationAmount: Number(employee.justificationAmount ?? 0),
         twoFactorEnabled: Boolean(employee.twoFactorEnabled),
-        password: employee.password || "ChangeMe@123",
+        password: /^(?:\$argon2|enc:)/.test(employee.password ?? "")
+          ? ""
+          : employee.password || "",
         permissions: employee.permissions ?? [],
         rankingTeamIds:
           employee.rankingTeamIds ??
@@ -737,10 +737,6 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
   const accessPermissionModules = accessModules.filter(
     (module) => module.kind !== "page",
   );
-
-
-
-
 
   const accessPageModules = accessModules.filter(
     (module) => module.kind === "page",
@@ -1043,12 +1039,20 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
 
                     <div className="mt-4 grid gap-2">
                       <OverviewItem label="Role" value={overviewRole} />
-                      <OverviewItem label="Reports to" value={overviewManager} />
                       <OverviewItem
-                        label={isTeamLeaderRole ? "Assigned team" : "Primary team"}
+                        label="Reports to"
+                        value={overviewManager}
+                      />
+                      <OverviewItem
+                        label={
+                          isTeamLeaderRole ? "Assigned team" : "Primary team"
+                        }
                         value={overviewTeam}
                       />
-                      <OverviewItem label="Access mode" value={overviewAccess} />
+                      <OverviewItem
+                        label="Access mode"
+                        value={overviewAccess}
+                      />
                     </div>
 
                     {isTeamLeaderRole ? (
@@ -1089,951 +1093,984 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                     </div>
                   )}
 
-              <ModalSection
-                icon={<BadgeCheck className="h-4 w-4" />}
-                title="Profile and contact"
-                description="Set the employee identity, contact number used for OTP, and joining details."
-              >
-                <div className="grid gap-5 lg:grid-cols-[180px_minmax(0,1fr)]">
-                  <div className="space-y-3">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      disabled={isSubmitting}
-                      className="sr-only"
-                    />
+                  <ModalSection
+                    icon={<BadgeCheck className="h-4 w-4" />}
+                    title="Profile and contact"
+                    description="Set the employee identity, contact number used for OTP, and joining details."
+                  >
+                    <div className="grid gap-5 lg:grid-cols-[180px_minmax(0,1fr)]">
+                      <div className="space-y-3">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          disabled={isSubmitting}
+                          className="sr-only"
+                        />
 
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      onDragOver={(event) => {
-                        event.preventDefault();
-                        setIsDraggingImage(true);
-                      }}
-                      onDragLeave={() => setIsDraggingImage(false)}
-                      onDrop={handleImageDrop}
-                      disabled={isSubmitting}
-                      className={`flex min-h-[188px] w-full flex-col items-center justify-center gap-3 rounded-md border border-dashed p-4 text-center transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 ${
-                        isDraggingImage
-                          ? "border-primary bg-primary/5"
-                          : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50"
-                      }`}
-                    >
-                      <span className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50 text-xl font-extrabold text-secondary">
-                        {formData.image ? (
-                          <img
-                            src={formData.image}
-                            alt="Employee preview"
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          getInitials(formData.fullName)
-                        )}
-                      </span>
-                      <span className="space-y-1">
-                        <span className="block text-sm font-bold text-secondary">
-                          {formData.image ? "Change photo" : "Upload photo"}
-                        </span>
-                        <span className="block text-[11px] font-medium leading-relaxed text-muted-foreground">
-                          JPG, PNG, or WebP under 5 MB.
-                        </span>
-                      </span>
-                    </button>
-
-                    <div className="flex min-h-5 items-center justify-between gap-3">
-                      <p className="min-w-0 truncate text-xs font-semibold text-muted-foreground/60">
-                        {imageFileName || "No photo selected"}
-                      </p>
-                      {formData.image && (
                         <button
                           type="button"
-                          onClick={handleRemoveImage}
+                          onClick={() => fileInputRef.current?.click()}
+                          onDragOver={(event) => {
+                            event.preventDefault();
+                            setIsDraggingImage(true);
+                          }}
+                          onDragLeave={() => setIsDraggingImage(false)}
+                          onDrop={handleImageDrop}
                           disabled={isSubmitting}
-                          className="shrink-0 text-xs font-semibold text-red-500 transition-colors hover:text-red-600"
+                          className={`flex min-h-[188px] w-full flex-col items-center justify-center gap-3 rounded-md border border-dashed p-4 text-center transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                            isDraggingImage
+                              ? "border-primary bg-primary/5"
+                              : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50"
+                          }`}
                         >
-                          Remove
+                          <span className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50 text-xl font-extrabold text-secondary">
+                            {formData.image ? (
+                              <img
+                                src={formData.image}
+                                alt="Employee preview"
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              getInitials(formData.fullName)
+                            )}
+                          </span>
+                          <span className="space-y-1">
+                            <span className="block text-sm font-bold text-secondary">
+                              {formData.image ? "Change photo" : "Upload photo"}
+                            </span>
+                            <span className="block text-[11px] font-medium leading-relaxed text-muted-foreground">
+                              JPG, PNG, or WebP under 5 MB.
+                            </span>
+                          </span>
                         </button>
-                      )}
+
+                        <div className="flex min-h-5 items-center justify-between gap-3">
+                          <p className="min-w-0 truncate text-xs font-semibold text-muted-foreground/60">
+                            {imageFileName || "No photo selected"}
+                          </p>
+                          {formData.image && (
+                            <button
+                              type="button"
+                              onClick={handleRemoveImage}
+                              disabled={isSubmitting}
+                              className="shrink-0 text-xs font-semibold text-red-500 transition-colors hover:text-red-600"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                        {imageError && (
+                          <p className="text-xs font-semibold text-red-500">
+                            {imageError}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="grid min-w-0 content-start gap-4 sm:grid-cols-2">
+                        <label
+                          className="space-y-2 sm:col-span-2"
+                          htmlFor={`${generatedId}-fullName`}
+                        >
+                          <span className={fieldLabelClassName}>Full name</span>
+                          <Input
+                            id={`${generatedId}-fullName`}
+                            value={formData.fullName || ""}
+                            onChange={(event) =>
+                              setFormData({
+                                ...formData,
+                                fullName: event.target.value,
+                              })
+                            }
+                            placeholder="e.g. Megha Jain"
+                            className={inputClassName}
+                            disabled={isSubmitting}
+                            required
+                          />
+                          {errors.fullName && (
+                            <p className="mt-1 text-[11px] font-bold text-red-500">
+                              {errors.fullName}
+                            </p>
+                          )}
+                        </label>
+
+                        <label
+                          className="space-y-2 sm:col-span-2"
+                          htmlFor={`${generatedId}-email`}
+                        >
+                          <span className={fieldLabelClassName}>
+                            Email address
+                          </span>
+                          <Input
+                            id={`${generatedId}-email`}
+                            type="email"
+                            value={formData.email || ""}
+                            onChange={(event) =>
+                              setFormData({
+                                ...formData,
+                                email: event.target.value,
+                              })
+                            }
+                            placeholder="name@truroot.in"
+                            className={inputClassName}
+                            disabled={isSubmitting}
+                            required
+                          />
+                          {errors.email && (
+                            <p className="mt-1 text-[11px] font-bold text-red-500">
+                              {errors.email}
+                            </p>
+                          )}
+                        </label>
+
+                        <div className="space-y-2 sm:col-span-2">
+                          <span className={fieldLabelClassName}>
+                            Contact phone
+                          </span>
+                          <div className="grid gap-2 sm:grid-cols-[180px_minmax(0,1fr)]">
+                            <SearchableSelect
+                              value={formData.phoneCountryCode || "+91"}
+                              onValueChange={(value) =>
+                                setFormData((current) => ({
+                                  ...current,
+                                  phoneCountryCode: value,
+                                }))
+                              }
+                              options={countryCodeOptions.map((option) => ({
+                                value: option.value,
+                                label: `${option.label} ${option.country}`,
+                              }))}
+                              placeholder="+91"
+                              searchPlaceholder="Search country code..."
+                              className="h-11 min-w-0 rounded-lg border-slate-200 bg-white font-semibold text-secondary focus:border-primary"
+                              disabled={isSubmitting}
+                              modal
+                            />
+                            <Input
+                              id={`${generatedId}-phone`}
+                              aria-label="Contact phone number"
+                              inputMode="tel"
+                              autoComplete="tel-national"
+                              value={formData.phone || ""}
+                              onChange={(event) => {
+                                const onlyDigits = event.target.value.replace(
+                                  /\D/g,
+                                  "",
+                                );
+                                setFormData({ ...formData, phone: onlyDigits });
+                              }}
+                              placeholder="9876543210"
+                              className={inputClassName}
+                              disabled={isSubmitting}
+                              maxLength={15}
+                            />
+                          </div>
+                          <p className="text-[11px] font-semibold leading-5 text-muted-foreground">
+                            Used for SMS OTP and employee contact. Select the
+                            country code first.
+                          </p>
+                          {errors.phone && (
+                            <p className="mt-1 text-[11px] font-bold text-red-500">
+                              {errors.phone}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2 sm:col-span-2">
+                          <span className={fieldLabelClassName}>
+                            Joining date
+                          </span>
+                          <DatePicker
+                            value={formData.joiningDate}
+                            onChange={(event) => {
+                              setFormData({
+                                ...formData,
+                                joiningDate: event.target.value,
+                              });
+                            }}
+                            disabled={isSubmitting}
+                            className="w-full"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    {imageError && (
-                      <p className="text-xs font-semibold text-red-500">
-                        {imageError}
-                      </p>
-                    )}
-                  </div>
+                  </ModalSection>
 
-                  <div className="grid min-w-0 content-start gap-4 sm:grid-cols-2">
-                    <label
-                      className="space-y-2 sm:col-span-2"
-                      htmlFor={`${generatedId}-fullName`}
-                    >
-                      <span className={fieldLabelClassName}>Full name</span>
-                      <Input
-                        id={`${generatedId}-fullName`}
-                        value={formData.fullName || ""}
-                        onChange={(event) =>
-                          setFormData({
-                            ...formData,
-                            fullName: event.target.value,
-                          })
-                        }
-                        placeholder="e.g. Megha Jain"
-                        className={inputClassName}
-                        disabled={isSubmitting}
-                        required
-                      />
-                      {errors.fullName && (
-                        <p className="mt-1 text-[11px] font-bold text-red-500">
-                          {errors.fullName}
-                        </p>
-                      )}
-                    </label>
-
-                    <label
-                      className="space-y-2 sm:col-span-2"
-                      htmlFor={`${generatedId}-email`}
-                    >
-                      <span className={fieldLabelClassName}>Email address</span>
-                      <Input
-                        id={`${generatedId}-email`}
-                        type="email"
-                        value={formData.email || ""}
-                        onChange={(event) =>
-                          setFormData({
-                            ...formData,
-                            email: event.target.value,
-                          })
-                        }
-                        placeholder="name@truroot.in"
-                        className={inputClassName}
-                        disabled={isSubmitting}
-                        required
-                      />
-                      {errors.email && (
-                        <p className="mt-1 text-[11px] font-bold text-red-500">
-                          {errors.email}
-                        </p>
-                      )}
-                    </label>
-
-                    <div className="space-y-2 sm:col-span-2">
-                      <span className={fieldLabelClassName}>Contact phone</span>
-                      <div className="grid gap-2 sm:grid-cols-[180px_minmax(0,1fr)]">
+                  <ModalSection
+                    icon={<BriefcaseBusiness className="h-4 w-4" />}
+                    title="Role, payroll and security"
+                    description="Define the employee role, shift, login requirements, salary, and justification target."
+                  >
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <span className={fieldLabelClassName}>
+                          Role designation
+                        </span>
                         <SearchableSelect
-                          value={formData.phoneCountryCode || "+91"}
-                          onValueChange={(value) =>
-                            setFormData((current) => ({
-                              ...current,
-                              phoneCountryCode: value,
-                            }))
-                          }
-                          options={countryCodeOptions.map((option) => ({
-                            value: option.value,
-                            label: `${option.label} ${option.country}`,
-                          }))}
-                          placeholder="+91"
-                          searchPlaceholder="Search country code..."
-                          className="h-11 min-w-0 rounded-lg border-slate-200 bg-white font-semibold text-secondary focus:border-primary"
+                          value={String(formData.role || "")}
+                          onValueChange={(value) => {
+                            const nextReportingRoles =
+                              reportingRolesForRole(value);
+                            const currentManager = managerOptions.find(
+                              (manager) =>
+                                manager.id === formData.reportingManagerId,
+                            );
+                            const keepReportingManager = Boolean(
+                              currentManager &&
+                                nextReportingRoles.has(currentManager.role),
+                            );
+                            const nextIsTeamLeaderRole =
+                              roleForHierarchy(value) === "TEAM_LEADER";
+                            const nextIsManagerRole =
+                              teamLeaderReportingRoles.has(
+                                roleForHierarchy(value),
+                              );
+
+                            setFormData({
+                              ...formData,
+                              role: value,
+                              teamId:
+                                value === "TELECALLER" ||
+                                value === "FIELD_EXECUTIVE"
+                                  ? formData.teamId
+                                  : "",
+                              reportingManagerId: keepReportingManager
+                                ? formData.reportingManagerId
+                                : "",
+                              manager: keepReportingManager
+                                ? formData.manager
+                                : "",
+                              monitorTeamIds: nextIsTeamLeaderRole
+                                ? formData.monitorTeamIds
+                                : [],
+                              monitorUserIds: nextIsTeamLeaderRole
+                                ? formData.monitorUserIds
+                                : [],
+                              managedTeamIds: nextIsManagerRole
+                                ? formData.managedTeamIds
+                                : [],
+                              leaderOfTeamId: nextIsTeamLeaderRole
+                                ? formData.leaderOfTeamId
+                                : "",
+                              leaderOfTeamName: nextIsTeamLeaderRole
+                                ? formData.leaderOfTeamName
+                                : "",
+                              permissions: permissionsForRole(value),
+                            });
+                          }}
+                          options={roleSelectOptions}
+                          placeholder="Select role"
+                          searchPlaceholder="Search role..."
+                          className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary focus:border-primary"
                           disabled={isSubmitting}
                           modal
                         />
-                        <Input
-                          id={`${generatedId}-phone`}
-                          aria-label="Contact phone number"
-                          inputMode="tel"
-                          autoComplete="tel-national"
-                          value={formData.phone || ""}
-                          onChange={(event) => {
-                            const onlyDigits = event.target.value.replace(
-                              /\D/g,
-                              "",
-                            );
-                            setFormData({ ...formData, phone: onlyDigits });
-                          }}
-                          placeholder="9876543210"
-                          className={inputClassName}
-                          disabled={isSubmitting}
-                          maxLength={15}
-                        />
+                        {errors.role && (
+                          <p className="mt-1 text-[11px] font-bold text-red-500">
+                            {errors.role}
+                          </p>
+                        )}
                       </div>
-                      <p className="text-[11px] font-semibold leading-5 text-muted-foreground">
-                        Used for SMS OTP and employee contact. Select the
-                        country code first.
-                      </p>
-                      {errors.phone && (
-                        <p className="mt-1 text-[11px] font-bold text-red-500">
-                          {errors.phone}
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label
+                            className={fieldLabelClassName}
+                            htmlFor={`${generatedId}-password`}
+                          >
+                            {employee ? "Employee password" : "Login password"}
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword((prev) => !prev)}
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors focus:outline-none"
+                          >
+                            {showPassword ? (
+                              <>
+                                <EyeOff className="size-3.5" />
+                                <span>Hide password</span>
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="size-3.5" />
+                                <span>Show password</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <Input
+                            id={`${generatedId}-password`}
+                            type={showPassword ? "text" : "password"}
+                            value={formData.password || ""}
+                            onChange={(event) =>
+                              setFormData({
+                                ...formData,
+                                password: event.target.value,
+                              })
+                            }
+                            placeholder={
+                              employee
+                                ? "New password (leave blank to keep current)"
+                                : "Default: ChangeMe@123"
+                            }
+                            className={`${inputClassName} pr-10 font-mono`}
+                            disabled={isSubmitting}
+                            autoComplete="new-password"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword((prev) => !prev)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                            title={
+                              showPassword ? "Hide password" : "Show password"
+                            }
+                            tabIndex={-1}
+                          >
+                            {showPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
+                        <p className="text-[11px] font-semibold text-muted-foreground">
+                          {employee
+                            ? "Enter a new password only when it needs to be changed."
+                            : "Leave blank to create the employee with the default temporary password (ChangeMe@123)."}
                         </p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2 sm:col-span-2">
-                      <span className={fieldLabelClassName}>Joining date</span>
-                      <DatePicker
-                        value={formData.joiningDate}
-                        onChange={(event) => {
-                          setFormData({
-                            ...formData,
-                            joiningDate: event.target.value,
-                          });
-                        }}
-                        disabled={isSubmitting}
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </ModalSection>
-
-              <ModalSection
-                icon={<BriefcaseBusiness className="h-4 w-4" />}
-                title="Role, payroll and security"
-                description="Define the employee role, shift, login requirements, salary, and justification target."
-              >
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <span className={fieldLabelClassName}>
-                      Role designation
-                    </span>
-                    <SearchableSelect
-                      value={String(formData.role || "")}
-                      onValueChange={(value) => {
-                        const nextReportingRoles = reportingRolesForRole(value);
-                        const currentManager = managerOptions.find(
-                          (manager) =>
-                            manager.id === formData.reportingManagerId,
-                        );
-                        const keepReportingManager = Boolean(
-                          currentManager &&
-                            nextReportingRoles.has(currentManager.role),
-                        );
-                        const nextIsTeamLeaderRole =
-                          roleForHierarchy(value) === "TEAM_LEADER";
-                        const nextIsManagerRole = teamLeaderReportingRoles.has(
-                          roleForHierarchy(value),
-                        );
-
-                        setFormData({
-                          ...formData,
-                          role: value,
-                          teamId:
-                            value === "TELECALLER" ||
-                            value === "FIELD_EXECUTIVE"
-                              ? formData.teamId
-                              : "",
-                          reportingManagerId: keepReportingManager
-                            ? formData.reportingManagerId
-                            : "",
-                          manager: keepReportingManager ? formData.manager : "",
-                          monitorTeamIds: nextIsTeamLeaderRole
-                            ? formData.monitorTeamIds
-                            : [],
-                          monitorUserIds: nextIsTeamLeaderRole
-                            ? formData.monitorUserIds
-                            : [],
-                          managedTeamIds: nextIsManagerRole
-                            ? formData.managedTeamIds
-                            : [],
-                          leaderOfTeamId: nextIsTeamLeaderRole
-                            ? formData.leaderOfTeamId
-                            : "",
-                          leaderOfTeamName: nextIsTeamLeaderRole
-                            ? formData.leaderOfTeamName
-                            : "",
-                          permissions: permissionsForRole(value),
-                        });
-                      }}
-                      options={roleSelectOptions}
-                      placeholder="Select role"
-                      searchPlaceholder="Search role..."
-                      className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary focus:border-primary"
-                      disabled={isSubmitting}
-                      modal
-                    />
-                    {errors.role && (
-                      <p className="mt-1 text-[11px] font-bold text-red-500">
-                        {errors.role}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label
-                        className={fieldLabelClassName}
-                        htmlFor={`${generatedId}-password`}
-                      >
-                        {employee ? "Employee password" : "Login password"}
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((prev) => !prev)}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors focus:outline-none"
-                      >
-                        {showPassword ? (
-                          <>
-                            <EyeOff className="size-3.5" />
-                            <span>Hide password</span>
-                          </>
-                        ) : (
-                          <>
-                            <Eye className="size-3.5" />
-                            <span>Show password</span>
-                          </>
+                        {errors.password && (
+                          <p className="mt-1 text-[11px] font-bold text-red-500">
+                            {errors.password}
+                          </p>
                         )}
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <Input
-                        id={`${generatedId}-password`}
-                        type={showPassword ? "text" : "password"}
-                        value={formData.password || ""}
-                        onChange={(event) =>
-                          setFormData({
-                            ...formData,
-                            password: event.target.value,
-                          })
-                        }
-                        placeholder={
-                          employee
-                            ? "Employee password"
-                            : "Default: ChangeMe@123"
-                        }
-                        className={`${inputClassName} pr-10 font-mono`}
-                        disabled={isSubmitting}
-                        autoComplete="new-password"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((prev) => !prev)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
-                        title={showPassword ? "Hide password" : "Show password"}
-                        tabIndex={-1}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                    <p className="text-[11px] font-semibold text-muted-foreground">
-                      {employee
-                        ? "View the employee password or enter a new one to update it."
-                        : "Leave blank to create the employee with the default temporary password (ChangeMe@123)."}
-                    </p>
-                    {errors.password && (
-                      <p className="mt-1 text-[11px] font-bold text-red-500">
-                        {errors.password}
-                      </p>
-                    )}
-                  </div>
+                      </div>
 
-                  <div className="space-y-2">
-                    <span className={fieldLabelClassName}>Assigned shift</span>
-                    <SearchableSelect
-                      value={formData.shiftId || "none"}
-                      onValueChange={(value) => {
-                        const selectedShift = shiftOptions.find(
-                          (shift) => shift.id === value,
-                        );
-                        setFormData({
-                          ...formData,
-                          shiftId: value === "none" ? "" : value,
-                          shiftName:
-                            value === "none" ? "" : selectedShift?.name || "",
-                        });
-                      }}
-                      options={[
-                        { value: "none", label: "No shift assigned" },
-                        ...(formData.shiftId &&
-                        !selectedShiftExists &&
-                        formData.shiftName
-                          ? [
-                              {
-                                value: formData.shiftId,
-                                label: formData.shiftName,
-                              },
-                            ]
-                          : []),
-                        ...shiftOptions.map((shift) => ({
-                          value: shift.id,
-                          label: shift.name,
-                          description: `${formatShiftTime(
-                            shift.startTimeMinutes,
-                          )} - ${formatShiftTime(shift.endTimeMinutes)}`,
-                        })),
-                      ]}
-                      placeholder={
-                        isLoadingShifts ? "Loading..." : selectedShiftLabel
-                      }
-                      searchPlaceholder="Search shift..."
-                      className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary focus:border-primary"
-                      disabled={isLoadingShifts || isSubmitting}
-                      modal
-                    />
-                    <p className="text-[11px] font-semibold text-muted-foreground">
-                      Shift timing controls punch-in grace, late counts, and
-                      half-day rules.
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label htmlFor={`${generatedId}-designation`}>
-                      <span className={fieldLabelClassName}>
-                        Employee title / Designation
-                      </span>
-                      <Input
-                        id={`${generatedId}-designation`}
-                        value={formData.designation || ""}
-                        onChange={(event) =>
-                          setFormData({
-                            ...formData,
-                            designation: event.target.value,
-                          })
-                        }
-                        placeholder="e.g. Pre Sales Executive"
-                        className={inputClassName}
-                        disabled={isSubmitting}
-                      />
-                    </label>
-                    {errors.designation && (
-                      <p className="mt-1 text-[11px] font-bold text-red-500">
-                        {errors.designation}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 sm:col-span-2">
-                    <label
-                      htmlFor={`${generatedId}-two-factor`}
-                      className="flex items-start gap-3"
-                    >
-                      <Checkbox
-                        id={`${generatedId}-two-factor`}
-                        checked={Boolean(formData.twoFactorEnabled)}
-                        onChange={(event) =>
-                          setFormData((current) => ({
-                            ...current,
-                            twoFactorEnabled: event.currentTarget.checked,
-                          }))
-                        }
-                        disabled={isSubmitting}
-                      />
-                      <span>
-                        <span className="block text-sm font-bold text-secondary">
-                          Require OTP after password login
+                      <div className="space-y-2">
+                        <span className={fieldLabelClassName}>
+                          Assigned shift
                         </span>
-                        <span className="mt-1 block text-xs font-semibold leading-5 text-muted-foreground">
-                          This employee must verify SMS OTP after entering the
-                          correct password.
-                        </span>
-                      </span>
-                    </label>
-                  </div>
-
-                  <label
-                    className="space-y-2"
-                    htmlFor={`${generatedId}-monthlyBasic`}
-                  >
-                    <span className={fieldLabelClassName}>
-                      Base monthly salary (INR)
-                    </span>
-                    <Input
-                      id={`${generatedId}-monthlyBasic`}
-                      type="number"
-                      min="0"
-                      value={formData.monthlyBasic ?? 0}
-                      onChange={(event) =>
-                        setFormData({
-                          ...formData,
-                          monthlyBasic: Number(event.target.value),
-                        })
-                      }
-                      placeholder="42000"
-                      className={inputClassName}
-                      disabled={isSubmitting}
-                    />
-                    {errors.monthlyBasic && (
-                      <p className="mt-1 text-[11px] font-bold text-red-500">
-                        {errors.monthlyBasic}
-                      </p>
-                    )}
-                  </label>
-
-                  <div className="space-y-2">
-                    <label
-                      className={fieldLabelClassName}
-                      htmlFor={`${generatedId}-justificationMode`}
-                    >
-                      Justification method
-                    </label>
-                    <SearchableSelect
-                      value={formData.justificationMode ?? "MULTIPLIER"}
-                      onValueChange={(value) =>
-                        setFormData({
-                          ...formData,
-                          justificationMode:
-                            value === "MANUAL" ? "MANUAL" : "MULTIPLIER",
-                        })
-                      }
-                      options={justificationModeOptions}
-                      placeholder="Select method"
-                      searchPlaceholder="Search method..."
-                      className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary"
-                      disabled={isSubmitting}
-                      modal
-                    />
-                  </div>
-
-                  {usesManualJustification ? (
-                    <label
-                      className="space-y-2 sm:col-span-2"
-                      htmlFor={`${generatedId}-justificationAmount`}
-                    >
-                      <span className={fieldLabelClassName}>
-                        Manual justification target (INR)
-                      </span>
-                      <Input
-                        id={`${generatedId}-justificationAmount`}
-                        type="number"
-                        min="0"
-                        value={formData.justificationAmount ?? 0}
-                        onChange={(event) =>
-                          setFormData({
-                            ...formData,
-                            justificationAmount: Number(event.target.value),
-                          })
-                        }
-                        placeholder="150000"
-                        className={inputClassName}
-                        disabled={isSubmitting}
-                      />
-                      <p className="text-[11px] font-semibold text-muted-foreground">
-                        Monthly justification target: INR{" "}
-                        {Math.round(monthlyJustificationTarget).toLocaleString(
-                          "en-IN",
-                        )}
-                      </p>
-                      {errors.justificationAmount && (
-                        <p className="mt-1 text-[11px] font-bold text-red-500">
-                          {errors.justificationAmount}
-                        </p>
-                      )}
-                    </label>
-                  ) : (
-                    <label
-                      className="space-y-2 sm:col-span-2"
-                      htmlFor={`${generatedId}-justificationMultiplier`}
-                    >
-                      <span className={fieldLabelClassName}>
-                        Justification multiplier
-                      </span>
-                      <Input
-                        id={`${generatedId}-justificationMultiplier`}
-                        type="number"
-                        min="0"
-                        step="0.1"
-                        value={formData.justificationMultiplier ?? 0}
-                        onChange={(event) =>
-                          setFormData({
-                            ...formData,
-                            justificationMultiplier: Number(event.target.value),
-                          })
-                        }
-                        placeholder="3"
-                        className={inputClassName}
-                        disabled={isSubmitting}
-                      />
-                      <p className="text-[11px] font-semibold text-muted-foreground">
-                        Monthly justification target: INR{" "}
-                        {Math.round(monthlyJustificationTarget).toLocaleString(
-                          "en-IN",
-                        )}
-                      </p>
-                      {errors.justificationMultiplier && (
-                        <p className="mt-1 text-[11px] font-bold text-red-500">
-                          {errors.justificationMultiplier}
-                        </p>
-                      )}
-                    </label>
-                  )}
-                </div>
-              </ModalSection>
-
-              <ModalSection
-                icon={<Network className="h-4 w-4" />}
-                title="Reporting hierarchy"
-                description="Set who this employee reports to and which team they belong to."
-              >
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {canSelectReportingManager ? (
-                    <div className="space-y-2">
-                      <span className={fieldLabelClassName}>
-                        Reporting manager
-                      </span>
-                      <SearchableSelect
-                        ariaLabel="Reporting manager"
-                        value={formData.reportingManagerId || "none"}
-                        onValueChange={(value) => {
-                          if (value === "none") {
+                        <SearchableSelect
+                          value={formData.shiftId || "none"}
+                          onValueChange={(value) => {
+                            const selectedShift = shiftOptions.find(
+                              (shift) => shift.id === value,
+                            );
                             setFormData({
                               ...formData,
-                              reportingManagerId: "",
-                              manager: "",
+                              shiftId: value === "none" ? "" : value,
+                              shiftName:
+                                value === "none"
+                                  ? ""
+                                  : selectedShift?.name || "",
                             });
-                            return;
+                          }}
+                          options={[
+                            { value: "none", label: "No shift assigned" },
+                            ...(formData.shiftId &&
+                            !selectedShiftExists &&
+                            formData.shiftName
+                              ? [
+                                  {
+                                    value: formData.shiftId,
+                                    label: formData.shiftName,
+                                  },
+                                ]
+                              : []),
+                            ...shiftOptions.map((shift) => ({
+                              value: shift.id,
+                              label: shift.name,
+                              description: `${formatShiftTime(
+                                shift.startTimeMinutes,
+                              )} - ${formatShiftTime(shift.endTimeMinutes)}`,
+                            })),
+                          ]}
+                          placeholder={
+                            isLoadingShifts ? "Loading..." : selectedShiftLabel
                           }
-                          const selected = reportingManagerOptions.find(
-                            (manager) => manager.id === value,
-                          );
-                          setFormData({
-                            ...formData,
-                            reportingManagerId: value,
-                            manager: selected?.name || "",
-                          });
-                        }}
-                        options={[
-                          {
-                            value: "none",
-                            label: "No reporting manager",
-                            description: reportingDescriptionForRole(
-                              formData.role,
-                            ),
-                          },
-                          ...(formData.reportingManagerId &&
-                          !selectedManagerExists &&
-                          formData.manager
-                            ? [
-                                {
-                                  value: formData.reportingManagerId,
-                                  label: formData.manager,
-                                  description: "Current manager",
-                                },
-                              ]
-                            : []),
-                          ...reportingManagerOptions.map((manager) => ({
-                            value: manager.id,
-                            label: manager.name,
-                            description: `${
-                              manager.employeeCode ?? "No code"
-                            } - ${manager.email || manager.role}`,
-                            avatarUrl: manager.image ?? undefined,
-                          })),
-                        ]}
-                        placeholder={
-                          isLoadingManagers ? "Loading..." : "Select manager"
-                        }
-                        searchPlaceholder="Search manager..."
-                        noOptionsText="No eligible reporting managers found."
-                        className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary focus:border-primary"
-                        disabled={isLoadingManagers || isSubmitting}
-                        modal
-                      />
-                      <p className="text-[11px] font-semibold leading-5 text-muted-foreground">
-                        {reportingDescriptionForRole(formData.role)}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-                      <p className="text-sm font-bold text-secondary">
-                        No reporting manager required
-                      </p>
-                      <p className="mt-1 text-xs font-semibold leading-5 text-muted-foreground">
-                        This role sits at the top of its reporting chain.
-                      </p>
-                    </div>
-                  )}
-
-                  {(isTelecaller || isFieldExec || isBackend || isMarketing) && (
-                    <div className="space-y-2">
-                      <span className={fieldLabelClassName}>
-                        Primary team
-                      </span>
-                      <SearchableSelect
-                        value={formData.teamId || "none"}
-                        onValueChange={(value) => {
-                          const selectedTeam = teamOptions.find(
-                            (team) => team.id === value,
-                          );
-                          setFormData({
-                            ...formData,
-                            teamId: value === "none" ? "" : value,
-                            teamName:
-                              value === "none" ? "" : selectedTeam?.name ?? "",
-                          });
-                        }}
-                        options={[
-                          { value: "none", label: "Unassigned" },
-                          ...(formData.teamId &&
-                          !selectedTeamExists &&
-                          formData.teamName
-                            ? [
-                                {
-                                  value: formData.teamId,
-                                  label: formData.teamName,
-                                },
-                              ]
-                            : []),
-                          ...teamOptions.map((team) => ({
-                            value: team.id,
-                            label: `${team.name} (${team.code})`,
-                          })),
-                        ]}
-                        placeholder={
-                          isLoadingTeams ? "Loading..." : "Select team"
-                        }
-                        searchPlaceholder="Search team..."
-                        className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary focus:border-primary"
-                        disabled={isLoadingTeams || isSubmitting}
-                        modal
-                      />
-                      {errors.teamId && (
-                        <p className="mt-1 text-[11px] font-bold text-red-500">
-                          {errors.teamId}
+                          searchPlaceholder="Search shift..."
+                          className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary focus:border-primary"
+                          disabled={isLoadingShifts || isSubmitting}
+                          modal
+                        />
+                        <p className="text-[11px] font-semibold text-muted-foreground">
+                          Shift timing controls punch-in grace, late counts, and
+                          half-day rules.
                         </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label htmlFor={`${generatedId}-designation`}>
+                          <span className={fieldLabelClassName}>
+                            Employee title / Designation
+                          </span>
+                          <Input
+                            id={`${generatedId}-designation`}
+                            value={formData.designation || ""}
+                            onChange={(event) =>
+                              setFormData({
+                                ...formData,
+                                designation: event.target.value,
+                              })
+                            }
+                            placeholder="e.g. Pre Sales Executive"
+                            className={inputClassName}
+                            disabled={isSubmitting}
+                          />
+                        </label>
+                        {errors.designation && (
+                          <p className="mt-1 text-[11px] font-bold text-red-500">
+                            {errors.designation}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 sm:col-span-2">
+                        <label
+                          htmlFor={`${generatedId}-two-factor`}
+                          className="flex items-start gap-3"
+                        >
+                          <Checkbox
+                            id={`${generatedId}-two-factor`}
+                            checked={Boolean(formData.twoFactorEnabled)}
+                            onChange={(event) =>
+                              setFormData((current) => ({
+                                ...current,
+                                twoFactorEnabled: event.currentTarget.checked,
+                              }))
+                            }
+                            disabled={isSubmitting}
+                          />
+                          <span>
+                            <span className="block text-sm font-bold text-secondary">
+                              Require OTP after password login
+                            </span>
+                            <span className="mt-1 block text-xs font-semibold leading-5 text-muted-foreground">
+                              This employee must verify SMS OTP after entering
+                              the correct password.
+                            </span>
+                          </span>
+                        </label>
+                      </div>
+
+                      <label
+                        className="space-y-2"
+                        htmlFor={`${generatedId}-monthlyBasic`}
+                      >
+                        <span className={fieldLabelClassName}>
+                          Base monthly salary (INR)
+                        </span>
+                        <Input
+                          id={`${generatedId}-monthlyBasic`}
+                          type="number"
+                          min="0"
+                          value={formData.monthlyBasic ?? 0}
+                          onChange={(event) =>
+                            setFormData({
+                              ...formData,
+                              monthlyBasic: Number(event.target.value),
+                            })
+                          }
+                          placeholder="42000"
+                          className={inputClassName}
+                          disabled={isSubmitting}
+                        />
+                        {errors.monthlyBasic && (
+                          <p className="mt-1 text-[11px] font-bold text-red-500">
+                            {errors.monthlyBasic}
+                          </p>
+                        )}
+                      </label>
+
+                      <div className="space-y-2">
+                        <label
+                          className={fieldLabelClassName}
+                          htmlFor={`${generatedId}-justificationMode`}
+                        >
+                          Justification method
+                        </label>
+                        <SearchableSelect
+                          value={formData.justificationMode ?? "MULTIPLIER"}
+                          onValueChange={(value) =>
+                            setFormData({
+                              ...formData,
+                              justificationMode:
+                                value === "MANUAL" ? "MANUAL" : "MULTIPLIER",
+                            })
+                          }
+                          options={justificationModeOptions}
+                          placeholder="Select method"
+                          searchPlaceholder="Search method..."
+                          className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary"
+                          disabled={isSubmitting}
+                          modal
+                        />
+                      </div>
+
+                      {usesManualJustification ? (
+                        <label
+                          className="space-y-2 sm:col-span-2"
+                          htmlFor={`${generatedId}-justificationAmount`}
+                        >
+                          <span className={fieldLabelClassName}>
+                            Manual justification target (INR)
+                          </span>
+                          <Input
+                            id={`${generatedId}-justificationAmount`}
+                            type="number"
+                            min="0"
+                            value={formData.justificationAmount ?? 0}
+                            onChange={(event) =>
+                              setFormData({
+                                ...formData,
+                                justificationAmount: Number(event.target.value),
+                              })
+                            }
+                            placeholder="150000"
+                            className={inputClassName}
+                            disabled={isSubmitting}
+                          />
+                          <p className="text-[11px] font-semibold text-muted-foreground">
+                            Monthly justification target: INR{" "}
+                            {Math.round(
+                              monthlyJustificationTarget,
+                            ).toLocaleString("en-IN")}
+                          </p>
+                          {errors.justificationAmount && (
+                            <p className="mt-1 text-[11px] font-bold text-red-500">
+                              {errors.justificationAmount}
+                            </p>
+                          )}
+                        </label>
+                      ) : (
+                        <label
+                          className="space-y-2 sm:col-span-2"
+                          htmlFor={`${generatedId}-justificationMultiplier`}
+                        >
+                          <span className={fieldLabelClassName}>
+                            Justification multiplier
+                          </span>
+                          <Input
+                            id={`${generatedId}-justificationMultiplier`}
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            value={formData.justificationMultiplier ?? 0}
+                            onChange={(event) =>
+                              setFormData({
+                                ...formData,
+                                justificationMultiplier: Number(
+                                  event.target.value,
+                                ),
+                              })
+                            }
+                            placeholder="3"
+                            className={inputClassName}
+                            disabled={isSubmitting}
+                          />
+                          <p className="text-[11px] font-semibold text-muted-foreground">
+                            Monthly justification target: INR{" "}
+                            {Math.round(
+                              monthlyJustificationTarget,
+                            ).toLocaleString("en-IN")}
+                          </p>
+                          {errors.justificationMultiplier && (
+                            <p className="mt-1 text-[11px] font-bold text-red-500">
+                              {errors.justificationMultiplier}
+                            </p>
+                          )}
+                        </label>
                       )}
                     </div>
-                  )}
+                  </ModalSection>
 
-                  {isTeamLeaderRole ? (
-                    <div className="space-y-2">
-                      <span className={fieldLabelClassName}>
-                        Assigned team <span className="text-red-500">*</span>
-                      </span>
-                      <SearchableSelect
-                        value={formData.leaderOfTeamId || ""}
-                        onValueChange={(value) => {
-                          const selectedTeam = teamOptions.find(
-                            (team) => team.id === value,
-                          );
-                          setFormData((current) => ({
-                            ...current,
-                            leaderOfTeamId: value,
-                            leaderOfTeamName: selectedTeam?.name ?? "",
-                          }));
-                          setErrors((current) => {
-                            const nextErrors = { ...current };
-                            delete nextErrors.leaderOfTeamId;
-                            return nextErrors;
-                          });
-                        }}
-                        options={teamLeaderTeamOptions}
-                        placeholder={
-                          isLoadingTeams
-                            ? "Loading..."
-                            : "Select an available team"
-                        }
-                        searchPlaceholder="Search available teams..."
-                        noOptionsText="No active teams without a Team Leader found."
-                        ariaLabel="Assigned team"
-                        className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary focus:border-primary"
-                        disabled={isLoadingTeams || isSubmitting}
-                        modal
-                      />
-                      <p className="text-[11px] font-semibold leading-5 text-muted-foreground">
-                        Only active teams without another Team Leader are available.
-                      </p>
-                      {errors.leaderOfTeamId ? (
-                        <p className="mt-1 text-[11px] font-bold text-red-500">
-                          {errors.leaderOfTeamId}
-                        </p>
+                  <ModalSection
+                    icon={<Network className="h-4 w-4" />}
+                    title="Reporting hierarchy"
+                    description="Set who this employee reports to and which team they belong to."
+                  >
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {canSelectReportingManager ? (
+                        <div className="space-y-2">
+                          <span className={fieldLabelClassName}>
+                            Reporting manager
+                          </span>
+                          <SearchableSelect
+                            ariaLabel="Reporting manager"
+                            value={formData.reportingManagerId || "none"}
+                            onValueChange={(value) => {
+                              if (value === "none") {
+                                setFormData({
+                                  ...formData,
+                                  reportingManagerId: "",
+                                  manager: "",
+                                });
+                                return;
+                              }
+                              const selected = reportingManagerOptions.find(
+                                (manager) => manager.id === value,
+                              );
+                              setFormData({
+                                ...formData,
+                                reportingManagerId: value,
+                                manager: selected?.name || "",
+                              });
+                            }}
+                            options={[
+                              {
+                                value: "none",
+                                label: "No reporting manager",
+                                description: reportingDescriptionForRole(
+                                  formData.role,
+                                ),
+                              },
+                              ...(formData.reportingManagerId &&
+                              !selectedManagerExists &&
+                              formData.manager
+                                ? [
+                                    {
+                                      value: formData.reportingManagerId,
+                                      label: formData.manager,
+                                      description: "Current manager",
+                                    },
+                                  ]
+                                : []),
+                              ...reportingManagerOptions.map((manager) => ({
+                                value: manager.id,
+                                label: manager.name,
+                                description: `${
+                                  manager.employeeCode ?? "No code"
+                                } - ${manager.email || manager.role}`,
+                                avatarUrl: manager.image ?? undefined,
+                              })),
+                            ]}
+                            placeholder={
+                              isLoadingManagers
+                                ? "Loading..."
+                                : "Select manager"
+                            }
+                            searchPlaceholder="Search manager..."
+                            noOptionsText="No eligible reporting managers found."
+                            className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary focus:border-primary"
+                            disabled={isLoadingManagers || isSubmitting}
+                            modal
+                          />
+                          <p className="text-[11px] font-semibold leading-5 text-muted-foreground">
+                            {reportingDescriptionForRole(formData.role)}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+                          <p className="text-sm font-bold text-secondary">
+                            No reporting manager required
+                          </p>
+                          <p className="mt-1 text-xs font-semibold leading-5 text-muted-foreground">
+                            This role sits at the top of its reporting chain.
+                          </p>
+                        </div>
+                      )}
+
+                      {(isTelecaller ||
+                        isFieldExec ||
+                        isBackend ||
+                        isMarketing) && (
+                        <div className="space-y-2">
+                          <span className={fieldLabelClassName}>
+                            Primary team
+                          </span>
+                          <SearchableSelect
+                            value={formData.teamId || "none"}
+                            onValueChange={(value) => {
+                              const selectedTeam = teamOptions.find(
+                                (team) => team.id === value,
+                              );
+                              setFormData({
+                                ...formData,
+                                teamId: value === "none" ? "" : value,
+                                teamName:
+                                  value === "none"
+                                    ? ""
+                                    : selectedTeam?.name ?? "",
+                              });
+                            }}
+                            options={[
+                              { value: "none", label: "Unassigned" },
+                              ...(formData.teamId &&
+                              !selectedTeamExists &&
+                              formData.teamName
+                                ? [
+                                    {
+                                      value: formData.teamId,
+                                      label: formData.teamName,
+                                    },
+                                  ]
+                                : []),
+                              ...teamOptions.map((team) => ({
+                                value: team.id,
+                                label: `${team.name} (${team.code})`,
+                              })),
+                            ]}
+                            placeholder={
+                              isLoadingTeams ? "Loading..." : "Select team"
+                            }
+                            searchPlaceholder="Search team..."
+                            className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary focus:border-primary"
+                            disabled={isLoadingTeams || isSubmitting}
+                            modal
+                          />
+                          {errors.teamId && (
+                            <p className="mt-1 text-[11px] font-bold text-red-500">
+                              {errors.teamId}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {isTeamLeaderRole ? (
+                        <div className="space-y-2">
+                          <span className={fieldLabelClassName}>
+                            Assigned team{" "}
+                            <span className="text-red-500">*</span>
+                          </span>
+                          <SearchableSelect
+                            value={formData.leaderOfTeamId || ""}
+                            onValueChange={(value) => {
+                              const selectedTeam = teamOptions.find(
+                                (team) => team.id === value,
+                              );
+                              setFormData((current) => ({
+                                ...current,
+                                leaderOfTeamId: value,
+                                leaderOfTeamName: selectedTeam?.name ?? "",
+                              }));
+                              setErrors((current) => {
+                                const nextErrors = { ...current };
+                                delete nextErrors.leaderOfTeamId;
+                                return nextErrors;
+                              });
+                            }}
+                            options={teamLeaderTeamOptions}
+                            placeholder={
+                              isLoadingTeams
+                                ? "Loading..."
+                                : "Select an available team"
+                            }
+                            searchPlaceholder="Search available teams..."
+                            noOptionsText="No active teams without a Team Leader found."
+                            ariaLabel="Assigned team"
+                            className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary focus:border-primary"
+                            disabled={isLoadingTeams || isSubmitting}
+                            modal
+                          />
+                          <p className="text-[11px] font-semibold leading-5 text-muted-foreground">
+                            Only active teams without another Team Leader are
+                            available.
+                          </p>
+                          {errors.leaderOfTeamId ? (
+                            <p className="mt-1 text-[11px] font-bold text-red-500">
+                              {errors.leaderOfTeamId}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      {isManagerRole ? (
+                        <div className="space-y-2 sm:col-span-2">
+                          <span className={fieldLabelClassName}>
+                            Assigned teams
+                          </span>
+                          <MultiSelect
+                            value={formData.managedTeamIds ?? []}
+                            onValueChange={(managedTeamIds) =>
+                              setFormData((current) => ({
+                                ...current,
+                                managedTeamIds,
+                              }))
+                            }
+                            options={managedTeamOptions}
+                            placeholder={
+                              isLoadingTeams ? "Loading..." : "Select teams"
+                            }
+                            searchPlaceholder="Search teams..."
+                            noOptionsText="No active teams with a Team Leader found."
+                            selectedLabelText="team"
+                            selectedLabelTextPlural="teams"
+                            ariaLabel="Assigned teams"
+                            className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary focus:border-primary"
+                            disabled={isLoadingTeams || isSubmitting}
+                            modal
+                          />
+                          <p className="text-[11px] font-semibold leading-5 text-muted-foreground">
+                            Selecting a team assigns its current Team Leader to
+                            this manager. Removing it clears that reporting
+                            relationship.
+                          </p>
+                        </div>
+                      ) : null}
+
+                      {isTeamLeaderRole ? (
+                        <div className="sm:col-span-2">
+                          <TeamLeaderMonitorAccessEditor
+                            teams={teamOptions}
+                            employees={monitorEmployeeOptions}
+                            teamIds={formData.monitorTeamIds ?? []}
+                            userIds={formData.monitorUserIds ?? []}
+                            onTeamIdsChange={(monitorTeamIds) =>
+                              setFormData((current) => ({
+                                ...current,
+                                monitorTeamIds,
+                              }))
+                            }
+                            onUserIdsChange={(monitorUserIds) =>
+                              setFormData((current) => ({
+                                ...current,
+                                monitorUserIds,
+                              }))
+                            }
+                            disabled={isLoadingTeams || isSubmitting}
+                            className="bg-slate-50"
+                          />
+                        </div>
                       ) : null}
                     </div>
-                  ) : null}
+                  </ModalSection>
 
-                  {isManagerRole ? (
-                    <div className="space-y-2 sm:col-span-2">
-                      <span className={fieldLabelClassName}>Assigned teams</span>
-                      <MultiSelect
-                        value={formData.managedTeamIds ?? []}
-                        onValueChange={(managedTeamIds) =>
-                          setFormData((current) => ({
-                            ...current,
-                            managedTeamIds,
-                          }))
-                        }
-                        options={managedTeamOptions}
-                        placeholder={
-                          isLoadingTeams ? "Loading..." : "Select teams"
-                        }
-                        searchPlaceholder="Search teams..."
-                        noOptionsText="No active teams with a Team Leader found."
-                        selectedLabelText="team"
-                        selectedLabelTextPlural="teams"
-                        ariaLabel="Assigned teams"
-                        className="h-11 rounded-lg border-slate-200 bg-white font-semibold text-secondary focus:border-primary"
-                        disabled={isLoadingTeams || isSubmitting}
-                        modal
-                      />
-                      <p className="text-[11px] font-semibold leading-5 text-muted-foreground">
-                        Selecting a team assigns its current Team Leader to this
-                        manager. Removing it clears that reporting relationship.
-                      </p>
-                    </div>
-                  ) : null}
+                  <LeadVisibilityAccessEditor
+                    employees={leadVisibilityEmployeeOptions}
+                    viewerId={employee?.id ?? null}
+                    viewerRole={formData.role ?? null}
+                    allowedUserIds={formData.leadVisibilityAllowedUserIds ?? []}
+                    blockedUserIds={formData.leadVisibilityBlockedUserIds ?? []}
+                    onAllowedUserIdsChange={(leadVisibilityAllowedUserIds) =>
+                      setFormData((current) => ({
+                        ...current,
+                        leadVisibilityAllowedUserIds,
+                        leadVisibilityBlockedUserIds: (
+                          current.leadVisibilityBlockedUserIds ?? []
+                        ).filter(
+                          (userId) =>
+                            !leadVisibilityAllowedUserIds.includes(userId),
+                        ),
+                      }))
+                    }
+                    onBlockedUserIdsChange={(leadVisibilityBlockedUserIds) =>
+                      setFormData((current) => ({
+                        ...current,
+                        leadVisibilityBlockedUserIds,
+                        leadVisibilityAllowedUserIds: (
+                          current.leadVisibilityAllowedUserIds ?? []
+                        ).filter(
+                          (userId) =>
+                            !leadVisibilityBlockedUserIds.includes(userId),
+                        ),
+                      }))
+                    }
+                    disabled={isLoadingManagers || isSubmitting}
+                  />
 
-                  {isTeamLeaderRole ? (
-                    <div className="sm:col-span-2">
-                      <TeamLeaderMonitorAccessEditor
-                        teams={teamOptions}
-                        employees={monitorEmployeeOptions}
-                        teamIds={formData.monitorTeamIds ?? []}
-                        userIds={formData.monitorUserIds ?? []}
-                        onTeamIdsChange={(monitorTeamIds) =>
-                          setFormData((current) => ({
-                            ...current,
-                            monitorTeamIds,
-                          }))
-                        }
-                        onUserIdsChange={(monitorUserIds) =>
-                          setFormData((current) => ({
-                            ...current,
-                            monitorUserIds,
-                          }))
-                        }
-                        disabled={isLoadingTeams || isSubmitting}
-                        className="bg-slate-50"
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              </ModalSection>
-
-              <LeadVisibilityAccessEditor
-                employees={leadVisibilityEmployeeOptions}
-                viewerId={employee?.id ?? null}
-                viewerRole={formData.role ?? null}
-                allowedUserIds={formData.leadVisibilityAllowedUserIds ?? []}
-                blockedUserIds={formData.leadVisibilityBlockedUserIds ?? []}
-                onAllowedUserIdsChange={(leadVisibilityAllowedUserIds) =>
-                  setFormData((current) => ({
-                    ...current,
-                    leadVisibilityAllowedUserIds,
-                    leadVisibilityBlockedUserIds: (
-                      current.leadVisibilityBlockedUserIds ?? []
-                    ).filter(
-                      (userId) =>
-                        !leadVisibilityAllowedUserIds.includes(userId),
-                    ),
-                  }))
-                }
-                onBlockedUserIdsChange={(leadVisibilityBlockedUserIds) =>
-                  setFormData((current) => ({
-                    ...current,
-                    leadVisibilityBlockedUserIds,
-                    leadVisibilityAllowedUserIds: (
-                      current.leadVisibilityAllowedUserIds ?? []
-                    ).filter(
-                      (userId) =>
-                        !leadVisibilityBlockedUserIds.includes(userId),
-                    ),
-                  }))
-                }
-                disabled={isLoadingManagers || isSubmitting}
-              />
-
-              <ModalSection
-                icon={<Trophy className="h-4 w-4" />}
-                title="Performance ranking visibility"
-                description="Configure which teams' leaderboards and ranking performance this employee can view."
-              >
-                <RankingTeamAccessEditor
-                  teams={teamOptions}
-                  value={formData.rankingTeamIds ?? []}
-                  onChange={(rankingTeamIds) =>
-                    setFormData((current) => ({ ...current, rankingTeamIds }))
-                  }
-                  assignedTeamId={formData.teamId}
-                  assignedTeamName={formData.teamName}
-                  disabled={isLoadingTeams || isSubmitting}
-                  className="bg-slate-50"
-                />
-              </ModalSection>
-
-              <ModalSection
-                icon={<ShieldCheck className="h-4 w-4" />}
-                title="Access and modules"
-                description="Apply role defaults or customize the employee's module permissions."
-              >
-                <div className="flex flex-col gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-extrabold text-secondary">
-                      Access mode
-                    </p>
-                    <p className="mt-1 text-xs font-semibold text-muted-foreground">
-                      {customizeAccess
-                        ? "Custom access will override the selected role template."
-                        : `${roleForAccessTemplate(
-                            formData.role,
-                          )} role defaults will be applied.`}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-9 rounded-md px-3 text-xs shadow-none"
-                      disabled={isLoadingAccess || isSubmitting}
-                      onClick={() => {
-                        const next = !customizeAccess;
-                        setCustomizeAccess(next);
+                  <ModalSection
+                    icon={<Trophy className="h-4 w-4" />}
+                    title="Performance ranking visibility"
+                    description="Configure which teams' leaderboards and ranking performance this employee can view."
+                  >
+                    <RankingTeamAccessEditor
+                      teams={teamOptions}
+                      value={formData.rankingTeamIds ?? []}
+                      onChange={(rankingTeamIds) =>
                         setFormData((current) => ({
                           ...current,
-                          permissions: next
-                            ? normalizedPermissions(
-                                current.permissions?.length
-                                  ? current.permissions
-                                  : permissionsForRole(current.role),
-                              )
-                            : [],
-                        }));
-                      }}
-                    >
-                      {customizeAccess
-                        ? "Use role default"
-                        : "Customize access"}
-                    </Button>
-                    {customizeAccess ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-9 rounded-md px-3 text-xs shadow-none"
-                        disabled={isLoadingAccess || isSubmitting}
-                        onClick={() =>
-                          setFormData((current) => ({
-                            ...current,
-                            permissions: permissionsForRole(current.role),
-                          }))
-                        }
-                      >
-                        Reset template
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-
-                {customizeAccess ? (
-                  <div className="mt-4 space-y-3">
-                    <WorkspaceAccessEditor
-                      modules={accessModules}
-                      permissions={effectiveDraftPermissions}
-                      role={roleForAccessTemplate(formData.role)}
-                      disabled={isLoadingAccess || isSubmitting}
-                      compact
-                      onChange={(permissions) =>
-                        setFormData((current) => ({
-                          ...current,
-                          permissions,
+                          rankingTeamIds,
                         }))
                       }
+                      assignedTeamId={formData.teamId}
+                      assignedTeamName={formData.teamName}
+                      disabled={isLoadingTeams || isSubmitting}
+                      className="bg-slate-50"
                     />
-                  </div>
-                ) : null}
-              </ModalSection>
-            </div>
+                  </ModalSection>
+
+                  <ModalSection
+                    icon={<ShieldCheck className="h-4 w-4" />}
+                    title="Access and modules"
+                    description="Apply role defaults or customize the employee's module permissions."
+                  >
+                    <div className="flex flex-col gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-extrabold text-secondary">
+                          Access mode
+                        </p>
+                        <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                          {customizeAccess
+                            ? "Custom access will override the selected role template."
+                            : `${roleForAccessTemplate(
+                                formData.role,
+                              )} role defaults will be applied.`}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-9 rounded-md px-3 text-xs shadow-none"
+                          disabled={isLoadingAccess || isSubmitting}
+                          onClick={() => {
+                            const next = !customizeAccess;
+                            setCustomizeAccess(next);
+                            setFormData((current) => ({
+                              ...current,
+                              permissions: next
+                                ? normalizedPermissions(
+                                    current.permissions?.length
+                                      ? current.permissions
+                                      : permissionsForRole(current.role),
+                                  )
+                                : [],
+                            }));
+                          }}
+                        >
+                          {customizeAccess
+                            ? "Use role default"
+                            : "Customize access"}
+                        </Button>
+                        {customizeAccess ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="h-9 rounded-md px-3 text-xs shadow-none"
+                            disabled={isLoadingAccess || isSubmitting}
+                            onClick={() =>
+                              setFormData((current) => ({
+                                ...current,
+                                permissions: permissionsForRole(current.role),
+                              }))
+                            }
+                          >
+                            Reset template
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {customizeAccess ? (
+                      <div className="mt-4 space-y-3">
+                        <WorkspaceAccessEditor
+                          modules={accessModules}
+                          permissions={effectiveDraftPermissions}
+                          role={roleForAccessTemplate(formData.role)}
+                          disabled={isLoadingAccess || isSubmitting}
+                          compact
+                          onChange={(permissions) =>
+                            setFormData((current) => ({
+                              ...current,
+                              permissions,
+                            }))
+                          }
+                        />
+                      </div>
+                    ) : null}
+                  </ModalSection>
+                </div>
               </div>
             </div>
 

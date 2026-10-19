@@ -11,6 +11,7 @@ import { clearStoredRefreshToken, saveRefreshToken } from "../authSession";
 import type { AuthTokens, LoginResponse } from "../authSchemas";
 import { useAppDispatch, useAppSelector } from "../../store";
 import { clearCredentials, setCredentials } from "../../store/slices/authSlice";
+import { loginTenantQueryKey, resolveTenantFromHostname } from "../tenantResolver";
 
 interface LoginMutationInput {
   credentials: Parameters<typeof login>[0];
@@ -32,7 +33,14 @@ export const useLoginMutation = () => {
 
   return useMutation({
     gcTime: 0,
-    mutationFn: ({ credentials }: LoginMutationInput) => login(credentials),
+    mutationFn: async ({ credentials }: LoginMutationInput) => {
+      await queryClient.ensureQueryData({
+        queryKey: loginTenantQueryKey(),
+        queryFn: resolveTenantFromHostname,
+        staleTime: 60_000,
+      });
+      return login(credentials);
+    },
 
     onSuccess: (result, variables) => {
       if (!isAuthTokens(result)) {

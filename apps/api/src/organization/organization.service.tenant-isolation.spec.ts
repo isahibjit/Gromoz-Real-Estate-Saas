@@ -6,6 +6,7 @@ import {
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { BillingService } from '../billing/billing.service';
+import { EmailConnectorsService } from '../crm/email-connectors.service';
 import { OrganizationService } from './organization.service';
 
 describe('Organization invitations tenant isolation', () => {
@@ -39,6 +40,7 @@ describe('Organization invitations tenant isolation', () => {
         OrganizationService,
         { provide: PrismaService, useValue: prisma },
         { provide: BillingService, useValue: {} },
+        { provide: EmailConnectorsService, useValue: {} },
       ],
     }).compile();
     service = module.get(OrganizationService);
