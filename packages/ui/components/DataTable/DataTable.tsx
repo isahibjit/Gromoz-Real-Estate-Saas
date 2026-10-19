@@ -112,23 +112,23 @@ export function DataTable<TData>({
                       )}
                     >
                       {colIndex === 0 ? (
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex min-w-0 items-center gap-2.5 overflow-hidden">
                           <div className="h-4 w-4 shrink-0 rounded border border-slate-200 bg-slate-200/80" />
-                          <div className="h-3.5 w-16 rounded bg-slate-200/80" />
+                          <div className="h-3.5 min-w-0 max-w-16 flex-1 rounded bg-slate-200/80" />
                         </div>
                       ) : colIndex === 1 ? (
                         <div className="space-y-1.5">
-                          <div className="h-3.5 w-28 rounded bg-slate-200/80" />
-                          <div className="h-2.5 w-16 rounded bg-slate-200/50" />
+                          <div className="h-3.5 w-28 max-w-full rounded bg-slate-200/80" />
+                          <div className="h-2.5 w-16 max-w-full rounded bg-slate-200/50" />
                         </div>
                       ) : colIndex === 2 ? (
-                        <div className="h-3.5 w-24 rounded bg-slate-200/70" />
+                        <div className="h-3.5 w-24 max-w-full rounded bg-slate-200/70" />
                       ) : colIndex === 3 ? (
-                        <div className="h-5 w-16 rounded-full bg-slate-200/70" />
+                        <div className="h-5 w-16 max-w-full rounded-full bg-slate-200/70" />
                       ) : (
                         <div
                           className={cn(
-                            "h-3.5 rounded bg-slate-200/60",
+                            "h-3.5 max-w-full rounded bg-slate-200/60",
                             colIndex % 3 === 0
                               ? "w-20"
                               : colIndex % 2 === 0

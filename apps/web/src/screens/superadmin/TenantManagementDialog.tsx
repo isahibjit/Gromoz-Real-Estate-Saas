@@ -113,7 +113,7 @@ export function TenantManagementDialog({
       }}
     >
       <DialogContent
-        className="max-h-screen overflow-y-auto sm:max-w-2xl"
+        className="flex h-[min(38rem,calc(100dvh_-_2rem))] flex-col sm:max-w-2xl"
         showCloseButton={!busy}
       >
         <DialogHeader>
@@ -124,12 +124,13 @@ export function TenantManagementDialog({
         </DialogHeader>
         <Tabs
           defaultValue="profile"
+          className="flex min-h-0 flex-1 flex-col"
           onValueChange={() => {
             setError("");
             setMessage("");
           }}
         >
-          <TabsList className="mb-4">
+          <TabsList className="mb-4 shrink-0 self-start">
             <TabsTrigger value="profile" disabled={busy}>
               Workspace
             </TabsTrigger>
@@ -140,7 +141,7 @@ export function TenantManagementDialog({
               Onboarding
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="profile">
+          <TabsContent value="profile" className="min-h-0 flex-1 overflow-y-auto">
             <form onSubmit={save} className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="tenant-name">Workspace name</label>
@@ -216,7 +217,7 @@ export function TenantManagementDialog({
               </Button>
             </form>
           </TabsContent>
-          <TabsContent value="password">
+          <TabsContent value="password" className="min-h-0 flex-1 overflow-y-auto">
             <form onSubmit={reset} className="space-y-4">
               <p className="text-sm text-muted-foreground">
                 Set a new password for the workspace administrator. The login
@@ -250,7 +251,7 @@ export function TenantManagementDialog({
               </Button>
             </form>
           </TabsContent>
-          <TabsContent value="onboarding" className="space-y-5">
+          <TabsContent value="onboarding" className="min-h-0 flex-1 space-y-5 overflow-y-auto">
             <div className="space-y-3">
               <h3 className="font-semibold">Welcome kit</h3>
               <p className="text-sm text-muted-foreground">
