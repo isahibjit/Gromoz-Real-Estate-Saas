@@ -16,6 +16,7 @@ import { Role, OrganizationStatus, Prisma } from '@prisma/client';
 
 import {
   IsBoolean,
+  IsObject,
   IsNumber,
   IsOptional,
   IsString,
@@ -144,30 +145,37 @@ export class ResetTenantAdminPasswordDto {
 }
 
 export class UpdateWorkspaceSettingsDto {
-  companyName?: string;
-  industry?: string;
-  website?: string;
-  primaryEmail?: string;
-  primaryPhone?: string;
-  primaryColor?: string;
-  secondaryColor?: string;
-  address1?: string;
-  city?: string;
-  state?: string;
-  country?: string;
-  pincode?: string;
-  logoUrl?: string;
-  collapsedLogoUrl?: string;
-  showLogoInSidebar?: boolean;
-  showLogoInLogin?: boolean;
-  sidebarLogoHeight?: number;
-  subdomain?: string;
-  customDomain?: string;
-  localization?: any;
-  financial?: any;
-  preferences?: any;
-  security?: any;
-  loginCms?: any;
+  @IsOptional() @IsString() companyName?: string;
+  @IsOptional() @IsString() industry?: string;
+  @IsOptional() @IsString() website?: string;
+  @IsOptional() @IsString() primaryEmail?: string;
+  @IsOptional() @IsString() primaryPhone?: string;
+  @IsOptional() @IsString() primaryColor?: string;
+  @IsOptional() @IsString() secondaryColor?: string;
+  @IsOptional() @IsString() address1?: string;
+  @IsOptional() @IsString() city?: string;
+  @IsOptional() @IsString() state?: string;
+  @IsOptional() @IsString() country?: string;
+  @IsOptional() @IsString() pincode?: string;
+  @IsOptional() @IsString() logoUrl?: string;
+  @IsOptional() @IsString() collapsedLogoUrl?: string;
+  @IsOptional() @IsBoolean() showLogoInSidebar?: boolean;
+  @IsOptional() @IsBoolean() showLogoInLogin?: boolean;
+  @IsOptional() @IsInt() sidebarLogoHeight?: number;
+  @IsOptional() @IsEnum({ contain: 'contain', cover: 'cover' })
+  sidebarLogoObjectFit?: 'contain' | 'cover';
+  @IsOptional() @IsString() sidebarLogoBg?: string;
+  @IsOptional() @IsInt() sidebarLogoRadius?: number;
+  @IsOptional() @IsEnum({ left: 'left', center: 'center', right: 'right' })
+  sidebarLogoAlign?: 'left' | 'center' | 'right';
+  @IsOptional() @IsString() sidebarHeaderBg?: string;
+  @IsOptional() @IsString() subdomain?: string;
+  @IsOptional() @IsString() customDomain?: string;
+  @IsOptional() @IsObject() localization?: Record<string, unknown>;
+  @IsOptional() @IsObject() financial?: Record<string, unknown>;
+  @IsOptional() @IsObject() preferences?: Record<string, unknown>;
+  @IsOptional() @IsObject() security?: Record<string, unknown>;
+  @IsOptional() @IsObject() loginCms?: Record<string, unknown>;
 }
 
 @Injectable()
@@ -387,6 +395,14 @@ export class OrganizationService {
         showLogoInSidebar: org.showLogoInSidebar,
         showLogoInLogin: org.showLogoInLogin,
         sidebarLogoHeight: org.sidebarLogoHeight,
+        sidebarLogoObjectFit:
+          customSettings.sidebarBranding?.sidebarLogoObjectFit ?? 'contain',
+        sidebarLogoBg:
+          customSettings.sidebarBranding?.sidebarLogoBg ?? 'transparent',
+        sidebarLogoRadius: customSettings.sidebarBranding?.sidebarLogoRadius ?? 6,
+        sidebarLogoAlign: customSettings.sidebarBranding?.sidebarLogoAlign ?? 'left',
+        sidebarHeaderBg:
+          customSettings.sidebarBranding?.sidebarHeaderBg ?? 'transparent',
         subdomain: org.slug,
         customDomain: org.customDomain || '',
         customDomainVerified: org.customDomainVerified,
@@ -527,6 +543,30 @@ export class OrganizationService {
       ...(dto.preferences && { preferences: dto.preferences }),
       ...(dto.security && { security: dto.security }),
       ...(dto.loginCms && { loginCms: dto.loginCms }),
+      ...((dto.sidebarLogoObjectFit !== undefined ||
+        dto.sidebarLogoBg !== undefined ||
+        dto.sidebarLogoRadius !== undefined ||
+        dto.sidebarLogoAlign !== undefined ||
+        dto.sidebarHeaderBg !== undefined) && {
+        sidebarBranding: {
+          ...existingSettings.sidebarBranding,
+          ...(dto.sidebarLogoObjectFit !== undefined && {
+            sidebarLogoObjectFit: dto.sidebarLogoObjectFit,
+          }),
+          ...(dto.sidebarLogoBg !== undefined && {
+            sidebarLogoBg: dto.sidebarLogoBg,
+          }),
+          ...(dto.sidebarLogoRadius !== undefined && {
+            sidebarLogoRadius: dto.sidebarLogoRadius,
+          }),
+          ...(dto.sidebarLogoAlign !== undefined && {
+            sidebarLogoAlign: dto.sidebarLogoAlign,
+          }),
+          ...(dto.sidebarHeaderBg !== undefined && {
+            sidebarHeaderBg: dto.sidebarHeaderBg,
+          }),
+        },
+      }),
     };
 
     const updatedOrg = await this.prisma.organization.update({

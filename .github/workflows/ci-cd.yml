@@ -85,6 +85,7 @@ jobs:
           src/organization/organization.service.domains.spec.ts
           src/organization/organization.service.tenant-isolation.spec.ts
           src/organization/organization.service.platform-management.spec.ts
+            src/organization/organization.workspace-settings.spec.ts
           src/organization/tenant-admin-email.spec.ts
           src/uploads/uploads.service.spec.ts
           src/mobile-app/mobile-app-admin.guard.spec.ts
@@ -93,12 +94,13 @@ jobs:
           src/app.controller.spec.ts
       - name: Web sign-in, OTP, recovery and tenant branding regression tests
         run: >-
-          npm run test:ci --workspace=web -- --runInBand
+          npm run test:ci --workspace=web -- --runInBand --silent
           src/screens/auth/login/login.test.tsx
           src/screens/auth/login-otp/LoginOtpScreen.test.tsx
           src/screens/auth/forgot-password/ForgotPasswordScreen.test.tsx
           src/screens/auth/reset-password/ResetPasswordScreen.test.tsx
           src/screens/admin/settings/LoginPagePreview.test.tsx
+            src/screens/admin/settings/WorkspaceSettingsPage.preview.test.tsx
           src/screens/superadmin/PlatformAuditLogsScreen.test.tsx
           src/screens/superadmin/TenantManagementDialog.test.tsx
           src/components/notifications/HeaderNotificationBell.test.tsx

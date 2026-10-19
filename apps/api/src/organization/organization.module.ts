@@ -6,6 +6,7 @@ import { BillingModule } from '../billing/billing.module';
 import { OrganizationService } from './organization.service';
 import { OrganizationController } from './organization.controller';
 import { CrmModule } from '../crm/crm.module';
+import { AccessModule } from '../access/access.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { CrmModule } from '../crm/crm.module';
     TenantModule,
     BillingModule,
     CrmModule,
+    AccessModule,
   ],
   controllers: [OrganizationController],
   providers: [OrganizationService],

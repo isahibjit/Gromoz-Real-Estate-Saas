@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "ui";
 import { api } from "../../../common/api";
+import { getApiErrorMessage } from "../../../common/apiError";
 import {
   LoginPageCmsModal,
   LoginPageCmsData,
@@ -397,8 +398,13 @@ export function WorkspaceSettingsPage() {
 
     setSaving(true);
     try {
+      const editableForm = Object.fromEntries(
+        Object.entries(form).filter(
+          ([key]) => key !== "customDomainVerified" && key !== "customDomainSslStatus",
+        ),
+      );
       await api.patch("/organizations/workspace-settings", {
-        ...form,
+        ...editableForm,
         loginCms: loginCms,
         localization: localizationForm,
         preferences: preferencesForm,
@@ -435,21 +441,15 @@ export function WorkspaceSettingsPage() {
     setSaving(true);
     try {
       await api.patch("/organizations/workspace-settings", {
-        ...form,
         loginCms: updatedCms,
-        localization: localizationForm,
-        preferences: preferencesForm,
-        security: securityForm,
       });
 
       setLoginCms(updatedCms);
       localStorage.setItem("truroot_login_cms", JSON.stringify(updatedCms));
       window.dispatchEvent(new Event("storage"));
-      toast.success("Login page CMS customized and published!");
-      setIsLoginCmsModalOpen(false);
       fetchSettings();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to save Login CMS settings");
+    } catch (err: unknown) {
+      throw new Error(getApiErrorMessage(err, "Failed to save login page settings"));
     } finally {
       setSaving(false);
     }

@@ -14,6 +14,8 @@ import {
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { TenantGuard } from '../common/tenant/tenant.guard';
 import { CurrentTenant, TenantId } from '../common/tenant/tenant.decorator';
+import { PermissionGuard } from '../access/permission.guard';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import {
   InviteMemberDto,
   OrganizationService,
@@ -66,7 +68,8 @@ export class OrganizationController {
   }
 
   @Patch('workspace-settings')
-  @UseGuards(AuthGuard, TenantGuard)
+  @UseGuards(AuthGuard, TenantGuard, PermissionGuard)
+  @RequirePermission('hr_settings', 'update')
   async updateWorkspaceSettings(
     @TenantId() tenantId: string,
     @Body() dto: UpdateWorkspaceSettingsDto,

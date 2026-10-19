@@ -132,8 +132,8 @@ export function LoginPageCmsModal({
       await onSave(data);
       toast.success("Login page CMS customized and published!");
       onClose();
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to save login page CMS");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to save login page CMS");
     } finally {
       setIsSaving(false);
     }
