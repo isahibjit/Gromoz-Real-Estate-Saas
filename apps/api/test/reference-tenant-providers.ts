@@ -21,6 +21,7 @@ export const referenceTenantProviders = (organizationId = 'tenant-a') => [
     useValue: {
       getTenantId: () => organizationId,
       getTenant: () => ({ organizationId, role: 'ADMIN' }),
+      run: (_context: unknown, work: () => unknown) => work(),
     },
   },
   {

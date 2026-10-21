@@ -5264,13 +5264,6 @@ export class CrmService {
     ).trim();
   }
 
-  private metaEnabledFormIdsForPage(
-    pageId: string,
-    settings: ReturnType<typeof this.getMetaSettings>,
-  ) {
-    return settings.pageFormSelections[String(pageId)] ?? [];
-  }
-
   private async ensureMetaIntegration(
     actorUserId?: string,
     organizationId = this.tenantAccess.organizationId,
@@ -7719,10 +7712,15 @@ export class CrmService {
           );
           continue;
         }
-        const pageAccessToken = this.selectedMetaPageAccessToken(
-          eventPageId || settings.selectedPageId || settings.pageId,
-          credentials,
-        );
+        // A form discovered on a connected Page is eligible for import unless
+        // explicitly paused. Never use a token from a different Page.
+        const legacyPageAccessToken =
+          eventPageId && eventPageId === settings.pageId
+            ? credentials.pageAccessToken
+            : '';
+        const pageAccessToken = String(
+          matchedPage?.accessToken ?? legacyPageAccessToken,
+        ).trim();
         if (!pageAccessToken) {
           this.logger.warn(
             `[MetaWebhook] skipped leadgenId=${event.leadgenId}: Page ${
@@ -7746,41 +7744,6 @@ export class CrmService {
               pageId: eventPageId,
               formId: eventFormId,
               reason: 'Meta Page is not connected or has no stored Page token',
-            },
-          );
-          continue;
-        }
-        const enabledFormIds = this.metaEnabledFormIdsForPage(
-          eventPageId || settings.selectedPageId || settings.pageId,
-          settings,
-        );
-        if (!enabledFormIds.length || !enabledFormIds.includes(eventFormId)) {
-          this.logger.warn(
-            `[MetaWebhook] skipped leadgenId=${event.leadgenId}: form ${
-              eventFormId || 'unknown'
-            } is not enabled`,
-          );
-          results.push({
-            leadgenId: event.leadgenId,
-            pageId: eventPageId,
-            formId: eventFormId,
-            skipped: true,
-            reason: enabledFormIds.length
-              ? 'Form is not enabled for CRM import'
-              : 'No forms are enabled for this Page',
-          });
-          await this.audit(
-            undefined,
-            'META_LEAD_SKIPPED',
-            'PortalIntegration',
-            integration.id,
-            {
-              leadgenId: event.leadgenId,
-              pageId: eventPageId,
-              formId: eventFormId,
-              reason: enabledFormIds.length
-                ? 'Form is not enabled for CRM import'
-                : 'No forms are enabled for this Page',
             },
           );
           continue;
@@ -10209,6 +10172,20 @@ export class CrmService {
     if (contact.status === 'CONVERTED' && contact.convertedLeadId) {
       return { leadId: contact.convertedLeadId, contact };
     }
+    const assignee = contact.assignedToId
+      ? await this.db().user.findFirst({
+          where: {
+            AND: [
+              this.tenantAccess.employeeWhere(),
+              { id: contact.assignedToId, isActive: true },
+            ],
+          },
+          select: { role: true },
+        })
+      : null;
+    if (contact.assignedToId && !assignee) {
+      throw new BadRequestException('Select an active contact lead assignee');
+    }
     const interestedStatus = await this.getDefaultInterestedLeadStatusMaster();
     const lead = await this.createLead(
       {
@@ -10223,7 +10200,12 @@ export class CrmService {
         remarks: contact.note,
         statusId: interestedStatus?.id,
         ownerId: contact.assignedToId,
-        telecallerId: contact.assignedToId,
+        telecallerId:
+          assignee?.role === Role.TELECALLER ? contact.assignedToId : undefined,
+        fieldExecutiveId:
+          assignee?.role === Role.SALES_AGENT
+            ? contact.assignedToId
+            : undefined,
       },
       actor,
     );

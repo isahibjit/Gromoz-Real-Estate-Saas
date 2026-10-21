@@ -29,7 +29,7 @@ describe('Contact lead conversion', () => {
 
   const db = {
     contactLead: { findFirst: jest.fn(), update: jest.fn() },
-    user: { findMany: jest.fn() },
+    user: { findMany: jest.fn(), findFirst: jest.fn() },
     lead: { findFirst: jest.fn() },
     auditLog: { create: jest.fn() },
   };
@@ -38,6 +38,7 @@ describe('Contact lead conversion', () => {
     jest.resetAllMocks();
     db.contactLead.findFirst.mockResolvedValue({ ...contactLead });
     db.user.findMany.mockResolvedValue([{ id: 'user-1' }]);
+    db.user.findFirst.mockResolvedValue({ role: 'TELECALLER' });
     db.contactLead.update.mockImplementation(async ({ data }) => ({
       ...contactLead,
       ...data,
@@ -120,6 +121,33 @@ describe('Contact lead conversion', () => {
       contact: expect.objectContaining({
         convertedLeadId: 'already-converted',
       }),
+    });
+    expect(service.createLead).not.toHaveBeenCalled();
+  });
+
+  it('assigns a converted contact lead to the Sales field for a sales employee', async () => {
+    db.user.findFirst.mockResolvedValue({ role: 'SALES_AGENT' });
+
+    await service.convertContactLead(contactLead.id, 'admin-1');
+
+    expect(service.createLead).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerId: contactLead.assignedToId,
+        telecallerId: undefined,
+        fieldExecutiveId: contactLead.assignedToId,
+      }),
+      'admin-1',
+    );
+  });
+
+  it('rejects a converted contact lead when its assignee is inactive or outside the workspace', async () => {
+    db.user.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.convertContactLead(contactLead.id, 'admin-1'),
+    ).rejects.toMatchObject({
+      status: 400,
+      message: 'Select an active contact lead assignee',
     });
     expect(service.createLead).not.toHaveBeenCalled();
   });

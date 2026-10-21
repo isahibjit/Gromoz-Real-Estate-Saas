@@ -487,12 +487,17 @@ export function ConnectMetaLeadsScreen() {
     toast.success("Lead field mapping saved");
   };
 
-  const toggleForm = (formId: string) => {
-    setSelectedFormIds((current) =>
-      current.includes(formId)
-        ? current.filter((id) => id !== formId)
-        : [...current, formId],
-    );
+  const handleFormPause = async (form: MetaLeadForm, isPaused: boolean) => {
+    try {
+      await mutations.toggleFormPause.mutateAsync({
+        formId: form.id,
+        isPaused,
+        pageId,
+      });
+      toast.success(isPaused ? "Form syncing paused" : "Form syncing resumed");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Could not update form syncing"));
+    }
   };
 
   return (
@@ -1158,22 +1163,11 @@ export function ConnectMetaLeadsScreen() {
                               Lead forms
                             </h3>
                             <p className="mt-1 text-sm font-medium leading-5 text-muted-foreground">
-                              Only enabled forms create leads. New forms are
-                              enabled when a Page is connected.
+                              All forms sync unless paused. New forms discovered
+                              on this Page are imported automatically.
                             </p>
                           </div>
                           <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="h-9 rounded-md px-3 text-xs"
-                              disabled={!forms.length}
-                              onClick={() =>
-                                setSelectedFormIds(forms.map((form) => form.id))
-                              }
-                            >
-                              Enable all
-                            </Button>
                             <Button
                               type="button"
                               className="h-9 rounded-md px-3 text-xs"
@@ -1210,9 +1204,7 @@ export function ConnectMetaLeadsScreen() {
                           <div className="overflow-hidden border border-slate-100 bg-white">
                             <div className="divide-y divide-slate-100 px-4">
                               {visibleForms.map((form: MetaLeadForm) => {
-                                const enabled = selectedFormIds.includes(
-                                  form.id,
-                                );
+                                const syncing = !form.isPaused;
                                 return (
                                   <div
                                     key={form.id}
@@ -1251,28 +1243,22 @@ export function ConnectMetaLeadsScreen() {
                                         }}>
                                         Configure routing
                                       </Button>
-                                      {enabled ? (
+                                      {syncing ? (
                                         <Badge className="border-0 bg-emerald-50 text-emerald-800">
-                                          Enabled
+                                          Sync on
                                         </Badge>
                                       ) : (
                                         <Badge className="border border-slate-200 bg-white text-slate-700">
-                                          Off
+                                          Paused
                                         </Badge>
                                       )}
                                       <Switch
-                                        checked={enabled}
-                                        onCheckedChange={() => {
-                                          toggleForm(form.id);
-                                          if (!enabled && form.isPaused) {
-                                            void mutations.toggleFormPause.mutateAsync({
-                                              formId: form.id,
-                                              isPaused: false,
-                                              pageId,
-                                            });
-                                          }
+                                        checked={syncing}
+                                        disabled={mutations.toggleFormPause.isPending}
+                                        onCheckedChange={(checked) => {
+                                          void handleFormPause(form, !checked);
                                         }}
-                                        aria-label={`Enable ${form.name}`}
+                                        aria-label={`Sync ${form.name}`}
                                       />
                                     </div>
                                   </div>
