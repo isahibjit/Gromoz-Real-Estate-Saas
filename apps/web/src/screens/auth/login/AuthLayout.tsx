@@ -9,10 +9,7 @@ import { defaultLoginPageCms } from "../../admin/settings/LoginPageCmsModal";
 import { AuthBrandPanel } from "./AuthBrandPanel";
 import { useLoginPageCms } from "./useLoginPageCms";
 
-export const defaultAuthSupport = {
-  phone: "+91 98700 66177",
-  email: "support@gromoze.com",
-};
+export { defaultAuthSupport } from "../authSupport";
 
 interface AuthLayoutProps extends PropsWithChildren {
   variant?: "default" | "platform";

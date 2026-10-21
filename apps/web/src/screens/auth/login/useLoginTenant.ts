@@ -4,7 +4,7 @@ import {
   resolveTenantFromHostname,
 } from "../../../common/tenantResolver";
 
-/** Share the public host lookup between login presentation and tenant branding. */
+/** Share host verification between app entry, login and tenant branding. */
 export function useLoginTenant() {
   return useQuery({
     queryKey: loginTenantQueryKey(),

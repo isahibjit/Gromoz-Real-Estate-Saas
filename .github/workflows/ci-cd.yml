@@ -117,6 +117,7 @@ jobs:
           src/components/notifications/HeaderNotificationBell.test.tsx
           src/common/tenantRequestScope.test.ts
           src/common/tenantResolver.test.ts
+            src/common/TenantHostBoundary.test.tsx
           src/common/displayReference.test.ts
           src/common/apiError.test.ts
           src/common/components/DataTableCells.test.tsx

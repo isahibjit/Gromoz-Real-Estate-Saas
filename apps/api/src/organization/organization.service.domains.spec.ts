@@ -87,6 +87,32 @@ describe('Workspace subdomain boundaries', () => {
       expect.objectContaining({ where: { slug: 'prestige' } }),
     );
   });
+  it('returns not found for an unregistered wildcard subdomain', async () => {
+    prisma.organization.findFirst.mockResolvedValue(null);
+    prisma.organization.findUnique.mockResolvedValue(null);
+    await expect(service.resolveDomain('xyz.gromoze.com')).resolves.toEqual({
+      found: false,
+    });
+    expect(prisma.organization.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { slug: 'xyz' } }),
+    );
+  });
+  it('preserves an existing verified custom domain without a slug fallback', async () => {
+    prisma.organization.findFirst.mockResolvedValue({
+      id: 'tenant-a',
+      slug: 'prestige',
+      name: 'Prestige',
+      status: 'ACTIVE',
+      workspaceSettingsJson: {},
+    });
+    await expect(
+      service.resolveDomain('crm.prestige.example'),
+    ).resolves.toMatchObject({
+      found: true,
+      organization: { name: 'Prestige', slug: 'prestige' },
+    });
+    expect(prisma.organization.findUnique).not.toHaveBeenCalled();
+  });
   it('does not let an ordinary or deactivated account provision a trial', async () => {
     prisma.user.findUnique.mockResolvedValue({ role: 'ADMIN', isActive: true });
     await expect(

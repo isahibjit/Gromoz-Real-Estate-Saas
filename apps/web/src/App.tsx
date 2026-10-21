@@ -1,4 +1,5 @@
 import { Button } from 'ui';
+import { TenantHostBoundary } from './common/TenantHostBoundary';
 import { useWorkspaceAdministration } from './common/queries/useWorkspaceAdministration';
 import { currentOrganizationId } from './common/tenantRequestScope';
 import { useQuery } from '@tanstack/react-query';
@@ -601,6 +602,12 @@ function RootRedirect() {
 }
 
 export default function App() {
+  // Platform routes can select a tenant for inspection; do not reset that choice.
+  if (isPlatformHost(window.location.hostname)) return <AppRoutes />;
+  return <TenantHostBoundary><AppRoutes /></TenantHostBoundary>;
+}
+
+function AppRoutes() {
   const location = useLocation();
   const isPublicLegalRoute =
     [PRIVACY_POLICY_PATH, TERMS_OF_USE_PATH, "/download-app"].includes(location.pathname) ||
