@@ -101,19 +101,17 @@ export class TrialReminderWorker implements OnModuleInit, OnModuleDestroy {
 
   async dispatchDueReminders(now = new Date()) {
     const due: Prisma.OrganizationWhereInput = {
-      setupFeePaid: false,
       OR: [
         {
+          setupFeePaid: false,
           status: { in: ['TRIAL', 'SETUP_PENDING', 'PAST_DUE'] },
-          trialEndsAt: { lte: now },
+          trialEndsAt: { lte: new Date(now.getTime() + 14 * DAY_MS) },
         },
-        // Older trial records predate trialEndsAt being populated.
+        { status: 'TRIAL', trialEndsAt: null, createdAt: { lte: now } },
         {
-          status: 'TRIAL',
-          trialEndsAt: null,
-          createdAt: {
-            lte: new Date(now.getTime() - DEFAULT_TRIAL_DAYS * DAY_MS),
-          },
+          setupFeePaid: true,
+          status: { in: ['ACTIVE', 'PAST_DUE'] },
+          currentPeriodEnd: { lte: new Date(now.getTime() + 14 * DAY_MS) },
         },
       ],
     };
@@ -135,24 +133,41 @@ export class TrialReminderWorker implements OnModuleInit, OnModuleDestroy {
             id: true,
             name: true,
             trialEndsAt: true,
+            currentPeriodEnd: true,
+            setupFeePaid: true,
+            status: true,
             createdAt: true,
             memberships: {
               where: {
                 isActive: true,
                 isOwner: true,
-                user: { isActive: true },
+                user: { isActive: true, role: { not: 'SUPER_ADMIN' } },
               },
               select: { user: { select: { email: true, fullName: true } } },
             },
           },
         });
         if (!organization) continue;
+        const isPaidPlan = organization.setupFeePaid === true;
         const trialEndsAt =
-          organization.trialEndsAt ??
+          (isPaidPlan
+            ? organization.currentPeriodEnd
+            : organization.trialEndsAt) ??
           new Date(
             organization.createdAt.getTime() + DEFAULT_TRIAL_DAYS * DAY_MS,
           );
-        const entityId = `${id}:${trialEndsAt.toISOString()}`;
+        const daysRemaining = Math.max(
+          0,
+          Math.ceil((trialEndsAt.getTime() - now.getTime()) / DAY_MS),
+        );
+        if (daysRemaining > 0 && ![14, 7, 3, 1].includes(daysRemaining))
+          continue;
+        const entityType = isPaidPlan
+          ? 'SubscriptionRenewalReminder'
+          : REMINDER_TYPE;
+        const entityId = `${id}:${trialEndsAt.toISOString()}${
+          daysRemaining ? `:${daysRemaining}` : ''
+        }`;
         const recipients = new Map(
           organization.memberships.map(({ user }) => [
             user.email.trim().toLowerCase(),
@@ -163,7 +178,8 @@ export class TrialReminderWorker implements OnModuleInit, OnModuleDestroy {
           try {
             const alreadySent = await this.prisma.emailLog.findFirst({
               where: {
-                entityType: REMINDER_TYPE,
+                organizationId: id,
+                entityType,
                 entityId,
                 recipient: to,
                 status: 'Sent',
@@ -188,18 +204,44 @@ export class TrialReminderWorker implements OnModuleInit, OnModuleDestroy {
             if (!acquired) continue;
             // Payment or cancellation may have happened while this batch was queued.
             const stillDue = await this.prisma.organization.findFirst({
-              where: { ...due, id },
+              where: {
+                ...due,
+                id,
+                ...(isPaidPlan
+                  ? { setupFeePaid: true, currentPeriodEnd: trialEndsAt }
+                  : {
+                      setupFeePaid: false,
+                      trialEndsAt: organization.trialEndsAt,
+                    }),
+              },
               select: { id: true },
             });
             if (!stillDue) continue;
-            await this.email.sendPlatformEmail({
+            await this.email.sendTenantPlatformEmail(id, {
               to,
-              ...buildTrialPaymentReminder({
-                workspaceName: organization.name,
-                ownerName,
-                trialEndsAt,
-              }),
-              entityType: REMINDER_TYPE,
+              ...(daysRemaining === 0 && !isPaidPlan
+                ? buildTrialPaymentReminder({
+                    workspaceName: organization.name,
+                    ownerName,
+                    trialEndsAt,
+                  })
+                : {
+                    subject: `${
+                      isPaidPlan ? 'Subscription renewal' : 'Trial expiry'
+                    }: ${organization.name} ${
+                      daysRemaining
+                        ? `in ${daysRemaining} day(s)`
+                        : 'is overdue'
+                    }`,
+                    text: `Hello ${ownerName || 'there'},\n\nYour ${
+                      isPaidPlan ? 'subscription' : 'trial'
+                    } for ${organization.name} ${
+                      daysRemaining ? 'ends' : 'ended'
+                    } on ${trialEndsAt.toLocaleDateString('en-IN', {
+                      timeZone: 'Asia/Kolkata',
+                    })}. Open Subscription & Support in your workspace to review your plan and request payment assistance.\n\nGromoze`,
+                  }),
+              entityType,
               entityId,
             });
             sent++;

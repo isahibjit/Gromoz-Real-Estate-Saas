@@ -1,10 +1,16 @@
 import {
+  AllowSubscriptionAccess,
+  SubscriptionAdminGuard,
+} from '../common/tenant/subscription-admin.guard';
+import { TransactionsQuery } from './workspace.dto';
+import {
   Body,
   Controller,
   Get,
   Headers,
   Post,
   Req,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -22,13 +28,25 @@ export class BillingController {
   constructor(private readonly billingService: BillingService) {}
 
   @Get('overview')
-  @UseGuards(AuthGuard, TenantGuard)
+  @AllowSubscriptionAccess()
+  @UseGuards(AuthGuard, TenantGuard, SubscriptionAdminGuard)
   async getOverview(@TenantId() tenantId: string) {
     return this.billingService.getOverview(tenantId);
   }
 
+  @Get('transactions')
+  @AllowSubscriptionAccess()
+  @UseGuards(AuthGuard, TenantGuard, SubscriptionAdminGuard)
+  transactions(
+    @TenantId() tenantId: string,
+    @Query() query: TransactionsQuery,
+  ) {
+    return this.billingService.listTransactions(tenantId, query);
+  }
+
   @Post('setup-checkout')
-  @UseGuards(AuthGuard, TenantGuard)
+  @AllowSubscriptionAccess()
+  @UseGuards(AuthGuard, TenantGuard, SubscriptionAdminGuard)
   async createSetupCheckout(
     @TenantId() tenantId: string,
     @Body() dto: SetupCheckoutDto,
@@ -37,7 +55,8 @@ export class BillingController {
   }
 
   @Post('verify-setup')
-  @UseGuards(AuthGuard, TenantGuard)
+  @AllowSubscriptionAccess()
+  @UseGuards(AuthGuard, TenantGuard, SubscriptionAdminGuard)
   async verifyAndActivateSetup(
     @TenantId() tenantId: string,
     @Body() dto: VerifyPaymentDto,
@@ -46,7 +65,8 @@ export class BillingController {
   }
 
   @Post('upgrade-seats')
-  @UseGuards(AuthGuard, TenantGuard)
+  @AllowSubscriptionAccess()
+  @UseGuards(AuthGuard, TenantGuard, SubscriptionAdminGuard)
   async upgradeSeatsCheckout(
     @TenantId() tenantId: string,
     @Body() dto: UpgradeSeatsDto,
@@ -55,10 +75,11 @@ export class BillingController {
   }
 
   @Post('verify-upgrade')
-  @UseGuards(AuthGuard, TenantGuard)
+  @AllowSubscriptionAccess()
+  @UseGuards(AuthGuard, TenantGuard, SubscriptionAdminGuard)
   async verifyAndApplySeatUpgrade(
     @TenantId() tenantId: string,
-    @Body() dto: VerifyPaymentDto & { additionalSeats: number },
+    @Body() dto: VerifyPaymentDto,
   ) {
     return this.billingService.verifyAndApplySeatUpgrade(tenantId, dto);
   }

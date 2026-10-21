@@ -114,6 +114,13 @@ describe('Email delivery', () => {
     );
   });
 
+  it('keeps security/support mail on platform SMTP while tagging the tenant log', async () => {
+    tenant.getTenantId.mockReturnValue('tenant-b');
+    await service.sendTenantPlatformEmail('tenant-a', options);
+    expect(prisma.emailConnector.findFirst).not.toHaveBeenCalled();
+    expect(prisma.emailLog.create).toHaveBeenCalledWith({ data: expect.objectContaining({ organizationId: 'tenant-a', connectorId: null, status: 'Sent', recipient: options.to }) });
+  });
+
   it('never uses a workspace connector for platform billing', async () => {
     await service.sendPlatformEmail(options);
     expect(prisma.emailConnector.findFirst).not.toHaveBeenCalled();

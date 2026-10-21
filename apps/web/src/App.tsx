@@ -1,3 +1,9 @@
+import { Button } from 'ui';
+import { useWorkspaceAdministration } from './common/queries/useWorkspaceAdministration';
+import { currentOrganizationId } from './common/tenantRequestScope';
+import { useQuery } from '@tanstack/react-query';
+import { api } from './common/api';
+import type { BillingOverview } from './screens/billing/workspace.types';
 import type { PropsWithChildren } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import type { AuthTokens } from "@truroot/shared/auth";
@@ -364,6 +370,16 @@ function SuperAdminRoute({ children }: PropsWithChildren) {
   return <DashboardWorkspaceFrame>{children}</DashboardWorkspaceFrame>;
 }
 
+function SubscriptionRoute({ children }: PropsWithChildren) {
+  const authenticated = useAppSelector((state) => state.auth.isAuthenticated);
+  const location = useLocation();
+  const access = useWorkspaceAdministration();
+  if (!authenticated) return <Navigate to={LOGIN_PATH} replace state={{ from: location }} />;
+  if (access.isPending) return <LoadingWorkspace />;
+  if (!access.canManage) return <DashboardWorkspaceFrame><Card className="space-y-3 p-6"><h1 className="font-semibold">Subscription access</h1><p className="text-sm text-muted-foreground">{access.isError ? 'Could not check workspace access. Please try again.' : 'Only workspace owners and administrators can manage subscriptions and support.'}</p>{access.isError && <Button variant="outline" onClick={() => void access.retry()}>Retry</Button>}</Card></DashboardWorkspaceFrame>;
+  return <DashboardWorkspaceFrame>{children}</DashboardWorkspaceFrame>;
+}
+
 function AdminRoute({ children }: PropsWithChildren) {
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
   const user = useAppSelector((state) => state.auth.user);
@@ -535,6 +551,9 @@ function PublicOnlyRoute({ children }: PropsWithChildren) {
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
   const user = useAppSelector((state) => state.auth.user);
   const location = useLocation();
+  const organizationId = currentOrganizationId();
+  const workspaceAdministration = useWorkspaceAdministration();
+  const subscription = useQuery({ queryKey: ['billing-overview', organizationId], queryFn: async () => (await api.get<BillingOverview>('/billing/overview')).data, enabled: isAuthenticated && workspaceAdministration.canManage && Boolean(organizationId), retry: false, staleTime: 30000 });
   const defaultDashboard =
     defaultAccessiblePath(user) ?? defaultDashboardPath(user?.role);
   let fromPath =
@@ -564,6 +583,9 @@ function PublicOnlyRoute({ children }: PropsWithChildren) {
   ) {
     fromPath = defaultDashboard;
   }
+
+  if (isAuthenticated && workspaceAdministration.canManage && organizationId && subscription.isFetching && !subscription.data) return <LoadingWorkspace />;
+  if (isAuthenticated && workspaceAdministration.canManage && subscription.data && (subscription.data.expiryState === 'EXPIRED' || subscription.data.status === 'SETUP_PENDING' || subscription.data.status === 'PAST_DUE')) return <Navigate to={BILLING_PATH} replace />;
 
   if (isAuthenticated) {
     return <Navigate to={fromPath} replace />;
@@ -621,9 +643,9 @@ export default function App() {
       <Route
         path={BILLING_PATH}
         element={
-          <AdminRoute>
+          <SubscriptionRoute>
             <BillingOverviewScreen />
-          </AdminRoute>
+          </SubscriptionRoute>
         }
       />
       <Route

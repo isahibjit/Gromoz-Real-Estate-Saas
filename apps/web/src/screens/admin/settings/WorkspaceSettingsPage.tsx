@@ -22,6 +22,7 @@ import {
   Badge,
   Button,
   Card,
+  Checkbox,
   Input,
   Select,
   SelectContent,
@@ -227,6 +228,7 @@ export function WorkspaceSettingsPage() {
     defaultLandingPage: "/dashboard",
     sessionTimeout: "60",
     emailNotifications: true,
+    loginAlertsEnabled: true,
     dailyDigest: true,
     showMapView: true,
     compactTable: false,
@@ -294,7 +296,7 @@ export function WorkspaceSettingsPage() {
       }
 
       if (d.localization) setLocalizationForm(d.localization);
-      if (d.preferences) setPreferencesForm(d.preferences);
+      if (d.preferences) setPreferencesForm({ loginAlertsEnabled: true, ...d.preferences });
       if (d.security) setSecurityForm(d.security);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Failed to load workspace settings");
@@ -1237,6 +1239,10 @@ export function WorkspaceSettingsPage() {
               <h3 className="text-sm font-bold text-foreground">System Preferences & Notifications</h3>
               <p className="text-xs text-muted-foreground">Default landing views and automated summaries.</p>
             </div>
+          </div>
+          <div className="rounded-lg border border-border bg-muted/20 p-4">
+            <Checkbox checked={preferencesForm.loginAlertsEnabled} onChange={(event) => setPreferencesForm({ ...preferencesForm, loginAlertsEnabled: event.target.checked })} label="Email the workspace owner when a user signs in" />
+            <p className="mt-2 text-xs text-muted-foreground">Successful sign-in alerts are delivered only to this workspace's active owner. This does not affect billing reminders.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-2">
             <div className="space-y-1.5">

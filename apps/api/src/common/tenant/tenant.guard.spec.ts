@@ -1,3 +1,4 @@
+import { BillingController } from '../../billing/billing.controller';
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 import { Test } from '@nestjs/testing';
@@ -146,4 +147,13 @@ describe('TenantGuard', () => {
     ]);
     await expect(activate()).rejects.toBeInstanceOf(ForbiddenException);
   });
+  it('lets an expired trial admin open billing while retaining CRM restrictions', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: 'owner', role: 'ADMIN', isActive: true });
+    request.user = { sub: 'owner', role: 'ADMIN' };
+    prisma.organizationMember.findMany.mockResolvedValue([{ organizationId: 'tenant-a', role: 'ADMIN', isOwner: true, organization: { ...organization, status: 'TRIAL', setupFeePaid: false, trialEndsAt: new Date('2000-01-01') } }]);
+    await expect(activate()).rejects.toBeInstanceOf(ForbiddenException);
+    const billingContext = new ExecutionContextHost([request], BillingController, BillingController.prototype.getOverview);
+    await expect(guard.canActivate(billingContext)).resolves.toBe(true);
+  });
+
 });

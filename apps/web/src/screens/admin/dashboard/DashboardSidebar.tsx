@@ -1,3 +1,4 @@
+import { useWorkspaceAdministration } from '../../../common/queries/useWorkspaceAdministration';
 import {
   Building2,
   ChevronLeft,
@@ -130,6 +131,7 @@ function DashboardSidebarComponent({
   const user = useAppSelector((state) => state.auth.user);
   const location = useLocation();
   const logoutMutation = useLogoutMutation();
+  const workspaceAdministration = useWorkspaceAdministration();
 
   const [isHovered, setIsHovered] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -223,7 +225,7 @@ function DashboardSidebarComponent({
 
   const categories = isSuperAdminOnly
     ? superAdminNavCategories
-    : buildSidebarCategories(user, location.pathname);
+    : buildSidebarCategories(user, location.pathname, workspaceAdministration.canManage);
 
   const showBigLogo = mobileOpen || !collapsed || isHovered;
   const hasCustomLogo = Boolean(branding.logoUrl && branding.logoUrl.trim() !== "");

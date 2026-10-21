@@ -1,3 +1,6 @@
+import { getApiErrorMessage } from '../../common/apiError';
+import { AddSeatsDialog } from '../billing/AddSeatsDialog';
+import { isAxiosError } from 'axios';
 import { presentRecordDetails } from "../../common/displayReference";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getUserRoleLabel } from "../../common/roleLabels";
@@ -428,6 +431,7 @@ export function HrWorkspaceScreen() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [employeeDialog, setEmployeeDialog] = useState(false);
+  const [seatUpgradeOpen, setSeatUpgradeOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [leaveDialog, setLeaveDialog] = useState(false);
@@ -814,13 +818,17 @@ export function HrWorkspaceScreen() {
     return { total, thisYear, totalNetPay, latestGeneratedAt };
   }, [payslipRows]);
 
-  const handleCreateEmployee = async (data: any) => {
+  const handleCreateEmployee = async (data: Record<string, unknown>) => {
     try {
       await mutations.createEmployee.mutateAsync(data);
-      toast.success("Employee created. Temporary password: ChangeMe@123");
+      toast.success("Employee created");
       return true;
-    } catch (error: any) {
-      toast.error(error.response?.data?.message ?? "Unable to create employee");
+    } catch (error: unknown) {
+      if (isAxiosError<{ code?: string; message?: string }>(error) && error.response?.data?.code === 'SEAT_LIMIT_REACHED') {
+        setSeatUpgradeOpen(true);
+        return false;
+      }
+      toast.error(getApiErrorMessage(error, "Unable to create employee"));
       return false;
     }
   };
@@ -1216,6 +1224,7 @@ export function HrWorkspaceScreen() {
             onSave={editingEmployee ? handleUpdateEmployee : handleCreateEmployee}
             employee={editingEmployee}
           />
+          <AddSeatsDialog open={seatUpgradeOpen} onOpenChange={setSeatUpgradeOpen} onPurchased={() => toast.success('Seats added. You can now create the employee.')} />
           <ConfirmDeleteDialog
             open={!!deleteTarget}
             title="Permanently delete employee?"

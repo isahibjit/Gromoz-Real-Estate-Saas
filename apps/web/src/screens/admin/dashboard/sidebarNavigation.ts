@@ -62,6 +62,7 @@ function defaultCategory(id: string): string {
 export function buildSidebarCategories(
   user: AuthTokens["user"] | null | undefined,
   pathname: string,
+  workspaceAdmin?: boolean,
 ): NavCategory[] {
   if (!user) return [];
   const categories = new Map<string, NavItem[]>();
@@ -71,7 +72,7 @@ export function buildSidebarCategories(
     categories.set(category, existing);
   };
 
-  for (const item of getNavigationForUser(user, pathname)) {
+  for (const item of getNavigationForUser(user, pathname, workspaceAdmin)) {
     if (user.role === "SUPER_ADMIN" && item.roleScopes && !item.roleScopes.includes("ADMIN")) continue;
     const entries = item.children?.length ? item.children : [item];
     for (const entry of entries) {

@@ -46,6 +46,17 @@ describe('Workspace settings updates', () => {
     service = module.get(OrganizationService);
   });
 
+  it('accepts a boolean login alert preference and rejects strings', async () => {
+    await expect(pipe.transform({ preferences: { loginAlertsEnabled: false } }, metadata)).resolves.toMatchObject({ preferences: { loginAlertsEnabled: false } });
+    await expect(pipe.transform({ preferences: { loginAlertsEnabled: 'false' } }, metadata)).rejects.toBeInstanceOf(BadRequestException);
+  });
+  it('preserves other preferences when changing login alerts', async () => {
+    const org = { id: 'tenant-a', name: 'Cedar', slug: 'cedar', workspaceSettingsJson: { preferences: { compactTable: true } } };
+    prisma.organization.findUnique.mockResolvedValue(org); prisma.organization.update.mockResolvedValue(org);
+    await service.updateWorkspaceSettings('tenant-a', { preferences: { loginAlertsEnabled: false } });
+    expect(prisma.organization.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ workspaceSettingsJson: { preferences: { compactTable: true, loginAlertsEnabled: false } } }) }));
+  });
+
   it('accepts the CMS and workspace profile fields with the production validation pipe', async () => {
     const payload = {
       companyName: 'Cedar Realty',
@@ -86,6 +97,8 @@ describe('Workspace settings updates', () => {
     { customDomainVerified: true },
     { unknownSetting: 'value' },
     { loginCms: [] },
+    { preferences: [] },
+    { preferences: { loginAlertsEnabled: null } },
     { sidebarLogoHeight: 'large' },
     { sidebarLogoAlign: 'invalid' },
   ])('rejects unsupported or invalid settings: %o', async (payload) => {

@@ -1,3 +1,5 @@
+import { SupportTicketsService } from './support-tickets.service';
+import { SupportTicketsController } from './support-tickets.controller';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PersistenceModule } from '../persistence/persistence.module';
@@ -17,8 +19,13 @@ import { TrialReminderWorker } from './trial-reminder.worker';
     TenantModule,
     CrmModule,
   ],
-  controllers: [BillingController],
-  providers: [RazorpayService, BillingService, TrialReminderWorker],
+  controllers: [BillingController, SupportTicketsController],
+  providers: [
+    RazorpayService,
+    BillingService,
+    TrialReminderWorker,
+    SupportTicketsService,
+  ],
   exports: [RazorpayService, BillingService],
 })
 export class BillingModule {}

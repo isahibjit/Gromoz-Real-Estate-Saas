@@ -1,3 +1,5 @@
+import { Type } from 'class-transformer';
+import { withSeatCapacity } from '../common/tenant/seat-capacity';
 import {
   BadRequestException,
   ConflictException,
@@ -28,6 +30,8 @@ import {
   Max,
   MinLength,
   MaxLength,
+  ValidateNested,
+  ValidateIf,
 } from 'class-validator';
 import {
   isPlatformHost,
@@ -145,6 +149,16 @@ export class ResetTenantAdminPasswordDto {
   @IsOptional() @IsBoolean() notifyEmail?: boolean;
 }
 
+export class WorkspacePreferencesDto {
+  @IsOptional() @IsString() defaultLandingPage?: string;
+  @IsOptional() @IsString() sessionTimeout?: string;
+  @IsOptional() @IsBoolean() emailNotifications?: boolean;
+  @ValidateIf((_object: WorkspacePreferencesDto, value: unknown) => value !== undefined) @IsBoolean() loginAlertsEnabled?: boolean;
+  @IsOptional() @IsBoolean() dailyDigest?: boolean;
+  @IsOptional() @IsBoolean() showMapView?: boolean;
+  @IsOptional() @IsBoolean() compactTable?: boolean;
+}
+
 export class UpdateWorkspaceSettingsDto {
   @IsOptional() @IsString() companyName?: string;
   @IsOptional() @IsString() industry?: string;
@@ -176,7 +190,7 @@ export class UpdateWorkspaceSettingsDto {
   @IsOptional() @IsString() customDomain?: string;
   @IsOptional() @IsObject() localization?: Record<string, unknown>;
   @IsOptional() @IsObject() financial?: Record<string, unknown>;
-  @IsOptional() @IsObject() preferences?: Record<string, unknown>;
+  @IsOptional() @IsObject() @ValidateNested() @Type(() => WorkspacePreferencesDto) preferences?: WorkspacePreferencesDto;
   @IsOptional() @IsObject() security?: Record<string, unknown>;
   @IsOptional() @IsObject() loginCms?: Record<string, unknown>;
 }
@@ -437,14 +451,15 @@ export class OrganizationService {
         billingAddress: org.addressLine1 || '',
         autoInvoice: true,
       },
-      preferences: customSettings.preferences || {
+      preferences: { loginAlertsEnabled: true, ...(customSettings.preferences || {
         defaultLandingPage: '/admin/dashboard',
         sessionTimeout: '60',
         emailNotifications: true,
+        loginAlertsEnabled: true,
         dailyDigest: true,
         showMapView: true,
         compactTable: false,
-      },
+      }) },
       security: customSettings.security || {
         enforce2FA: false,
         passwordMinLength: '8',
@@ -545,7 +560,7 @@ export class OrganizationService {
       ...existingSettings,
       ...(dto.localization && { localization: dto.localization }),
       ...(dto.financial && { financial: dto.financial }),
-      ...(dto.preferences && { preferences: dto.preferences }),
+      ...(dto.preferences && { preferences: { ...existingSettings.preferences, ...dto.preferences } }),
       ...(dto.security && { security: dto.security }),
       ...(dto.loginCms && { loginCms: dto.loginCms }),
       ...((dto.sidebarLogoObjectFit !== undefined ||
@@ -851,20 +866,6 @@ export class OrganizationService {
       throw new NotFoundException('Organization not found');
     }
 
-    const activeMembersCount = await this.prisma.organizationMember.count({
-      where: { organizationId: orgId, isActive: true },
-    });
-
-    if (activeMembersCount >= org.allocatedSeats) {
-      throw new BadRequestException({
-        code: 'SEAT_LIMIT_REACHED',
-        message: `Your organization has reached its limit of ${org.allocatedSeats} seat(s). Please purchase additional seats to invite more team members.`,
-        allocatedSeats: org.allocatedSeats,
-        activeMembersCount,
-        pricePerSeatMonth: org.pricePerSeatMonth,
-      });
-    }
-
     const email = dto.email.toLowerCase().trim();
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -899,7 +900,7 @@ export class OrganizationService {
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    const invitation = await this.prisma.organizationInvitation.create({
+    const invitation = await withSeatCapacity(this.prisma, orgId, (tx) => tx.organizationInvitation.create({
       data: {
         organizationId: orgId,
         email,
@@ -908,7 +909,7 @@ export class OrganizationService {
         invitedById: currentUserId,
         expiresAt,
       },
-    });
+    }));
 
     return {
       message: 'Invitation generated successfully',

@@ -45,6 +45,7 @@ describe('AuthService - Brute Force Protection & Account Lockout', () => {
         update: jest.fn(),
         findMany: jest.fn(),
       },
+      loginOtpChallenge: { findFirst: jest.fn(), update: jest.fn() },
       organizationMember: {
         findMany: jest.fn(),
       },
@@ -260,6 +261,57 @@ describe('AuthService - Brute Force Protection & Account Lockout', () => {
     expect(redis.del).toHaveBeenCalledWith(
       `auth:failed-attempts:${mockUser.id}`,
     );
+  });
+
+  describe('Tenant login alerts', () => {
+    const headers = { 'x-organization-id': 'tenant-a' };
+    const ownerWorkspace = { id: 'tenant-a', workspaceSettingsJson: {}, memberships: [{ user: { email: 'owner-a@example.test' } }] };
+    async function signIn(requestHeaders: Record<string, string> = headers) {
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+      prisma.user.update.mockResolvedValue(mockUser);
+      await service.login({ email: mockUser.email, password: 'CorrectPassword123!' }, { ip: '127.0.0.1', headers: requestHeaders });
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    it('routes a successful login to the selected tenant owner', async () => {
+      prisma.organizationMember.findMany.mockResolvedValue([{ organization: ownerWorkspace }]);
+      await signIn();
+      expect(prisma.organizationMember.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organizationId: 'tenant-a', userId: mockUser.id, isActive: true }) }));
+      expect(mailService.sendLoginNotification).toHaveBeenCalledWith(expect.objectContaining({ to: 'owner-a@example.test', organizationId: 'tenant-a' }));
+    });
+    it('resolves a slug and checks active membership before sending', async () => {
+      prisma.organizationMember.findMany.mockResolvedValue([{ organization: ownerWorkspace }]);
+      await signIn({ 'x-tenant-slug': 'tenant-a' });
+      expect(prisma.organizationMember.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organization: { slug: 'tenant-a' } }) }));
+      expect(mailService.sendLoginNotification).toHaveBeenCalledTimes(1);
+    });
+    it('sends once after successful OTP verification', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser); prisma.user.update.mockResolvedValue(mockUser);
+      prisma.organizationMember.findMany.mockResolvedValue([{ organization: ownerWorkspace }]);
+      prisma.loginOtpChallenge.findFirst.mockResolvedValue({ id: 'challenge', otpHash: await argon2.hash('123456'), expiresAt: new Date(Date.now() + 60000), attemptCount: 0 });
+      await service.verifyLoginOtp({ identifier: mockUser.email, otp: '123456' }, { ip: '127.0.0.1', headers });
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(mailService.sendLoginNotification).toHaveBeenCalledTimes(1);
+      expect(mailService.sendLoginNotification).toHaveBeenCalledWith(expect.objectContaining({ to: 'owner-a@example.test', organizationId: 'tenant-a' }));
+    });
+    it('honors the tenant toggle', async () => {
+      prisma.organizationMember.findMany.mockResolvedValue([{ organization: { ...ownerWorkspace, workspaceSettingsJson: { preferences: { loginAlertsEnabled: false } } } }]);
+      await signIn();
+      expect(mailService.sendLoginNotification).not.toHaveBeenCalled();
+    });
+    it.each([{ memberships: [] }, { memberships: [{ organization: ownerWorkspace }, { organization: ownerWorkspace }] }])('skips missing or ambiguous membership', async ({ memberships }) => {
+      prisma.organizationMember.findMany.mockResolvedValue(memberships);
+      await signIn();
+      expect(mailService.sendLoginNotification).not.toHaveBeenCalled();
+    });
+    it('does not guess a recipient for platform login with no tenant', async () => {
+      await signIn({});
+      expect(mailService.sendLoginNotification).not.toHaveBeenCalled();
+      expect(prisma.organizationMember.findMany).not.toHaveBeenCalled();
+    });
+    it('does not notify for conflicting tenant headers', async () => {
+      await signIn({ ...headers, 'x-tenant-id': 'tenant-b' });
+      expect(mailService.sendLoginNotification).not.toHaveBeenCalled();
+    });
   });
 
   describe('Configurable Lockout Threshold', () => {

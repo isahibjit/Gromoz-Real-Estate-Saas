@@ -23,6 +23,10 @@ describe('HR tenant isolation', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    organization: { findUnique: jest.fn().mockResolvedValue({ allocatedSeats: 10, pricePerSeatMonth: 500 }) },
+    organizationMember: { count: jest.fn().mockResolvedValue(1) },
+    organizationInvitation: { count: jest.fn().mockResolvedValue(0) },
+    $queryRaw: jest.fn(),
     employeeProfile: {
       count: jest.fn(),
       findFirst: jest.fn().mockResolvedValue(null),
@@ -37,8 +41,8 @@ describe('HR tenant isolation', () => {
     },
     bookingIncentive: { findMany: jest.fn() },
     bookingExtraIncentive: { findMany: jest.fn() },
-    $transaction: jest.fn((operations: Promise<unknown>[]) =>
-      Promise.all(operations),
+    $transaction: jest.fn((operations: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)): Promise<unknown> =>
+      typeof operations === 'function' ? operations(prisma) : Promise.all(operations),
     ),
     $executeRaw: jest.fn(),
   };

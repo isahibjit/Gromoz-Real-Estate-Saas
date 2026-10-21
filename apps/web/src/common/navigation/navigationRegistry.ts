@@ -533,6 +533,7 @@ export const navigationRegistry: NavigationItem[] = [
     pageKey: "page.notifications",
     roleScopes: fieldExecutiveRoles,
   },
+  { id: 'settings.subscription', label: 'Subscription & support', icon: BadgeIndianRupee, to: '/billing', roleScopes: ['ADMIN'], matchPaths: ['/billing'] },
 ];
 
 const managementChildForSelfService = new Map<string, string>([
@@ -596,9 +597,10 @@ function navigationItemAccessible(
 export function filterNavigationByPermissions(
   items: NavigationItem[],
   user: AuthUser,
+  workspaceAdmin?: boolean,
 ): NavigationItem[] {
   return items
-    .filter((item) => roleMatches(item, user))
+    .filter((item) => item.id === "settings.subscription" ? user?.role !== "SUPER_ADMIN" && (workspaceAdmin ?? user?.role === "ADMIN") : roleMatches(item, user))
     .map((item) => {
       const children = (item.children ?? [])
         .filter((child) => roleMatches(child, user))
@@ -665,13 +667,13 @@ export const platformSuperAdminNavigation: NavigationItem[] = [
   },
 ];
 
-export function getNavigationForUser(user: AuthUser, pathname?: string) {
+export function getNavigationForUser(user: AuthUser, pathname?: string, workspaceAdmin?: boolean) {
   if (isPlatformView(user?.role, pathname)) {
     return platformSuperAdminNavigation;
   }
 
   return removeDuplicateSelfServiceNavigation(
-    filterNavigationByPermissions(navigationRegistry, user),
+    filterNavigationByPermissions(navigationRegistry, user, workspaceAdmin),
   );
 }
 

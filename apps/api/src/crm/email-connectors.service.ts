@@ -355,6 +355,10 @@ export class EmailConnectorsService {
     return this.sendWithPlatformTransport(options);
   }
 
+  async sendTenantPlatformEmail(organizationId: string, options: Omit<SendEmailOptions, 'connectorId'>) {
+    return this.sendWithPlatformTransport(options, organizationId);
+  }
+
   private async sendWithPlatformTransport(
     options: Omit<SendEmailOptions, 'connectorId'>,
     organizationId?: string,

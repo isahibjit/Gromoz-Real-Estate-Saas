@@ -1,3 +1,4 @@
+import { SubscriptionAdminGuard } from './subscription-admin.guard';
 import { Global, Module } from '@nestjs/common';
 import { TenantContextService } from './tenant-context.service';
 import { TenantGuard } from './tenant.guard';
@@ -12,9 +13,10 @@ import { TenantAccessService } from './tenant-access.service';
   providers: [
     TenantContextService,
     TenantGuard,
+    SubscriptionAdminGuard,
     TenantAccessService,
     { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
   ],
-  exports: [TenantContextService, TenantGuard, TenantAccessService],
+  exports: [TenantContextService, TenantGuard, TenantAccessService, SubscriptionAdminGuard],
 })
 export class TenantModule {}

@@ -90,25 +90,15 @@ export class MailService {
   }
 
   async sendLoginNotification(options: {
+    to: string;
+    organizationId: string;
     name: string;
     email: string;
     ip: string | null;
     location: string;
     loggedInAt: Date;
   }): Promise<void> {
-    const defaultSender = await this.emailConnectors.getDefaultSender();
-    const to =
-      this.config.get<string>('LOGIN_NOTIFICATION_EMAIL')?.trim() ||
-      defaultSender?.notificationEmail ||
-      defaultSender?.username ||
-      defaultSender?.fromEmail;
-
-    if (!to) {
-      this.logger.warn(
-        'Login notification skipped because no default email connector is configured.',
-      );
-      return;
-    }
+    const to = options.to;
 
     const name = this.escapeHtml(options.name);
     const email = this.escapeHtml(options.email);
@@ -190,12 +180,12 @@ export class MailService {
     };
 
     try {
-      await this.emailConnectors.sendEmail({
+      await this.emailConnectors.sendTenantPlatformEmail(options.organizationId, {
         ...mailOptions,
         entityType: 'LoginNotification',
       });
       this.logger.log(
-        `Login notification sent through the default email connector to ${to}`,
+        `Tenant login notification sent through platform email to ${to}`,
       );
     } catch (error) {
       this.logger.warn(

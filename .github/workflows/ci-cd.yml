@@ -66,6 +66,11 @@ jobs:
         run: |
           npx prisma generate --schema=apps/api/prisma/schema.prisma
           npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
+      - name: Subscription concurrency checks against CI PostgreSQL
+        run: npm run test:ci --workspace=api -- src/billing/workspace.database.spec.ts
+        env:
+          RUN_SUBSCRIPTION_DATABASE_TESTS: '1'
+          SUBSCRIPTION_DATABASE_URL: postgresql://gromoze_ci:ci-only-password@127.0.0.1:5432/gromoze_ci?schema=public
       - name: Compile API without incremental artifacts
         run: |
           npx tsc -p apps/api/tsconfig.build.json --incremental false
@@ -74,6 +79,9 @@ jobs:
         run: >-
           npm run test:ci --workspace=api --
           src/auth/auth.controller.spec.ts
+          src/auth/auth.service.spec.ts
+          src/billing/workspace.spec.ts
+          src/hr/hr.service.tenant-isolation.spec.ts
           src/common/tenant/tenant.guard.spec.ts
           src/common/tenant/tenant-access.service.spec.ts
           src/crm/portal-accounts.controller.spec.ts
@@ -95,6 +103,8 @@ jobs:
       - name: Web sign-in, OTP, recovery and tenant branding regression tests
         run: >-
           npm run test:ci --workspace=web -- --runInBand --silent
+          src/screens/billing/SubscriptionWorkspace.test.tsx
+          src/common/queries/useWorkspaceAdministration.test.tsx
           src/screens/auth/login/login.test.tsx
           src/screens/auth/login-otp/LoginOtpScreen.test.tsx
           src/screens/auth/forgot-password/ForgotPasswordScreen.test.tsx

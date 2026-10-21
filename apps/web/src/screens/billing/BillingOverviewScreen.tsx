@@ -1,367 +1,343 @@
-import React, { useEffect, useState } from "react";
-import {
-  CreditCard,
-  Users,
-  CheckCircle2,
-  AlertTriangle,
-  Plus,
-  Shield,
-  Receipt,
-  ArrowUpRight,
-  Sparkles,
-} from "lucide-react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   Badge,
   Button,
   Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  Input,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
 } from "ui";
+import {
+  ArrowUpRight,
+  Building2,
+  CalendarClock,
+  LifeBuoy,
+  Mail,
+  Phone,
+  Plus,
+  RefreshCw,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import { api } from "../../common/api";
-import { openRazorpayCheckout } from "../../common/services/razorpayClient";
-
+import { getApiErrorMessage } from "../../common/apiError";
+import { currentOrganizationId } from "../../common/tenantRequestScope";
+import type { BillingOverview } from "./workspace.types";
+import { AddSeatsDialog } from "./AddSeatsDialog";
+import { PaymentHistory } from "./PaymentHistory";
+import { CreateTicketDialog, SupportTickets } from "./SupportTickets";
+import { dateLabel, moneyLabel } from "./WorkspaceControls";
 export function BillingOverviewScreen() {
-  const [data, setData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
-  const [additionalSeats, setAdditionalSeats] = useState(1);
-  const [isProcessingUpgrade, setIsProcessingUpgrade] = useState(false);
-
-  const fetchBillingOverview = async () => {
-    setIsLoading(true);
-    try {
-      const res = await api.get("/billing/overview");
-      setData(res.data);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to load billing details");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchBillingOverview();
-  }, []);
-
-  const handleSeatUpgrade = async () => {
-    if (additionalSeats <= 0) {
-      toast.error("Please select at least 1 seat");
-      return;
-    }
-
-    setIsProcessingUpgrade(true);
-    try {
-      const res = await api.post("/billing/upgrade-seats", {
-        additionalSeats,
-      });
-
-      const checkoutData = res.data;
-
-      await openRazorpayCheckout({
-        key: checkoutData.razorpayKey,
-        amount: checkoutData.amount * 100, // paise
-        currency: checkoutData.currency || "INR",
-        name: "TrueRoot CRM Seat Upgrade",
-        description: `Add ${additionalSeats} active user seat(s)`,
-        order_id: checkoutData.orderId,
-        theme: {
-          color: "#1e293b",
-        },
-        handler: async (paymentResponse) => {
-          try {
-            await api.post("/billing/verify-upgrade", {
-              orderId: paymentResponse.razorpay_order_id,
-              paymentId: paymentResponse.razorpay_payment_id,
-              signature: paymentResponse.razorpay_signature,
-              additionalSeats,
-            });
-
-            toast.success(`Successfully added ${additionalSeats} seat(s)!`);
-            setIsUpgradeModalOpen(false);
-            fetchBillingOverview();
-          } catch (err: any) {
-            toast.error(err?.response?.data?.message || "Upgrade verification failed.");
-          }
-        },
-      });
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to initiate seat upgrade.");
-    } finally {
-      setIsProcessingUpgrade(false);
-    }
-  };
-
-  if (isLoading) {
+  const organizationId = currentOrganizationId(),
+    client = useQueryClient();
+  const [seatsOpen, setSeatsOpen] = useState(false),
+    [ticketKind, setTicketKind] = useState<"support" | "plan" | null>(null);
+  const [tab, setTab] = useState("overview");
+  const query = useQuery({
+    queryKey: ["billing-overview", organizationId],
+    queryFn: async () =>
+      (await api.get<BillingOverview>("/billing/overview")).data,
+    retry: false,
+  });
+  if (query.isPending)
     return (
-      <div className="w-full space-y-5 animate-pulse">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-4">
-          <div className="space-y-2">
-            <div className="h-7 w-60 bg-muted/80 rounded-md" />
-            <div className="h-3.5 w-80 bg-muted/50 rounded" />
-          </div>
-          <div className="h-9 w-36 bg-muted/70 rounded-lg" />
+      <div
+        role="status"
+        aria-label="Loading subscription workspace"
+        className="space-y-5 animate-pulse"
+      >
+        <div className="h-8 w-64 max-w-full rounded-lg bg-muted" />
+        <div className="h-56 rounded-xl border border-border bg-muted/50" />
+        <div className="grid gap-5 md:grid-cols-2">
+          <div className="h-48 rounded-xl bg-muted/50" />
+          <div className="h-48 rounded-xl bg-muted/50" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-36 bg-card border border-border rounded-xl p-5 space-y-3 shadow-xs">
-              <div className="h-4 w-28 bg-muted/60 rounded" />
-              <div className="h-8 w-32 bg-muted/80 rounded-md" />
-              <div className="h-3 w-40 bg-muted/40 rounded" />
-            </div>
-          ))}
-        </div>
-        <div className="h-64 bg-card border border-border rounded-xl p-6 shadow-xs" />
+        <span className="sr-only">Loading subscription workspace...</span>
       </div>
     );
-  }
-
-  const upgradeCost = additionalSeats * (data?.pricePerSeatMonth || 500);
-
+  if (query.isError || !query.data)
+    return (
+      <Card className="space-y-4 p-6">
+        <h1 className="text-xl font-semibold">Subscription & support</h1>
+        <p role="alert" className="text-sm text-muted-foreground">
+          {getApiErrorMessage(
+            query.error,
+            "Could not load the subscription workspace.",
+          )}
+        </p>
+        <Button variant="outline" onClick={() => void query.refetch()}>
+          Try again
+        </Button>
+      </Card>
+    );
+  const data: BillingOverview = query.data;
+  const needsAction =
+    data.expiryState === "EXPIRED" || data.expiryState === "DUE_SOON";
+  const availablePlans = data.availablePlans.filter(
+    (plan) => plan.code !== data.planTier,
+  );
   return (
-    <div className="w-full space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="mx-auto w-full max-w-7xl space-y-6">
+      <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Subscription & Billing
+          <p className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
+            <Building2 className="size-4" />
+            {data.name}
+          </p>
+          <h1 className="text-2xl font-semibold text-foreground">
+            Subscription & support
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage your company licenses, seats allocation, and payment history.
+          <p className="mt-1 text-sm text-muted-foreground">
+            Your plan, people, payments, and a direct line to Gromoze.
           </p>
         </div>
-
         <Button
-          variant="primary"
-          className="flex items-center gap-2"
-          onClick={() => setIsUpgradeModalOpen(true)}
+          variant="outline"
+          disabled={query.isFetching}
+          onClick={() => void query.refetch()}
         >
-          <Plus className="w-4 h-4" />
-          Add User Seats
+          <RefreshCw className="size-4" />
+          Refresh
         </Button>
-      </div>
-
-      {/* Overview Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Seats Allocation Card */}
-        <Card className="border border-border bg-card shadow-sm rounded-xl p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground uppercase">
-              Seat Utilization
-            </span>
-            <Users className="w-4 h-4 text-primary" />
+      </header>
+      {needsAction && (
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-primary/20 bg-primary/5 p-5">
+          <div className="flex items-start gap-3">
+            <CalendarClock className="mt-0.5 size-5 shrink-0 text-primary" />
+            <div>
+              <p className="font-semibold">
+                {data.expiryState === "EXPIRED"
+                  ? `${
+                      data.isTrial
+                        ? "Your trial has ended"
+                        : "Your subscription is past due"
+                    }`
+                  : `${data.isTrial ? "Trial ends" : "Renewal due"} in ${
+                      data.daysRemaining
+                    } day${data.daysRemaining === 1 ? "" : "s"}`}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {dateLabel(data.expiresAt)} - Review your subscription and
+                contact Gromoze for renewal assistance.
+              </p>
+            </div>
           </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-foreground">
-              {data?.activeMembersCount || 0}
-            </span>
-            <span className="text-sm text-muted-foreground font-medium">
-              / {data?.allocatedSeats || 1} Seats Active
-            </span>
-          </div>
-          <div className="mt-3 w-full bg-muted rounded-full h-2 overflow-hidden">
-            <div
-              className="bg-primary h-2 rounded-full transition-all"
-              style={{
-                width: `${Math.min(
-                  100,
-                  ((data?.activeMembersCount || 0) / (data?.allocatedSeats || 1)) * 100
-                )}%`,
-              }}
-            />
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            {data?.remainingSeats || 0} seat(s) remaining for new team members.
-          </p>
-        </Card>
-
-        {/* Plan & Pricing Model */}
-        <Card className="border border-border bg-card shadow-sm rounded-xl p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground uppercase">
-              Current Plan
-            </span>
-            <Sparkles className="w-4 h-4 text-primary" />
-          </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-foreground capitalize">
-              {data?.planTier || "Starter"}
-            </span>
-            <Badge variant="neutral" className="text-xs font-normal">
-              ₹{data?.pricePerSeatMonth}/user/mo
-            </Badge>
-          </div>
-          <p className="mt-4 text-xs text-muted-foreground">
-            {data?.setupFeePaid ? (
-              <span className="inline-flex items-center gap-1 text-emerald-600 font-medium">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Platform Setup Verified
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-amber-600 font-medium">
-                <AlertTriangle className="w-3.5 h-3.5" /> Setup Fee Pending
-              </span>
-            )}
-          </p>
-        </Card>
-
-        {/* Subscription Renewal */}
-        <Card className="border border-border bg-card shadow-sm rounded-xl p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground uppercase">
-              Renewal Date
-            </span>
-            <CreditCard className="w-4 h-4 text-primary" />
-          </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-xl font-bold text-foreground">
-              {data?.currentPeriodEnd
-                ? new Date(data.currentPeriodEnd).toLocaleDateString("en-IN", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })
-                : "Active"}
-            </span>
-          </div>
-          <p className="mt-4 text-xs text-muted-foreground">
-            Recurring per-seat subscription via Razorpay.
-          </p>
-        </Card>
-      </div>
-
-      {/* Transaction History Table */}
-      <Card className="border border-border bg-card shadow-sm rounded-xl overflow-hidden">
-        <CardHeader className="border-b border-border/50 px-6 py-4">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <Receipt className="w-4 h-4 text-primary" />
-            Billing & Invoices History
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted/40 text-muted-foreground text-xs uppercase border-b border-border/50">
-                <tr>
-                  <th className="px-6 py-3 font-semibold">Date</th>
-                  <th className="px-6 py-3 font-semibold">Type</th>
-                  <th className="px-6 py-3 font-semibold">Amount</th>
-                  <th className="px-6 py-3 font-semibold">Status</th>
-                  <th className="px-6 py-3 font-semibold text-right">Payment Reference</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50 text-foreground">
-                {data?.recentTransactions?.length ? (
-                  data.recentTransactions.map((tx: any) => (
-                    <tr key={tx.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-xs text-muted-foreground">
-                        {new Date(tx.createdAt).toLocaleDateString("en-IN", {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </td>
-                      <td className="px-6 py-4 font-medium text-xs">
-                        {tx.type === "SETUP_FEE" ? "Setup Fee + Initial Seats" : "Seat Expansion"}
-                      </td>
-                      <td className="px-6 py-4 font-semibold text-xs">
-                        ₹{Number(tx.amount).toLocaleString("en-IN")}
-                      </td>
-                      <td className="px-6 py-4">
-                        <Badge
-                          variant="success"
-                          className="text-xs"
-                        >
-                          {tx.status}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 text-right font-mono text-xs text-muted-foreground">
-                        {tx.razorpayPaymentId || "—"}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-xs text-muted-foreground">
-                      No past transactions found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Seat Upgrade Dialog */}
-      <Dialog open={isUpgradeModalOpen} onOpenChange={setIsUpgradeModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
-              <Users className="w-5 h-5 text-primary" />
-              Add User Seats
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-3">
-            <p className="text-xs text-muted-foreground">
-              Each user seat gives an agent, telecaller, or manager full access to your CRM workspace.
-            </p>
-
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-foreground">
-                How many seats would you like to add?
-              </label>
+          <Button onClick={() => setTicketKind("support")}>
+            Request renewal assistance
+          </Button>
+        </div>
+      )}
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList
+          className="grid h-auto w-full grid-cols-3 sm:inline-flex sm:h-10 sm:w-auto"
+          aria-label="Subscription workspace sections"
+        >
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="payments">Payment history</TabsTrigger>
+          <TabsTrigger value="support">Support tickets</TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview" className="mt-6 space-y-5">
+          <Card className="overflow-hidden">
+            <div className="grid lg:grid-cols-3">
+              <div className="space-y-5 p-6 lg:col-span-2 lg:border-r lg:border-border">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Current plan
+                  </p>
+                  <Badge
+                    variant={
+                      data.expiryState === "EXPIRED"
+                        ? "warning"
+                        : data.isTrial
+                        ? "info"
+                        : "neutral"
+                    }
+                  >
+                    {data.expiryState === "EXPIRED"
+                      ? "Action required"
+                      : data.isTrial
+                      ? "Trial"
+                      : data.status === "ACTIVE"
+                      ? "Active subscription"
+                      : data.status.replace(/_/g, " ").toLowerCase()}
+                  </Badge>
+                </div>
+                <div>
+                  <h2 className="text-3xl font-semibold text-secondary">
+                    {data.planName}
+                  </h2>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {moneyLabel(data.pricePerSeatMonth)} per seat / month -{" "}
+                    {data.allocatedSeats} licensed seats
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    disabled={!availablePlans.length}
+                    onClick={() => setTicketKind("plan")}
+                  >
+                    Request plan change
+                    <ArrowUpRight className="size-4" />
+                  </Button>
+                  <Button variant="outline" onClick={() => setSeatsOpen(true)}>
+                    <Plus className="size-4" />
+                    Add user seats
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Plan changes are reviewed by Gromoze. You will receive
+                  confirmed pricing before any change.
+                </p>
+              </div>
+              <div className="bg-muted/20 p-6">
+                <CalendarClock className="size-6 text-primary" />
+                <p className="mt-4 text-sm text-muted-foreground">
+                  {data.isTrial ? "Trial expiry" : "Renewal date"}
+                </p>
+                <p className="mt-2 text-xl font-semibold">
+                  {dateLabel(data.expiresAt)}
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {data.daysRemaining === null
+                    ? "Contact support to confirm your subscription period."
+                    : data.expiryState === "EXPIRED"
+                    ? "Renewal requires your attention."
+                    : `${data.daysRemaining} days remaining`}
+                </p>
+                <div className="mt-5 flex items-start gap-2 border-t border-border pt-4 text-xs text-muted-foreground">
+                  <Mail className="mt-0.5 size-4 shrink-0" />
+                  <span>
+                    Reminder emails at 14, 7, 3 and 1 days before expiry.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Card>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <Card className="p-6">
               <div className="flex items-center gap-3">
-                <Input
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={additionalSeats}
-                  onChange={(e) => setAdditionalSeats(Math.max(1, Number(e.target.value)))}
-                  className="w-28"
+                <Users className="size-5 text-primary" />
+                <h2 className="font-semibold">Workspace seats</h2>
+              </div>
+              <div className="mt-5 flex items-baseline gap-2">
+                <span className="text-3xl font-semibold">
+                  {data.activeMembersCount}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  of {data.allocatedSeats} seats in use
+                </span>
+              </div>
+              <div
+                role="progressbar"
+                aria-label="Seat utilization"
+                aria-valuenow={data.activeMembersCount}
+                aria-valuemin={0}
+                aria-valuemax={Math.max(
+                  data.allocatedSeats,
+                  data.activeMembersCount,
+                )}
+                className="mt-4 h-2 overflow-hidden rounded-lg bg-muted"
+              >
+                <div
+                  className="h-full bg-primary"
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      (data.activeMembersCount /
+                        Math.max(1, data.allocatedSeats)) *
+                        100,
+                    )}%`,
+                  }}
                 />
-                <span className="text-xs text-muted-foreground">
-                  × ₹{data?.pricePerSeatMonth || 500}/user/mo
-                </span>
               </div>
-            </div>
-
-            <div className="bg-muted/40 p-4 rounded-lg border border-border space-y-2">
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Additional Seats:</span>
-                <span className="font-semibold">{additionalSeats}</span>
+              <p className="mt-3 text-sm text-muted-foreground">
+                {data.remainingSeats} seats available -{" "}
+                {data.pendingInvitations} reserved for pending invitations.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-5"
+                onClick={() => setSeatsOpen(true)}
+              >
+                Manage seats
+              </Button>
+            </Card>
+            <Card className="p-6">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="font-semibold">Workspace contact</h2>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/admin/settings">Edit details</Link>
+                </Button>
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">New Total Seat Limit:</span>
-                <span className="font-semibold">
-                  {(data?.allocatedSeats || 1) + additionalSeats} seats
-                </span>
+              <p className="mt-5 font-medium">
+                {data.contact.ownerName || "Workspace owner"}
+              </p>
+              <p className="mt-1 break-all text-sm text-muted-foreground">
+                {data.contact.ownerEmail || "Owner email not configured"}
+              </p>
+              <div className="mt-4 space-y-3 border-t border-border pt-4 text-sm">
+                <p className="flex items-center gap-2 break-all">
+                  <Mail className="size-4 shrink-0 text-muted-foreground" />
+                  {data.contact.email || "Company email not configured"}
+                </p>
+                <p className="flex items-center gap-2">
+                  <Phone className="size-4 text-muted-foreground" />
+                  {data.contact.phone || "Company phone not configured"}
+                </p>
               </div>
-              <div className="flex justify-between text-sm font-bold pt-2 border-t border-border">
-                <span>Amount Due:</span>
-                <span className="text-primary">₹{upgradeCost.toLocaleString("en-IN")}</span>
-              </div>
-            </div>
-
-            <Button
-              variant="primary"
-              className="w-full flex items-center justify-center gap-2 mt-2"
-              onClick={handleSeatUpgrade}
-              disabled={isProcessingUpgrade}
-            >
-              {isProcessingUpgrade ? "Processing..." : `Pay ₹${upgradeCost.toLocaleString("en-IN")} via Razorpay`}
-              <ArrowUpRight className="w-4 h-4" />
-            </Button>
+            </Card>
           </div>
-        </DialogContent>
-      </Dialog>
+          <Card className="flex flex-wrap items-center justify-between gap-4 p-5">
+            <div className="flex items-center gap-3">
+              <LifeBuoy className="size-5 text-primary" />
+              <div>
+                <h2 className="font-semibold">
+                  Need a hand with your workspace?
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Create a support ticket and track its progress here.
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" onClick={() => setTicketKind("support")}>
+              Contact Gromoze
+            </Button>
+          </Card>
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            <ShieldCheck className="size-4" />
+            Subscription and support details are available to workspace owners
+            and administrators.
+          </p>
+        </TabsContent>
+        <TabsContent value="payments" className="mt-6">
+          <PaymentHistory />
+        </TabsContent>
+        <TabsContent value="support" className="mt-6">
+          <SupportTickets onCreate={() => setTicketKind("support")} />
+        </TabsContent>
+      </Tabs>
+      <AddSeatsDialog
+        open={seatsOpen}
+        onOpenChange={setSeatsOpen}
+        onPurchased={() => toast.success("User seats added successfully")}
+      />
+      <CreateTicketDialog
+        kind={ticketKind}
+        plans={availablePlans}
+        onClose={() => setTicketKind(null)}
+        onCreated={() => {
+          void client.invalidateQueries({
+            queryKey: ["support-tickets", organizationId],
+          });
+          setTab("support");
+          toast.success("Your request has been saved.");
+        }}
+      />
     </div>
   );
 }

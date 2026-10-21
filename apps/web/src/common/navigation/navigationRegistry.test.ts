@@ -191,3 +191,16 @@ describe("navigationRegistry contract tests", () => {
     expect(withoutLabels).not.toContain("Payroll");
   });
 });
+
+ test('subscription navigation is limited to tenant admins even with broad employee permissions', () => {
+  const hasSubscription = (role: AuthUser['role']) => getNavigationForUser(createAuthUser(role, []), '/dashboard').some((item) => item.id === 'settings.subscription');
+  expect(hasSubscription('ADMIN')).toBe(true);
+  expect(hasSubscription('HR')).toBe(false);
+  expect(hasSubscription('SALES_AGENT')).toBe(false);
+  expect(hasSubscription('SUPER_ADMIN')).toBe(false);
+});
+
+ test('uses selected membership privileges for subscription visibility', () => {
+   expect(getNavigationForUser(createAuthUser('SALES_AGENT', []), '/field-executive/dashboard', true).some((item) => item.id === 'settings.subscription')).toBe(true);
+   expect(getNavigationForUser(createAuthUser('ADMIN', []), '/dashboard', false).some((item) => item.id === 'settings.subscription')).toBe(false);
+ });

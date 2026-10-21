@@ -16,7 +16,7 @@ describe('Trial payment reminders', () => {
     organization: { findMany: jest.fn(), findFirst: jest.fn() },
     emailLog: { findFirst: jest.fn() },
   };
-  const email = { sendPlatformEmail: jest.fn() };
+  const email = { sendTenantPlatformEmail: jest.fn() };
   const redis = { set: jest.fn() };
   let worker: TrialReminderWorker;
   const organization = {
@@ -59,7 +59,8 @@ describe('Trial payment reminders', () => {
     await expect(worker.dispatchDueReminders(now)).resolves.toEqual({
       sent: 1,
     });
-    expect(email.sendPlatformEmail).toHaveBeenCalledWith(
+    expect(email.sendTenantPlatformEmail).toHaveBeenCalledWith(
+      'tenant-a',
       expect.objectContaining({
         to: 'owner-a@example.test',
         entityType: 'TrialPaymentReminder',
@@ -71,7 +72,11 @@ describe('Trial payment reminders', () => {
       expect.objectContaining({
         select: expect.objectContaining({
           memberships: {
-            where: { isActive: true, isOwner: true, user: { isActive: true } },
+            where: {
+              isActive: true,
+              isOwner: true,
+              user: { isActive: true, role: { not: 'SUPER_ADMIN' } },
+            },
             select: { user: { select: { email: true, fullName: true } } },
           },
         }),
@@ -79,28 +84,60 @@ describe('Trial payment reminders', () => {
     );
   });
 
-  it('queries unpaid expired trials, with a 14-day fallback only for legacy TRIAL records', async () => {
+  it('queries only eligible workspaces with trial or paid-plan deadlines', async () => {
     prisma.organization.findMany.mockResolvedValue([]);
     await worker.dispatchDueReminders(now);
     expect(prisma.organization.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          setupFeePaid: false,
-          OR: [
-            {
-              status: { in: ['TRIAL', 'SETUP_PENDING', 'PAST_DUE'] },
-              trialEndsAt: { lte: now },
-            },
-            {
-              status: 'TRIAL',
-              trialEndsAt: null,
-              createdAt: { lte: new Date('2026-10-03T12:00:00Z') },
-            },
-          ],
+          OR: expect.arrayContaining([
+            expect.objectContaining({
+              setupFeePaid: false,
+              trialEndsAt: { lte: new Date('2026-10-31T12:00:00Z') },
+            }),
+            expect.objectContaining({
+              setupFeePaid: true,
+              status: { in: ['ACTIVE', 'PAST_DUE'] },
+              currentPeriodEnd: { lte: new Date('2026-10-31T12:00:00Z') },
+            }),
+          ]),
         },
       }),
     );
-    expect(email.sendPlatformEmail).not.toHaveBeenCalled();
+  });
+
+  it.each([14, 7, 3, 1])(
+    'sends a paid-plan reminder %i days before renewal',
+    async (days) => {
+      const deadline = new Date(now.getTime() + days * 86400000);
+      prisma.organization.findFirst.mockResolvedValueOnce({
+        ...organization,
+        setupFeePaid: true,
+        currentPeriodEnd: deadline,
+        status: 'ACTIVE',
+      });
+      await expect(worker.dispatchDueReminders(now)).resolves.toEqual({
+        sent: 1,
+      });
+      expect(email.sendTenantPlatformEmail).toHaveBeenCalledWith(
+        'tenant-a',
+        expect.objectContaining({
+          entityType: 'SubscriptionRenewalReminder',
+          entityId: `tenant-a:${deadline.toISOString()}:${days}`,
+        }),
+      );
+    },
+  );
+
+  it('does not email between reminder milestones', async () => {
+    prisma.organization.findFirst.mockResolvedValueOnce({
+      ...organization,
+      trialEndsAt: new Date(now.getTime() + 6 * 86400000),
+    });
+    await expect(worker.dispatchDueReminders(now)).resolves.toEqual({
+      sent: 0,
+    });
+    expect(email.sendTenantPlatformEmail).not.toHaveBeenCalled();
   });
 
   it('does not resend a successfully logged reminder after a worker restart', async () => {
@@ -109,13 +146,13 @@ describe('Trial payment reminders', () => {
       sent: 0,
     });
     expect(redis.set).not.toHaveBeenCalled();
-    expect(email.sendPlatformEmail).not.toHaveBeenCalled();
+    expect(email.sendTenantPlatformEmail).not.toHaveBeenCalled();
   });
 
   it('does not send while another worker holds the recipient lock', async () => {
     redis.set.mockResolvedValue(null);
     await worker.dispatchDueReminders(now);
-    expect(email.sendPlatformEmail).not.toHaveBeenCalled();
+    expect(email.sendTenantPlatformEmail).not.toHaveBeenCalled();
   });
 
   it('checks for payment or cancellation again immediately before sending', async () => {
@@ -125,11 +162,11 @@ describe('Trial payment reminders', () => {
     await expect(worker.dispatchDueReminders(now)).resolves.toEqual({
       sent: 0,
     });
-    expect(email.sendPlatformEmail).not.toHaveBeenCalled();
+    expect(email.sendTenantPlatformEmail).not.toHaveBeenCalled();
   });
 
   it('does not mark a failed SMTP attempt as successfully reminded and can retry later', async () => {
-    email.sendPlatformEmail.mockRejectedValueOnce(
+    email.sendTenantPlatformEmail.mockRejectedValueOnce(
       new Error('SMTP unavailable'),
     );
     await expect(worker.dispatchDueReminders(now)).resolves.toEqual({
@@ -150,7 +187,7 @@ describe('Trial payment reminders', () => {
       ],
     });
     await worker.dispatchDueReminders(now);
-    expect(email.sendPlatformEmail).toHaveBeenCalledTimes(1);
+    expect(email.sendTenantPlatformEmail).toHaveBeenCalledTimes(1);
   });
 
   it('does not mail a salesperson or guess a recipient for an ownerless workspace', async () => {
@@ -159,7 +196,7 @@ describe('Trial payment reminders', () => {
       memberships: [],
     });
     await worker.dispatchDueReminders(now);
-    expect(email.sendPlatformEmail).not.toHaveBeenCalled();
+    expect(email.sendTenantPlatformEmail).not.toHaveBeenCalled();
   });
 
   it('does not start background sends unless explicitly enabled', () => {

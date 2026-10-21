@@ -30,6 +30,7 @@ export interface EnvironmentVariables {
   SMS_ROUTE?: string;
   SMS_SENDER?: string;
   LOGIN_NOTIFICATION_EMAIL?: string;
+  PLATFORM_SUPPORT_EMAIL?: string;
   SMTP_HOST: string;
   SMTP_PORT: number;
   SMTP_SECURE: boolean;
@@ -85,6 +86,7 @@ export const validationSchemaForEnv = Joi.object<EnvironmentVariables, true>({
   SMS_ROUTE: Joi.string().allow('').optional(),
   SMS_SENDER: Joi.string().allow('').optional(),
   LOGIN_NOTIFICATION_EMAIL: Joi.string().email().allow('').optional(),
+  PLATFORM_SUPPORT_EMAIL: Joi.string().email().allow('').optional(),
   SMTP_HOST: Joi.string().hostname().default('smtp.gmail.com'),
   SMTP_PORT: Joi.number().integer().min(1).max(65535).default(465),
   SMTP_SECURE: Joi.boolean().default(true),

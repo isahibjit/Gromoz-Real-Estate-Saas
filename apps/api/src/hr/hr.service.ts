@@ -1,3 +1,4 @@
+import { withSeatCapacity } from '../common/tenant/seat-capacity';
 import {
   BadRequestException,
   ConflictException,
@@ -686,7 +687,7 @@ export class HrService {
     if (requestedLeaderOfTeamId) {
       await this.assertTeamCanAcceptLeader(requestedLeaderOfTeamId);
     }
-    const user = await this.prisma.user.create({
+    const user = await withSeatCapacity(this.prisma, organizationId, async (tx) => tx.user.create({
       data: {
         email,
         fullName,
@@ -754,7 +755,7 @@ export class HrService {
           },
         },
       },
-    });
+    }));
     if (role === 'TEAM_LEADER') {
       await this.applyEmployeeTeamLeadership(user.id, requestedLeaderOfTeamId);
     }
