@@ -31,7 +31,7 @@ export function useWorkspaceAdministration() {
     retry: false,
     staleTime: 60000,
   });
-  const membership = query.data?.find((entry) =>
+  const membership = query.data?.find((entry: WorkspaceMembership) =>
     organizationId
       ? entry.organizationId === organizationId
       : entry.slug === slug,

@@ -1242,7 +1242,7 @@ export function WorkspaceSettingsPage() {
           </div>
           <div className="rounded-lg border border-border bg-muted/20 p-4">
             <Checkbox checked={preferencesForm.loginAlertsEnabled} onChange={(event) => setPreferencesForm({ ...preferencesForm, loginAlertsEnabled: event.target.checked })} label="Email the workspace owner when a user signs in" />
-            <p className="mt-2 text-xs text-muted-foreground">Successful sign-in alerts are delivered only to this workspace's active owner. This does not affect billing reminders.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Successful sign-in alerts are delivered only to the active owner of this workspace. This does not affect billing reminders.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-2">
             <div className="space-y-1.5">

@@ -15,7 +15,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { TenantGuard } from '../common/tenant/tenant.guard';
-import { CurrentTenant, TenantId } from '../common/tenant/tenant.decorator';
+import { TenantId } from '../common/tenant/tenant.decorator';
 import {
   BillingService,
   SetupCheckoutDto,

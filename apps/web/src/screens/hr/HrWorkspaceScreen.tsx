@@ -140,11 +140,6 @@ import {
 } from "../../common/navigation/navigationRegistry";
 import { useAppSelector } from "../../store";
 import { useDashboardLayoutContext } from "../admin/dashboard/DashboardLayoutContext";
-import {
-  sidebarItems,
-} from "../admin/dashboard/dashboardData";
-import { telecallerSidebarItems } from "../telecaller/dashboard/telecallerDashboardData";
-import { fieldExecutiveSidebarItems } from "../field-executive/fieldExecutiveData";
 import { hrKeys, useHrMutations, useHrQuery } from "./useHrWorkspace";
 import { EmployeeModal, type Employee } from "./components/EmployeeModal";
 import { HrEmployeeIdentityCell } from "./components/HrEmployeeIdentityCell";
@@ -154,10 +149,6 @@ import { HrPayrollPanel } from "./payroll/HrPayrollPanel";
 import { HolidaysPage } from "./holidays/HolidaysPage";
 import { PayrollSettingsPage } from "./settings/PayrollSettingsPage";
 import { PersonalSettingsPage } from "./settings/PersonalSettingsPage";
-import {
-  myEmploymentSidebarChildren,
-  myEmploymentSidebarItem,
-} from "./hrSidebarData";
 
 type Workspace =
   | "employees"

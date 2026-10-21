@@ -94,7 +94,6 @@ import {
 import { PublicProjectGalleryScreen } from "./screens/public/PublicProjectGalleryScreen";
 import { EmailSettingsScreen } from "./screens/admin/settings/EmailSettingsScreen";
 import { NotificationSettingsScreen } from "./screens/admin/settings/NotificationSettingsScreen";
-import { Loader2 } from "lucide-react";
 import { Card } from "ui";
 import { canAccess } from "./common/access/access";
 import {
