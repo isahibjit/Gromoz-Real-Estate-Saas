@@ -198,7 +198,11 @@ export class AuthService {
         workspaceIsAccessible(m.organization),
       );
 
-      const hasBillingAccess = user.organizationMemberships.some((membership) => (membership.isOwner || membership.role === 'ADMIN') && !['SUSPENDED', 'CANCELLED'].includes(membership.organization.status));
+      const hasBillingAccess = user.organizationMemberships.some(
+        (membership) =>
+          (membership.isOwner || membership.role === 'ADMIN') &&
+          !['SUSPENDED', 'CANCELLED'].includes(membership.organization.status),
+      );
       if (!hasActiveOrg && !hasBillingAccess) {
         const pendingOrg = user.organizationMemberships[0]?.organization;
         if (
@@ -605,7 +609,11 @@ export class AuthService {
         workspaceIsAccessible(m.organization),
       );
 
-      const hasBillingAccess = user.organizationMemberships.some((membership) => (membership.isOwner || membership.role === 'ADMIN') && !['SUSPENDED', 'CANCELLED'].includes(membership.organization.status));
+      const hasBillingAccess = user.organizationMemberships.some(
+        (membership) =>
+          (membership.isOwner || membership.role === 'ADMIN') &&
+          !['SUSPENDED', 'CANCELLED'].includes(membership.organization.status),
+      );
       if (!hasActiveOrg && !hasBillingAccess) {
         const pendingOrg = user.organizationMemberships[0]?.organization;
         if (
@@ -998,7 +1006,9 @@ export class AuthService {
     if (user.role === 'SUPER_ADMIN') return;
     const header = (name: string) => {
       const value = request?.headers?.[name];
-      return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+      return typeof value === 'string' && value.trim()
+        ? value.trim()
+        : undefined;
     };
     const organizationId = header('x-organization-id') ?? header('x-tenant-id');
     const alternateId = header('x-tenant-id');
@@ -1006,25 +1016,50 @@ export class AuthService {
     if (!organizationId && !slug) return;
     if (alternateId && organizationId !== alternateId) return;
     const memberships = await this.prisma.organizationMember.findMany({
-      where: { userId: user.id, isActive: true,
+      where: {
+        userId: user.id,
+        isActive: true,
         ...(organizationId ? { organizationId } : {}),
         organization: { ...(slug ? { slug } : {}) },
       },
       take: 2,
-      select: { organization: { select: {
-        id: true, workspaceSettingsJson: true,
-        memberships: { where: { isActive: true, isOwner: true, user: { isActive: true, role: { not: 'SUPER_ADMIN' } } },
-          select: { user: { select: { email: true } } } },
-      } } },
+      select: {
+        organization: {
+          select: {
+            id: true,
+            workspaceSettingsJson: true,
+            memberships: {
+              where: {
+                isActive: true,
+                isOwner: true,
+                user: { isActive: true, role: { not: 'SUPER_ADMIN' } },
+              },
+              select: { user: { select: { email: true } } },
+            },
+          },
+        },
+      },
     });
     if (memberships.length !== 1) return;
     const organization = memberships[0].organization;
     const settings = organization.workspaceSettingsJson;
     if (settings && typeof settings === 'object' && !Array.isArray(settings)) {
       const preferences = settings.preferences;
-      if (preferences && typeof preferences === 'object' && !Array.isArray(preferences) && preferences.loginAlertsEnabled === false) return;
+      if (
+        preferences &&
+        typeof preferences === 'object' &&
+        !Array.isArray(preferences) &&
+        preferences.loginAlertsEnabled === false
+      )
+        return;
     }
-    const recipients = [...new Set(organization.memberships.map(({ user: owner }) => owner.email.trim().toLowerCase()))];
+    const recipients = [
+      ...new Set(
+        organization.memberships.map(({ user: owner }) =>
+          owner.email.trim().toLowerCase(),
+        ),
+      ),
+    ];
     if (!recipients.length) return;
     const { ip } = this.getRequestMetadata(request);
     const location =
@@ -1045,15 +1080,19 @@ export class AuthService {
             ip,
           )} (device location unavailable)`;
 
-    await Promise.all(recipients.map((to) => this.mailService.sendLoginNotification({
-      to,
-      organizationId: organization.id,
-      name: user.fullName || user.email,
-      email: user.email,
-      ip,
-      location,
-      loggedInAt: new Date(),
-    })));
+    await Promise.all(
+      recipients.map((to) =>
+        this.mailService.sendLoginNotification({
+          to,
+          organizationId: organization.id,
+          name: user.fullName || user.email,
+          email: user.email,
+          ip,
+          location,
+          loggedInAt: new Date(),
+        }),
+      ),
+    );
   }
 
   private async resolveLoginLocation(ip: string | null): Promise<string> {

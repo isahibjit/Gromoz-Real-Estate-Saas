@@ -75,7 +75,14 @@ export class OrganizationController {
     @Body() dto: UpdateWorkspaceSettingsDto,
     @Req() req: { tenant: { role?: string; isOwner?: boolean } },
   ) {
-    if (dto.preferences?.loginAlertsEnabled !== undefined && !req.tenant.isOwner && req.tenant.role !== 'ADMIN') throw new ForbiddenException('Only workspace owners and administrators can change login alerts');
+    if (
+      dto.preferences?.loginAlertsEnabled !== undefined &&
+      !req.tenant.isOwner &&
+      req.tenant.role !== 'ADMIN'
+    )
+      throw new ForbiddenException(
+        'Only workspace owners and administrators can change login alerts',
+      );
     return this.orgService.updateWorkspaceSettings(tenantId, dto);
   }
 

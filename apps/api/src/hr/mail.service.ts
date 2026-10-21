@@ -63,7 +63,6 @@ export class MailService {
     html: string;
     fromName?: string | null;
   }): Promise<void> {
-    const fromName = options.fromName?.trim() || 'HR team';
     const textFallback = options.html
       .replace(/<style[\s\S]*?<\/style>/gi, ' ')
       .replace(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -104,32 +103,6 @@ export class MailService {
     const email = this.escapeHtml(options.email);
     const ip = this.escapeHtml(options.ip ?? 'Unavailable');
     const location = this.escapeHtml(options.location);
-
-    const formatLoginTime = (date: Date): string => {
-      const formatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'Asia/Kolkata',
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-      });
-      const parts = formatter.formatToParts(date);
-      const getPart = (type: string) =>
-        parts.find((p) => p.type === type)?.value || '';
-
-      let month = getPart('month');
-      if (month === 'Sep') month = 'Sept';
-
-      const day = getPart('day');
-      const year = getPart('year');
-      const hour = getPart('hour');
-      const minute = getPart('minute');
-      const dayPeriod = getPart('dayPeriod').toLowerCase();
-
-      return `${day} ${month} ${year}, ${hour}:${minute} ${dayPeriod} IST`;
-    };
 
     const loggedInAt = this.formatDateTime(options.loggedInAt);
 
@@ -180,10 +153,13 @@ export class MailService {
     };
 
     try {
-      await this.emailConnectors.sendTenantPlatformEmail(options.organizationId, {
-        ...mailOptions,
-        entityType: 'LoginNotification',
-      });
+      await this.emailConnectors.sendTenantPlatformEmail(
+        options.organizationId,
+        {
+          ...mailOptions,
+          entityType: 'LoginNotification',
+        },
+      );
       this.logger.log(
         `Tenant login notification sent through platform email to ${to}`,
       );

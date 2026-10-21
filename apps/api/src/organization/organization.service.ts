@@ -153,7 +153,11 @@ export class WorkspacePreferencesDto {
   @IsOptional() @IsString() defaultLandingPage?: string;
   @IsOptional() @IsString() sessionTimeout?: string;
   @IsOptional() @IsBoolean() emailNotifications?: boolean;
-  @ValidateIf((_object: WorkspacePreferencesDto, value: unknown) => value !== undefined) @IsBoolean() loginAlertsEnabled?: boolean;
+  @ValidateIf(
+    (_object: WorkspacePreferencesDto, value: unknown) => value !== undefined,
+  )
+  @IsBoolean()
+  loginAlertsEnabled?: boolean;
   @IsOptional() @IsBoolean() dailyDigest?: boolean;
   @IsOptional() @IsBoolean() showMapView?: boolean;
   @IsOptional() @IsBoolean() compactTable?: boolean;
@@ -190,7 +194,11 @@ export class UpdateWorkspaceSettingsDto {
   @IsOptional() @IsString() customDomain?: string;
   @IsOptional() @IsObject() localization?: Record<string, unknown>;
   @IsOptional() @IsObject() financial?: Record<string, unknown>;
-  @IsOptional() @IsObject() @ValidateNested() @Type(() => WorkspacePreferencesDto) preferences?: WorkspacePreferencesDto;
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => WorkspacePreferencesDto)
+  preferences?: WorkspacePreferencesDto;
   @IsOptional() @IsObject() security?: Record<string, unknown>;
   @IsOptional() @IsObject() loginCms?: Record<string, unknown>;
 }
@@ -451,15 +459,18 @@ export class OrganizationService {
         billingAddress: org.addressLine1 || '',
         autoInvoice: true,
       },
-      preferences: { loginAlertsEnabled: true, ...(customSettings.preferences || {
-        defaultLandingPage: '/admin/dashboard',
-        sessionTimeout: '60',
-        emailNotifications: true,
+      preferences: {
         loginAlertsEnabled: true,
-        dailyDigest: true,
-        showMapView: true,
-        compactTable: false,
-      }) },
+        ...(customSettings.preferences || {
+          defaultLandingPage: '/admin/dashboard',
+          sessionTimeout: '60',
+          emailNotifications: true,
+          loginAlertsEnabled: true,
+          dailyDigest: true,
+          showMapView: true,
+          compactTable: false,
+        }),
+      },
       security: customSettings.security || {
         enforce2FA: false,
         passwordMinLength: '8',
@@ -560,7 +571,9 @@ export class OrganizationService {
       ...existingSettings,
       ...(dto.localization && { localization: dto.localization }),
       ...(dto.financial && { financial: dto.financial }),
-      ...(dto.preferences && { preferences: { ...existingSettings.preferences, ...dto.preferences } }),
+      ...(dto.preferences && {
+        preferences: { ...existingSettings.preferences, ...dto.preferences },
+      }),
       ...(dto.security && { security: dto.security }),
       ...(dto.loginCms && { loginCms: dto.loginCms }),
       ...((dto.sidebarLogoObjectFit !== undefined ||
@@ -900,16 +913,18 @@ export class OrganizationService {
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    const invitation = await withSeatCapacity(this.prisma, orgId, (tx) => tx.organizationInvitation.create({
-      data: {
-        organizationId: orgId,
-        email,
-        role: targetRole,
-        token,
-        invitedById: currentUserId,
-        expiresAt,
-      },
-    }));
+    const invitation = await withSeatCapacity(this.prisma, orgId, (tx) =>
+      tx.organizationInvitation.create({
+        data: {
+          organizationId: orgId,
+          email,
+          role: targetRole,
+          token,
+          invitedById: currentUserId,
+          expiresAt,
+        },
+      }),
+    );
 
     return {
       message: 'Invitation generated successfully',

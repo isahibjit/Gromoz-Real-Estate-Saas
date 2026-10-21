@@ -17,6 +17,11 @@ import { TenantAccessService } from './tenant-access.service';
     TenantAccessService,
     { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
   ],
-  exports: [TenantContextService, TenantGuard, TenantAccessService, SubscriptionAdminGuard],
+  exports: [
+    TenantContextService,
+    TenantGuard,
+    TenantAccessService,
+    SubscriptionAdminGuard,
+  ],
 })
 export class TenantModule {}

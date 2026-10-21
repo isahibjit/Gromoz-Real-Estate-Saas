@@ -7,7 +7,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import * as argon2 from 'argon2';
 import {
   passwordForDisplay,
   encryptPassword,
@@ -687,75 +686,81 @@ export class HrService {
     if (requestedLeaderOfTeamId) {
       await this.assertTeamCanAcceptLeader(requestedLeaderOfTeamId);
     }
-    const user = await withSeatCapacity(this.prisma, organizationId, async (tx) => tx.user.create({
-      data: {
-        email,
-        fullName,
-        role,
-        organizationMemberships: { create: { organizationId, role } },
-        passwordHash: encryptPassword(password),
-        isActive: true,
-        twoFactorEnabled: body.twoFactorEnabled === true,
-        avatarStorageKey: typeof body.image === 'string' ? body.image : null,
-        employeeProfile: {
-          create: {
-            employeeCode,
-            joiningDate,
-            designation: this.text(body.designation),
-            phone,
-            address: this.text(body.address),
-            reportingToId: this.text(body.reportingToId),
-            monthlyBasic: asDecimal(body.monthlyBasic),
-            monthlyAllowances: asDecimal(body.monthlyAllowances),
-            monthlyDeductions: asDecimal(body.monthlyDeductions),
-            teamId: this.text(body.teamId),
-            shiftId: await this.resolveShiftId(body.shiftId),
+    const user = await withSeatCapacity(
+      this.prisma,
+      organizationId,
+      async (tx) =>
+        tx.user.create({
+          data: {
+            email,
+            fullName,
+            role,
+            organizationMemberships: { create: { organizationId, role } },
+            passwordHash: encryptPassword(password),
+            isActive: true,
+            twoFactorEnabled: body.twoFactorEnabled === true,
+            avatarStorageKey:
+              typeof body.image === 'string' ? body.image : null,
+            employeeProfile: {
+              create: {
+                employeeCode,
+                joiningDate,
+                designation: this.text(body.designation),
+                phone,
+                address: this.text(body.address),
+                reportingToId: this.text(body.reportingToId),
+                monthlyBasic: asDecimal(body.monthlyBasic),
+                monthlyAllowances: asDecimal(body.monthlyAllowances),
+                monthlyDeductions: asDecimal(body.monthlyDeductions),
+                teamId: this.text(body.teamId),
+                shiftId: await this.resolveShiftId(body.shiftId),
+              },
+            },
           },
-        },
-      },
-      include: {
-        employeeProfile: {
           include: {
-            team: {
+            employeeProfile: {
+              include: {
+                team: {
+                  where: { organizationId: this.tenants.organizationId },
+                  select: {
+                    id: true,
+                    name: true,
+                    leader: {
+                      where: this.tenants.employeeWhere(),
+                      select: { id: true, fullName: true },
+                    },
+                  },
+                },
+                shift: true,
+              },
+            },
+            ledTeams: {
               where: { organizationId: this.tenants.organizationId },
               select: {
                 id: true,
                 name: true,
-                leader: {
-                  where: this.tenants.employeeWhere(),
-                  select: { id: true, fullName: true },
-                },
               },
             },
-            shift: true,
+            modulePermissions: true,
+            rankingTeamAccesses: {
+              where: { team: { organizationId: this.tenants.organizationId } },
+              select: {
+                teamId: true,
+                team: { select: { id: true, name: true } },
+              },
+            },
+            teamLeaderVisibilityGrants: {
+              where: this.tenants.visibilityGrantWhere(),
+              select: {
+                teamId: true,
+                userId: true,
+                team: { select: { id: true, name: true } },
+                user: { select: { id: true, fullName: true, email: true } },
+              },
+            },
           },
-        },
-        ledTeams: {
-          where: { organizationId: this.tenants.organizationId },
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        modulePermissions: true,
-        rankingTeamAccesses: {
-          where: { team: { organizationId: this.tenants.organizationId } },
-          select: {
-            teamId: true,
-            team: { select: { id: true, name: true } },
-          },
-        },
-        teamLeaderVisibilityGrants: {
-          where: this.tenants.visibilityGrantWhere(),
-          select: {
-            teamId: true,
-            userId: true,
-            team: { select: { id: true, name: true } },
-            user: { select: { id: true, fullName: true, email: true } },
-          },
-        },
-      },
-    }));
+        }),
+    );
     if (role === 'TEAM_LEADER') {
       await this.applyEmployeeTeamLeadership(user.id, requestedLeaderOfTeamId);
     }
@@ -3333,9 +3338,7 @@ export class HrService {
     const subject = typeof body.subject === 'string' ? body.subject.trim() : '';
     const html = typeof body.htmlBody === 'string' ? body.htmlBody.trim() : '';
     const fromName =
-      typeof body.fromName === 'string'
-        ? body.fromName.trim()
-        : 'HR team';
+      typeof body.fromName === 'string' ? body.fromName.trim() : 'HR team';
 
     if (!toEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) {
       throw new BadRequestException('A valid test email address is required');

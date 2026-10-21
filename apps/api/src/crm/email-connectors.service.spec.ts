@@ -118,7 +118,14 @@ describe('Email delivery', () => {
     tenant.getTenantId.mockReturnValue('tenant-b');
     await service.sendTenantPlatformEmail('tenant-a', options);
     expect(prisma.emailConnector.findFirst).not.toHaveBeenCalled();
-    expect(prisma.emailLog.create).toHaveBeenCalledWith({ data: expect.objectContaining({ organizationId: 'tenant-a', connectorId: null, status: 'Sent', recipient: options.to }) });
+    expect(prisma.emailLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        organizationId: 'tenant-a',
+        connectorId: null,
+        status: 'Sent',
+        recipient: options.to,
+      }),
+    });
   });
 
   it('never uses a workspace connector for platform billing', async () => {

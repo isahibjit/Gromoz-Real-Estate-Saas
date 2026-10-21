@@ -101,9 +101,20 @@ export class TenantGuard implements CanActivate {
         'Platform privileges cannot be granted by tenant membership',
       );
     }
-    const handler = context.getHandler(), controller = context.getClass();
-    const subscriptionAccess = (handler && Reflect.getMetadata('allowSubscriptionAccess', handler) === true) || (controller && Reflect.getMetadata('allowSubscriptionAccess', controller) === true);
-    if (!workspaceIsAccessible(membership.organization) && !(subscriptionAccess && (membership.isOwner || membership.role === 'ADMIN'))) {
+    const handler = context.getHandler(),
+      controller = context.getClass();
+    const subscriptionAccess =
+      (handler &&
+        Reflect.getMetadata('allowSubscriptionAccess', handler) === true) ||
+      (controller &&
+        Reflect.getMetadata('allowSubscriptionAccess', controller) === true);
+    if (
+      !workspaceIsAccessible(membership.organization) &&
+      !(
+        subscriptionAccess &&
+        (membership.isOwner || membership.role === 'ADMIN')
+      )
+    ) {
       if (
         membership.organization.status === 'SETUP_PENDING' ||
         !membership.organization.setupFeePaid

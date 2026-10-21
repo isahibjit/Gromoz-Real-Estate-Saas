@@ -297,7 +297,11 @@ export class BillingService {
       throw new NotFoundException('Organization not found');
     }
 
-    if (!Number.isInteger(dto.additionalSeats) || dto.additionalSeats < 1 || dto.additionalSeats > 1000) {
+    if (
+      !Number.isInteger(dto.additionalSeats) ||
+      dto.additionalSeats < 1 ||
+      dto.additionalSeats > 1000
+    ) {
       throw new BadRequestException('Must purchase at least 1 seat');
     }
 

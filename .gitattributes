@@ -1,0 +1,2 @@
+# Match the API Prettier convention on Windows and CI.
+apps/api/**/*.ts text eol=lf
