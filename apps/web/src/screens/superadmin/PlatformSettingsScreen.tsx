@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { Button } from "ui";
+import { InvoiceSettingsCard } from './InvoiceSettingsCard';
 
 export function PlatformSettingsScreen() {
   const [saving, setSaving] = useState(false);
@@ -65,6 +66,7 @@ export function PlatformSettingsScreen() {
         </Button>
       </div>
 
+      <InvoiceSettingsCard />
       <form onSubmit={handleSave} className="space-y-6">
         {/* General Global Config */}
         <div className="rounded-sm border border-slate-200 bg-white p-6 shadow-xs space-y-4">

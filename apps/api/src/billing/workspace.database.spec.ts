@@ -135,6 +135,14 @@ run('Subscription database concurrency and migration', () => {
         {
           verifyPaymentSignature: () => true,
           verifyWebhookSignature: () => true,
+          fetchPayment: async () => ({
+            id: paymentId,
+            order_id: orderId,
+            amount: 100000,
+            currency: 'INR',
+            status: 'captured',
+            amount_refunded: 0,
+          }),
         } as unknown as RazorpayService,
       );
       const dto = { orderId, paymentId, signature: 'test' };

@@ -78,6 +78,7 @@ model Organization {
   memberships             OrganizationMember[]
   invitations             OrganizationInvitation[]
   billingTransactions     BillingTransaction[]
+  billingInvoices         BillingInvoice[]
   supportTickets          SupportTicket[]
   leads                   Lead[]
   leadImports             LeadImport[]
@@ -153,12 +154,108 @@ model BillingTransaction {
   status            String       // created, captured, failed, refunded
   receiptUrl        String?
   invoiceNumber     String?
+  invoiceId         String?
+  invoice           BillingInvoice? @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
   metadata          Json?
 
   createdAt         DateTime     @default(now())
 
   @@index([organizationId])
   @@index([razorpayPaymentId])
+  @@index([invoiceId])
+}
+
+model PlatformInvoiceSettings {
+  id          String    @id @default("platform")
+  businessName String   @default("")
+  address     String    @default("")
+  email       String    @default("")
+  phone       String    @default("")
+  previewedAt DateTime?
+  enabledAt   DateTime?
+  updatedAt   DateTime  @updatedAt
+}
+
+model InvoiceSequence {
+  key   String @id
+  value Int
+}
+
+model BillingInvoice {
+  id             String @id @default(uuid())
+  number         String @unique
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  obligationKey  String @unique
+  mode           String
+  type           String
+  status         String @default("ISSUED")
+  amountMinor    Decimal @db.Decimal(18, 0)
+  currency       String @default("INR")
+  snapshot       Json
+  seatQuantity   Int @default(0)
+  issuedAt       DateTime @default(now())
+  dueAt          DateTime
+  paidAt         DateTime?
+  paymentReference String?
+  replacesNumber String?
+  voidReason     String?
+  reconciliationNote String?
+  historical     Boolean @default(false)
+  templateVersion Int @default(1)
+  transactions   BillingTransaction[]
+  attempts       InvoiceCheckoutAttempt[]
+  deliveries     InvoiceDelivery[]
+  @@index([organizationId, issuedAt])
+  @@index([status, dueAt])
+}
+
+model InvoiceCheckoutAttempt {
+  id             String @id @default(uuid())
+  invoiceId      String
+  invoice        BillingInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  orderId        String? @unique
+  paymentLinkId  String? @unique
+  paymentLinkUrl String?
+  paymentId      String? @unique
+  status         String @default("CREATING")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+  error          String?
+  @@index([invoiceId, createdAt])
+}
+
+model InvoiceDelivery {
+  id         String @id @default(uuid())
+  invoiceId  String
+  invoice    BillingInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  kind       String
+  recipient  String
+  status     String @default("PENDING")
+  attempts   Int @default(0)
+  nextAttemptAt DateTime @default(now())
+  leaseUntil DateTime?
+  error      String?
+  createdAt  DateTime @default(now())
+  @@unique([invoiceId, kind, recipient])
+  @@index([status, nextAttemptAt])
+}
+
+model InvoiceBackfillRun {
+  code        String @id
+  mode        String
+  status      String @default("PENDING")
+  cutoffAt    DateTime
+  settingsFingerprint String
+  cursor      String?
+  created     Int @default(0)
+  skipped     Int @default(0)
+  processed   Int @default(0)
+  leaseUntil  DateTime?
+  errors      Json @default("[]")
+  createdAt   DateTime @default(now())
+  completedAt DateTime?
+  @@index([status])
 }
 
 model User {

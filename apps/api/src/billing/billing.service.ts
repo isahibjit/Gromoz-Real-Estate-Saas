@@ -9,12 +9,15 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { RazorpayService } from './razorpay.service';
 import { tenantWorkspaceUrl } from '@truroot/shared';
+import { InvoicesService } from './invoices.service';
+import { InvoicePaymentsService } from './invoice-payments.service';
 
-export const DEFAULT_TRIAL_DAYS = 14;
+export { DEFAULT_TRIAL_DAYS } from './billing.constants';
 
 export class SetupCheckoutDto {
   @IsOptional() @IsInt() @Min(1) @Max(100000) initialSeats!: number;
@@ -39,6 +42,8 @@ export class BillingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly razorpay: RazorpayService,
+    @Optional() private readonly invoices?: InvoicesService,
+    @Optional() private readonly invoicePayments?: InvoicePaymentsService,
   ) {}
 
   async getOverview(organizationId: string) {
@@ -167,6 +172,20 @@ export class BillingService {
     }
 
     const adminUser = org.memberships[0]?.user;
+    if (this.invoices && this.invoicePayments) {
+      const invoice = await this.invoices.forCheckout(
+        organizationId,
+        'SETUP_FEE',
+        dto.initialSeats || org.allocatedSeats,
+        this.razorpay.getMode(),
+      );
+      if (invoice)
+        return this.invoicePayments.checkout(
+          organizationId,
+          invoice.number,
+          true,
+        );
+    }
     const seats = Math.max(1, dto.initialSeats || 1);
     const seatsTotal = seats * org.pricePerSeatMonth;
     const totalAmount = org.setupFeeAmount + seatsTotal;
@@ -225,6 +244,8 @@ export class BillingService {
   }
 
   async verifyAndActivateSetup(organizationId: string, dto: VerifyPaymentDto) {
+    const invoiced = await this.invoicePayments?.verify(organizationId, dto);
+    if (invoiced) return invoiced;
     const isValid = this.razorpay.verifyPaymentSignature({
       orderId: dto.orderId,
       paymentId: dto.paymentId,
@@ -243,46 +264,33 @@ export class BillingService {
       throw new NotFoundException('Organization not found');
     }
 
-    const seats = Math.max(1, dto.seats || org.allocatedSeats);
-    const now = new Date();
-    const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
-
-    const updatedOrg = await this.prisma.organization.update({
-      where: { id: organizationId },
-      data: {
-        setupFeePaid: true,
-        status: 'ACTIVE',
-        allocatedSeats: seats,
-        currentPeriodStart: now,
-        currentPeriodEnd: periodEnd,
-      },
-    });
-
-    const totalAmount = org.setupFeeAmount + seats * org.pricePerSeatMonth;
-
-    await this.prisma.billingTransaction.create({
-      data: {
-        organizationId,
-        amount: totalAmount,
-        type: 'SETUP_FEE',
-        razorpayPaymentId: dto.paymentId,
-        razorpayOrderId: dto.orderId,
-        status: 'captured',
-        metadata: {
-          seats,
-          setupFee: org.setupFeeAmount,
-          monthlySeatTotal: seats * org.pricePerSeatMonth,
-        },
-      },
-    });
-
-    return {
-      success: true,
-      status: updatedOrg.status,
-      setupFeePaid: updatedOrg.setupFeePaid,
-      allocatedSeats: updatedOrg.allocatedSeats,
-      currentPeriodEnd: updatedOrg.currentPeriodEnd,
-    };
+    const [order, payment] = await Promise.all([
+      this.razorpay.fetchOrder(dto.orderId),
+      this.razorpay.fetchPayment(dto.paymentId),
+    ]);
+    const seats = Number(order.notes.seats);
+    if (
+      order.notes.organizationId !== organizationId ||
+      order.notes.type !== 'SETUP_AND_INITIAL_SEATS' ||
+      !Number.isInteger(seats) ||
+      seats < 1 ||
+      payment.order_id !== order.id ||
+      payment.amount !== order.amount ||
+      payment.currency !== order.currency ||
+      payment.status !== 'captured' ||
+      payment.amount_refunded !== 0
+    )
+      throw new BadRequestException(
+        'Payment does not match this workspace setup',
+      );
+    return this.applyLegacySetup(
+      organizationId,
+      payment.id,
+      payment.order_id,
+      payment.amount,
+      payment.currency,
+      seats,
+    );
   }
 
   async createSeatUpgradeCheckout(
@@ -306,6 +314,16 @@ export class BillingService {
     }
 
     const totalAmount = dto.additionalSeats * org.pricePerSeatMonth;
+    if (this.invoices && this.invoicePayments) {
+      const invoice = await this.invoices.forCheckout(
+        organizationId,
+        'SEAT_UPGRADE',
+        dto.additionalSeats,
+        this.razorpay.getMode(),
+      );
+      if (invoice)
+        return this.invoicePayments.checkout(organizationId, invoice.number);
+    }
     const receipt = `seat_up_${org.slug.slice(0, 18)}_${Date.now()}`;
 
     const order = await this.razorpay.createOrder({
@@ -344,6 +362,8 @@ export class BillingService {
     organizationId: string,
     dto: VerifyPaymentDto,
   ) {
+    const invoiced = await this.invoicePayments?.verify(organizationId, dto);
+    if (invoiced) return invoiced;
     const isValid = this.razorpay.verifyPaymentSignature({
       orderId: dto.orderId,
       paymentId: dto.paymentId,
@@ -354,6 +374,26 @@ export class BillingService {
       throw new BadRequestException('Invalid payment signature');
     }
 
+    const order = await this.prisma.billingTransaction.findFirst({
+      where: {
+        organizationId,
+        razorpayOrderId: dto.orderId,
+        type: 'SEAT_UPGRADE',
+      },
+    });
+    if (!order)
+      throw new BadRequestException(
+        'Checkout order does not belong to this workspace',
+      );
+    const payment = await this.razorpay.fetchPayment(dto.paymentId);
+    if (
+      payment.status !== 'captured' ||
+      payment.amount_refunded !== 0 ||
+      payment.order_id !== dto.orderId ||
+      payment.amount !== Math.round(order.amount * 100) ||
+      payment.currency !== order.currency
+    )
+      throw new BadRequestException('Payment does not match the seat checkout');
     return this.applySeatUpgrade(organizationId, dto.orderId, dto.paymentId);
   }
 
@@ -409,11 +449,79 @@ export class BillingService {
     });
   }
 
+  private async applyLegacySetup(
+    organizationId: string,
+    paymentId: string,
+    orderId: string | null,
+    amountMinor: number,
+    currency: string,
+    seats: number,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${organizationId} FOR UPDATE`;
+      const recorded = await tx.billingTransaction.findUnique({
+        where: { razorpayPaymentId: paymentId },
+        select: { organizationId: true },
+      });
+      if (recorded && recorded.organizationId !== organizationId)
+        throw new BadRequestException('Payment belongs to another workspace');
+      const org = await tx.organization.findUniqueOrThrow({
+        where: { id: organizationId },
+      });
+      if (recorded)
+        return {
+          success: true,
+          status: org.status,
+          setupFeePaid: org.setupFeePaid,
+          allocatedSeats: org.allocatedSeats,
+          currentPeriodEnd: org.currentPeriodEnd,
+        };
+      const requiresReview =
+        ['SUSPENDED', 'CANCELLED'].includes(org.status) || org.setupFeePaid;
+      const now = new Date();
+      const updated = requiresReview
+        ? org
+        : await tx.organization.update({
+            where: { id: organizationId },
+            data: {
+              setupFeePaid: true,
+              status: 'ACTIVE',
+              allocatedSeats: seats,
+              currentPeriodStart: now,
+              currentPeriodEnd: new Date(now.getTime() + 30 * 86400000),
+            },
+          });
+      await tx.billingTransaction.create({
+        data: {
+          organizationId,
+          amount: amountMinor / 100,
+          currency,
+          type: 'SETUP_FEE',
+          status: 'captured',
+          razorpayPaymentId: paymentId,
+          razorpayOrderId: orderId,
+          metadata: { seats, requiresReview },
+        },
+      });
+      return {
+        success: !requiresReview,
+        requiresReview,
+        status: updated.status,
+        setupFeePaid: updated.setupFeePaid,
+        allocatedSeats: updated.allocatedSeats,
+        currentPeriodEnd: updated.currentPeriodEnd,
+      };
+    });
+  }
+
   async processWebhook(rawBody: string, signature: string, payload: any) {
     const isValid = this.razorpay.verifyWebhookSignature(rawBody, signature);
     if (!isValid) {
       throw new BadRequestException('Invalid webhook signature');
     }
+
+    if (await this.invoicePayments?.handleWebhook(payload))
+      return { status: 'ok' };
 
     const event = payload.event;
     this.logger.log(`Received Razorpay webhook: ${event}`);
@@ -463,41 +571,14 @@ export class BillingService {
         const seats = Number(notes.seats);
         if (!Number.isInteger(seats) || seats < 1 || payment.amount <= 0)
           throw new BadRequestException('Invalid setup payment');
-        await this.prisma.$transaction(async (tx) => {
-          await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${organizationId} FOR UPDATE`;
-          const recorded = await tx.billingTransaction.findUnique({
-            where: { razorpayPaymentId: payment.id },
-            select: { id: true },
-          });
-          if (recorded) return;
-          const org = await tx.organization.findUniqueOrThrow({
-            where: { id: organizationId },
-            select: { setupFeePaid: true },
-          });
-          if (!org.setupFeePaid)
-            await tx.organization.update({
-              where: { id: organizationId },
-              data: {
-                setupFeePaid: true,
-                status: 'ACTIVE',
-                allocatedSeats: seats,
-                currentPeriodStart: new Date(),
-                currentPeriodEnd: new Date(Date.now() + 30 * 86400000),
-              },
-            });
-          await tx.billingTransaction.create({
-            data: {
-              organizationId,
-              amount: payment.amount / 100,
-              currency: payment.currency || 'INR',
-              type: 'SETUP_FEE',
-              status: 'captured',
-              razorpayPaymentId: payment.id,
-              razorpayOrderId: payment.order_id || null,
-              metadata: { seats },
-            },
-          });
-        });
+        await this.applyLegacySetup(
+          organizationId,
+          payment.id,
+          payment.order_id || null,
+          payment.amount,
+          payment.currency || 'INR',
+          seats,
+        );
       }
     }
 

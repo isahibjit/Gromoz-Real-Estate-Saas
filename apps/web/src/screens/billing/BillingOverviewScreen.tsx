@@ -29,6 +29,7 @@ import { currentOrganizationId } from "../../common/tenantRequestScope";
 import type { BillingOverview } from "./workspace.types";
 import { AddSeatsDialog } from "./AddSeatsDialog";
 import { PaymentHistory } from "./PaymentHistory";
+import { Invoices, OutstandingInvoices } from './Invoices';
 import { CreateTicketDialog, SupportTickets } from "./SupportTickets";
 import { dateLabel, moneyLabel } from "./WorkspaceControls";
 export function BillingOverviewScreen() {
@@ -36,7 +37,8 @@ export function BillingOverviewScreen() {
     client = useQueryClient();
   const [seatsOpen, setSeatsOpen] = useState(false),
     [ticketKind, setTicketKind] = useState<"support" | "plan" | null>(null);
-  const [tab, setTab] = useState("overview");
+  const [selectedInvoice, setSelectedInvoice] = useState(() => new URLSearchParams(window.location.search).get('invoice'));
+  const [tab, setTab] = useState(selectedInvoice ? 'invoices' : 'overview');
   const query = useQuery({
     queryKey: ["billing-overview", organizationId],
     queryFn: async () =>
@@ -104,6 +106,7 @@ export function BillingOverviewScreen() {
           Refresh
         </Button>
       </header>
+      <OutstandingInvoices onView={() => setTab('invoices')} />
       {needsAction && (
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-primary/20 bg-primary/5 p-5">
           <div className="flex items-start gap-3">
@@ -133,10 +136,11 @@ export function BillingOverviewScreen() {
       )}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList
-          className="grid h-auto w-full grid-cols-3 sm:inline-flex sm:h-10 sm:w-auto"
+          className="grid h-auto w-full grid-cols-2 sm:inline-flex sm:h-10 sm:w-auto"
           aria-label="Subscription workspace sections"
         >
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="invoices">Invoices</TabsTrigger>
           <TabsTrigger value="payments">Payment history</TabsTrigger>
           <TabsTrigger value="support">Support tickets</TabsTrigger>
         </TabsList>
@@ -315,7 +319,10 @@ export function BillingOverviewScreen() {
           </p>
         </TabsContent>
         <TabsContent value="payments" className="mt-6">
-          <PaymentHistory />
+          <PaymentHistory onViewInvoice={number => { setSelectedInvoice(number); setTab('invoices'); }} />
+        </TabsContent>
+        <TabsContent value="invoices" className="mt-6">
+          <Invoices initialNumber={selectedInvoice} onSelectionCleared={() => setSelectedInvoice(null)} />
         </TabsContent>
         <TabsContent value="support" className="mt-6">
           <SupportTickets onCreate={() => setTicketKind("support")} />

@@ -36,6 +36,17 @@ export interface CreatePaymentLinkParams {
   };
   notes?: Record<string, string>;
   callbackUrl?: string;
+  notifyEmail?: boolean;
+}
+
+export interface RazorpayPayment {
+  id: string;
+  order_id: string | null;
+  status: string;
+  amount: number;
+  currency: string;
+  amount_refunded: number;
+  created_at: number;
 }
 
 export interface RazorpayPaymentLinkResponse {
@@ -52,6 +63,110 @@ export class RazorpayService {
   private readonly keySecret: string;
   private readonly webhookSecret: string;
   private readonly isConfigured: boolean;
+
+  getMode(): 'TEST' | 'LIVE' {
+    if (this.keyId.startsWith('rzp_test_')) return 'TEST';
+    if (this.keyId.startsWith('rzp_live_')) return 'LIVE';
+    throw new ServiceUnavailableException(
+      'Configure a valid Razorpay test or live key before invoicing',
+    );
+  }
+
+  async fetchPayment(paymentId: string): Promise<RazorpayPayment> {
+    if (!this.isConfigured)
+      throw new ServiceUnavailableException(
+        'Platform Razorpay credentials are not configured',
+      );
+    const response = await fetch(
+      `https://api.razorpay.com/v1/payments/${encodeURIComponent(paymentId)}`,
+      {
+        headers: { Authorization: this.getAuthHeader() },
+        signal: AbortSignal.timeout(15000),
+      },
+    );
+    if (!response.ok)
+      throw new ServiceUnavailableException(
+        'Could not confirm the Razorpay payment',
+      );
+    const value: unknown = await response.json();
+    if (
+      !value ||
+      typeof value !== 'object' ||
+      !('id' in value) ||
+      value.id !== paymentId ||
+      !('amount' in value) ||
+      typeof value.amount !== 'number' ||
+      !('currency' in value) ||
+      typeof value.currency !== 'string' ||
+      !('status' in value) ||
+      typeof value.status !== 'string' ||
+      !('order_id' in value) ||
+      (value.order_id !== null && typeof value.order_id !== 'string') ||
+      !('created_at' in value) ||
+      typeof value.created_at !== 'number' ||
+      !('amount_refunded' in value) ||
+      typeof value.amount_refunded !== 'number'
+    )
+      throw new ServiceUnavailableException(
+        'Razorpay returned an invalid payment response',
+      );
+    return {
+      id: value.id,
+      amount: value.amount,
+      currency: value.currency,
+      status: value.status,
+      order_id: typeof value.order_id === 'string' ? value.order_id : null,
+      created_at: value.created_at,
+      amount_refunded: value.amount_refunded,
+    };
+  }
+
+  async fetchOrder(orderId: string): Promise<{
+    id: string;
+    amount: number;
+    currency: string;
+    notes: Record<string, unknown>;
+  }> {
+    if (!this.isConfigured)
+      throw new ServiceUnavailableException(
+        'Platform Razorpay credentials are not configured',
+      );
+    const response = await fetch(
+      `https://api.razorpay.com/v1/orders/${encodeURIComponent(orderId)}`,
+      {
+        headers: { Authorization: this.getAuthHeader() },
+        signal: AbortSignal.timeout(15000),
+      },
+    );
+    if (!response.ok)
+      throw new ServiceUnavailableException(
+        'Could not confirm the Razorpay order',
+      );
+    const value: unknown = await response.json();
+    if (
+      !value ||
+      typeof value !== 'object' ||
+      !('id' in value) ||
+      value.id !== orderId ||
+      !('amount' in value) ||
+      typeof value.amount !== 'number' ||
+      !('currency' in value) ||
+      typeof value.currency !== 'string' ||
+      !('notes' in value) ||
+      !value.notes ||
+      typeof value.notes !== 'object' ||
+      Array.isArray(value.notes)
+    )
+      throw new ServiceUnavailableException(
+        'Razorpay returned an invalid order',
+      );
+    return {
+      id: value.id,
+      amount: value.amount,
+      currency: value.currency,
+      notes: value.notes as Record<string, unknown>,
+    };
+  }
 
   constructor(private readonly config: ConfigService) {
     this.keyId = this.config.get<string>('RAZORPAY_KEY_ID') || '';
@@ -137,7 +252,7 @@ export class RazorpayService {
         },
         notify: {
           sms: false,
-          email: true,
+          email: params.notifyEmail ?? true,
         },
         reminder_enable: true,
         notes: params.notes,

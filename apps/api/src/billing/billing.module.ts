@@ -10,6 +10,15 @@ import { BillingService } from './billing.service';
 import { BillingController } from './billing.controller';
 import { CrmModule } from '../crm/crm.module';
 import { TrialReminderWorker } from './trial-reminder.worker';
+import {
+  InvoicesController,
+  PlatformInvoicesController,
+  PlatformBillingGuard,
+} from './invoices.controller';
+import { InvoicesService } from './invoices.service';
+import { InvoicePaymentsService } from './invoice-payments.service';
+import { InvoicePdfService } from './invoice-pdf.service';
+import { InvoiceWorker } from './invoice-worker.service';
 
 @Module({
   imports: [
@@ -19,12 +28,22 @@ import { TrialReminderWorker } from './trial-reminder.worker';
     TenantModule,
     CrmModule,
   ],
-  controllers: [BillingController, SupportTicketsController],
+  controllers: [
+    BillingController,
+    SupportTicketsController,
+    InvoicesController,
+    PlatformInvoicesController,
+  ],
   providers: [
     RazorpayService,
     BillingService,
     TrialReminderWorker,
     SupportTicketsService,
+    InvoicesService,
+    InvoicePaymentsService,
+    InvoicePdfService,
+    InvoiceWorker,
+    PlatformBillingGuard,
   ],
   exports: [RazorpayService, BillingService],
 })

@@ -53,6 +53,7 @@ const prisma = {
 const db = prisma as unknown as PrismaService;
 const email = { sendTenantPlatformEmail: jest.fn() };
 const razorpay = {
+  fetchPayment: jest.fn(),
   verifyPaymentSignature: jest.fn(),
   createOrder: jest.fn(),
   getPublicKey: jest.fn(),
@@ -85,6 +86,14 @@ const ticket = {
 };
 beforeEach(() => {
   jest.clearAllMocks();
+  razorpay.fetchPayment.mockResolvedValue({
+    id: 'payment-1',
+    order_id: 'order-1',
+    status: 'captured',
+    amount_refunded: 0,
+    amount: 100000,
+    currency: 'INR',
+  });
   prisma.organization.findUnique.mockResolvedValue({
     allocatedSeats: 2,
     pricePerSeatMonth: 500,
@@ -174,6 +183,8 @@ describe('Payment history and verification', () => {
     razorpay.verifyPaymentSignature.mockReturnValue(true);
     prisma.billingTransaction.findFirst.mockResolvedValue({
       id: 'order-row',
+      amount: 1000,
+      currency: 'INR',
       status: 'created',
       metadata: { additionalSeats: 2 },
     });
@@ -194,6 +205,8 @@ describe('Payment history and verification', () => {
     prisma.billingTransaction.findFirst.mockResolvedValue({
       status: 'captured',
       razorpayPaymentId: 'payment-1',
+      amount: 1000,
+      currency: 'INR',
     });
     prisma.organization.findUniqueOrThrow.mockResolvedValue({
       allocatedSeats: 4,

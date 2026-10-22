@@ -22,7 +22,7 @@ export function safeReceiptUrl(value: string | null): string | null {
     return null;
   }
 }
-export function PaymentHistory() {
+export function PaymentHistory({ onViewInvoice }: { onViewInvoice?: (number: string) => void } = {}) {
   const organizationId = currentOrganizationId();
   const [filters, setFilters] = useState({
     status: "all",
@@ -58,7 +58,7 @@ export function PaymentHistory() {
         <div>
           <p className="font-medium">{humanLabel(row.type)}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {row.invoiceNumber ||
+            {row.invoiceNumber && onViewInvoice ? <Button variant="ghost" size="sm" className="h-auto px-0 text-primary" onClick={() => onViewInvoice(row.invoiceNumber ?? '')}>{row.invoiceNumber}</Button> : row.invoiceNumber ||
               row.razorpayPaymentId ||
               row.razorpayOrderId ||
               "Reference unavailable"}

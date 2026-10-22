@@ -67,6 +67,7 @@ export function AddSeatsDialog({
       await queryClient.invalidateQueries({
         queryKey: ["billing-transactions", organizationId],
       });
+      await Promise.all(['billing-invoices', 'billing-outstanding'].map(key => queryClient.invalidateQueries({ queryKey: [key, organizationId] })));
       setVerification(null);
       onOpenChange(false);
       onPurchased?.();

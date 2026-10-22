@@ -3,6 +3,7 @@ import {
   Logger,
   OnModuleDestroy,
   OnModuleInit,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
@@ -10,7 +11,9 @@ import { createHash } from 'crypto';
 import { EmailConnectorsService } from '../crm/email-connectors.service';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
-import { DEFAULT_TRIAL_DAYS } from './billing.service';
+import { DEFAULT_TRIAL_DAYS } from './billing.constants';
+import { tenantWorkspaceUrl } from '@truroot/shared';
+import { InvoicesService } from './invoices.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const REMINDER_TYPE = 'TrialPaymentReminder';
@@ -71,6 +74,7 @@ export class TrialReminderWorker implements OnModuleInit, OnModuleDestroy {
     private readonly email: EmailConnectorsService,
     private readonly redis: RedisService,
     private readonly config: ConfigService,
+    @Optional() private readonly invoices?: InvoicesService,
   ) {}
 
   onModuleInit() {
@@ -217,30 +221,63 @@ export class TrialReminderWorker implements OnModuleInit, OnModuleDestroy {
               select: { id: true },
             });
             if (!stillDue) continue;
+            const outstanding = this.invoices
+              ? await this.prisma.billingInvoice.findFirst({
+                  where: {
+                    organizationId: id,
+                    status: 'ISSUED',
+                    dueAt: trialEndsAt,
+                    type: { in: ['SETUP_FEE', 'RECURRING_SEATS'] },
+                  },
+                  select: {
+                    number: true,
+                    organization: { select: { slug: true } },
+                  },
+                })
+              : null;
+            const invoiceMessage = outstanding
+              ? {
+                  subject: `Gromoze invoice ${outstanding.number} - ${
+                    daysRemaining ? 'payment reminder' : 'overdue'
+                  }`,
+                  text: `Hello ${ownerName || 'there'},\n\nInvoice ${
+                    outstanding.number
+                  } for ${organization.name} is ${
+                    daysRemaining ? 'due on' : 'overdue since'
+                  } ${trialEndsAt.toLocaleDateString('en-IN', {
+                    timeZone: 'Asia/Kolkata',
+                  })}. View and pay securely in your workspace:\n${tenantWorkspaceUrl(
+                    outstanding.organization.slug,
+                  )}/billing?invoice=${encodeURIComponent(
+                    outstanding.number,
+                  )}\n\nIf payment has already been made, do not pay again; contact Gromoze for help.\n\nGromoze`,
+                }
+              : null;
             await this.email.sendTenantPlatformEmail(id, {
               to,
-              ...(daysRemaining === 0 && !isPaidPlan
-                ? buildTrialPaymentReminder({
-                    workspaceName: organization.name,
-                    ownerName,
-                    trialEndsAt,
-                  })
-                : {
-                    subject: `${
-                      isPaidPlan ? 'Subscription renewal' : 'Trial expiry'
-                    }: ${organization.name} ${
-                      daysRemaining
-                        ? `in ${daysRemaining} day(s)`
-                        : 'is overdue'
-                    }`,
-                    text: `Hello ${ownerName || 'there'},\n\nYour ${
-                      isPaidPlan ? 'subscription' : 'trial'
-                    } for ${organization.name} ${
-                      daysRemaining ? 'ends' : 'ended'
-                    } on ${trialEndsAt.toLocaleDateString('en-IN', {
-                      timeZone: 'Asia/Kolkata',
-                    })}. Open Subscription & Support in your workspace to review your plan and request payment assistance.\n\nGromoze`,
-                  }),
+              ...(invoiceMessage ??
+                (daysRemaining === 0 && !isPaidPlan
+                  ? buildTrialPaymentReminder({
+                      workspaceName: organization.name,
+                      ownerName,
+                      trialEndsAt,
+                    })
+                  : {
+                      subject: `${
+                        isPaidPlan ? 'Subscription renewal' : 'Trial expiry'
+                      }: ${organization.name} ${
+                        daysRemaining
+                          ? `in ${daysRemaining} day(s)`
+                          : 'is overdue'
+                      }`,
+                      text: `Hello ${ownerName || 'there'},\n\nYour ${
+                        isPaidPlan ? 'subscription' : 'trial'
+                      } for ${organization.name} ${
+                        daysRemaining ? 'ends' : 'ended'
+                      } on ${trialEndsAt.toLocaleDateString('en-IN', {
+                        timeZone: 'Asia/Kolkata',
+                      })}. Open Subscription & Support in your workspace to review your plan and request payment assistance.\n\nGromoze`,
+                    })),
               entityType,
               entityId,
             });
