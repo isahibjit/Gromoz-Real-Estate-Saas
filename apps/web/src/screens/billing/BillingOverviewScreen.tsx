@@ -81,7 +81,7 @@ export function BillingOverviewScreen() {
     (plan) => plan.code !== data.planTier,
   );
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6">
+    <div className="mx-auto w-full max-w-12xl space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
