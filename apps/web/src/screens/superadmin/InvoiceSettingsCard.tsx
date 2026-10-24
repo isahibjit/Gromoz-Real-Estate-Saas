@@ -12,6 +12,8 @@ import type {
   InvoiceSettings,
 } from "../billing/invoice.types";
 import { dateLabel, humanLabel } from "../billing/WorkspaceControls";
+import { DEFAULT_INVOICE_TEMPLATE } from "../billing/invoice.types";
+import { InvoiceTemplateEditor } from "./InvoiceTemplateEditor";
 
 const settingsPath = "/billing/platform/invoices/settings";
 const backfillsPath = "/billing/platform/invoices/backfills";
@@ -65,6 +67,7 @@ export function InvoiceSettingsCard() {
             query.data.phone,
             query.data.enabledAt,
             query.data.previewedAt,
+            query.data.template,
           ])}
           settings={query.data}
         />
@@ -80,10 +83,12 @@ function InvoiceSettingsForm({ settings }: { settings: InvoiceSettings }) {
     address: settings.address,
     email: settings.email,
     phone: settings.phone,
+    template: settings.template ?? { ...DEFAULT_INVOICE_TEMPLATE },
   });
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
+  const [readingLogo, setReadingLogo] = useState(false);
   const [preview, setPreview] = useState<BackfillPreview | null>(null);
   const [runCode, setRunCode] = useState(
     () => sessionStorage.getItem("gromoze-invoice-backfill") ?? "",
@@ -105,7 +110,13 @@ function InvoiceSettingsForm({ settings }: { settings: InvoiceSettings }) {
   });
   const progressData: BackfillProgress | undefined = progress.data;
   const dirty = Object.entries(form).some(
-    ([name, value]) => value !== settings[name as keyof typeof form],
+    ([name, value]) =>
+      JSON.stringify(value) !==
+      JSON.stringify(
+        name === "template"
+          ? settings.template ?? DEFAULT_INVOICE_TEMPLATE
+          : settings[name as keyof typeof form],
+      ),
   );
   async function action(task: () => Promise<unknown>, message: string) {
     setBusy(true);
@@ -128,6 +139,7 @@ function InvoiceSettingsForm({ settings }: { settings: InvoiceSettings }) {
   }
   function save(event: FormEvent) {
     event.preventDefault();
+    if (busy || readingLogo) return;
     void action(
       () => api.patch(settingsPath, form),
       "Invoice identity saved. Download a preview before enabling issuance.",
@@ -223,19 +235,28 @@ function InvoiceSettingsForm({ settings }: { settings: InvoiceSettings }) {
             />
           </div>
         </div>
+        <InvoiceTemplateEditor
+          value={form.template}
+          businessName={form.businessName}
+          disabled={busy}
+          onChange={(template) =>
+            setForm((previous) => ({ ...previous, template }))
+          }
+          onProcessingChange={setReadingLogo}
+        />
         <p className="text-xs leading-5 text-muted-foreground">
-          Changing these details disables future issuance until the saved
-          identity is previewed and enabled again. Existing issued invoices keep
-          their original details.
+          Changing business details or the template disables future issuance
+          until the saved settings are previewed and enabled again. Issued
+          invoices keep their original details, logo, and template.
         </p>
-        <Button type="submit" disabled={busy || !dirty}>
+        <Button type="submit" disabled={busy || readingLogo || !dirty}>
           Save invoice details
         </Button>
       </form>
       <div className="flex flex-wrap items-center gap-3 border-t border-border pt-5">
         <Button
           variant="outline"
-          disabled={busy || dirty || !settings.businessName}
+          disabled={busy || readingLogo || dirty || !settings.businessName}
           onClick={() =>
             void action(
               () =>
@@ -251,7 +272,7 @@ function InvoiceSettingsForm({ settings }: { settings: InvoiceSettings }) {
           Download preview
         </Button>
         <Button
-          disabled={busy || dirty || !settings.previewedAt}
+          disabled={busy || readingLogo || dirty || !settings.previewedAt}
           onClick={() =>
             void action(
               () =>

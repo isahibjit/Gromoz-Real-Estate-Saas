@@ -13,6 +13,13 @@ import { InvoicePdfService, type InvoicePdfData } from './invoice-pdf.service';
 import { InvoicesService } from './invoices.service';
 import { RazorpayService } from './razorpay.service';
 import { ConfigService } from '@nestjs/config';
+import {
+  DEFAULT_INVOICE_TEMPLATE,
+  readInvoiceTemplate,
+  invoiceLogoBuffer,
+} from './invoice-template';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 describe('Invoice authorization', () => {
   const prisma = { user: { findUnique: jest.fn() } };
@@ -176,6 +183,66 @@ describe('Invoice PDF', () => {
     expect(paid.subarray(0, 5).toString()).toBe('%PDF-');
     expect(issued.length).toBeGreaterThan(1000);
     expect(paid.equals(issued)).toBe(false);
+  });
+  it.each(['CLASSIC', 'COMPACT'] as const)(
+    'renders a %s template with frozen Solverix branding and added information',
+    async (layout) => {
+      const renderer = new InvoicePdfService();
+      const template = renderer.snapshotTemplate({
+        ...DEFAULT_INVOICE_TEMPLATE,
+        layout,
+        footer: 'Thank you for your business.',
+        paymentNote: 'For billing assistance contact accounts@example.invalid.',
+      });
+      expect(template.logoMode).toBe('CUSTOM');
+      expect(invoiceLogoBuffer(template.logoDataUrl)).toEqual(
+        readFileSync(join(__dirname, 'assets', 'solverix-logo.png')),
+      );
+      const data = { ...source, snapshot: { ...source.snapshot, template } };
+      const result = await renderer.render(data);
+      expect(result.subarray(0, 5).toString()).toBe('%PDF-');
+      expect(
+        readInvoiceSnapshot(JSON.parse(JSON.stringify(data.snapshot))).template,
+      ).toEqual(template);
+      expect(source.snapshot.template).toBeUndefined();
+    },
+  );
+});
+
+describe('Invoice template validation', () => {
+  it.each([
+    { layout: 'HTML' },
+    { accentColor: '#ffffff' },
+    { heading: '' },
+    { heading: 'Invoice\nInvalid' },
+    { paymentNote: 'a'.repeat(601) },
+    { footer: 'a'.repeat(241) },
+    { script: 'alert(1)' },
+    { logoMode: 'CUSTOM', logoDataUrl: 'https://example.invalid/logo.png' },
+    { logoMode: 'CUSTOM', logoDataUrl: 'data:image/svg+xml;base64,PHN2Zz4=' },
+    { logoMode: 'CUSTOM', logoDataUrl: 'data:image/jpeg;base64,YQ==' },
+  ])('rejects invalid template configuration %p', (input) => {
+    expect(() =>
+      readInvoiceTemplate({ ...DEFAULT_INVOICE_TEMPLATE, ...input }),
+    ).toThrow(BadRequestException);
+  });
+  it('rejects unbounded logo dimensions and a malformed PNG before activation', async () => {
+    const bad = Buffer.alloc(33);
+    Buffer.from('89504e470d0a1a0a', 'hex').copy(bad);
+    bad.write('IHDR', 12);
+    bad.writeUInt32BE(3000, 16);
+    bad.writeUInt32BE(1, 20);
+    expect(() =>
+      invoiceLogoBuffer(`data:image/png;base64,${bad.toString('base64')}`),
+    ).toThrow('2048');
+    bad.writeUInt32BE(10, 16);
+    await expect(
+      new InvoicePdfService().validateTemplate({
+        ...DEFAULT_INVOICE_TEMPLATE,
+        logoMode: 'CUSTOM',
+        logoDataUrl: `data:image/png;base64,${bad.toString('base64')}`,
+      }),
+    ).rejects.toThrow('decoded');
   });
 });
 

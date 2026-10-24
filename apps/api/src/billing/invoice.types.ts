@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+import { readInvoiceTemplate, type InvoiceTemplate } from './invoice-template';
 
 export { BILLING_DAY_MS } from './billing.constants';
 export type InvoiceMode = 'TEST' | 'LIVE';
@@ -17,6 +18,7 @@ export type InvoiceItem = {
   amountMinor: number;
 };
 export type InvoiceSnapshot = {
+  template?: InvoiceTemplate;
   seller: InvoiceParty;
   customer: InvoiceParty;
   planName: string;
@@ -79,6 +81,9 @@ export function readInvoiceSnapshot(value: Prisma.JsonValue): InvoiceSnapshot {
     };
   });
   return {
+    ...(value.template
+      ? { template: readInvoiceTemplate(value.template) }
+      : {}),
     seller: party(value.seller),
     customer: party(value.customer),
     planName: value.planName,

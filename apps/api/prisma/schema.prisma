@@ -171,6 +171,7 @@ model PlatformInvoiceSettings {
   address     String    @default("")
   email       String    @default("")
   phone       String    @default("")
+  template    Json?
   previewedAt DateTime?
   enabledAt   DateTime?
   updatedAt   DateTime  @updatedAt

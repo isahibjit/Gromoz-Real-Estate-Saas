@@ -10,6 +10,7 @@ import { EmailConnectorsService } from '../crm/email-connectors.service';
 import { InvoicesQuery } from './invoice.dto';
 import { BILLING_DAY_MS, readInvoiceSnapshot } from './invoice.types';
 import { PlatformTenantBillingService } from './platform-tenant-billing.service';
+import { DEFAULT_INVOICE_TEMPLATE } from './invoice-template';
 
 const run =
   process.env.RUN_SUBSCRIPTION_DATABASE_TESTS === '1'
@@ -339,6 +340,41 @@ run('Invoice lifecycle against PostgreSQL', () => {
       ).toBe(1);
       expect(await db.invoiceDelivery.count()).toBe(before);
     } finally {
+      await invoices.setEnabled(true);
+    }
+  });
+  it('persists a new template only on future invoices and requires a fresh preview to reactivate issuance', async () => {
+    const settings = await invoices.settings();
+    const org = await fixture();
+    const old = await renewal(org.id);
+    const original = readInvoiceSnapshot(old.snapshot);
+    expect(original.template?.logoDataUrl).toMatch(/^data:image\/png;base64,/);
+    try {
+      const updatedTemplate = {
+        ...DEFAULT_INVOICE_TEMPLATE,
+        layout: 'COMPACT' as const,
+        logoMode: 'NONE' as const,
+        footer: 'Custom billing footer',
+        paymentNote: 'Contact the billing team for assistance.',
+      };
+      await invoices.saveSettings({ ...settings, template: updatedTemplate });
+      expect(await invoices.enabled()).toBe(false);
+      await expect(invoices.setEnabled(true)).rejects.toThrow('Preview');
+      await invoices.preview();
+      await invoices.setEnabled(true);
+      const next = await renewal((await fixture()).id);
+      expect(readInvoiceSnapshot(next.snapshot).template).toEqual(
+        updatedTemplate,
+      );
+      expect(
+        readInvoiceSnapshot((await invoices.find(org.id, old.number)).snapshot),
+      ).toEqual(original);
+      expect((await invoices.render(old)).subarray(0, 5).toString()).toBe(
+        '%PDF-',
+      );
+    } finally {
+      await invoices.saveSettings(settings);
+      await invoices.preview();
       await invoices.setEnabled(true);
     }
   });

@@ -1,5 +1,15 @@
 # Tenant invoices
 
+## Invoice templates
+
+Platform Settings → Invoice settings includes a template editor for future invoices. It supports classic and compact layouts, the supplied Solverix logo by default, an uploaded PNG/JPEG logo or no logo, a readable accent color, a document heading, additional payment information and a footer message. Uploaded logos are limited to 256 KB and 2048 × 2048 pixels. Remote logo URLs, SVG and executable markup are not accepted.
+
+Save the business details and template together, download the PDF preview, then explicitly enable invoicing. Template changes reset preview/activation just like issuer changes. Preview activation checks the settings revision, so a concurrently changed template cannot inherit approval from an older PDF.
+
+New invoice snapshots embed the selected template and logo bytes. Issued and paid documents retain their original logo, layout and commercial terms after later template changes; older snapshots without template data retain the legacy Gromoze layout. Template notes supplement standard terms and do not change prices, deadlines, GST treatment or payment behavior. The historical-backfill preview fingerprint includes template settings.
+
+Migration `20261024120000_invoice_templates` adds the nullable `PlatformInvoiceSettings.template` JSON field. Run the normal migration deployment before starting the updated API. Existing settings use the default template without rewriting invoice records. No additional npm dependency or public logo upload URL is required.
+
 Invoice issuance is disabled after migration. Existing payment flows remain available.
 
 ## Enable issuance

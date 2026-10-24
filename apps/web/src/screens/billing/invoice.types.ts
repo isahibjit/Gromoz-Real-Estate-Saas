@@ -5,6 +5,7 @@ export interface InvoiceParty {
   phone: string;
 }
 export interface InvoiceSnapshot {
+  template?: InvoiceTemplate;
   seller: InvoiceParty;
   customer: InvoiceParty;
   planName: string;
@@ -41,6 +42,7 @@ export interface InvoiceCheckout {
   razorpayKey: string;
 }
 export interface InvoiceSettings {
+  template?: InvoiceTemplate;
   businessName: string;
   address: string;
   email: string;
@@ -50,6 +52,24 @@ export interface InvoiceSettings {
   deliveryIssues?: number;
   reconciliationCount?: number;
 }
+export interface InvoiceTemplate {
+  layout: "CLASSIC" | "COMPACT";
+  logoMode: "DEFAULT" | "CUSTOM" | "NONE";
+  logoDataUrl: string;
+  accentColor: string;
+  heading: string;
+  paymentNote: string;
+  footer: string;
+}
+export const DEFAULT_INVOICE_TEMPLATE: Readonly<InvoiceTemplate> = {
+  layout: "CLASSIC",
+  logoMode: "DEFAULT",
+  logoDataUrl: "",
+  accentColor: "#007C7B",
+  heading: "Invoice",
+  paymentNote: "",
+  footer: "",
+};
 export interface BackfillPreview {
   previewToken: string;
   candidates: number;

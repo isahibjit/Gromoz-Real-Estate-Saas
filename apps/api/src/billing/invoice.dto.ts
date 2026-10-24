@@ -4,16 +4,19 @@ import {
   IsIn,
   IsOptional,
   IsString,
+  IsObject,
   MaxLength,
   MinLength,
 } from 'class-validator';
 import { WorkspaceListQuery } from './workspace.dto';
+import type { InvoiceTemplate } from './invoice-template';
 
 export class InvoiceSettingsDto {
   @IsString() @MinLength(2) @MaxLength(160) businessName!: string;
   @IsString() @MinLength(5) @MaxLength(1000) address!: string;
   @IsEmail() @MaxLength(254) email!: string;
   @IsOptional() @IsString() @MaxLength(40) phone = '';
+  @IsOptional() @IsObject() template?: InvoiceTemplate;
 }
 export class EnableInvoicesDto {
   @IsBoolean() enabled!: boolean;

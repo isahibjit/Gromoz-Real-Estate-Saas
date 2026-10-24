@@ -27,12 +27,13 @@ import {
 import { dateRange } from './workspace-date-range';
 import { DEFAULT_TRIAL_DAYS, INVOICE_LEAD_DAYS } from './billing.constants';
 import { setupPaymentQuote } from './setup-payment-quote';
+import { readInvoiceTemplate } from './invoice-template';
 
 type Tx = Prisma.TransactionClient;
 export type InvoiceIssuer = Pick<
   PlatformInvoiceSettings,
   'businessName' | 'address' | 'email' | 'phone'
->;
+> & { template?: Prisma.JsonValue };
 export const invoiceOrganizationSelect = {
   id: true,
   name: true,
@@ -67,18 +68,21 @@ export class InvoicesService {
   ) {}
 
   async settings() {
-    return (
-      (await this.prisma.platformInvoiceSettings.findUnique({
-        where: { id: 'platform' },
-      })) ?? {
-        businessName: '',
-        address: '',
-        email: '',
-        phone: '',
-        enabledAt: null,
-        previewedAt: null,
-      }
-    );
+    const saved = await this.prisma.platformInvoiceSettings.findUnique({
+      where: { id: 'platform' },
+    });
+    return saved
+      ? { ...saved, template: readInvoiceTemplate(saved.template) }
+      : {
+          businessName: '',
+          address: '',
+          email: '',
+          phone: '',
+          enabledAt: null,
+          previewedAt: null,
+          updatedAt: null,
+          template: readInvoiceTemplate(null),
+        };
   }
   async saveSettings(dto: InvoiceSettingsDto) {
     const data = {
@@ -86,8 +90,14 @@ export class InvoicesService {
       address: dto.address.trim(),
       email: dto.email.trim().toLowerCase(),
       phone: dto.phone.trim(),
+      template: {
+        ...readInvoiceTemplate(
+          dto.template ?? (await this.settings()).template,
+        ),
+      },
     };
     this.validateIssuer(data);
+    await this.pdf.validateTemplate(data.template);
     // An identity change requires a new preview and explicit activation.
     return this.prisma.platformInvoiceSettings.upsert({
       where: { id: 'platform' },
@@ -120,6 +130,7 @@ export class InvoicesService {
       currency: 'INR',
       historical: false,
       snapshot: {
+        template: settings.template,
         seller: {
           name: settings.businessName,
           address: settings.address,
@@ -152,6 +163,7 @@ export class InvoicesService {
         address: settings.address,
         email: settings.email,
         phone: settings.phone,
+        ...(settings.updatedAt ? { updatedAt: settings.updatedAt } : {}),
       },
       data: { previewedAt: new Date() },
     });
@@ -177,6 +189,7 @@ export class InvoicesService {
         address: settings.address,
         email: settings.email,
         phone: settings.phone,
+        ...(settings.updatedAt ? { updatedAt: settings.updatedAt } : {}),
       },
       data: { enabledAt: settings.enabledAt ?? new Date() },
     });
@@ -229,6 +242,7 @@ export class InvoicesService {
       },
     ];
     return {
+      template: this.pdf.snapshotTemplate(issuer.template),
       seller: {
         name: issuer.businessName,
         address: issuer.address,

@@ -1,8 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { invoiceMoney, type InvoiceSnapshot } from './invoice.types';
+import {
+  invoiceLogoBuffer,
+  readInvoiceTemplate,
+  type InvoiceTemplate,
+} from './invoice-template';
 
 export interface InvoicePdfData {
   number: string;
@@ -18,12 +23,62 @@ export interface InvoicePdfData {
   historical: boolean;
 }
 const NAVY = '#0B335B',
-  TEAL = '#007C7B',
   MUTED = '#52677A',
   BORDER = '#DCE5EC';
 
 @Injectable()
 export class InvoicePdfService {
+  private readonly defaultLogo = readFileSync(
+    [
+      join(__dirname, 'assets', 'solverix-logo.png'),
+      join(process.cwd(), 'src', 'billing', 'assets', 'solverix-logo.png'),
+      join(
+        process.cwd(),
+        'apps',
+        'api',
+        'src',
+        'billing',
+        'assets',
+        'solverix-logo.png',
+      ),
+    ].find((path) => existsSync(path)) ?? '',
+  );
+  snapshotTemplate(value?: unknown): InvoiceTemplate {
+    const template = readInvoiceTemplate(value);
+    return template.logoMode === 'DEFAULT'
+      ? {
+          ...template,
+          logoMode: 'CUSTOM',
+          logoDataUrl: `data:image/png;base64,${this.defaultLogo.toString(
+            'base64',
+          )}`,
+        }
+      : template;
+  }
+  async validateTemplate(template: InvoiceTemplate): Promise<void> {
+    if (template.logoMode !== 'CUSTOM') return;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const doc = new PDFDocument();
+        doc.on('data', () => undefined);
+        doc.on('end', resolve);
+        doc.on('error', reject);
+        try {
+          doc.image(invoiceLogoBuffer(template.logoDataUrl), 44, 44, {
+            fit: [165, 60],
+          });
+          doc.end();
+        } catch (error) {
+          doc.destroy();
+          reject(error);
+        }
+      });
+    } catch {
+      throw new BadRequestException(
+        'The logo could not be decoded. Upload a valid PNG or JPEG.',
+      );
+    }
+  }
   private readonly logo = readFileSync(
     [
       join(__dirname, 'assets', 'gromoze-logo.png'),
@@ -41,12 +96,14 @@ export class InvoicePdfService {
   );
 
   render(invoice: InvoicePdfData): Promise<Buffer> {
+    const template = readInvoiceTemplate(invoice.snapshot.template);
+    const accent = template.accentColor;
     return new Promise((resolve, reject) => {
       const doc = new PDFDocument({
         size: 'A4',
         margin: 44,
         info: {
-          Title: `Gromoze invoice ${invoice.number}`,
+          Title: `${invoice.snapshot.seller.name} invoice ${invoice.number}`,
           CreationDate: invoice.issuedAt,
         },
       });
@@ -65,28 +122,48 @@ export class InvoicePdfService {
         doc
           .font('Helvetica-Bold')
           .fontSize(10)
-          .fillColor(TEAL)
+          .fillColor(accent)
           .text(value, x, y);
       const line = (y: number) =>
         doc.moveTo(44, y).lineTo(551, y).strokeColor(BORDER).stroke();
       try {
-        // Clip the whitespace around the supplied artwork without changing it.
-        doc
-          .save()
-          .rect(44, 38, 165, 51)
-          .clip()
-          .image(this.logo, 31, -5, { width: 186 })
-          .restore();
+        // Legacy snapshots retain the original supplied Gromoze artwork.
+        if (!invoice.snapshot.template)
+          doc
+            .save()
+            .rect(44, 38, 165, 51)
+            .clip()
+            .image(this.logo, 31, -5, { width: 186 })
+            .restore();
+        else if (template.logoMode !== 'NONE')
+          doc.image(
+            template.logoMode === 'CUSTOM'
+              ? invoiceLogoBuffer(template.logoDataUrl)
+              : this.defaultLogo,
+            44,
+            38,
+            { fit: [200, 60], valign: 'center' },
+          );
+        doc.font('Helvetica-Bold').fontSize(22);
+        const headingSize = Math.min(
+          22,
+          (22 * 271) / Math.max(1, doc.widthOfString(template.heading)),
+        );
         doc
           .font('Helvetica-Bold')
-          .fontSize(22)
+          .fontSize(headingSize)
           .fillColor(NAVY)
-          .text('Invoice', 340, 40, { width: 211, align: 'right' });
+          .text(template.heading, 280, 40, {
+            width: 271,
+            height: 28,
+            ellipsis: true,
+            align: 'right',
+          });
         doc
           .fontSize(10)
           .text(invoice.number, 280, 72, { width: 271, align: 'right' });
         doc
-          .fillColor(TEAL)
+          .fillColor(accent)
           .text(
             invoice.mode === 'TEST'
               ? `TEST INVOICE - ${invoice.status}`
@@ -96,6 +173,8 @@ export class InvoicePdfService {
             { width: 271, align: 'right' },
           );
         line(118);
+        if (template.layout === 'COMPACT')
+          doc.rect(44, 114, 507, 3).fill(accent);
         heading('From', 139);
         doc
           .font('Helvetica-Bold')
@@ -166,7 +245,7 @@ export class InvoicePdfService {
           doc.text('Qty', 306, y + 9, { width: 35, align: 'right' });
           doc.text('Unit price', 347, y + 9, { width: 95, align: 'right' });
           doc.text('Amount', 447, y + 9, { width: 94, align: 'right' });
-          y += 38;
+          y += template.layout === 'COMPACT' ? 32 : 38;
         };
         if (y > 600) {
           doc.addPage();
@@ -175,7 +254,7 @@ export class InvoicePdfService {
         tableHeader();
         for (const item of invoice.snapshot.items) {
           const height = Math.max(
-            30,
+            template.layout === 'COMPACT' ? 24 : 30,
             doc.heightOfString(item.description, { width: 242 }) + 15,
           );
           if (y + height > 690) {
@@ -220,7 +299,7 @@ export class InvoicePdfService {
             { width: 301, align: 'right' },
           );
         doc
-          .fillColor(TEAL)
+          .fillColor(accent)
           .text(
             `Balance due: ${invoiceMoney(
               invoice.status === 'PAID' || invoice.status === 'VOID'
@@ -271,6 +350,14 @@ export class InvoicePdfService {
             .text(
               'Test payment only. This document does not represent a live payment.',
             );
+        for (const text of [template.paymentNote, template.footer].filter(
+          Boolean,
+        )) {
+          doc.font('Helvetica').fontSize(9).fillColor(MUTED);
+          if (doc.y + doc.heightOfString(text, { width: 507 }) + 18 > 790)
+            doc.addPage();
+          doc.moveDown().text(text, 44, doc.y + 6, { width: 507, lineGap: 3 });
+        }
         doc.end();
       } catch (error) {
         doc.destroy();

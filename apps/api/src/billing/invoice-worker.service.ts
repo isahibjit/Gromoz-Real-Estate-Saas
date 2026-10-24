@@ -16,6 +16,7 @@ import { RazorpayService } from './razorpay.service';
 import { invoiceMoney, minorAmount, type InvoiceKind } from './invoice.types';
 import { tenantWorkspaceUrl } from '@truroot/shared';
 import { BILLING_DAY_MS, INVOICE_LEAD_DAYS } from './billing.constants';
+import { readInvoiceTemplate } from './invoice-template';
 
 function fingerprint(settings: InvoiceIssuer) {
   return createHash('sha256')
@@ -25,6 +26,7 @@ function fingerprint(settings: InvoiceIssuer) {
         settings.address,
         settings.email,
         settings.phone,
+        readInvoiceTemplate(settings.template),
       ]),
     )
     .digest('hex');
