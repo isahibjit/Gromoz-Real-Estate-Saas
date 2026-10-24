@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Button, Card, DataTable, Input, type ColumnDef } from "ui";
+import { Badge, Button, Card, DataTable, Input, cn, type ColumnDef } from "ui";
 import { FileText } from "lucide-react";
 import { api } from "../../common/api";
 import { currentOrganizationId } from "../../common/tenantRequestScope";
@@ -15,6 +15,12 @@ import {
 import type { PageResult } from "./workspace.types";
 import type { WorkspaceInvoice } from "./invoice.types";
 import { InvoiceDetailsDialog } from "./InvoiceDetailsDialog";
+import {
+  invoiceSourceScope,
+  invoicePurpose,
+  tenantInvoiceSource,
+  type InvoiceSource,
+} from "./invoiceSource";
 
 export function OutstandingInvoices({ onView }: { onView: () => void }) {
   const query = useQuery({
@@ -86,11 +92,13 @@ export function OutstandingInvoices({ onView }: { onView: () => void }) {
 export function Invoices({
   initialNumber,
   onSelectionCleared,
+  source = tenantInvoiceSource,
 }: {
   initialNumber?: string | null;
   onSelectionCleared?: () => void;
+  source?: InvoiceSource;
 }) {
-  const organizationId = currentOrganizationId();
+  const scope = invoiceSourceScope(source);
   const [selected, setSelected] = useState(initialNumber ?? null);
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState({
@@ -100,6 +108,7 @@ export function Invoices({
     from: "",
     to: "",
     page: 1,
+    mode: "all",
   });
   const update = (values: Partial<typeof filters>) =>
     setFilters((previous) => ({ ...previous, ...values, page: 1 }));
@@ -111,10 +120,10 @@ export function Invoices({
     return () => window.clearTimeout(timer);
   }, [search]);
   const query = useQuery({
-    queryKey: ["billing-invoices", organizationId, filters],
+    queryKey: ["billing-invoices", scope.key, filters],
     queryFn: async () =>
       (
-        await api.get<PageResult<WorkspaceInvoice>>("/billing/invoices", {
+        await api.get<PageResult<WorkspaceInvoice>>(scope.base, {
           params: {
             ...filters,
             status: filters.status === "all" ? undefined : filters.status,
@@ -122,6 +131,7 @@ export function Invoices({
             from: filters.from || undefined,
             to: filters.to || undefined,
             pageSize: 10,
+            mode: filters.mode === "all" ? undefined : filters.mode,
           },
         })
       ).data,
@@ -146,12 +156,24 @@ export function Invoices({
             {row.number}
           </Button>
           <p className="mt-1 text-xs text-muted-foreground">
-            {humanLabel(row.type)}
+            {scope.readOnly ? invoicePurpose(row.type) : humanLabel(row.type)}
             {row.mode === "TEST" ? " - Test" : ""}
           </p>
         </div>
       ),
     },
+    ...(scope.readOnly
+      ? [
+          {
+            header: "Environment",
+            cell: (row: WorkspaceInvoice) => (
+              <Badge variant={row.mode === "TEST" ? "warning" : "neutral"}>
+                {row.mode === "TEST" ? "Test" : "Live"}
+              </Badge>
+            ),
+          },
+        ]
+      : []),
     { header: "Issued", cell: (row) => dateLabel(row.issuedAt) },
     { header: "Due", cell: (row) => dateLabel(row.dueAt) },
     {
@@ -186,7 +208,7 @@ export function Invoices({
           size="sm"
           onClick={() => setSelected(row.number)}
         >
-          {row.balanceMinor > 0 && !row.reconciliationNote
+          {!scope.readOnly && row.balanceMinor > 0 && !row.reconciliationNote
             ? "View & pay"
             : "View invoice"}
         </Button>
@@ -200,12 +222,29 @@ export function Invoices({
         <div>
           <h2 className="font-semibold">Invoices</h2>
           <p className="text-sm text-muted-foreground">
-            Issued charges, payment status, and downloadable invoices for your
-            workspace.
+            Issued charges, payment status, and downloadable invoices for{" "}
+            {scope.readOnly ? "the selected tenant." : "your workspace."}
           </p>
         </div>
       </div>
-      <div className="grid gap-4 rounded-lg border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div
+        className={cn(
+          "grid gap-4 rounded-lg border border-border bg-card p-4 sm:grid-cols-2",
+          scope.readOnly ? "xl:grid-cols-6" : "xl:grid-cols-5",
+        )}
+      >
+        {scope.readOnly && (
+          <WorkspaceSelect
+            label="Environment"
+            value={filters.mode}
+            onChange={(mode) => update({ mode })}
+            options={[
+              { value: "all", label: "All environments" },
+              { value: "TEST", label: "Test" },
+              { value: "LIVE", label: "Live" },
+            ]}
+          />
+        )}
         <div className="space-y-1.5">
           <label
             htmlFor="invoice-search"
@@ -235,7 +274,11 @@ export function Invoices({
             "SETUP_FEE",
             "RECURRING_SEATS",
             "SEAT_UPGRADE",
-          ])}
+          ]).map((option) =>
+            scope.readOnly && option.value !== "all"
+              ? { ...option, label: invoicePurpose(option.value) }
+              : option,
+          )}
         />
         <div className="space-y-1.5">
           <label
@@ -293,6 +336,7 @@ export function Invoices({
         </>
       )}
       <InvoiceDetailsDialog
+        source={source}
         number={selected}
         onClose={() => {
           setSelected(null);

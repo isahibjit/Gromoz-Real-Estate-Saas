@@ -177,6 +177,21 @@ export class InvoicePaymentsService {
       }
     }
     const items = readInvoiceSnapshot(invoice.snapshot).items;
+    const deliveries = await this.prisma.invoiceDelivery.findMany({
+      where: { invoiceId: invoice.id, kind: 'ISSUED' },
+      select: { status: true },
+    });
+    const notificationStatus = deliveries.some(
+      (job) => job.status === 'UNCERTAIN',
+    )
+      ? 'UNCERTAIN'
+      : deliveries.some((job) => job.status === 'FAILED')
+      ? 'RETRYING'
+      : deliveries.some((job) => ['PENDING', 'PROCESSING'].includes(job.status))
+      ? 'QUEUED'
+      : deliveries.some((job) => job.status === 'SENT')
+      ? 'ACCEPTED'
+      : 'NOT_QUEUED';
     return {
       orderId: ready.orderId,
       amount: Number(invoice.amountMinor) / 100,
@@ -184,6 +199,16 @@ export class InvoicePaymentsService {
       razorpayKey: this.razorpay.getPublicKey(),
       organizationName,
       invoiceNumber: invoice.number,
+      paymentPurpose:
+        invoice.type === 'SETUP_FEE'
+          ? 'FIRST_SUBSCRIPTION_PAYMENT'
+          : invoice.type === 'RECURRING_SEATS'
+          ? 'RENEWAL'
+          : 'SEAT_UPGRADE',
+      invoiceIssuedAt: invoice.issuedAt,
+      dueAt: invoice.dueAt,
+      mode: invoice.mode,
+      notificationStatus,
       additionalSeats:
         invoice.type === 'SEAT_UPGRADE' ? invoice.seatQuantity : 0,
       seatsCount: invoice.seatQuantity,

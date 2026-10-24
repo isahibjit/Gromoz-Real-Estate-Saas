@@ -13,16 +13,11 @@ import {
   humanLabel,
   moneyLabel,
 } from "./WorkspaceControls";
-export function safeReceiptUrl(value: string | null): string | null {
-  if (!value) return null;
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" ? url.href : null;
-  } catch {
-    return null;
-  }
-}
-export function PaymentHistory({ onViewInvoice }: { onViewInvoice?: (number: string) => void } = {}) {
+import { safeBillingUrl as safeReceiptUrl } from "./billingLinks";
+export { safeBillingUrl as safeReceiptUrl } from "./billingLinks";
+export function PaymentHistory({
+  onViewInvoice,
+}: { onViewInvoice?: (number: string) => void } = {}) {
   const organizationId = currentOrganizationId();
   const [filters, setFilters] = useState({
     status: "all",
@@ -58,10 +53,21 @@ export function PaymentHistory({ onViewInvoice }: { onViewInvoice?: (number: str
         <div>
           <p className="font-medium">{humanLabel(row.type)}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {row.invoiceNumber && onViewInvoice ? <Button variant="ghost" size="sm" className="h-auto px-0 text-primary" onClick={() => onViewInvoice(row.invoiceNumber ?? '')}>{row.invoiceNumber}</Button> : row.invoiceNumber ||
+            {row.invoiceNumber && onViewInvoice ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto px-0 text-primary"
+                onClick={() => onViewInvoice(row.invoiceNumber ?? "")}
+              >
+                {row.invoiceNumber}
+              </Button>
+            ) : (
+              row.invoiceNumber ||
               row.razorpayPaymentId ||
               row.razorpayOrderId ||
-              "Reference unavailable"}
+              "Reference unavailable"
+            )}
           </p>
         </div>
       ),

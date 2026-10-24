@@ -182,3 +182,37 @@ test("shows outstanding balances and does not silently hide an API failure", asy
   fireEvent.click(await screen.findByRole("button", { name: "View invoices" }));
   expect(onView).toHaveBeenCalled();
 });
+test("uses platform read endpoints for invoice details and PDF without payment actions or workspace changes", async () => {
+  localStorage.setItem("active_organization_id", "unchanged-tenant");
+  get.mockImplementation(async (url) => ({
+    data: String(url).endsWith("/invoices")
+      ? { items: [invoice], total: 1, page: 1, pageSize: 10 }
+      : invoice,
+  }));
+  mount(<Invoices source={{ kind: "platform", tenantId: "tenant-b" }} />);
+  expect(
+    await screen.findByRole("button", { name: invoice.number }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "View invoice" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "View & pay" }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: invoice.number }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Download invoice" }),
+  );
+  await waitFor(() =>
+    expect(downloadBillingPdf).toHaveBeenCalledWith(
+      `/billing/platform/tenants/tenant-b/invoices/${invoice.number}/pdf`,
+      invoice.number,
+    ),
+  );
+  expect(
+    screen.queryByRole("button", { name: /^Pay / }),
+  ).not.toBeInTheDocument();
+  expect(localStorage.getItem("active_organization_id")).toBe(
+    "unchanged-tenant",
+  );
+});

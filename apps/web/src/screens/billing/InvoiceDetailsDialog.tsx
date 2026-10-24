@@ -25,6 +25,11 @@ import { openRazorpayCheckout } from "../../common/services/razorpayClient";
 import { dateLabel, humanLabel, moneyLabel } from "./WorkspaceControls";
 import { downloadBillingPdf } from "./invoiceDownload";
 import type { InvoiceCheckout, WorkspaceInvoice } from "./invoice.types";
+import {
+  invoiceSourceScope,
+  tenantInvoiceSource,
+  type InvoiceSource,
+} from "./invoiceSource";
 
 function InvoicePayment({ invoice }: { invoice: WorkspaceInvoice }) {
   const client = useQueryClient();
@@ -130,17 +135,19 @@ function InvoicePayment({ invoice }: { invoice: WorkspaceInvoice }) {
 export function InvoiceDetailsDialog({
   number,
   onClose,
+  source = tenantInvoiceSource,
 }: {
   number: string | null;
   onClose: () => void;
+  source?: InvoiceSource;
 }) {
-  const organizationId = currentOrganizationId();
+  const scope = invoiceSourceScope(source);
   const query = useQuery({
-    queryKey: ["billing-invoice", organizationId, number],
+    queryKey: ["billing-invoice", scope.key, number],
     queryFn: async () =>
       (
         await api.get<WorkspaceInvoice>(
-          `/billing/invoices/${encodeURIComponent(number ?? "")}`,
+          `${scope.base}/${encodeURIComponent(number ?? "")}`,
         )
       ).data,
     enabled: Boolean(number),
@@ -155,7 +162,7 @@ export function InvoiceDetailsDialog({
     setDownloadError("");
     try {
       await downloadBillingPdf(
-        `/billing/invoices/${encodeURIComponent(invoice.number)}/pdf`,
+        `${scope.base}/${encodeURIComponent(invoice.number)}/pdf`,
         invoice.number,
       );
     } catch (failure: unknown) {
@@ -335,7 +342,8 @@ export function InvoiceDetailsDialog({
                 <Download className="size-4" aria-hidden="true" />
                 {downloading ? "Downloading..." : "Download invoice"}
               </Button>
-              {(invoice.status === "ISSUED" || invoice.status === "OVERDUE") &&
+              {!scope.readOnly &&
+                (invoice.status === "ISSUED" || invoice.status === "OVERDUE") &&
                 !invoice.reconciliationNote && (
                   <InvoicePayment key={invoice.number} invoice={invoice} />
                 )}

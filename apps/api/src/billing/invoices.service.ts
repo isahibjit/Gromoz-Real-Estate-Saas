@@ -26,6 +26,7 @@ import {
 } from './invoice.types';
 import { dateRange } from './workspace-date-range';
 import { DEFAULT_TRIAL_DAYS, INVOICE_LEAD_DAYS } from './billing.constants';
+import { setupPaymentQuote } from './setup-payment-quote';
 
 type Tx = Prisma.TransactionClient;
 export type InvoiceIssuer = Pick<
@@ -227,13 +228,6 @@ export class InvoicesService {
         amountMinor: price * seats,
       },
     ];
-    if (kind === 'SETUP_FEE' && !org.setupFeePaid && org.setupFeeAmount > 0)
-      items.unshift({
-        description: 'Workspace setup fee',
-        quantity: 1,
-        unitAmountMinor: minorAmount(org.setupFeeAmount),
-        amountMinor: minorAmount(org.setupFeeAmount),
-      });
     return {
       seller: {
         name: issuer.businessName,
@@ -259,7 +253,7 @@ export class InvoicesService {
         configuredWorkspacePlans().find((plan) => plan.code === org.planTier)
           ?.name ||
         org.planTier.charAt(0) + org.planTier.slice(1).toLowerCase(),
-      items,
+      items: kind === 'SETUP_FEE' ? setupPaymentQuote(org, seats).items : items,
       note:
         kind === 'SEAT_UPGRADE'
           ? 'Seat access is added after payment confirmation.'
@@ -450,7 +444,10 @@ export class InvoicesService {
     mode: InvoiceMode,
   ) {
     const settings = await this.settings();
-    if (!settings.enabledAt) return null;
+    if (!settings.enabledAt)
+      return kind === 'SETUP_FEE'
+        ? this.firstSetupInvoice(organizationId, mode)
+        : null;
     return this.prisma.$transaction(async (tx) => {
       const org = await this.lockOrganization(tx, organizationId);
       if (['CANCELLED', 'SUSPENDED'].includes(org.status))
@@ -514,6 +511,17 @@ export class InvoicesService {
     if (!invoice) throw new NotFoundException('Invoice not found');
     return invoice;
   }
+  firstSetupInvoice(organizationId: string, mode?: InvoiceMode | null) {
+    return this.prisma.billingInvoice.findFirst({
+      where: {
+        organizationId,
+        type: 'SETUP_FEE',
+        status: { in: ['ISSUED', 'PAID'] },
+        ...(mode ? { mode } : {}),
+      },
+      orderBy: { issuedAt: 'desc' },
+    });
+  }
   present(invoice: BillingInvoice) {
     return {
       number: invoice.number,
@@ -539,6 +547,7 @@ export class InvoicesService {
     const now = new Date();
     const where: Prisma.BillingInvoiceWhereInput = {
       organizationId,
+      ...(query.mode ? { mode: query.mode } : {}),
       ...(query.status === 'OVERDUE'
         ? { status: 'ISSUED', dueAt: { lt: now } }
         : query.status === 'ISSUED'
@@ -570,10 +579,14 @@ export class InvoicesService {
       pageSize: query.pageSize,
     };
   }
-  async outstanding(organizationId: string) {
+  async outstanding(organizationId: string, includeUnderReview = false) {
     const groups = await this.prisma.billingInvoice.groupBy({
       by: ['mode', 'currency'],
-      where: { organizationId, status: 'ISSUED', reconciliationNote: null },
+      where: {
+        organizationId,
+        status: 'ISSUED',
+        ...(includeUnderReview ? {} : { reconciliationNote: null }),
+      },
       _sum: { amountMinor: true },
       _count: { _all: true },
     });

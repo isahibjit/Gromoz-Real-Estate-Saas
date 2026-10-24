@@ -9,6 +9,7 @@ import { PrismaService } from '../persistence/prisma/prisma.service';
 import { EmailConnectorsService } from '../crm/email-connectors.service';
 import { InvoicesQuery } from './invoice.dto';
 import { BILLING_DAY_MS, readInvoiceSnapshot } from './invoice.types';
+import { PlatformTenantBillingService } from './platform-tenant-billing.service';
 
 const run =
   process.env.RUN_SUBSCRIPTION_DATABASE_TESTS === '1'
@@ -288,6 +289,58 @@ run('Invoice lifecycle against PostgreSQL', () => {
       (await db.organization.findUniqueOrThrow({ where: { id: org.id } }))
         .allocatedSeats,
     ).toBe(3);
+  });
+  it('reads platform billing without issuing documents and preserves an issued quote when issuance is disabled', async () => {
+    const org = await fixture();
+    const dueAt = new Date(Date.now() + 12 * BILLING_DAY_MS);
+    await db.organization.update({
+      where: { id: org.id },
+      data: { setupFeePaid: false, trialEndsAt: dueAt, currentPeriodEnd: null },
+    });
+    const invoice = await invoices.forCheckout(org.id, 'SETUP_FEE', 2, 'TEST');
+    if (!invoice) throw new Error('Expected first-payment invoice');
+    const checkout = await payments.checkout(org.id, invoice.number, true);
+    expect(checkout).toMatchObject({
+      paymentPurpose: 'FIRST_SUBSCRIPTION_PAYMENT',
+      invoiceNumber: invoice.number,
+      invoiceIssuedAt: invoice.issuedAt,
+      dueAt,
+      mode: 'TEST',
+      notificationStatus: 'QUEUED',
+    });
+    await invoices.setEnabled(false);
+    try {
+      await db.organization.update({
+        where: { id: org.id },
+        data: { pricePerSeatMonth: 900, allocatedSeats: 4 },
+      });
+      const before = await db.invoiceDelivery.count();
+      const service = new PlatformTenantBillingService(
+        db as unknown as PrismaService,
+        invoices,
+        razorpay as unknown as RazorpayService,
+      );
+      const summary = await service.summary(org.id);
+      expect(summary.counts).toEqual({
+        total: 1,
+        unpaid: 1,
+        overdue: 0,
+        paid: 0,
+        void: 0,
+      });
+      expect(summary.firstPayment.invoice?.number).toBe(invoice.number);
+      expect(summary.firstPayment.replacementRequired).toBe(false);
+      expect(summary.firstPaymentDueAt).toEqual(dueAt);
+      const reused = await invoices.forCheckout(org.id, 'SETUP_FEE', 4, 'TEST');
+      expect(reused?.number).toBe(invoice.number);
+      expect(reused?.snapshot).toEqual(invoice.snapshot);
+      expect(
+        await db.billingInvoice.count({ where: { organizationId: org.id } }),
+      ).toBe(1);
+      expect(await db.invoiceDelivery.count()).toBe(before);
+    } finally {
+      await invoices.setEnabled(true);
+    }
   });
   it.each(['amount', 'currency', 'authorized', 'refunded', 'signature'])(
     'rejects invalid %s without changing the ledger or subscription',

@@ -19,6 +19,8 @@ import { InvoicesService } from './invoices.service';
 import { InvoicePaymentsService } from './invoice-payments.service';
 import { InvoicePdfService } from './invoice-pdf.service';
 import { InvoiceWorker } from './invoice-worker.service';
+import { PlatformTenantBillingService } from './platform-tenant-billing.service';
+import { PlatformTenantBillingController } from './platform-tenant-billing.controller';
 
 @Module({
   imports: [
@@ -33,6 +35,7 @@ import { InvoiceWorker } from './invoice-worker.service';
     SupportTicketsController,
     InvoicesController,
     PlatformInvoicesController,
+    PlatformTenantBillingController,
   ],
   providers: [
     RazorpayService,
@@ -44,6 +47,7 @@ import { InvoiceWorker } from './invoice-worker.service';
     InvoicePdfService,
     InvoiceWorker,
     PlatformBillingGuard,
+    PlatformTenantBillingService,
   ],
   exports: [RazorpayService, BillingService],
 })

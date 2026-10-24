@@ -82,6 +82,7 @@ jobs:
           src/auth/auth.service.spec.ts
           src/billing/workspace.spec.ts
           src/billing/invoices.spec.ts
+          src/billing/platform-tenant-billing.spec.ts
           src/hr/hr.service.tenant-isolation.spec.ts
           src/common/tenant/tenant.guard.spec.ts
           src/common/tenant/tenant-access.service.spec.ts
@@ -117,6 +118,7 @@ jobs:
           src/screens/hr/settings/WorkspaceIntegrationSafety.test.tsx
           src/screens/superadmin/PlatformAuditLogsScreen.test.tsx
           src/screens/superadmin/TenantManagementDialog.test.tsx
+          src/screens/superadmin/TenantBillingPanel.test.tsx
           src/components/notifications/HeaderNotificationBell.test.tsx
           src/common/tenantRequestScope.test.ts
           src/common/tenantResolver.test.ts

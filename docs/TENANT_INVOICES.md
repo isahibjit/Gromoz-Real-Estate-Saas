@@ -14,6 +14,12 @@ Changing seller details disables new issuance and requires another preview and a
 
 ## Charges and payment
 
+Platform administrators can inspect each tenant's **Billing & invoices** section on its detail page. Counts cover actual invoice records across all environments; overdue is part of unpaid. Test/live balances remain separate, and the read-only invoice table supports environment filters, details and protected PDF downloads without selecting or impersonating the workspace.
+
+**Manage tenant → Billing** shows the first 30-day seat charge, any one-time setup fee, invoice issuance information and the recorded payment deadline. Early payment remains available during a trial. **Create first-payment link** does not schedule a charge: the customer must open the link and authorize payment. The interface distinguishes queued invoice email, SMTP acceptance and a requested Razorpay notification from confirmed inbox delivery. Missing dates remain “Not recorded”/“Not scheduled”; no trial deadline is invented for display.
+
+Generating a link reuses matching issued invoices, including when new issuance has been disabled. Changed saved terms are disclosed before an unpaid invoice is replaced. Paid invoices are never repriced. Billing records refresh after failed link creation too, because an invoice may already have been issued before a provider failure.
+
 - Setup and seat-purchase invoices are issued before checkout. Trial conversion and renewals are issued within 14 days of the recorded due date.
 - Workspace rates and purchased seat allowances determine charges. Renewals add 30 days from the later of the old expiry or payment confirmation; no annual billing, GST calculations or automatic debit is introduced.
 - Amounts are stored in minor currency units. Setup, seat upgrades, browser verification and signed Razorpay webhooks share invoice settlement for new checkouts.

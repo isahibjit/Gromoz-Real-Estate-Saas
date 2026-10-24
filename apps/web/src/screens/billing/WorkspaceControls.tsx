@@ -95,8 +95,20 @@ export const dateLabel = (value: string | null) =>
         day: "numeric",
         month: "short",
         year: "numeric",
+        timeZone: "Asia/Kolkata",
       })
     : "Not configured";
+export const billingDateTime = (value: string | null) =>
+  value
+    ? `${new Date(value).toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })} IST`
+    : "Not recorded";
 export const humanLabel = (value: string) =>
   value
     .toLowerCase()

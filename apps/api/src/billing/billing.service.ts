@@ -16,6 +16,7 @@ import { RazorpayService } from './razorpay.service';
 import { tenantWorkspaceUrl } from '@truroot/shared';
 import { InvoicesService } from './invoices.service';
 import { InvoicePaymentsService } from './invoice-payments.service';
+import { paymentModeFromKey, setupPaymentQuote } from './setup-payment-quote';
 
 export { DEFAULT_TRIAL_DAYS } from './billing.constants';
 
@@ -172,6 +173,14 @@ export class BillingService {
     }
 
     const adminUser = org.memberships[0]?.user;
+    if (org.setupFeePaid)
+      throw new BadRequestException(
+        'Workspace setup payment has already been completed',
+      );
+    if (['SUSPENDED', 'CANCELLED'].includes(org.status))
+      throw new BadRequestException(
+        'This workspace cannot start a new payment',
+      );
     if (this.invoices && this.invoicePayments) {
       const invoice = await this.invoices.forCheckout(
         organizationId,
@@ -187,8 +196,9 @@ export class BillingService {
         );
     }
     const seats = Math.max(1, dto.initialSeats || 1);
-    const seatsTotal = seats * org.pricePerSeatMonth;
-    const totalAmount = org.setupFeeAmount + seatsTotal;
+    const quote = setupPaymentQuote(org, seats);
+    const seatsTotal = quote.seatAmountMinor / 100;
+    const totalAmount = quote.amountMinor / 100;
 
     const receipt = `setup_${org.slug.slice(0, 18)}_${Date.now()}`;
     const order = await this.razorpay.createOrder({
@@ -240,6 +250,14 @@ export class BillingService {
       seatsAmount: seatsTotal,
       razorpayKey: this.razorpay.getPublicKey(),
       organizationName: org.name,
+      paymentPurpose: 'FIRST_SUBSCRIPTION_PAYMENT' as const,
+      invoiceNumber: null,
+      invoiceIssuedAt: null,
+      dueAt: org.trialEndsAt,
+      mode: paymentModeFromKey(this.razorpay.getPublicKey()),
+      notificationStatus: paymentLink?.short_url
+        ? ('PROVIDER_NOTIFICATION_REQUESTED' as const)
+        : ('NOT_QUEUED' as const),
     };
   }
 

@@ -19,6 +19,7 @@ export class EnableInvoicesDto {
   @IsBoolean() enabled!: boolean;
 }
 export class InvoicesQuery extends WorkspaceListQuery {
+  @IsOptional() @IsIn(['TEST', 'LIVE']) mode?: 'TEST' | 'LIVE';
   @IsOptional() @IsIn(['ISSUED', 'OVERDUE', 'PAID', 'VOID']) status?: string;
   @IsOptional()
   @IsIn(['SETUP_FEE', 'RECURRING_SEATS', 'SEAT_UPGRADE'])

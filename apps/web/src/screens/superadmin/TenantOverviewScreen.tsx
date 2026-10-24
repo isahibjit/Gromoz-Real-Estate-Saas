@@ -31,6 +31,10 @@ import { toast } from "react-hot-toast";
 import { Button, Card, Badge } from "ui";
 import { api } from "../../common/api";
 import { TenantManagementDialog } from "./TenantManagementDialog";
+import { TenantBillingPanel } from "./TenantBillingPanel";
+import { moneyLabel } from "../billing/WorkspaceControls";
+import { useQueryClient } from "@tanstack/react-query";
+import { refreshPlatformTenantBilling } from "./platformTenantBilling";
 
 interface TenantDetails {
   id: string;
@@ -45,6 +49,7 @@ interface TenantDetails {
     | "CANCELLED";
   planTier: "STARTER" | "GROWTH" | "ENTERPRISE" | string;
   setupFeePaid: boolean;
+  setupFeeAmount?: number;
   allocatedSeats: number;
   pricePerSeatMonth?: number;
   customDomain?: string;
@@ -75,6 +80,7 @@ interface TenantDetails {
 export function TenantOverviewScreen() {
   const { tenantId } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [tenant, setTenant] = useState<TenantDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -117,6 +123,7 @@ export function TenantOverviewScreen() {
         status: newStatus,
       });
       toast.success(`Tenant status updated to ${newStatus}`);
+      await refreshPlatformTenantBilling(queryClient, tenant.id);
       await fetchTenant();
     } catch (err: any) {
       toast.error(
@@ -170,13 +177,18 @@ export function TenantOverviewScreen() {
     (m) => m.isActive,
   ).length;
   const unitPrice =
-    tenant.pricePerSeatMonth ||
-    (tenant.planTier === "ENTERPRISE"
-      ? 1499
-      : tenant.planTier === "GROWTH"
-      ? 899
-      : 499);
-  const totalMrr = (tenant.allocatedSeats || 1) * unitPrice;
+    typeof tenant.pricePerSeatMonth === "number" &&
+    Number.isFinite(tenant.pricePerSeatMonth)
+      ? tenant.pricePerSeatMonth
+      : null;
+  const monthlyValueLabel =
+    unitPrice === null
+      ? "Not recorded"
+      : moneyLabel(tenant.allocatedSeats * unitPrice);
+  const annualValueLabel =
+    unitPrice === null
+      ? "Not recorded"
+      : moneyLabel(tenant.allocatedSeats * unitPrice * 12);
   const leadsCount = tenant._count?.leads || 0;
   const projectsCount = tenant._count?.projects || 0;
 
@@ -327,7 +339,9 @@ export function TenantOverviewScreen() {
               {tenant.planTier}
             </span>
             <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
-              ₹{unitPrice}/seat/mo
+              {unitPrice === null
+                ? "Price not recorded"
+                : `${moneyLabel(unitPrice)}/seat/mo`}
             </span>
           </div>
         </div>
@@ -338,13 +352,13 @@ export function TenantOverviewScreen() {
           </div>
           <div>
             <span className="text-[11px] text-slate-500 font-semibold block">
-              Monthly MRR
+              Estimated monthly value
             </span>
             <span className="text-base font-extrabold text-purple-700 block leading-tight">
-              ₹{totalMrr.toLocaleString("en-IN")}
+              {monthlyValueLabel}
             </span>
             <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
-              ₹{(totalMrr * 12).toLocaleString("en-IN")}/yr
+              {annualValueLabel}/yr
             </span>
           </div>
         </div>
@@ -400,6 +414,8 @@ export function TenantOverviewScreen() {
           </div>
         </div>
       </div>
+
+      <TenantBillingPanel key={tenant.id} tenantId={tenant.id} />
 
       {/* 3. Detailed Information Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -532,7 +548,7 @@ export function TenantOverviewScreen() {
                 Price Per Seat / Mo:
               </span>
               <p className="font-extrabold text-emerald-700 mt-0.5 text-sm">
-                ₹{unitPrice}
+                {unitPrice === null ? "Not recorded" : moneyLabel(unitPrice)}
               </p>
             </div>
             <div>
@@ -540,14 +556,14 @@ export function TenantOverviewScreen() {
                 Setup & Onboarding Fee:
               </span>
               <p className="font-bold text-slate-700 mt-0.5">
-                {tenant.setupFeePaid ? (
+                {tenant.setupFeeAmount === 0 ? (
+                  "No setup fee"
+                ) : tenant.setupFeePaid ? (
                   <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                    <Check className="h-3 w-3" /> Paid & Settled
+                    <Check className="h-3 w-3" /> Paid
                   </span>
                 ) : (
-                  <span className="text-amber-600 font-semibold">
-                    Waived / Pending
-                  </span>
+                  <span className="text-amber-600 font-semibold">Unpaid</span>
                 )}
               </p>
             </div>
@@ -556,7 +572,7 @@ export function TenantOverviewScreen() {
                 Estimated Annual Subscription Value:
               </span>
               <span className="font-extrabold text-base text-primary">
-                ₹{(totalMrr * 12).toLocaleString("en-IN")} / Year
+                {annualValueLabel} / Year
               </span>
             </div>
           </div>

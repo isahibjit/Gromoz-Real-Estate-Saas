@@ -1,4 +1,7 @@
 import { useState, type FormEvent } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { TenantBillingTab } from "./TenantBillingTab";
+import { refreshPlatformTenantBilling } from "./platformTenantBilling";
 import {
   Button,
   Checkbox,
@@ -55,7 +58,13 @@ export function TenantManagementDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [paymentLink, setPaymentLink] = useState("");
+  const queryClient = useQueryClient();
+  const profileDirty =
+    name.trim() !== tenant.name ||
+    planTier !== tenant.planTier ||
+    Number(seats) !== tenant.allocatedSeats ||
+    adminName.trim() !== (owner?.user.fullName ?? "") ||
+    adminEmail.trim() !== (owner?.user.email ?? "");
   const base = `/organizations/tenants/${tenant.id}`;
 
   async function run(operation: () => Promise<void>) {
@@ -85,6 +94,7 @@ export function TenantManagementDialog({
         adminFullName: adminName.trim(),
         adminEmail: adminEmail.trim(),
       });
+      await refreshPlatformTenantBilling(queryClient, tenant.id);
       setMessage("Workspace and administrator details saved.");
       onSaved();
     });
@@ -130,7 +140,7 @@ export function TenantManagementDialog({
             setMessage("");
           }}
         >
-          <TabsList className="mb-4 shrink-0 self-start">
+          <TabsList className="mb-4 grid h-auto shrink-0 grid-cols-2 self-start sm:inline-flex">
             <TabsTrigger value="profile" disabled={busy}>
               Workspace
             </TabsTrigger>
@@ -140,8 +150,14 @@ export function TenantManagementDialog({
             <TabsTrigger value="onboarding" disabled={busy}>
               Onboarding
             </TabsTrigger>
+            <TabsTrigger value="billing" disabled={busy}>
+              Billing
+            </TabsTrigger>
           </TabsList>
-          <TabsContent value="profile" className="min-h-0 flex-1 overflow-y-auto">
+          <TabsContent
+            value="profile"
+            className="min-h-0 flex-1 overflow-y-auto"
+          >
             <form onSubmit={save} className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="tenant-name">Workspace name</label>
@@ -217,7 +233,10 @@ export function TenantManagementDialog({
               </Button>
             </form>
           </TabsContent>
-          <TabsContent value="password" className="min-h-0 flex-1 overflow-y-auto">
+          <TabsContent
+            value="password"
+            className="min-h-0 flex-1 overflow-y-auto"
+          >
             <form onSubmit={reset} className="space-y-4">
               <p className="text-sm text-muted-foreground">
                 Set a new password for the workspace administrator. The login
@@ -254,7 +273,10 @@ export function TenantManagementDialog({
               </Button>
             </form>
           </TabsContent>
-          <TabsContent value="onboarding" className="min-h-0 flex-1 space-y-5 overflow-y-auto">
+          <TabsContent
+            value="onboarding"
+            className="min-h-0 flex-1 space-y-5 overflow-y-auto"
+          >
             <div className="space-y-3">
               <h3 className="font-semibold">Welcome kit</h3>
               <p className="text-sm text-muted-foreground">
@@ -286,46 +308,18 @@ export function TenantManagementDialog({
                 Resend welcome kit
               </Button>
             </div>
-            {!tenant.setupFeePaid && (
-              <div className="space-y-3 border-t border-border pt-4">
-                <h3 className="font-semibold">Setup payment</h3>
-                <p className="text-sm text-muted-foreground">
-                  Generate a Razorpay link using the workspace’s current seat
-                  allocation.
-                </p>
-                <Button
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() =>
-                    void run(async () => {
-                      const { data } = await api.post<{
-                        paymentLinkUrl?: string;
-                        checkoutError?: string;
-                      }>(`${base}/setup-checkout`);
-                      if (!data.paymentLinkUrl)
-                        throw new Error(
-                          data.checkoutError ||
-                            "Razorpay did not return a payment link.",
-                        );
-                      setPaymentLink(data.paymentLinkUrl);
-                      setMessage("Payment link generated.");
-                    })
-                  }
-                >
-                  Generate payment link
-                </Button>
-                {paymentLink && (
-                  <a
-                    className="block break-all text-sm text-primary underline"
-                    href={paymentLink}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {paymentLink}
-                  </a>
-                )}
-              </div>
-            )}
+          </TabsContent>
+          <TabsContent
+            value="billing"
+            className="min-h-0 flex-1 overflow-y-auto"
+          >
+            <TenantBillingTab
+              tenantId={tenant.id}
+              busy={busy}
+              profileDirty={profileDirty}
+              run={run}
+              onSaved={onSaved}
+            />
           </TabsContent>
         </Tabs>
         {busy && (
